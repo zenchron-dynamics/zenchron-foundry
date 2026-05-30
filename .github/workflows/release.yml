@@ -5,10 +5,12 @@ on:
     tags:
       - "v*"
 
+# Caller permissions cap the reusable publish workflow — must grant what it needs.
 permissions:
   contents: write          # create GitHub Release
-  packages: read
-  id-token: write
+  packages: write          # publish-ghcr pushes images
+  security-events: write   # publish-ghcr SARIF / attestations
+  id-token: write          # keyless cosign
 
 jobs:
   # Reuse the publish workflow to build, push, sign, attest.
@@ -24,6 +26,13 @@ jobs:
       - uses: anchore/sbom-action/download-syft@v0
       - uses: sigstore/cosign-installer@v3
 
+      - name: Login to GHCR (packages are private)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Collect SBOMs + scan reports + checksums
         run: |
           set -euo pipefail
@@ -34,7 +43,7 @@ jobs:
             name="${ref//[:\/]/_}"
             syft "${NS}/${ref}" -o spdx-json="release-artifacts/${name}.spdx.json" || true
           done
-          ( cd release-artifacts && sha256sum ./*.json > checksums.txt )
+          ( cd release-artifacts && (ls ./*.json >/dev/null 2>&1 && sha256sum ./*.json > checksums.txt || echo "no SBOMs collected" > checksums.txt) )
 
       - name: Verification notes
         run: |
