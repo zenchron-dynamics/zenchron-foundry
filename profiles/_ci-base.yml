@@ -1,0 +1,23 @@
+# CI-ONLY base stub. Not a deployable profile.
+# The other profiles in this directory are OVERLAY FRAGMENTS — they tune named
+# services and are meant to be layered over a real app compose file (see the
+# headers in each profile and docs/runtime-hardening.md). `docker compose config`
+# refuses to validate a fragment alone (a service with no image/build is an
+# error), so CI layers each fragment over this stub, which declares every
+# canonical service name with a placeholder image. This proves the overlays
+# MERGE cleanly. Do not reference this file from real stacks.
+services:
+  php-fpm:
+    image: busybox:stable
+  php-cli:
+    image: busybox:stable
+  worker:
+    image: busybox:stable
+  nginx:
+    image: busybox:stable
+  caddy:
+    image: busybox:stable
+  scheduler:
+    image: busybox:stable
+  migrate:
+    image: busybox:stable

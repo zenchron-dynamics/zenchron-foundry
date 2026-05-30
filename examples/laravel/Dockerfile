@@ -4,6 +4,7 @@
 
 # --- builder: composer install (NOT shipped) --------------------------------
 FROM ghcr.io/zenchron-dynamics/php-cli:8.3-prod AS vendor
+# hadolint ignore=DL3002
 USER root
 WORKDIR /app
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer

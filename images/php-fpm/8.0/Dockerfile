@@ -31,7 +31,7 @@ LABEL org.opencontainers.image.title="zenchron-php-fpm" \
       com.zenchron.risk="high"
 
 # Common extensions via the official helper; build deps removed afterwards.
-# hadolint ignore=DL3018,DL3019
+# hadolint ignore=DL3018,DL3019,DL4006,SC2086
 RUN set -eux; \
     apk add --no-cache --virtual .build-deps \
         $PHPIZE_DEPS icu-dev libzip-dev oniguruma-dev libpng-dev postgresql-dev; \

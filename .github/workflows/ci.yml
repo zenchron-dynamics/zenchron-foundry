@@ -103,9 +103,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: docker compose config (lint profiles)
+      - name: Validate self-contained example stacks
         run: |
-          for p in profiles/compose.*.yml; do
+          set -euo pipefail
+          for p in examples/*/compose.yml; do
             echo "validating $p"
-            docker compose -f "$p" config --quiet || { echo "invalid: $p"; exit 1; }
+            docker compose -f "$p" config --quiet
+          done
+      - name: Validate profile overlays merge cleanly (over CI base stub)
+        run: |
+          set -euo pipefail
+          # Profiles are OVERLAY FRAGMENTS; layer each over the CI base stub so
+          # `config` has real services to validate against. See profiles/_ci-base.yml.
+          for p in profiles/compose.*.yml; do
+            echo "validating overlay $p"
+            docker compose -f profiles/_ci-base.yml -f "$p" config --quiet
           done
