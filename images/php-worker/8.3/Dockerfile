@@ -39,15 +39,14 @@ RUN apk add --no-cache \
         php-8.3-openssl \
         php-8.3-pcntl \
         php-8.3-pdo \
+        php-8.3-mysqlnd \
         php-8.3-pdo_mysql \
         php-8.3-pdo_pgsql \
         php-8.3-phar \
         php-8.3-posix \
         php-8.3-redis \
-        php-8.3-session \
         php-8.3-simplexml \
         php-8.3-sodium \
-        php-8.3-tokenizer \
         php-8.3-xml \
         php-8.3-zip \
         tini \
@@ -58,7 +57,7 @@ RUN apk add --no-cache \
     && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app \
     && mkdir -p /app && chown -R 10001:10001 /app
 
-COPY php-worker.ini /etc/php/8.3/conf.d/zz-zenchron-worker.ini
+COPY php-worker.ini /etc/php/conf.d/zz-zenchron-worker.ini
 
 USER 10001:10001
 WORKDIR /app
@@ -67,5 +66,5 @@ WORKDIR /app
 # stop. The app supplies the worker command, e.g.:
 #   Laravel:  php artisan queue:work --max-time=3600 --max-jobs=1000 --stop-when-empty
 #   Symfony:  php bin/console messenger:consume async --time-limit=3600 --memory-limit=256M
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["tini", "--"]
 CMD ["php", "-v"]

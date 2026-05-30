@@ -1,49 +1,16 @@
 # syntax=docker/dockerfile:1.7
 # =============================================================================
 # Zenchron Dynamics — php-fpm 8.3 (production)
-# Base strategy: Chainguard Wolfi (hardened-minimal, apk-based, low-CVE).
-# Multi-stage: build tools never reach the final image.
+# Base: Chainguard Wolfi (hardened-minimal, apk-based, low-CVE). PHP extensions
+# ship as prebuilt apk packages, so NO compiler/builder stage is required — the
+# image stays minimal with runtime packages only. See docs/distroless-strategy.md.
 # Final image: non-root (10001:10001), read-only-rootfs compatible.
-# True Google distroless is not used — PHP-FPM needs shared libs + a healthcheck
-# client. See docs/distroless-strategy.md for the full rationale.
-# Pin BASE_DIGEST in CI (Dependabot updates it). Tag here for local dev.
+# Pin WOLFI_BASE by digest in CI (Dependabot updates it).
 # =============================================================================
 ARG WOLFI_BASE="cgr.dev/chainguard/wolfi-base:latest"
 
-# ---- builder ----------------------------------------------------------------
-FROM ${WOLFI_BASE} AS builder
-# Builder may have apk/build tooling; it is discarded.
-RUN apk add --no-cache \
-        php-8.3 \
-        php-8.3-fpm \
-        php-8.3-opcache \
-        php-8.3-bcmath \
-        php-8.3-ctype \
-        php-8.3-curl \
-        php-8.3-dom \
-        php-8.3-fileinfo \
-        php-8.3-gd \
-        php-8.3-iconv \
-        php-8.3-intl \
-        php-8.3-mbstring \
-        php-8.3-openssl \
-        php-8.3-pdo \
-        php-8.3-pdo_mysql \
-        php-8.3-pdo_pgsql \
-        php-8.3-phar \
-        php-8.3-session \
-        php-8.3-simplexml \
-        php-8.3-sodium \
-        php-8.3-tokenizer \
-        php-8.3-xml \
-        php-8.3-zip \
-        php-8.3-redis \
-        fcgi
-
-# ---- runtime ----------------------------------------------------------------
 FROM ${WOLFI_BASE} AS runtime
 
-ARG PHP_VERSION="8.3"
 ARG BUILD_DATE
 ARG VCS_REF
 
@@ -59,7 +26,9 @@ LABEL org.opencontainers.image.title="zenchron-php-fpm" \
       com.zenchron.php="8.3" \
       com.zenchron.support="supported"
 
-# Install only runtime packages (no -dev, no compilers, no composer).
+# Runtime packages only. session/tokenizer are compiled into the core php-8.3
+# package in Wolfi, so they are NOT separate apk packages.
+# hadolint ignore=DL3018
 RUN apk add --no-cache \
         php-8.3 \
         php-8.3-fpm \
@@ -75,41 +44,42 @@ RUN apk add --no-cache \
         php-8.3-mbstring \
         php-8.3-openssl \
         php-8.3-pdo \
+        php-8.3-mysqlnd \
         php-8.3-pdo_mysql \
         php-8.3-pdo_pgsql \
         php-8.3-phar \
-        php-8.3-session \
         php-8.3-simplexml \
         php-8.3-sodium \
-        php-8.3-tokenizer \
         php-8.3-xml \
         php-8.3-zip \
         php-8.3-redis \
-        fcgi \
         tzdata \
         ca-certificates-bundle \
     && rm -rf /var/cache/apk/* \
-    # Deterministic non-root identity.
     && addgroup -g 10001 app \
     && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app \
-    && mkdir -p /app /var/run/php /var/log/php \
-    && chown -R 10001:10001 /app /var/run/php /var/log/php
+    && mkdir -p /app /var/run/php \
+    && chown -R 10001:10001 /app /var/run/php
 
-# Production configuration (no app code, no secrets).
-COPY php.ini        /etc/php/8.3/php-fpm.d/zz-zenchron-php.ini
-COPY php-fpm.conf   /etc/php/8.3/php-fpm.conf
-COPY www.conf       /etc/php/8.3/php-fpm.d/www.conf
+# Production configuration (no app code, no secrets). Wolfi paths: /etc/php/*.
+COPY php.ini        /etc/php/conf.d/zz-zenchron.ini
+COPY php-fpm.conf   /etc/php/php-fpm.conf
+COPY www.conf       /etc/php/php-fpm.d/www.conf
 COPY docker-healthcheck.sh /usr/local/bin/docker-healthcheck
 
-RUN chmod 0555 /usr/local/bin/docker-healthcheck
+# Drop the base apko pool override so there is exactly one [www] pool, and make
+# the healthcheck executable.
+RUN rm -f /etc/php/php-fpm.d/zz-apko.conf \
+    && chmod 0555 /usr/local/bin/docker-healthcheck
 
 USER 10001:10001
 WORKDIR /app
 EXPOSE 9000
 
-# FPM exposes a ping endpoint (see www.conf); cgi-fcgi queries it.
+# No curl/wget/cgi-fcgi in a hardened image: probe the FPM TCP listener with the
+# bundled php binary. A successful connect means FPM is accepting work.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
     CMD ["/usr/local/bin/docker-healthcheck"]
 
-# php-fpm.conf sets `daemonize = no` for proper PID1 signal handling.
-ENTRYPOINT ["php-fpm8.3", "--nodaemonize", "--fpm-config", "/etc/php/8.3/php-fpm.conf"]
+# --nodaemonize keeps php-fpm as PID 1 for correct SIGTERM/SIGQUIT handling.
+ENTRYPOINT ["php-fpm", "--nodaemonize", "--fpm-config", "/etc/php/php-fpm.conf"]

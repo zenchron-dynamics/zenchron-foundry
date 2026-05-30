@@ -40,15 +40,14 @@ RUN apk add --no-cache \
         php-8.3-openssl \
         php-8.3-pcntl \
         php-8.3-pdo \
+        php-8.3-mysqlnd \
         php-8.3-pdo_mysql \
         php-8.3-pdo_pgsql \
         php-8.3-phar \
         php-8.3-posix \
         php-8.3-redis \
-        php-8.3-session \
         php-8.3-simplexml \
         php-8.3-sodium \
-        php-8.3-tokenizer \
         php-8.3-xml \
         php-8.3-zip \
         tzdata \
@@ -58,7 +57,7 @@ RUN apk add --no-cache \
     && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app \
     && mkdir -p /app && chown -R 10001:10001 /app
 
-COPY php-cli.ini /etc/php/8.3/conf.d/zz-zenchron-cli.ini
+COPY php-cli.ini /etc/php/conf.d/zz-zenchron-cli.ini
 
 USER 10001:10001
 WORKDIR /app

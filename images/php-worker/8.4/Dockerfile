@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # =============================================================================
-# Zenchron Dynamics — php-worker 8.4 (production)
+# Zenchron Dynamics — php-worker 8.3 (production)
 # Long-running queue/messenger workers. One process per container (NO supervisor
 # unless strictly justified). PID 1 must receive signals for graceful shutdown.
 # Requires pcntl/posix for signal handling. Non-root, read-only-rootfs friendly.
@@ -14,7 +14,7 @@ ARG BUILD_DATE
 ARG VCS_REF
 
 LABEL org.opencontainers.image.title="zenchron-php-worker" \
-      org.opencontainers.image.description="Hardened PHP 8.3 worker runtime (queue/messenger)" \
+      org.opencontainers.image.description="Hardened PHP 8.4 worker runtime (queue/messenger)" \
       org.opencontainers.image.vendor="Zenchron Dynamics" \
       org.opencontainers.image.source="https://github.com/zenchron-dynamics/docker-platform" \
       org.opencontainers.image.version="8.4-prod" \
@@ -39,15 +39,14 @@ RUN apk add --no-cache \
         php-8.4-openssl \
         php-8.4-pcntl \
         php-8.4-pdo \
+        php-8.4-mysqlnd \
         php-8.4-pdo_mysql \
         php-8.4-pdo_pgsql \
         php-8.4-phar \
         php-8.4-posix \
         php-8.4-redis \
-        php-8.4-session \
         php-8.4-simplexml \
         php-8.4-sodium \
-        php-8.4-tokenizer \
         php-8.4-xml \
         php-8.4-zip \
         tini \
@@ -58,7 +57,7 @@ RUN apk add --no-cache \
     && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app \
     && mkdir -p /app && chown -R 10001:10001 /app
 
-COPY php-worker.ini /etc/php/8.4/conf.d/zz-zenchron-worker.ini
+COPY php-worker.ini /etc/php/conf.d/zz-zenchron-worker.ini
 
 USER 10001:10001
 WORKDIR /app
@@ -67,5 +66,5 @@ WORKDIR /app
 # stop. The app supplies the worker command, e.g.:
 #   Laravel:  php artisan queue:work --max-time=3600 --max-jobs=1000 --stop-when-empty
 #   Symfony:  php bin/console messenger:consume async --time-limit=3600 --memory-limit=256M
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["tini", "--"]
 CMD ["php", "-v"]

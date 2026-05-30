@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # =============================================================================
-# Zenchron Dynamics — php-cli 8.4 (production)
+# Zenchron Dynamics — php-cli 8.3 (production)
 # For artisan/console commands, migrations, one-off jobs.
 # No web server, no Composer in the final image (Composer belongs in the app's
 # OWN builder stage — see examples/ and docs/php-extension-policy.md).
@@ -14,7 +14,7 @@ ARG BUILD_DATE
 ARG VCS_REF
 
 LABEL org.opencontainers.image.title="zenchron-php-cli" \
-      org.opencontainers.image.description="Hardened PHP 8.3 CLI runtime (console/maintenance jobs)" \
+      org.opencontainers.image.description="Hardened PHP 8.4 CLI runtime (console/maintenance jobs)" \
       org.opencontainers.image.vendor="Zenchron Dynamics" \
       org.opencontainers.image.source="https://github.com/zenchron-dynamics/docker-platform" \
       org.opencontainers.image.version="8.4-prod" \
@@ -40,15 +40,14 @@ RUN apk add --no-cache \
         php-8.4-openssl \
         php-8.4-pcntl \
         php-8.4-pdo \
+        php-8.4-mysqlnd \
         php-8.4-pdo_mysql \
         php-8.4-pdo_pgsql \
         php-8.4-phar \
         php-8.4-posix \
         php-8.4-redis \
-        php-8.4-session \
         php-8.4-simplexml \
         php-8.4-sodium \
-        php-8.4-tokenizer \
         php-8.4-xml \
         php-8.4-zip \
         tzdata \
@@ -58,7 +57,7 @@ RUN apk add --no-cache \
     && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app \
     && mkdir -p /app && chown -R 10001:10001 /app
 
-COPY php-cli.ini /etc/php/8.4/conf.d/zz-zenchron-cli.ini
+COPY php-cli.ini /etc/php/conf.d/zz-zenchron-cli.ini
 
 USER 10001:10001
 WORKDIR /app
