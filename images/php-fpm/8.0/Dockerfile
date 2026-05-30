@@ -10,7 +10,7 @@
 #  official php:7.4-fpm-alpine base (minimal, but not hardened-minimal Wolfi).
 #  Still hardened to platform standards: non-root, read-only-rootfs friendly.
 # =============================================================================
-ARG PHP_BASE="php:8.0-fpm-alpine3.16"
+ARG PHP_BASE="php:8.0-fpm-alpine3.16@sha256:bbf76d84a693fae1e0d2a259db70c9c47f41bd5a6ec3d339ba397939e7875dd8"
 
 FROM ${PHP_BASE} AS runtime
 

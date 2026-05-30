@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # ██ LEGACY / EOL — PHP 8.0 CLI. Compatibility only, unsupported, high risk. ██
 # See docs/legacy-php-policy.md. Built on official EOL base (no Wolfi for EOL).
-ARG PHP_BASE="php:8.0-cli-alpine3.16"
+ARG PHP_BASE="php:8.0-cli-alpine3.16@sha256:d3cd7dd3d043b0de163d36e9e8837f8a76770b970ad4df4e737a215793e9070b"
 FROM ${PHP_BASE} AS runtime
 ARG BUILD_DATE
 ARG VCS_REF

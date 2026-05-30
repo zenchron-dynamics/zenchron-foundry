@@ -7,7 +7,7 @@
 # Final image: non-root (10001:10001), read-only-rootfs compatible.
 # Pin WOLFI_BASE by digest in CI (Dependabot updates it).
 # =============================================================================
-ARG WOLFI_BASE="cgr.dev/chainguard/wolfi-base:latest"
+ARG WOLFI_BASE="cgr.dev/chainguard/wolfi-base:latest@sha256:441d6709305552a3411e585ad98aacb9dadda00c80f3267483c38ac6f86f49d4"
 
 FROM ${WOLFI_BASE} AS runtime
 

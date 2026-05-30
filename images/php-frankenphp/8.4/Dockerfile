@@ -9,7 +9,7 @@
 # Upstream FrankenPHP images are Debian/Alpine based; we use the Alpine variant
 # and harden it (no true distroless build exists upstream yet).
 # =============================================================================
-ARG FRANKENPHP_BASE="dunglas/frankenphp:1-php8.4-alpine"
+ARG FRANKENPHP_BASE="dunglas/frankenphp:1-php8.4-alpine@sha256:d5c38299403cb20ad8ddb90bc2623bc38ed186c78e5ad7097064e74cdb8d5c5b"
 
 FROM ${FRANKENPHP_BASE} AS runtime
 

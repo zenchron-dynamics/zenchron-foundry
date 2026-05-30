@@ -4,7 +4,7 @@
 # Non-root, listens on :8080 / :8443. Bind :80/:443 only via NET_BIND_SERVICE
 # or upstream LB. Read-only-rootfs compatible (writable /data, /config tmpfs).
 # =============================================================================
-ARG CADDY_BASE="caddy:2-alpine"
+ARG CADDY_BASE="caddy:2-alpine@sha256:86deaf5e3d3408a6ccec08fbb79989783dd26e206ae10bcf78a801dc8c9ab794"
 
 FROM ${CADDY_BASE} AS runtime
 

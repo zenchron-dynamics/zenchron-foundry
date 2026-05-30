@@ -1,0 +1,45 @@
+# Zenchron Dynamics — secure build context for Laravel app images.
+# Prevents `COPY . .` from leaking secrets / bloat into the image.
+# Copy this into real projects alongside the Dockerfile.
+
+# --- secrets / credentials (NEVER in an image) ---
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+auth.json
+
+# --- VCS / CI ---
+.git
+.gitignore
+.gitattributes
+.github
+.gitlab-ci.yml
+
+# --- dependencies rebuilt in the builder stage ---
+node_modules
+vendor
+
+# --- runtime / writable state (externalized at runtime) ---
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+
+# --- local tooling / editors ---
+.idea
+.vscode
+.DS_Store
+*.log
+
+# --- tests / docs / compose (not needed in the runtime image) ---
+tests
+phpunit.xml
+docker-compose*.yml
+compose*.yml
+Dockerfile
+.dockerignore
+README.md

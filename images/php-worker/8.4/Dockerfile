@@ -6,7 +6,7 @@
 # Requires pcntl/posix for signal handling. Non-root, read-only-rootfs friendly.
 # Graceful-stop & restart guidance: docs/runtime-hardening.md.
 # =============================================================================
-ARG WOLFI_BASE="cgr.dev/chainguard/wolfi-base:latest"
+ARG WOLFI_BASE="cgr.dev/chainguard/wolfi-base:latest@sha256:441d6709305552a3411e585ad98aacb9dadda00c80f3267483c38ac6f86f49d4"
 
 FROM ${WOLFI_BASE} AS runtime
 

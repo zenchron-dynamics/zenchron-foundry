@@ -1,0 +1,42 @@
+# Zenchron Dynamics — secure build context for Symfony app images.
+# Prevents `COPY . .` from leaking secrets / bloat into the image.
+
+# --- secrets / credentials (NEVER in an image) ---
+.env
+.env.*
+!.env.prod          # committed non-secret prod defaults are OK; real secrets are injected
+*.pem
+*.key
+*.crt
+config/secrets/*/*.decrypt.private.php
+auth.json
+
+# --- VCS / CI ---
+.git
+.gitignore
+.gitattributes
+.github
+
+# --- dependencies rebuilt in the builder stage ---
+node_modules
+vendor
+
+# --- runtime / writable state (externalized at runtime) ---
+var/cache/*
+var/log/*
+var/sessions/*
+
+# --- local tooling / editors ---
+.idea
+.vscode
+.DS_Store
+*.log
+
+# --- tests / docs / compose (not needed in the runtime image) ---
+tests
+phpunit.xml.dist
+docker-compose*.yml
+compose*.yml
+Dockerfile
+.dockerignore
+README.md

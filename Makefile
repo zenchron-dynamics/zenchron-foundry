@@ -26,7 +26,7 @@ NGINX_IMAGE     := $(REGISTRY)/$(NAMESPACE)/nginx
 BUILDX          := docker buildx build
 LABEL_ARGS      := \
 	--label org.opencontainers.image.vendor="Zenchron Dynamics" \
-	--label org.opencontainers.image.source="https://github.com/$(NAMESPACE)/docker-platform" \
+	--label org.opencontainers.image.source="https://github.com/$(NAMESPACE)/zenchron-foundry" \
 	--label org.opencontainers.image.revision="$(VCS_REF)" \
 	--label org.opencontainers.image.created="$(BUILD_DATE)"
 

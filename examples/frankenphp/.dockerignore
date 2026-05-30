@@ -1,0 +1,41 @@
+# Zenchron Dynamics — secure build context for FrankenPHP app images.
+# Prevents `COPY . .` from leaking secrets / bloat into the image.
+
+# --- secrets / credentials (NEVER in an image) ---
+.env
+.env.*
+*.pem
+*.key
+*.crt
+auth.json
+
+# --- VCS / CI ---
+.git
+.gitignore
+.gitattributes
+.github
+
+# --- dependencies rebuilt in the builder stage ---
+node_modules
+vendor
+
+# --- runtime / writable state ---
+storage/logs/*
+var/cache/*
+var/log/*
+data
+config
+
+# --- local tooling / editors ---
+.idea
+.vscode
+.DS_Store
+*.log
+
+# --- not needed in the runtime image ---
+tests
+docker-compose*.yml
+compose*.yml
+Dockerfile
+.dockerignore
+README.md

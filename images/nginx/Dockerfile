@@ -6,7 +6,7 @@
 # Read-only-rootfs compatible (nginx temp paths point to tmpfs; see nginx.conf).
 # No default "Welcome to nginx" page is shipped.
 # =============================================================================
-ARG NGINX_BASE="nginxinc/nginx-unprivileged:1.27-alpine"
+ARG NGINX_BASE="nginxinc/nginx-unprivileged:1.27-alpine@sha256:65e3e85dbaed8ba248841d9d58a899b6197106c23cb0ff1a132b7bfe0547e4c0"
 
 FROM ${NGINX_BASE} AS runtime
 
