@@ -18,7 +18,7 @@ docker compose \
   -f ../../profiles/compose.laravel.yml up -d
 ```
 
-App is served by nginx on http://localhost:8080.
+App is served by nginx on <http://localhost:8080>.
 
 ## nginx site config
 

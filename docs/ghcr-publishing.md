@@ -2,7 +2,7 @@
 
 ## Namespace
 
-```
+```text
 ghcr.io/zenchron-dynamics/<family>:<tag>
 ```
 

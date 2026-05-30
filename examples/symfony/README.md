@@ -12,7 +12,7 @@ docker compose \
   -f ../../profiles/compose.symfony.yml up -d
 ```
 
-nginx serves http://localhost:8080. Copy the site config:
+nginx serves <http://localhost:8080>. Copy the site config:
 
 ```bash
 mkdir -p deploy/nginx

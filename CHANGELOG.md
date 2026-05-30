@@ -7,6 +7,7 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 ## [Unreleased]
 
 ### Added
+
 - Initial platform bootstrap: repository structure, security tooling, CI/CD
   workflows, shared Compose profiles, and core documentation.
 - Production Dockerfiles for the PHP 8.3 image family (php-fpm, php-cli,
@@ -18,6 +19,7 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 - Cosign signing, Syft SBOM, Trivy + Grype scanning policies.
 
 ### Security
+
 - All runtime images: non-root (10001:10001), read-only rootfs default,
   cap_drop ALL, no-new-privileges.
 - PHP 7.4 / 8.0 marked high-risk legacy (EOL); isolated and documented.

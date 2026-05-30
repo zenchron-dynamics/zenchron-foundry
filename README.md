@@ -91,7 +91,7 @@ Release process: [docs/sbom-and-signing.md](docs/sbom-and-signing.md) +
 
 ## Repository Map
 
-```
+```text
 images/     Dockerfiles + runtime config per family/version
 profiles/   Shared Docker Compose security profiles
 examples/   Reference app consumers (Laravel, Symfony, FrankenPHP)

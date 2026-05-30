@@ -11,6 +11,7 @@ docker compose -f compose.yml \
 ```
 
 Notes:
+
 - Caddy runs non-root on high ports. To bind :80/:443, add `NET_BIND_SERVICE`
   (see `profiles/compose.caddy.yml`) or terminate TLS upstream.
 - `/data` and `/config` are writable volumes (cert/state) under read-only rootfs.

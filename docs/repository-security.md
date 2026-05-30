@@ -26,8 +26,9 @@ Contributors sign with GPG/SSH/`gitsign`. Branch protection enforces it.
 
 ## Required reviews & ownership
 
-`CODEOWNERS` routes workflows, policies, profiles, and legacy images to platform
-+ security teams. Replace the placeholder teams before enabling enforcement.
+`CODEOWNERS` routes workflows, policies, profiles, and legacy images to the
+platform and security teams. Replace the placeholder teams before enabling
+enforcement.
 
 ## Dependabot
 

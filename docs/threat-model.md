@@ -13,7 +13,7 @@ risks. Consuming apps own their own application-layer threat models.
 
 ## Trust boundaries
 
-```
+```text
 [committer] → [GitHub repo] → [GitHub Actions runner] → [GHCR] → [prod host] → [running container]
 ```
 

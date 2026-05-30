@@ -9,7 +9,7 @@ code**.
 
 ## Base image vs application image
 
-```
+```text
  ┌─────────────────────────────┐        ┌──────────────────────────────┐
  │  docker-platform (this repo) │        │  an app repo (e.g. billing)   │
  │  builds BASE images          │  --->  │  FROM ghcr.io/.../php-fpm:8.3 │
@@ -37,7 +37,7 @@ wherever technically feasible (see [distroless-strategy.md](distroless-strategy.
 
 ## Registry flow
 
-```
+```text
 dev push tag v* ──► GitHub Actions (publish-ghcr.yml)
                      ├─ buildx build (multi-stage)
                      ├─ push ghcr.io/zenchron-dynamics/<fam>:<ver>-prod (+date,+build)
@@ -62,7 +62,7 @@ production host ──► docker login ghcr.io (read-only token)
 
 Apps layer shared Compose profiles over their own `compose.yml`:
 
-```
+```text
 compose.yml                         # app services + image refs
 + profiles/compose.security.yml     # cap_drop, no-new-privileges, pids, ro user
 + profiles/compose.readonly.yml     # read-only rootfs + writable mounts

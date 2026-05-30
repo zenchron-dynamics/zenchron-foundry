@@ -25,7 +25,7 @@ authorized platform/security engineers.
 
 Conventional Commits:
 
-```
+```text
 feat(php-fpm): add 8.4 production image
 fix(nginx): correct hidden-file deny regex
 docs(threat-model): add CI compromise mitigation

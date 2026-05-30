@@ -48,7 +48,7 @@ deploys.
 
 ## Promotion flow
 
-```
+```text
 build.N  ──(scan pass)──►  8.3-prod-YYYY.MM.DD  ──(sign+attest)──►  8.3-prod (moves)
 ```
 

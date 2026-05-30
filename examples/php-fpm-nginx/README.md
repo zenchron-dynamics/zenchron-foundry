@@ -11,6 +11,7 @@ docker compose -f compose.yml \
 ```
 
 Key points:
+
 - nginx is the unprivileged image (non-root, :8080). Front it with a TLS LB.
 - Only the front controller `index.php` is executable; other `.php` → 404.
 - `.env`, `.git`, `vendor/`, `storage/` are denied (see the nginx site config).
