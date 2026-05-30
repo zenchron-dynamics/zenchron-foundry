@@ -53,7 +53,7 @@ jobs:
 
       # --- Trivy -------------------------------------------------------------
       - name: Trivy scan (SARIF)
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
           format: sarif
@@ -62,7 +62,7 @@ jobs:
 
       - name: Trivy gate (supported images only)
         if: ${{ matrix.legacy == false }}
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
           format: table
