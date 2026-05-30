@@ -1,0 +1,31 @@
+# Production overrides for the Laravel example.
+# Use with the shared security + readonly profiles and pin images by digest.
+#   docker compose -f compose.yml -f compose.prod.yml \
+#     -f ../../profiles/compose.security.yml \
+#     -f ../../profiles/compose.readonly.yml up -d
+services:
+  php-fpm:
+    image: ghcr.io/zenchron-dynamics/php-fpm@sha256:REPLACE_WITH_DIGEST
+    pull_policy: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512m
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+      - /var/run/php:size=4m,noexec,nosuid,nodev
+
+  nginx:
+    image: ghcr.io/zenchron-dynamics/nginx@sha256:REPLACE_WITH_DIGEST
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid,nodev
+    # TLS terminates at an upstream LB; nginx stays on 8080.
+
+  worker:
+    image: ghcr.io/zenchron-dynamics/php-worker@sha256:REPLACE_WITH_DIGEST
+    deploy:
+      replicas: 3
+    restart: unless-stopped

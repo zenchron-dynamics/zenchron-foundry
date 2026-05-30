@@ -1,0 +1,40 @@
+# =============================================================================
+# Zenchron Dynamics — Symfony stack profile (php-fpm + nginx + messenger + cli).
+# Externalizes Symfony writable paths: var/cache, var/log, var/sessions.
+# =============================================================================
+services:
+  php-fpm:
+    image: ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+    volumes:
+      - app-var:/app/var
+    networks: [backend]
+
+  worker:
+    image: ghcr.io/zenchron-dynamics/php-worker:8.3-prod
+    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=256M", "--limit=1000"]
+    stop_grace_period: 35s
+    environment:
+      APP_ENV: prod
+    volumes:
+      - app-var:/app/var
+    depends_on: [php-fpm]
+    networks: [backend]
+
+  migrate:
+    image: ghcr.io/zenchron-dynamics/php-cli:8.3-prod
+    profiles: ["cli"]
+    restart: "no"
+    command: ["php", "bin/console", "doctrine:migrations:migrate", "--no-interaction"]
+    volumes:
+      - app-var:/app/var
+    networks: [backend]
+
+volumes:
+  app-var:
+
+networks:
+  backend:
+    internal: true

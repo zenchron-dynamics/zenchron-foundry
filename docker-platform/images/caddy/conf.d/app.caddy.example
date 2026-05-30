@@ -1,0 +1,44 @@
+# =============================================================================
+# Zenchron Dynamics — Caddy site example (reverse proxy to PHP-FPM OR static).
+# Copy to app.caddy and adjust. Uses placeholders: example.com, php-fpm:9000.
+# Non-root listener on :8080.
+# =============================================================================
+:8080 {
+	root * /app/public
+
+	import security_headers
+	import deny_hidden
+
+	encode zstd gzip
+
+	# --- Static assets with long cache ---
+	@static {
+		path *.css *.js *.woff2 *.woff *.ttf *.svg *.png *.jpg *.jpeg *.gif *.ico *.webp
+	}
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	# --- Option A: PHP app via FastCGI to php-fpm container ---
+	php_fastcgi php-fpm:9000 {
+		# Laravel/Symfony front controller is index.php in /app/public.
+		try_files {path} {path}/ /index.php?{query}
+	}
+	file_server
+
+	# --- Option B (pure static site): comment out php_fastcgi above and use ---
+	# file_server browse
+
+	# --- Option C (reverse proxy to an app upstream) ---
+	# reverse_proxy app:8000 {
+	#     header_up X-Forwarded-Proto {scheme}
+	#     header_up X-Real-IP {remote_host}
+	# }
+
+	request_body {
+		max_size 16MB
+	}
+
+	log {
+		output stderr
+		format json
+	}
+}

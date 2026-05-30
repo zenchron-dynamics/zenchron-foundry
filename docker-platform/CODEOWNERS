@@ -1,0 +1,18 @@
+# Code ownership — every PR requires review from a platform owner.
+# Replace teams with real GitHub teams before enabling branch protection.
+
+# Default owner for everything
+*                       @zenchron-dynamics/platform-engineering
+
+# Security-sensitive surfaces require security team review
+/.github/workflows/     @zenchron-dynamics/platform-engineering @zenchron-dynamics/security
+/policies/              @zenchron-dynamics/security
+/profiles/              @zenchron-dynamics/platform-engineering @zenchron-dynamics/security
+SECURITY.md             @zenchron-dynamics/security
+/docs/threat-model.md   @zenchron-dynamics/security
+/docs/vulnerability-management.md @zenchron-dynamics/security
+
+# Image families
+/images/                @zenchron-dynamics/platform-engineering
+/images/php-fpm/7.4/    @zenchron-dynamics/platform-engineering @zenchron-dynamics/security
+/images/php-fpm/8.0/    @zenchron-dynamics/platform-engineering @zenchron-dynamics/security

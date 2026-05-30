@@ -1,0 +1,25 @@
+# Grype scan policy — https://github.com/anchore/grype
+# Second-opinion scanner alongside Trivy (different DBs catch different CVEs).
+# CI fails at HIGH+ for supported images.
+fail-on-severity: "high"
+
+output:
+  - "table"
+  - "sarif"
+
+# Match tuning.
+ignore:
+  # Negligible / unknown severity is noisy on minimal images — report, don't fail.
+  - vulnerability: "*"
+    severity: "negligible"
+
+# Accepted-risk entries go below WITH justification (mirror .trivyignore policy).
+# ignore:
+#   - vulnerability: CVE-XXXX-YYYYY   # owner, reason, review-by YYYY-MM-DD
+
+db:
+  auto-update: true
+  validate-by-hash-on-start: true
+
+external-sources:
+  enable: false        # deterministic CI; no live network enrichment

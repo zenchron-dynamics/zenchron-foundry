@@ -1,0 +1,23 @@
+# Zenchron Dynamics — nginx edge profile (in front of php-fpm).
+# Listens on :8080 inside the container (unprivileged). Map to host as needed.
+services:
+  nginx:
+    image: ghcr.io/zenchron-dynamics/nginx:prod
+    depends_on:
+      php-fpm:
+        condition: service_healthy
+    ports:
+      - "8080:8080"            # front with a TLS-terminating LB in production
+    volumes:
+      # Mount the app's compiled public/ as read-only for static assets.
+      - ./public:/app/public:ro
+      # Provide your site config (copy from images/nginx/conf.d/app.conf.example).
+      - ./deploy/nginx/app.conf:/etc/nginx/conf.d/app.conf:ro
+    networks:
+      - frontend
+      - backend
+
+networks:
+  frontend:
+  backend:
+    internal: true

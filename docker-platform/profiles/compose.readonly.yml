@@ -1,0 +1,46 @@
+# =============================================================================
+# Zenchron Dynamics — READ-ONLY rootfs profile + required writable mounts.
+# read_only:true breaks any app that writes to its filesystem. This file maps
+# the MINIMUM writable paths back in as tmpfs/volumes. Adjust per framework:
+#   - Laravel: storage/, bootstrap/cache/
+#   - Symfony: var/cache/, var/log/, var/sessions/
+#   - nginx:   /tmp (temp paths), caddy: /data,/config
+# Apply AFTER compose.security.yml.
+# =============================================================================
+services:
+  php-fpm:
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+      - /var/run/php:size=4m,noexec,nosuid,nodev
+    volumes:
+      # Externalize framework-writable state (named volume or bind).
+      - app-storage:/app/storage          # Laravel
+      - app-cache:/app/bootstrap/cache     # Laravel
+      # - app-var:/app/var                 # Symfony (swap in for Laravel lines)
+
+  worker:
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+    volumes:
+      - app-storage:/app/storage
+
+  nginx:
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid,nodev    # nginx temp paths (see nginx.conf)
+
+  caddy:
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid,nodev
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  app-storage:
+  app-cache:
+  caddy-data:
+  caddy-config:

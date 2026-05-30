@@ -1,0 +1,108 @@
+name: publish-ghcr
+
+# Publishes ONLY from trusted refs: version tags (v*) on master.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write          # keyless cosign via OIDC
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: zenchron-dynamics
+  PLATFORMS: linux/amd64
+
+jobs:
+  # Gate: do not publish unless CI-equivalent checks pass on this ref.
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-structure.sh
+
+  publish:
+    needs: preflight
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { fam: php-fpm,        ver: "8.3", ctx: "images/php-fpm/8.3" }
+          - { fam: php-fpm,        ver: "8.4", ctx: "images/php-fpm/8.4" }
+          - { fam: php-fpm,        ver: "7.4", ctx: "images/php-fpm/7.4" }
+          - { fam: php-fpm,        ver: "8.0", ctx: "images/php-fpm/8.0" }
+          - { fam: php-cli,        ver: "8.3", ctx: "images/php-cli/8.3" }
+          - { fam: php-cli,        ver: "8.4", ctx: "images/php-cli/8.4" }
+          - { fam: php-worker,     ver: "8.3", ctx: "images/php-worker/8.3" }
+          - { fam: php-worker,     ver: "8.4", ctx: "images/php-worker/8.4" }
+          - { fam: php-frankenphp, ver: "8.3", ctx: "images/php-frankenphp/8.3" }
+          - { fam: php-frankenphp, ver: "8.4", ctx: "images/php-frankenphp/8.4" }
+          - { fam: caddy,          ver: "prod", ctx: "images/caddy" }
+          - { fam: nginx,          ver: "prod", ctx: "images/nginx" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags
+        id: meta
+        run: |
+          set -euo pipefail
+          base="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}"
+          if [ "${{ matrix.ver }}" = "prod" ]; then suffix="prod"; else suffix="${{ matrix.ver }}-prod"; fi
+          rel="${GITHUB_REF_NAME}"   # e.g. v2026.05.30
+          {
+            echo "tags=${base}:${suffix},${base}:${suffix}-${rel#v},${base}:${suffix}-build.${{ github.run_number }}"
+            echo "primary=${base}:${suffix}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build & push (SBOM + provenance attestations)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.ctx }}
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          sbom: true
+          provenance: mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            VCS_REF=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ matrix.ver }}-prod
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - name: Cosign keyless sign
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes "${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
+
+      - name: Syft SBOM + cosign attest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          syft "${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}" -o spdx-json=sbom.spdx.json
+          cosign attest --yes --predicate sbom.spdx.json --type spdxjson \
+            "${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
+
+      - name: Summary
+        run: |
+          echo "Published & signed ${{ steps.meta.outputs.primary }} @ ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"

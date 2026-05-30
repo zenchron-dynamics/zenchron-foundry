@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Fallback pre-commit hook for environments without the `pre-commit` framework.
+# Activate: git config core.hooksPath scripts/git-hooks
+# Prefer the full framework (scripts/install-hooks.sh) when available.
+set -euo pipefail
+
+fail=0
+
+# Block large files (>512KB).
+while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    size=$(wc -c <"$f")
+    if [ "$size" -gt 524288 ]; then echo "Large file blocked (>512KB): $f"; fail=1; fi
+done < <(git diff --cached --name-only)
+
+# Secret scan if gitleaks is present.
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks protect --staged --config policies/gitleaks.toml || fail=1
+fi
+
+# Dockerfile lint if hadolint is present.
+if command -v hadolint >/dev/null 2>&1; then
+    while IFS= read -r f; do
+        case "$f" in */Dockerfile) hadolint --config policies/hadolint.yaml "$f" || fail=1;; esac
+    done < <(git diff --cached --name-only)
+fi
+
+exit "$fail"

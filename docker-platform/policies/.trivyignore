@@ -1,0 +1,7 @@
+# Trivy CVE exceptions — accepted risk only.
+# FORMAT (one per line):  CVE-XXXX-YYYYY   # owner, reason, review-by YYYY-MM-DD
+# Rules:
+#   - Every entry REQUIRES a justification + review date.
+#   - No entry may sit here past its review date without re-approval.
+#   - Legacy (7.4/8.0) EOL CVEs are handled per-image in CI, not blanket-ignored.
+# (empty by default)

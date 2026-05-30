@@ -1,0 +1,66 @@
+# =============================================================================
+# Zenchron Dynamics — nginx site example (Laravel/Symfony front controller).
+# Copy to app.conf and adjust. Placeholders: example.com, php-fpm:9000.
+# Unprivileged listener on :8080. Document root = /app/public.
+# =============================================================================
+server {
+    listen 8080;
+    listen [::]:8080;
+    server_name example.com;
+
+    root /app/public;
+    index index.php;
+
+    # --- Security headers ---
+    add_header X-Content-Type-Options    "nosniff"            always;
+    add_header X-Frame-Options           "DENY"               always;
+    add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy        "geolocation=(), microphone=(), camera=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # --- Front controller (Laravel/Symfony) ---
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # --- Static assets, long cache ---
+    location ~* \.(?:css|js|woff2?|ttf|svg|png|jpe?g|gif|ico|webp|wasm)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # --- PHP via FastCGI to php-fpm container ---
+    location ~ ^/index\.php(/|$) {
+        fastcgi_pass php-fpm:9000;
+        fastcgi_split_path_info ^(.+\.php)(/.*)$;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT $realpath_root;
+        fastcgi_param HTTPS $https if_not_empty;
+        fastcgi_hide_header X-Powered-By;
+        fastcgi_read_timeout 30;
+        internal;   # only the front controller is executable
+    }
+
+    # Block direct execution of any other .php file.
+    location ~ \.php$ {
+        return 404;
+    }
+
+    # --- Deny sensitive / hidden files ---
+    location ~ /\.(?!well-known).* { deny all; access_log off; log_not_found off; }
+    location ~* \.(?:env|git|sql|bak|config|ini|lock|json|dist|yml|yaml)$ {
+        deny all; access_log off; log_not_found off;
+    }
+    location ^~ /vendor/  { deny all; }
+    location ^~ /storage/ { deny all; }
+
+    # Health endpoint for load balancers (no PHP).
+    location = /healthz {
+        access_log off;
+        return 200 "ok\n";
+        add_header Content-Type text/plain;
+    }
+}

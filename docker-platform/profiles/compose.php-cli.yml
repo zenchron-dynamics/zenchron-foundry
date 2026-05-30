@@ -1,0 +1,17 @@
+# Zenchron Dynamics — php-cli one-off job profile.
+# Run with: docker compose run --rm php-cli php artisan migrate --force
+services:
+  php-cli:
+    image: ghcr.io/zenchron-dynamics/php-cli:8.3-prod
+    restart: "no"
+    profiles: ["cli"]          # not started by `up`; invoked via `run`
+    entrypoint: ["php"]
+    command: ["-v"]
+    environment:
+      PHP_MEMORY_LIMIT: "512M"
+    networks:
+      - backend
+
+networks:
+  backend:
+    internal: true

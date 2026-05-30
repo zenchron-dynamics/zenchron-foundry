@@ -1,0 +1,32 @@
+# Zenchron Dynamics — Caddy edge profile (reverse proxy / static / php_fastcgi).
+# Listens on :8080/:8443 unprivileged. To bind :80/:443 directly, add the
+# NET_BIND_SERVICE capability back (overrides cap_drop ALL) — see note below.
+services:
+  caddy:
+    image: ghcr.io/zenchron-dynamics/caddy:prod
+    depends_on:
+      php-fpm:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    # To bind privileged ports as non-root, uncomment:
+    # cap_add:
+    #   - NET_BIND_SERVICE
+    volumes:
+      - ./public:/app/public:ro
+      - ./deploy/caddy/app.caddy:/etc/caddy/conf.d/app.caddy:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - frontend
+      - backend
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  frontend:
+  backend:
+    internal: true

@@ -1,0 +1,111 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  structure:
+    name: repo structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required layout
+        run: bash scripts/check-structure.sh
+
+  lint:
+    name: lint (shell / yaml / md / dockerfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          severity: warning
+          scandir: ./scripts
+
+      - name: yamllint
+        run: |
+          pipx install yamllint
+          yamllint -c .yamllint.yaml --strict profiles policies .github
+
+      - name: markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: |
+            **/*.md
+            #node_modules
+
+      - name: Hadolint (all Dockerfiles)
+        run: |
+          docker run --rm -i -v "$PWD:/work" -w /work hadolint/hadolint:latest-debian \
+            sh -c 'find images examples -name Dockerfile -print0 | xargs -0 -I{} hadolint --config policies/hadolint.yaml {}'
+
+  secrets:
+    name: secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: policies/gitleaks.toml
+
+  sast:
+    name: semgrep docker security
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep rules
+        run: semgrep --error --config policies/semgrep/docker-security.yml .
+
+  build-test:
+    name: build representative images
+    runs-on: ubuntu-latest
+    needs: [structure, lint]
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { fam: php-fpm,  ver: "8.3" }
+          - { fam: php-cli,  ver: "8.3" }
+          - { fam: php-worker, ver: "8.3" }
+          - { fam: nginx,    ver: "" }
+          - { fam: caddy,    ver: "" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build (no push, amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: images/${{ matrix.target.fam }}${{ matrix.target.ver && format('/{0}', matrix.target.ver) || '' }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: zenchron/${{ matrix.target.fam }}:citest
+
+  compose-validate:
+    name: validate compose profiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose config (lint profiles)
+        run: |
+          for p in profiles/compose.*.yml; do
+            echo "validating $p"
+            docker compose -f "$p" config --quiet || { echo "invalid: $p"; exit 1; }
+          done

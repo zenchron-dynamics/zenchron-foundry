@@ -1,0 +1,107 @@
+name: scan-images
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"        # weekly rebuild-and-rescan, Monday 03:00 UTC
+  pull_request:
+    branches: [master]
+    paths:
+      - "images/**"
+      - "policies/**"
+
+permissions:
+  contents: read
+  security-events: write       # upload SARIF
+  packages: read
+
+jobs:
+  scan:
+    name: scan ${{ matrix.fam }} ${{ matrix.ver }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { fam: php-fpm,    ver: "8.3", ctx: "images/php-fpm/8.3",    legacy: false }
+          - { fam: php-cli,    ver: "8.3", ctx: "images/php-cli/8.3",    legacy: false }
+          - { fam: php-worker, ver: "8.3", ctx: "images/php-worker/8.3", legacy: false }
+          - { fam: php-frankenphp, ver: "8.3", ctx: "images/php-frankenphp/8.3", legacy: false }
+          - { fam: nginx,      ver: "prod", ctx: "images/nginx",         legacy: false }
+          - { fam: caddy,      ver: "prod", ctx: "images/caddy",         legacy: false }
+          - { fam: php-fpm,    ver: "7.4", ctx: "images/php-fpm/7.4",    legacy: true }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image locally
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.ctx }}
+          load: true
+          tags: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
+          cache-from: type=gha
+
+      # --- SBOM (Syft) -------------------------------------------------------
+      - name: Generate SBOM (Syft)
+        uses: anchore/sbom-action@v0
+        with:
+          image: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
+          format: spdx-json
+          artifact-name: ${{ matrix.fam }}-${{ matrix.ver }}.spdx.json
+          output-file: ${{ matrix.fam }}-${{ matrix.ver }}.spdx.json
+
+      # --- Trivy -------------------------------------------------------------
+      - name: Trivy scan (SARIF)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
+          format: sarif
+          output: trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif
+          severity: CRITICAL,HIGH
+
+      - name: Trivy gate (supported images only)
+        if: ${{ matrix.legacy == false }}
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: false
+          trivyignores: policies/.trivyignore
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif
+          category: trivy-${{ matrix.fam }}-${{ matrix.ver }}
+
+      # --- Grype (second opinion) -------------------------------------------
+      - name: Grype scan
+        id: grype
+        uses: anchore/scan-action@v4
+        with:
+          image: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
+          fail-build: ${{ matrix.legacy == false }}
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Upload Grype SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+          category: grype-${{ matrix.fam }}-${{ matrix.ver }}
+
+      # --- Artifacts ---------------------------------------------------------
+      - name: Upload scan artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-${{ matrix.fam }}-${{ matrix.ver }}
+          path: |
+            *.sarif
+            *.spdx.json
+          retention-days: 30

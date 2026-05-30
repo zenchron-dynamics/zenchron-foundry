@@ -1,0 +1,22 @@
+# Zenchron Dynamics — php-fpm service profile.
+# Pin the image by digest in production (replace :8.3-prod below).
+services:
+  php-fpm:
+    image: ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
+    # image: ghcr.io/zenchron-dynamics/php-fpm@sha256:<digest>   # production
+    expose:
+      - "9000"                 # internal only; never publish to the internet
+    environment:
+      PHP_MEMORY_LIMIT: "256M"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/docker-healthcheck"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - backend
+
+networks:
+  backend:
+    internal: true

@@ -1,0 +1,22 @@
+# Syft SBOM policy — https://github.com/anchore/syft
+# Generates SBOMs in both SPDX and CycloneDX for every published image.
+output:
+  - "spdx-json"
+  - "cyclonedx-json"
+  - "syft-table"
+
+# Catalog OS packages + language packages (PHP/composer where present).
+package:
+  cataloger:
+    enabled: true
+    scope: "squashed"
+
+file:
+  metadata:
+    selection: "owned-by-package"
+  content:
+    skip-files-above-size: 1048576
+
+# Source identification in SBOM metadata.
+source:
+  name: ""        # set per-image by scripts/generate-sbom.sh

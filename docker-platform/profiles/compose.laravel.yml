@@ -1,0 +1,58 @@
+# =============================================================================
+# Zenchron Dynamics — Laravel stack profile (php-fpm + nginx + worker + cli).
+# Compose layering example:
+#   docker compose \
+#     -f compose.yml \
+#     -f profiles/compose.security.yml \
+#     -f profiles/compose.readonly.yml \
+#     -f profiles/compose.laravel.yml up -d
+# Externalizes Laravel writable paths (storage, bootstrap/cache).
+# =============================================================================
+services:
+  php-fpm:
+    image: ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      LOG_CHANNEL: stderr
+    volumes:
+      - app-storage:/app/storage
+      - app-cache:/app/bootstrap/cache
+    networks: [backend]
+
+  worker:
+    image: ghcr.io/zenchron-dynamics/php-worker:8.3-prod
+    command: ["php", "artisan", "queue:work", "--max-time=3600", "--max-jobs=1000", "--memory=200", "--tries=3"]
+    stop_grace_period: 35s
+    environment:
+      APP_ENV: production
+    volumes:
+      - app-storage:/app/storage
+    depends_on: [php-fpm]
+    networks: [backend]
+
+  scheduler:
+    image: ghcr.io/zenchron-dynamics/php-cli:8.3-prod
+    # Run the Laravel scheduler tick. Prefer a host cron / k8s CronJob calling
+    # `schedule:run` over a sleep-loop; shown here for compose convenience.
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"]
+    restart: unless-stopped
+    volumes:
+      - app-storage:/app/storage
+    networks: [backend]
+
+  migrate:
+    image: ghcr.io/zenchron-dynamics/php-cli:8.3-prod
+    profiles: ["cli"]
+    restart: "no"
+    command: ["php", "artisan", "migrate", "--force"]
+    networks: [backend]
+
+volumes:
+  app-storage:
+  app-cache:
+
+networks:
+  backend:
+    internal: true

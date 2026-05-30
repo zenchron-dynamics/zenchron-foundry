@@ -1,0 +1,27 @@
+# Hadolint config — Dockerfile linting policy.
+failure-threshold: warning
+
+# Trusted base-image registries.
+trustedRegistries:
+  - docker.io
+  - ghcr.io
+  - cgr.dev          # Chainguard
+  - registry.k8s.io
+
+# Rules we intentionally relax (with reason):
+ignored:
+  # DL3018: pin apk versions — Wolfi rolls fast and we pin the BASE by digest
+  #         instead; per-package pinning would break reproducibility on Wolfi.
+  - DL3018
+  # DL3007: 'latest' tag — only used on ARG-overridable bases, pinned by digest in CI.
+  - DL3007
+
+override:
+  error:
+    - DL3002   # do not switch back to root at the end
+    - DL3025   # use JSON notation for CMD/ENTRYPOINT (signal handling)
+    - DL3020   # use COPY instead of ADD
+    - DL4006   # set -o pipefail before pipes
+  warning:
+    - DL3009   # delete apt cache
+    - DL3015   # --no-install-recommends

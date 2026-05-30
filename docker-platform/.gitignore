@@ -1,0 +1,35 @@
+# Build / scan artifacts
+/dist/
+/artifacts/
+*.sbom.json
+*.sbom.spdx.json
+*.cdx.json
+*.trivy.json
+*.grype.json
+*.sarif
+checksums.txt
+
+# Local env / secrets (never commit)
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+cosign.key
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Tool caches
+.hadolint-cache/
+.trivycache/
+.cache/
+
+# Docker
+**/.docker/

@@ -1,0 +1,50 @@
+# =============================================================================
+# Zenchron Dynamics — shared SECURITY profile (compose override).
+# Apply on top of an app compose file with `-f compose.yml -f compose.security.yml`.
+# Uses YAML anchors so each service opts in via `<<: *zenchron-hardening`.
+# This file defines defaults under x-* AND applies them to common service names.
+# Copy/extend per project — it is intentionally explicit, not magic.
+# =============================================================================
+
+# Reusable hardening block. Reference with: <<: *zenchron-hardening
+x-zenchron-hardening: &zenchron-hardening
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+  restart: unless-stopped
+  # Run as the platform's deterministic non-root identity.
+  user: "10001:10001"
+  # Writable scratch only; noexec/nosuid/nodev.
+  tmpfs:
+    - /tmp:size=64m,noexec,nosuid,nodev
+    - /run:size=8m,noexec,nosuid,nodev
+  # Bound resources (tune per service/host).
+  mem_limit: 512m
+  memswap_limit: 512m
+  ulimits:
+    nofile:
+      soft: 4096
+      hard: 8192
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+# Example application of the block to typical service names. Projects should
+# spread the anchor into their own services rather than rely on these names.
+services:
+  php-fpm:
+    <<: *zenchron-hardening
+  php-cli:
+    <<: *zenchron-hardening
+    restart: "no"          # one-off jobs should not auto-restart
+  worker:
+    <<: *zenchron-hardening
+  nginx:
+    <<: *zenchron-hardening
+  caddy:
+    <<: *zenchron-hardening

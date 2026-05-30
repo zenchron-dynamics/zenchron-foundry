@@ -1,0 +1,56 @@
+# Semgrep custom rules — Dockerfile & Compose security gates.
+# Run: semgrep --config policies/semgrep/docker-security.yml .
+rules:
+  - id: dockerfile-no-root-user
+    languages: [dockerfile]
+    severity: ERROR
+    message: >
+      Final image must declare a non-root USER. Add `USER 10001:10001` (or the
+      service's unprivileged uid) before ENTRYPOINT.
+    patterns:
+      - pattern: ENTRYPOINT ...
+      - pattern-not-inside: |
+          USER $U
+          ...
+    paths:
+      include: ["images/**/Dockerfile"]
+
+  - id: dockerfile-no-secret-build-arg
+    languages: [dockerfile]
+    severity: ERROR
+    message: "Possible secret in ARG/ENV. Use BuildKit --secret mounts, never ARG/ENV."
+    pattern-regex: '(?i)(ARG|ENV)\s+\S*(PASSWORD|SECRET|TOKEN|PRIVATE_KEY|API_KEY)\S*\s*='
+
+  - id: dockerfile-no-add-remote
+    languages: [dockerfile]
+    severity: WARNING
+    message: "Use COPY, not ADD (ADD auto-extracts and fetches URLs — supply-chain risk)."
+    pattern-regex: '^\s*ADD\s+https?://'
+
+  - id: dockerfile-no-chmod-777
+    languages: [dockerfile]
+    severity: ERROR
+    message: "World-writable permissions (777) are forbidden. Use least-privilege modes."
+    pattern-regex: 'chmod\s+(-[A-Za-z]+\s+)?0?777'
+
+  - id: dockerfile-no-curl-pipe-sh
+    languages: [dockerfile]
+    severity: WARNING
+    message: "curl|sh installs run unverified remote code. Pin + checksum-verify instead."
+    pattern-regex: '(curl|wget)\s+.*\|\s*(sh|bash)'
+
+  - id: compose-no-privileged
+    languages: [yaml]
+    severity: ERROR
+    message: "privileged: true is forbidden in this platform."
+    pattern-regex: 'privileged:\s*true'
+    paths:
+      include: ["profiles/**", "examples/**", "**/compose*.yml", "**/docker-compose*.yml"]
+
+  - id: compose-no-docker-socket
+    languages: [yaml]
+    severity: ERROR
+    message: "Mounting the Docker socket grants host root. Forbidden."
+    pattern-regex: '/var/run/docker\.sock'
+    paths:
+      include: ["profiles/**", "examples/**", "**/compose*.yml"]

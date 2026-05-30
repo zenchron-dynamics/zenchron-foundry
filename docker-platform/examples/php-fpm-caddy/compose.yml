@@ -1,0 +1,28 @@
+services:
+  php-fpm:
+    image: ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
+    volumes:
+      - ./app:/app:ro
+    networks: [backend]
+
+  caddy:
+    image: ghcr.io/zenchron-dynamics/caddy:prod
+    depends_on:
+      php-fpm:
+        condition: service_healthy
+    ports: ["8080:8080", "8443:8443"]
+    volumes:
+      - ./app/public:/app/public:ro
+      - ./app.caddy:/etc/caddy/conf.d/app.caddy:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [frontend, backend]
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  frontend:
+  backend:
+    internal: true

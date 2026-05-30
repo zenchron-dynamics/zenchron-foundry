@@ -1,0 +1,31 @@
+# Trivy scan policy — https://aquasecurity.github.io/trivy
+# Used by scripts/scan-all.sh and scan-images.yml.
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+
+# CI gate: fail the build only on CRITICAL/HIGH (MEDIUM reported, not blocking).
+# scan-images.yml passes --exit-code 1 with --severity CRITICAL,HIGH explicitly.
+scan:
+  scanners:
+    - vuln
+    - secret
+    - misconfig
+
+vulnerability:
+  type:
+    - os
+    - library
+
+# Do not fail on unfixed vulns for LEGACY images (EOL has no fixes) — those are
+# scanned for awareness only; the gate is applied per-image in CI.
+ignore-unfixed: false
+
+misconfiguration:
+  include-non-failures: false
+
+# Accepted-risk CVEs live in policies/.trivyignore (with justification + expiry).
+# Keep this list EMPTY by default; every entry needs a documented exception.
+secret:
+  config: policies/gitleaks.toml

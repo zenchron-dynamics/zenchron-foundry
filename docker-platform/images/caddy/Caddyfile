@@ -1,0 +1,35 @@
+# =============================================================================
+# Zenchron Dynamics — Caddy production base config.
+# Global options + import of site snippets from conf.d/. No project domains.
+# =============================================================================
+{
+	admin off            # disable admin API (attack surface)
+	# auto_https off     # enable when TLS terminates at an upstream LB
+	storage file_system /data/caddy
+	log {
+		output stderr
+		format json
+		level INFO
+	}
+}
+
+# Reusable hardened-headers snippet, imported by sites.
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options    "nosniff"
+		X-Frame-Options           "DENY"
+		Referrer-Policy           "strict-origin-when-cross-origin"
+		Permissions-Policy        "geolocation=(), microphone=(), camera=()"
+		-Server
+		-X-Powered-By
+	}
+}
+
+# Deny access to sensitive files. Import inside a site block.
+(deny_hidden) {
+	@hidden path /.env /.git/* /.* /composer.json /composer.lock /*.bak /*.sql
+	respond @hidden 404
+}
+
+import /etc/caddy/conf.d/*.caddy

@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+    image: example-frankenphp:local
+    ports: ["8080:8080", "8443:8443"]
+    environment:
+      SERVER_NAME: ":8080"
+      APP_ENV: production
+    volumes:
+      - franken-data:/data
+      - franken-config:/config
+    networks: [frontend]
+
+volumes:
+  franken-data:
+  franken-config:
+
+networks:
+  frontend:

@@ -1,0 +1,21 @@
+# Normalize line endings — deterministic builds
+* text=auto eol=lf
+
+# Scripts must stay LF
+*.sh        text eol=lf
+*.bash      text eol=lf
+Dockerfile  text eol=lf
+*.Dockerfile text eol=lf
+
+# Binary / do-not-diff
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# Keep generated artifacts out of language stats
+docs/**            linguist-documentation
+examples/**        linguist-documentation
+*.sbom.json        -diff linguist-generated
+*.sarif            -diff linguist-generated

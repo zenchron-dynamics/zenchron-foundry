@@ -1,0 +1,23 @@
+Copyright (c) 2026 Zenchron Dynamics. All rights reserved.
+
+INTERNAL / PROPRIETARY — NOT FOR PUBLIC DISTRIBUTION
+
+This repository and the container images it produces are the confidential and
+proprietary property of Zenchron Dynamics. Use is restricted to authorized
+Zenchron Dynamics personnel and systems.
+
+Permission to use, copy, or modify this software and its associated images is
+granted only to authorized internal users under the terms of their employment
+or contractual agreement with Zenchron Dynamics. Redistribution outside the
+organization, in source or binary (image) form, is prohibited without prior
+written consent.
+
+THE SOFTWARE AND IMAGES ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+IMAGES OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+If you require an open-source license for a public fork, replace this file
+before publication. Do not assume any OSI license applies by default.

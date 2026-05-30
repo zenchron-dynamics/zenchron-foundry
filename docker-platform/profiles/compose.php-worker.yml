@@ -1,0 +1,29 @@
+# Zenchron Dynamics — queue/messenger worker profile.
+# One process per container; scale with `--scale worker=N`.
+services:
+  worker:
+    image: ghcr.io/zenchron-dynamics/php-worker:8.3-prod
+    restart: unless-stopped
+    # Graceful stop: tini forwards SIGTERM; worker exits after current job.
+    stop_grace_period: 35s
+    stop_signal: SIGTERM
+    # Self-recycle to bound memory leaks (Laravel example shown).
+    command:
+      - php
+      - artisan
+      - queue:work
+      - --max-time=3600
+      - --max-jobs=1000
+      - --memory=200
+      - --tries=3
+      - --backoff=5
+    environment:
+      PHP_MEMORY_LIMIT: "256M"
+    deploy:
+      replicas: 2
+    networks:
+      - backend
+
+networks:
+  backend:
+    internal: true

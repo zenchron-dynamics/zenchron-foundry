@@ -1,0 +1,16 @@
+# markdownlint config — https://github.com/DavidAnson/markdownlint
+default: true
+# Line length: prose wraps naturally; allow long lines in tables/code.
+MD013:
+  line_length: 120
+  code_blocks: false
+  tables: false
+# Allow inline HTML (badges, details blocks).
+MD033: false
+# Allow duplicate headings under different parents.
+MD024:
+  siblings_only: true
+# First line need not be a top-level heading (front-matter banners).
+MD041: false
+# Ordered list numbering style is not enforced.
+MD029: false

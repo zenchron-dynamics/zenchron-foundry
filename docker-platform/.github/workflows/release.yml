@@ -1,0 +1,62 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write          # create GitHub Release
+  packages: read
+  id-token: write
+
+jobs:
+  # Reuse the publish workflow to build, push, sign, attest.
+  images:
+    uses: ./.github/workflows/publish-ghcr.yml
+    secrets: inherit
+
+  release:
+    needs: images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anchore/sbom-action/download-syft@v0
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Collect SBOMs + scan reports + checksums
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          NS="ghcr.io/zenchron-dynamics"
+          for ref in php-fpm:8.3-prod php-cli:8.3-prod php-worker:8.3-prod \
+                     php-frankenphp:8.3-prod caddy:prod nginx:prod; do
+            name="${ref//[:\/]/_}"
+            syft "${NS}/${ref}" -o spdx-json="release-artifacts/${name}.spdx.json" || true
+          done
+          ( cd release-artifacts && sha256sum ./*.json > checksums.txt )
+
+      - name: Verification notes
+        run: |
+          cat > release-artifacts/VERIFY.md <<'EOF'
+          # Verifying this release
+
+          All images are Cosign keyless-signed (GitHub OIDC). Verify:
+
+              cosign verify \
+                --certificate-identity-regexp 'https://github.com/zenchron-dynamics/docker-platform/.*' \
+                --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+                ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
+
+          SBOM attestations: cosign verify-attestation --type spdxjson <image>.
+          Checksums for the attached SBOMs are in checksums.txt.
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release-artifacts/*.spdx.json
+            release-artifacts/checksums.txt
+            release-artifacts/VERIFY.md

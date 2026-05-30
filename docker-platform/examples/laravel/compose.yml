@@ -1,0 +1,48 @@
+# Example Laravel stack (dev-ish). Layer profiles for hardening:
+#   docker compose -f compose.yml \
+#     -f ../../profiles/compose.security.yml \
+#     -f ../../profiles/compose.readonly.yml \
+#     -f ../../profiles/compose.laravel.yml up -d
+services:
+  php-fpm:
+    build:
+      context: .
+    image: example-laravel:local
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      LOG_CHANNEL: stderr
+    volumes:
+      - app-storage:/app/storage
+      - app-cache:/app/bootstrap/cache
+    networks: [backend]
+
+  nginx:
+    image: ghcr.io/zenchron-dynamics/nginx:prod
+    depends_on:
+      php-fpm:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./public:/app/public:ro
+      - ./deploy/nginx/app.conf:/etc/nginx/conf.d/app.conf:ro
+    networks: [frontend, backend]
+
+  worker:
+    image: ghcr.io/zenchron-dynamics/php-worker:8.3-prod
+    command: ["php", "artisan", "queue:work", "--max-time=3600", "--max-jobs=1000", "--memory=200", "--tries=3"]
+    stop_grace_period: 35s
+    volumes:
+      - app-storage:/app/storage
+    depends_on: [php-fpm]
+    networks: [backend]
+
+volumes:
+  app-storage:
+  app-cache:
+
+networks:
+  frontend:
+  backend:
+    internal: true

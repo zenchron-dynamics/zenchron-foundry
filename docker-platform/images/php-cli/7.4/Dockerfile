@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1.7
+# ██ LEGACY / EOL — PHP 7.4 CLI. Compatibility only, unsupported, high risk. ██
+# See docs/legacy-php-policy.md. Built on official EOL base (no Wolfi for EOL).
+ARG PHP_BASE="php:7.4-cli-alpine3.16"
+FROM ${PHP_BASE} AS runtime
+ARG BUILD_DATE
+ARG VCS_REF
+LABEL org.opencontainers.image.title="zenchron-php-cli" \
+      org.opencontainers.image.description="LEGACY EOL PHP 7.4 CLI — compatibility only" \
+      org.opencontainers.image.vendor="Zenchron Dynamics" \
+      org.opencontainers.image.source="https://github.com/zenchron-dynamics/docker-platform" \
+      org.opencontainers.image.version="7.4-prod" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.licenses="LicenseRef-Zenchron-Internal" \
+      com.zenchron.runtime="php-cli" com.zenchron.php="7.4" \
+      com.zenchron.support="legacy-eol" com.zenchron.risk="high"
+# hadolint ignore=DL3018,DL3019
+RUN set -eux; \
+    apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev libzip-dev oniguruma-dev postgresql-dev; \
+    docker-php-ext-install -j"$(nproc)" bcmath intl mbstring pdo pdo_mysql pdo_pgsql opcache zip pcntl posix; \
+    apk add --no-cache icu-libs libzip postgresql-libs; \
+    apk del --no-network .build-deps; rm -rf /var/cache/apk/* /tmp/*; \
+    addgroup -g 10001 app && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app; \
+    mkdir -p /app && chown -R 10001:10001 /app
+USER 10001:10001
+WORKDIR /app
+ENTRYPOINT ["php"]
+CMD ["-v"]

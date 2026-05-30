@@ -1,0 +1,25 @@
+---
+extends: default
+
+rules:
+  line-length:
+    max: 160
+    level: warning
+  document-start:
+    present: false
+  truthy:
+    allowed-values: ["true", "false", "on"]  # GitHub Actions uses `on:`
+    check-keys: true
+  comments:
+    min-spaces-from-content: 1
+  indentation:
+    spaces: 2
+    indent-sequences: true
+  braces:
+    max-spaces-inside: 1
+  brackets:
+    max-spaces-inside: 1
+
+ignore: |
+  .github/
+  node_modules/

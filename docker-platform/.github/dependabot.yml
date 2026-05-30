@@ -1,0 +1,58 @@
+version: 2
+updates:
+  # GitHub Actions — keep CI pinned + patched
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels: ["dependencies", "ci", "security"]
+    commit-message:
+      prefix: "chore(ci)"
+
+  # Docker base images — supported PHP lines
+  - package-ecosystem: "docker"
+    directories:
+      - "/images/php-fpm/8.3"
+      - "/images/php-fpm/8.4"
+      - "/images/php-cli/8.3"
+      - "/images/php-cli/8.4"
+      - "/images/php-worker/8.3"
+      - "/images/php-worker/8.4"
+      - "/images/php-frankenphp/8.3"
+      - "/images/php-frankenphp/8.4"
+      - "/images/caddy"
+      - "/images/nginx"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "docker", "security"]
+    commit-message:
+      prefix: "chore(images)"
+
+  # Legacy Docker bases — surfaced but reviewed manually (EOL, may not patch)
+  - package-ecosystem: "docker"
+    directories:
+      - "/images/php-fpm/7.4"
+      - "/images/php-fpm/8.0"
+      - "/images/php-cli/7.4"
+      - "/images/php-cli/8.0"
+      - "/images/php-worker/7.4"
+      - "/images/php-worker/8.0"
+    schedule:
+      interval: "monthly"
+    labels: ["dependencies", "docker", "legacy"]
+    commit-message:
+      prefix: "chore(legacy)"
+
+  # Composer — only active once example manifests exist
+  - package-ecosystem: "composer"
+    directories:
+      - "/examples/laravel"
+      - "/examples/symfony"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "composer", "examples"]
+    commit-message:
+      prefix: "chore(examples)"

@@ -1,0 +1,41 @@
+# Gitleaks config — secret scanning for pre-commit + CI.
+# Extends the upstream default ruleset, then adds platform-specific rules/allows.
+title = "Zenchron docker-platform gitleaks policy"
+
+[extend]
+useDefault = true
+
+# --- Extra rules ------------------------------------------------------------
+[[rules]]
+id = "ghcr-pat"
+description = "GitHub Personal Access Token (classic / fine-grained)"
+regex = '''(ghp|gho|ghu|ghs|ghr|github_pat)_[0-9A-Za-z_]{20,255}'''
+tags = ["github", "token"]
+
+[[rules]]
+id = "generic-docker-login"
+description = "Hardcoded registry login in compose/dockerfile"
+regex = '''(?i)(DOCKER_PASSWORD|REGISTRY_PASSWORD|GHCR_TOKEN)\s*[:=]\s*['"]?[A-Za-z0-9_\-]{8,}'''
+tags = ["docker", "credential"]
+
+[[rules]]
+id = "cosign-private-key"
+description = "Cosign private key material"
+regex = '''-----BEGIN ENCRYPTED (SIGSTORE|COSIGN) PRIVATE KEY-----'''
+tags = ["cosign", "key"]
+
+# --- Allowlist (false positives) -------------------------------------------
+[allowlist]
+description = "Docs placeholders and example identifiers"
+regexes = [
+  '''sha256:<digest>''',
+  '''<user>''',
+  '''example\.com''',
+  '''password-stdin''',
+  '''GHCR_READ_TOKEN''',          # variable NAME only, never a value
+]
+paths = [
+  '''(.*?)README\.md$''',
+  '''docs/.*\.md$''',
+  '''CHANGELOG\.md$''',
+]

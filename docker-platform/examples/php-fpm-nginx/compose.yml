@@ -1,0 +1,22 @@
+services:
+  php-fpm:
+    image: ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
+    volumes:
+      - ./app:/app:ro                 # your built app (public/, vendor/, etc.)
+    networks: [backend]
+
+  nginx:
+    image: ghcr.io/zenchron-dynamics/nginx:prod
+    depends_on:
+      php-fpm:
+        condition: service_healthy
+    ports: ["8080:8080"]
+    volumes:
+      - ./app/public:/app/public:ro
+      - ./app.conf:/etc/nginx/conf.d/app.conf:ro
+    networks: [frontend, backend]
+
+networks:
+  frontend:
+  backend:
+    internal: true
