@@ -22,8 +22,11 @@ env:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 10          # never hang on Rekor backoff
     strategy:
       fail-fast: false
+      # Sigstore's public-good Rekor rate-limits bursts; verify a few at a time.
+      max-parallel: 4
       matrix:
         ref:
           - php-fpm:8.3-prod
