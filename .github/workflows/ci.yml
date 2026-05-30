@@ -57,10 +57,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITLEAKS_CONFIG: policies/gitleaks.toml
+      # Use the open-source gitleaks CLI image directly. The gitleaks-action
+      # wrapper requires a paid GITLEAKS_LICENSE for organization repositories;
+      # the CLI itself does not.
+      - name: Gitleaks (CLI)
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:latest \
+            detect --source /repo --config policies/gitleaks.toml \
+            --redact --no-banner --verbose
 
   sast:
     name: semgrep docker security
