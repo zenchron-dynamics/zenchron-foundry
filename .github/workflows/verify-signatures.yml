@@ -56,7 +56,7 @@ jobs:
           set -euo pipefail
           IMG="${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"
           echo "::group::cosign verify ${IMG}"
-          cosign verify \
+          cosign verify --timeout 90s \
             --certificate-identity-regexp "${IDENTITY_RE}" \
             --certificate-oidc-issuer "${ISSUER}" \
             "${IMG}"
@@ -67,7 +67,7 @@ jobs:
           set -euo pipefail
           IMG="${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"
           echo "::group::cosign verify-attestation ${IMG}"
-          cosign verify-attestation --type spdxjson \
+          cosign verify-attestation --timeout 90s --type spdxjson \
             --certificate-identity-regexp "${IDENTITY_RE}" \
             --certificate-oidc-issuer "${ISSUER}" \
             "${IMG}"
