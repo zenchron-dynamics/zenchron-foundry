@@ -16,7 +16,7 @@ ARG VCS_REF
 LABEL org.opencontainers.image.title="zenchron-nginx" \
       org.opencontainers.image.description="Hardened nginx for PHP-FPM upstream / static assets" \
       org.opencontainers.image.vendor="Zenchron Dynamics" \
-      org.opencontainers.image.source="https://github.com/zenchron-dynamics/docker-platform" \
+      org.opencontainers.image.source="https://github.com/zenchron-dynamics/zenchron-foundry" \
       org.opencontainers.image.version="prod" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \

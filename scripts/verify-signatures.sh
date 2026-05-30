@@ -3,7 +3,7 @@
 # Usage: scripts/verify-signatures.sh ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 set -euo pipefail
 
-IDENTITY_RE="${IDENTITY_RE:-https://github.com/zenchron-dynamics/docker-platform/.*}"
+IDENTITY_RE="${IDENTITY_RE:-https://github.com/zenchron-dynamics/zenchron-foundry/.*}"
 ISSUER="${ISSUER:-https://token.actions.githubusercontent.com}"
 
 if [ "$#" -lt 1 ]; then

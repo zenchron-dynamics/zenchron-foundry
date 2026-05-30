@@ -8,7 +8,7 @@ ARG VCS_REF
 LABEL org.opencontainers.image.title="zenchron-php-cli" \
       org.opencontainers.image.description="LEGACY EOL PHP 7.4 CLI — compatibility only" \
       org.opencontainers.image.vendor="Zenchron Dynamics" \
-      org.opencontainers.image.source="https://github.com/zenchron-dynamics/docker-platform" \
+      org.opencontainers.image.source="https://github.com/zenchron-dynamics/zenchron-foundry" \
       org.opencontainers.image.version="7.4-prod" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \

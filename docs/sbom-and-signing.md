@@ -23,12 +23,12 @@ Branch/PR builds are **not** release-signed.
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/docker-platform/.*' \
+  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 
 cosign verify-attestation --type spdxjson \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/docker-platform/.*' \
+  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 ```

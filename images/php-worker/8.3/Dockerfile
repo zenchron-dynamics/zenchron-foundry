@@ -16,7 +16,7 @@ ARG VCS_REF
 LABEL org.opencontainers.image.title="zenchron-php-worker" \
       org.opencontainers.image.description="Hardened PHP 8.3 worker runtime (queue/messenger)" \
       org.opencontainers.image.vendor="Zenchron Dynamics" \
-      org.opencontainers.image.source="https://github.com/zenchron-dynamics/docker-platform" \
+      org.opencontainers.image.source="https://github.com/zenchron-dynamics/zenchron-foundry" \
       org.opencontainers.image.version="8.3-prod" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \

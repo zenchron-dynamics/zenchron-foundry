@@ -19,7 +19,7 @@ ARG VCS_REF
 LABEL org.opencontainers.image.title="zenchron-php-frankenphp" \
       org.opencontainers.image.description="Hardened FrankenPHP 8.3 app server (embedded Caddy)" \
       org.opencontainers.image.vendor="Zenchron Dynamics" \
-      org.opencontainers.image.source="https://github.com/zenchron-dynamics/docker-platform" \
+      org.opencontainers.image.source="https://github.com/zenchron-dynamics/zenchron-foundry" \
       org.opencontainers.image.version="8.3-prod" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \

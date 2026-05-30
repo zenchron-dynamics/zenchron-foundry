@@ -60,7 +60,7 @@ docker pull ghcr.io/zenchron-dynamics/php-fpm@sha256:<digest>
 
 # Verify the signature before running
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/docker-platform/.*' \
+  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 ```

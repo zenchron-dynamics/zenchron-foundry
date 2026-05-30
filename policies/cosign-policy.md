@@ -17,19 +17,19 @@ cosign attest --yes --predicate sbom.spdx.json --type spdxjson \
 Identity bound into the certificate:
 
 - **Issuer:** `https://token.actions.githubusercontent.com`
-- **Subject (identity):** `https://github.com/zenchron-dynamics/docker-platform/.github/workflows/publish-ghcr.yml@refs/tags/*`
+- **Subject (identity):** `https://github.com/zenchron-dynamics/zenchron-foundry/.github/workflows/publish-ghcr.yml@refs/tags/*`
 
 ## Verification (consumers — required before deploy)
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/docker-platform/.*' \
+  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 
 # Verify the SBOM attestation too
 cosign verify-attestation --type spdxjson \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/docker-platform/.*' \
+  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 ```

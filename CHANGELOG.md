@@ -24,4 +24,4 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   cap_drop ALL, no-new-privileges.
 - PHP 7.4 / 8.0 marked high-risk legacy (EOL); isolated and documented.
 
-[Unreleased]: https://github.com/zenchron-dynamics/docker-platform/commits/master
+[Unreleased]: https://github.com/zenchron-dynamics/zenchron-foundry/commits/master

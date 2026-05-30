@@ -63,6 +63,6 @@ reporting. SLAs defined there.
 ## Apply via `gh` (example)
 
 ```bash
-gh api -X PUT repos/zenchron-dynamics/docker-platform/branches/master/protection \
+gh api -X PUT repos/zenchron-dynamics/zenchron-foundry/branches/master/protection \
   --input branch-protection.json   # encode the checklist above
 ```
