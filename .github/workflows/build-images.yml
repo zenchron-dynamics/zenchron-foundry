@@ -89,8 +89,11 @@ jobs:
           push: ${{ inputs.push == 'true' }}
           load: ${{ inputs.push != 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
-          sbom: true
-          provenance: mode=max
+          # Attestations (sbom/provenance) produce a manifest list, which the
+          # docker exporter (load:true) cannot handle. Only enable them when
+          # pushing to the registry (OCI exporter).
+          sbom: ${{ inputs.push == 'true' }}
+          provenance: ${{ inputs.push == 'true' && 'mode=max' || 'false' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
