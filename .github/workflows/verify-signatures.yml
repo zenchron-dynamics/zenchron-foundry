@@ -1,0 +1,74 @@
+name: verify-signatures
+
+# Proves the supply-chain loop: pull each published image and verify its Cosign
+# keyless signature + SBOM attestation. Run manually, or after a release.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag suffix to verify (e.g. 8.3-prod, prod)"
+        default: ""
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: zenchron-dynamics
+  IDENTITY_RE: "https://github.com/zenchron-dynamics/zenchron-foundry/.*"
+  ISSUER: "https://token.actions.githubusercontent.com"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ref:
+          - php-fpm:8.3-prod
+          - php-fpm:8.4-prod
+          - php-fpm:7.4-prod
+          - php-fpm:8.0-prod
+          - php-cli:8.3-prod
+          - php-cli:8.4-prod
+          - php-worker:8.3-prod
+          - php-worker:8.4-prod
+          - php-frankenphp:8.3-prod
+          - php-frankenphp:8.4-prod
+          - caddy:prod
+          - nginx:prod
+    steps:
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify signature
+        run: |
+          set -euo pipefail
+          IMG="${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"
+          echo "::group::cosign verify ${IMG}"
+          cosign verify \
+            --certificate-identity-regexp "${IDENTITY_RE}" \
+            --certificate-oidc-issuer "${ISSUER}" \
+            "${IMG}"
+          echo "::endgroup::"
+
+      - name: Verify SBOM attestation
+        run: |
+          set -euo pipefail
+          IMG="${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"
+          echo "::group::cosign verify-attestation ${IMG}"
+          cosign verify-attestation --type spdxjson \
+            --certificate-identity-regexp "${IDENTITY_RE}" \
+            --certificate-oidc-issuer "${ISSUER}" \
+            "${IMG}"
+          echo "::endgroup::"
+
+      - name: Confirm pullable
+        run: docker pull "${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"
