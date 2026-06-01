@@ -28,6 +28,11 @@ LABEL org.opencontainers.image.title="zenchron-php-frankenphp" \
       com.zenchron.php="8.3" \
       com.zenchron.support="supported"
 
+# Patch OS packages to clear CVEs the upstream base has not yet republished
+# (e.g. libxml2). Keeps the image current between base digest bumps.
+# hadolint ignore=DL3018
+RUN apk upgrade --no-cache libxml2 && rm -rf /var/cache/apk/*
+
 # Install common production PHP extensions via the helper shipped in the image,
 # then strip build tooling. Adjust the extension set per docs/php-extension-policy.md.
 # hadolint ignore=DL3018

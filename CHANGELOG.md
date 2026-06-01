@@ -38,6 +38,13 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ### Security
 
+- Repaired `scan-images` (the `trivy-action`/`setup-trivy` tags were yanked):
+  Trivy now runs from the official `aquasec/trivy` image and is the enforcing
+  gate; Grype is a non-gating second opinion. First real scan surfaced and fixed
+  CVEs the upstream bases hadn't republished: nginx `apk upgrade libssl3
+  libcrypto3` (2 CRITICAL + 28 HIGH → 0), frankenphp `apk upgrade libxml2`
+  (1 HIGH → 0). Caddy's go-jose CVE (compiled into the binary, not reachable with
+  upstream TLS termination) is a justified, dated exception.
 - All runtime images: non-root (10001:10001), read-only rootfs default,
   cap_drop ALL, no-new-privileges.
 - PHP 7.4 / 8.0 marked high-risk legacy (EOL); isolated and documented.

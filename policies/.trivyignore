@@ -4,4 +4,10 @@
 #   - Every entry REQUIRES a justification + review date.
 #   - No entry may sit here past its review date without re-approval.
 #   - Legacy (7.4/8.0) EOL CVEs are handled per-image in CI, not blanket-ignored.
-# (empty by default)
+
+# caddy only: go-jose/v3 in the upstream Caddy BINARY (not an apk package, so it
+# cannot be patched in our layer). go-jose is used for ACME/JOSE; this platform
+# terminates TLS upstream (Caddy on high ports behind an LB), so the path is not
+# exercised. Awaiting an upstream Caddy rebuild with go-jose >= 3.0.5.
+# owner: platform/security · review-by 2026-07-02
+CVE-2026-34986
