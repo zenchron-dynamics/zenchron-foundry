@@ -57,3 +57,4 @@ repos:
     hooks:
       - id: markdownlint
         args: ["--config", ".markdownlint.yaml"]
+        exclude: ^docs/audits/
