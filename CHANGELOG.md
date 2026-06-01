@@ -20,6 +20,22 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 - Free-tier governance compensating controls: local pre-push hook, release
   safety script, manual PR + CI-failure policies, and accepted-risk record.
 
+### Changed (P2 hardening)
+
+- Caddy and FrankenPHP now use **real HTTP readiness** healthchecks
+  (always-on `:8081/healthz` via `wget`) instead of `<binary> version`.
+- CI shellchecks the worker scripts under `images/php-worker/`.
+- `build-images` / `publish-ghcr` accept a `platforms` input for optional
+  `linux/arm64` multi-arch (default `linux/amd64`; arm64 verified to build).
+- `make doctor` reports local tool availability with install hints.
+- `make build-frankenphp` / `build-php-worker` guard against invalid versions.
+
+### Verified
+
+- GHCR private consumption proven end-to-end: read-only `read:packages` token
+  pulls all six images; push is denied (`permission_denied`).
+- OPcache JIT disabled by default; worker heartbeat liveness implemented.
+
 ### Security
 
 - All runtime images: non-root (10001:10001), read-only rootfs default,

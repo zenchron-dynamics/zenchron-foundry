@@ -43,3 +43,11 @@
 		level INFO
 	}
 }
+
+# Always-on readiness endpoint on a dedicated internal port. Proves the embedded
+# server accepts and answers HTTP (readiness) without depending on app code being
+# present. The container HEALTHCHECK probes http://127.0.0.1:8081/healthz.
+:8081 {
+	respond /healthz "ok" 200
+	respond * 404
+}

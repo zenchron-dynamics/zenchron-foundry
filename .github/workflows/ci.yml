@@ -34,6 +34,13 @@ jobs:
           severity: warning
           scandir: ./scripts
 
+      - name: ShellCheck worker scripts (images/php-worker)
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable \
+            -S warning \
+            images/php-worker/*/worker-entrypoint \
+            images/php-worker/*/worker-healthcheck
+
       - name: yamllint
         run: |
           pipx install yamllint

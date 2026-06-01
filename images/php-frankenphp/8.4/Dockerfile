@@ -61,10 +61,12 @@ ENV SERVER_NAME=":8080" \
 
 USER 10001:10001
 WORKDIR /app
-EXPOSE 8080 8443
+EXPOSE 8080 8443 8081
 
+# Readiness probe: hit the always-on /healthz site (proves the embedded server is
+# serving HTTP, not just that the binary runs). wget ships in the alpine base.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
-    CMD ["frankenphp", "version"]
+    CMD ["wget", "-q", "-O", "-", "http://127.0.0.1:8081/healthz"]
 
 ENTRYPOINT ["frankenphp"]
 CMD ["run", "--config", "/etc/frankenphp/Caddyfile"]

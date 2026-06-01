@@ -6,11 +6,17 @@ on:
       push:
         description: "Push to GHCR (true/false)"
         default: "false"
+      platforms:
+        description: "Target platforms (multi-arch requires push=true; load can only do one arch)"
+        default: "linux/amd64"
   workflow_call:
     inputs:
       push:
         type: string
         default: "false"
+      platforms:
+        type: string
+        default: "linux/amd64"
     outputs:
       digests:
         description: "JSON map of image -> digest"
@@ -24,7 +30,9 @@ permissions:
 env:
   REGISTRY: ghcr.io
   NAMESPACE: zenchron-dynamics
-  PLATFORMS: linux/amd64        # add linux/arm64 once base availability is confirmed
+  # Default linux/amd64. To build multi-arch (linux/amd64,linux/arm64) you MUST
+  # also set push=true — the docker exporter (load) cannot hold a manifest list.
+  PLATFORMS: ${{ inputs.platforms || 'linux/amd64' }}
 
 jobs:
   build:
@@ -87,7 +95,9 @@ jobs:
           context: ${{ matrix.ctx }}
           platforms: ${{ env.PLATFORMS }}
           push: ${{ inputs.push == 'true' }}
-          load: ${{ inputs.push != 'true' }}
+          # load only when NOT pushing AND single-arch (docker exporter can't hold
+          # a multi-arch manifest list).
+          load: ${{ inputs.push != 'true' && env.PLATFORMS == 'linux/amd64' }}
           tags: ${{ steps.meta.outputs.tags }}
           # Attestations (sbom/provenance) produce a manifest list, which the
           # docker exporter (load:true) cannot handle. Only enable them when

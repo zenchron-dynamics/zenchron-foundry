@@ -5,7 +5,15 @@ name: publish-ghcr
 # to avoid double-publishing alongside release.yml.
 on:
   workflow_call:
+    inputs:
+      platforms:
+        type: string
+        default: "linux/amd64"
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Target platforms (e.g. linux/amd64 or linux/amd64,linux/arm64)"
+        default: "linux/amd64"
 
 permissions:
   contents: read
@@ -16,7 +24,9 @@ permissions:
 env:
   REGISTRY: ghcr.io
   NAMESPACE: zenchron-dynamics
-  PLATFORMS: linux/amd64
+  # Always pushes (OCI exporter), so multi-arch is safe here. Override via the
+  # platforms input to publish linux/amd64,linux/arm64.
+  PLATFORMS: ${{ inputs.platforms || 'linux/amd64' }}
 
 jobs:
   # Gate: do not publish unless CI-equivalent checks pass on this ref.
