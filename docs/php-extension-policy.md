@@ -41,6 +41,14 @@ PR with justification; document the consuming app.
 - **Legacy (7.4/8.0):** `docker-php-ext-install`/`pecl` in a build stage; build
   deps removed afterward.
 
+## OPcache JIT
+
+OPcache is enabled; **JIT is disabled by default** (`opcache.jit=disable`,
+`opcache.jit_buffer_size=0`) to minimize attack surface — it rarely benefits
+typical Laravel/Symfony web workloads. Enable it per project only after
+benchmarking a CPU-bound workload. Full rationale, opt-in method, and validation:
+[php-runtime-hardening.md](php-runtime-hardening.md).
+
 ## `disable_functions`
 
 FPM disables high-risk process/command functions

@@ -58,13 +58,22 @@ RUN apk add --no-cache \
     && mkdir -p /app && chown -R 10001:10001 /app
 
 COPY php-worker.ini /etc/php/conf.d/zz-zenchron-worker.ini
+COPY worker-entrypoint  /usr/local/bin/worker-entrypoint
+COPY worker-healthcheck /usr/local/bin/worker-healthcheck
+RUN chmod 0555 /usr/local/bin/worker-entrypoint /usr/local/bin/worker-healthcheck
 
 USER 10001:10001
 WORKDIR /app
 
-# tini as PID 1 reaps zombies and forwards SIGTERM to the worker for graceful
-# stop. The app supplies the worker command, e.g.:
+# Liveness via heartbeat (see worker-entrypoint / docs/worker-runtime.md). The
+# heartbeat lives in tmpfs /tmp, so this works under a read-only rootfs.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["/usr/local/bin/worker-healthcheck"]
+
+# tini (PID 1) reaps zombies and forwards SIGTERM; worker-entrypoint maintains
+# the heartbeat and forwards signals to the worker for graceful stop. The app
+# supplies the worker command, e.g.:
 #   Laravel:  php artisan queue:work --max-time=3600 --max-jobs=1000 --stop-when-empty
 #   Symfony:  php bin/console messenger:consume async --time-limit=3600 --memory-limit=256M
-ENTRYPOINT ["tini", "--"]
+ENTRYPOINT ["tini", "--", "/usr/local/bin/worker-entrypoint"]
 CMD ["php", "-v"]

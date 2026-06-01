@@ -1,18 +1,41 @@
-# Code ownership — every PR requires review from a platform owner.
-# Replace teams with real GitHub teams before enabling branch protection.
+# CODEOWNERS — review routing for zenchron-dynamics/zenchron-foundry
+#
+# REALITY CHECK (2026-06): the org teams `platform` and `security` DO NOT EXIST
+# yet (`gh api orgs/zenchron-dynamics/teams` -> []). A CODEOWNERS entry that names
+# a nonexistent team is silently ignored by GitHub — that would be FAKE ownership.
+# So this file uses the repo admin handle @bogdaniel as a working fallback owner
+# for every path, so code-owner review is actually requested.
+#
+# MIGRATION: once the teams exist (see docs/github-org-setup.md), replace the
+# fallback per the intended mapping below:
+#   images / Dockerfiles   -> @zenchron-dynamics/platform @zenchron-dynamics/security
+#   .github/workflows      -> @zenchron-dynamics/platform @zenchron-dynamics/security
+#   policies / profiles    -> @zenchron-dynamics/security  (+platform for profiles)
+#   docs                   -> @zenchron-dynamics/platform
+#   examples               -> @zenchron-dynamics/platform
 
 # Default owner for everything
-*                       @zenchron-dynamics/platform-engineering
+*                                   @bogdaniel
 
-# Security-sensitive surfaces require security team review
-/.github/workflows/     @zenchron-dynamics/platform-engineering @zenchron-dynamics/security
-/policies/              @zenchron-dynamics/security
-/profiles/              @zenchron-dynamics/platform-engineering @zenchron-dynamics/security
-SECURITY.md             @zenchron-dynamics/security
-/docs/threat-model.md   @zenchron-dynamics/security
-/docs/vulnerability-management.md @zenchron-dynamics/security
+# Images / Dockerfiles  (intended: platform + security)
+/images/                            @bogdaniel
+/images/php-fpm/7.4/                @bogdaniel
+/images/php-fpm/8.0/                @bogdaniel
+/images/php-worker/                 @bogdaniel
 
-# Image families
-/images/                @zenchron-dynamics/platform-engineering
-/images/php-fpm/7.4/    @zenchron-dynamics/platform-engineering @zenchron-dynamics/security
-/images/php-fpm/8.0/    @zenchron-dynamics/platform-engineering @zenchron-dynamics/security
+# CI/CD  (intended: platform + security)
+/.github/workflows/                 @bogdaniel
+/.github/dependabot.yml             @bogdaniel
+
+# Security policies & sensitive docs  (intended: security)
+/policies/                          @bogdaniel
+/profiles/                          @bogdaniel
+SECURITY.md                         @bogdaniel
+/docs/threat-model.md               @bogdaniel
+/docs/vulnerability-management.md   @bogdaniel
+/docs/release-governance.md         @bogdaniel
+/docs/repository-security.md        @bogdaniel
+
+# Docs & examples  (intended: platform)
+/docs/                              @bogdaniel
+/examples/                          @bogdaniel

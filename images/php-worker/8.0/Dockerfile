@@ -24,7 +24,13 @@ RUN set -eux; \
     apk del --no-network .build-deps; rm -rf /var/cache/apk/* /tmp/*; \
     addgroup -g 10001 app && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app; \
     mkdir -p /app && chown -R 10001:10001 /app
+COPY worker-entrypoint  /usr/local/bin/worker-entrypoint
+COPY worker-healthcheck /usr/local/bin/worker-healthcheck
+RUN chmod 0555 /usr/local/bin/worker-entrypoint /usr/local/bin/worker-healthcheck
 USER 10001:10001
 WORKDIR /app
-ENTRYPOINT ["/sbin/tini", "--"]
+# Liveness heartbeat (tmpfs /tmp; works under read-only rootfs). See docs/worker-runtime.md.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["/usr/local/bin/worker-healthcheck"]
+ENTRYPOINT ["/sbin/tini", "--", "/usr/local/bin/worker-entrypoint"]
 CMD ["php", "-v"]
