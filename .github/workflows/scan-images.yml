@@ -73,8 +73,12 @@ jobs:
             --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
             --ignore-unfixed=false --ignorefile policies/.trivyignore
 
-      - name: Upload Trivy SARIF
+      # Code-scanning SARIF upload needs GitHub Advanced Security, which is not
+      # available on Free-plan private repos — so this is best-effort. The SARIF
+      # is always retained as a build artifact (see "Upload scan artifacts").
+      - name: Upload Trivy SARIF (best-effort; needs Advanced Security)
         if: always()
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif
@@ -93,8 +97,9 @@ jobs:
           severity-cutoff: high
           output-format: sarif
 
-      - name: Upload Grype SARIF
+      - name: Upload Grype SARIF (best-effort; needs Advanced Security)
         if: always()
+        continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ steps.grype.outputs.sarif }}

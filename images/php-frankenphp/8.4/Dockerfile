@@ -28,10 +28,10 @@ LABEL org.opencontainers.image.title="zenchron-php-frankenphp" \
       com.zenchron.php="8.4" \
       com.zenchron.support="supported"
 
-# Patch OS packages to clear CVEs the upstream base has not yet republished
-# (e.g. libxml2). Keeps the image current between base digest bumps.
+# Patch ALL OS packages to clear CVEs the upstream base has not yet republished.
+# Keeps the image current between base digest bumps (Dependabot still bumps the base).
 # hadolint ignore=DL3018
-RUN apk upgrade --no-cache libxml2 && rm -rf /var/cache/apk/*
+RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
 
 # Install common production PHP extensions via the helper shipped in the image,
 # then strip build tooling. Adjust the extension set per docs/php-extension-policy.md.
