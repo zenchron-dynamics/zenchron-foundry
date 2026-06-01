@@ -1,0 +1,70 @@
+#!/bin/sh
+# =============================================================================
+# Zenchron Dynamics — pre-push hook (free-tier compensating control)
+#
+# This is a compensating control, not equivalent to enforced GitHub branch
+# protection. It runs locally and CAN be bypassed; it exists to prevent
+# ACCIDENTAL mistakes, not to stop a determined actor.
+#
+# Blocks:
+#   - direct pushes to master
+#   - non-fast-forward (force) pushes to master
+#   - pushing v* release tags unless ALLOW_RELEASE_TAG_PUSH=1 (use prepare-release.sh)
+# Emergency bypass (loud, never silent):
+#   ZENCHRON_ALLOW_PROTECTED_PUSH=1 git push ...
+# Git passes refs on stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>
+# =============================================================================
+set -u
+
+err() { printf '%s\n' "$*" >&2; }
+
+if [ "${ZENCHRON_ALLOW_PROTECTED_PUSH:-0}" = "1" ]; then
+    err "⚠️  ZENCHRON_ALLOW_PROTECTED_PUSH=1 — bypassing local push protections."
+    err "⚠️  If this push touches master or a v* tag, record it in"
+    err "⚠️  docs/audits/ as an accepted-risk note (see docs/manual-pr-policy.md)."
+    exit 0
+fi
+
+status=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [ -n "${remote_ref:-}" ] || continue
+
+    case "$remote_ref" in
+        refs/heads/master)
+            err "──────────────────────────────────────────────────────────────"
+            err "BLOCKED: direct push to 'master' is disallowed by policy."
+            err "Free-tier compensating control — GitHub cannot enforce this on a"
+            err "private Free-plan repo, so this hook does. Use a feature branch + PR:"
+            err "    git switch -c feat/<name> && git push -u origin feat/<name>"
+            err "Then open a PR and merge after CI is green (docs/manual-pr-policy.md)."
+            err "Emergency only: ZENCHRON_ALLOW_PROTECTED_PUSH=1 git push ..."
+            err "──────────────────────────────────────────────────────────────"
+            status=1
+
+            # Non-fast-forward (force) detection — extra signal even though all
+            # master pushes are already blocked above.
+            case "$remote_sha" in
+                *[!0]*)
+                    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+                        err "BLOCKED: this would also be a NON-FAST-FORWARD (force) push to master."
+                    fi
+                    ;;
+            esac
+            ;;
+
+        refs/tags/v*)
+            if [ "${ALLOW_RELEASE_TAG_PUSH:-0}" != "1" ]; then
+                err "──────────────────────────────────────────────────────────────"
+                err "BLOCKED: pushing release tag '$remote_ref' is gated."
+                err "Release tags must go through scripts/prepare-release.sh, which sets"
+                err "ALLOW_RELEASE_TAG_PUSH=1 after the pre-release checks pass."
+                err "Manual override: ALLOW_RELEASE_TAG_PUSH=1 git push origin <tag>"
+                err "──────────────────────────────────────────────────────────────"
+                status=1
+            fi
+            ;;
+    esac
+done
+
+[ "$status" -eq 0 ] || err "Push rejected by local pre-push policy. Nothing was sent."
+exit "$status"

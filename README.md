@@ -46,6 +46,19 @@ risk. **Do not start new projects on them.** See
 Full model: [docs/threat-model.md](docs/threat-model.md),
 [docs/runtime-hardening.md](docs/runtime-hardening.md).
 
+## Governance (Free plan — accepted risk)
+
+This repo runs on **GitHub Free** and stays **private**. On that plan, private
+repos **cannot** use branch protection, rulesets, or tag protection, so GitHub
+does not enforce PRs, reviews, status checks, or protected release tags. We
+compensate with local hooks (`scripts/install-hooks.sh`), a manual PR policy, a
+release safety script (`scripts/prepare-release.sh`), digest pinning, and Cosign
+signing. **These are compensating controls, not equivalent to enforced GitHub
+branch protection.** Details and accepted-risk record:
+[docs/audits/free-tier-governance-accepted-risk.md](docs/audits/free-tier-governance-accepted-risk.md),
+[docs/manual-pr-policy.md](docs/manual-pr-policy.md),
+[docs/ci-failure-policy.md](docs/ci-failure-policy.md).
+
 ## Quick Start (consume an image)
 
 ```bash

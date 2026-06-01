@@ -1,7 +1,19 @@
 # Repository Security Configuration
 
+> **Status: `ACCEPTED RISK — FREE PLAN LIMITATION`.** The repo is on **GitHub
+> Free** and **must remain private**. Classic branch protection, repository
+> rulesets, and tag protection are **unavailable on this plan for private repos**
+> (verified: HTTP 403 "Upgrade … or make this repository public"). The settings
+> below are therefore the **target** once protection becomes available; today
+> they are compensated by local hooks + policy, which are **not equivalent to
+> enforced GitHub branch protection**. See
+> [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md),
+> [manual-pr-policy.md](manual-pr-policy.md), and
+> [ci-failure-policy.md](ci-failure-policy.md).
+
 Exact GitHub settings for `zenchron-dynamics/zenchron-foundry`. This file is the
-source of truth; apply via the GitHub UI or `gh`/Terraform.
+source of truth; apply via the GitHub UI or `gh`/Terraform **when the plan allows
+it**.
 
 > **These are admin/UI actions.** They cannot be enforced from repository code.
 > A reviewer must confirm them in *Settings → Branches/Rules*. Status below is

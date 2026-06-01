@@ -168,3 +168,57 @@ cosign verify \
 ```
 
 See [sbom-and-signing.md](sbom-and-signing.md) and `scripts/verify-signatures.sh`.
+
+## 14. Free-tier notes (GitHub Free, private repo)
+
+Private GHCR consumption works fine on the **Free plan** — package access is
+independent of branch-protection limits. What changes on Free is cost/limits
+awareness, not capability.
+
+> This is a compensating control, not equivalent to enforced GitHub branch
+> protection — it covers *consumption*, while repo governance stays advisory (see
+> [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md)).
+
+- **Create the deploy identity manually** in the GitHub UI: a machine/deploy user
+  added to the org, then a classic PAT with **`read:packages` only** (no
+  `repo`, no `write:packages`, no `delete:packages`, no `admin:*`). PATs cannot
+  be minted via API, so this is a one-time UI action.
+- **Use the token only on servers** (never in CI — CI uses the ephemeral
+  `GITHUB_TOKEN`; never in an image or committed file).
+- **Watch storage / data-transfer limits.** GHCR has account storage and monthly
+  transfer allowances; private images count against them. Keep images minimal
+  (already done via Wolfi), prune old dated tags you no longer need, and avoid
+  re-pulling unnecessarily.
+- **Avoid repeated unnecessary pulls.** Pin by digest and rely on the local image
+  cache; use `pull_policy: missing` (or omit `always`) for stable digests so
+  hosts don't re-download every deploy. Pull `always` only when tracking a moving
+  `*-prod` tag in lower environments.
+- **Pin digests in production** (`@sha256:`) — immutable, tamper-evident, and it
+  also makes caching deterministic so you transfer bytes once.
+
+### Exact commands (free-tier consumption)
+
+```bash
+docker logout ghcr.io || true
+
+echo "$GHCR_READ_TOKEN" | docker login ghcr.io \
+  -u "$GHCR_READ_USER" \
+  --password-stdin
+
+docker pull ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
+docker pull ghcr.io/zenchron-dynamics/nginx:prod
+```
+
+### Negative push test (read-only token must be denied)
+
+```bash
+docker tag ghcr.io/zenchron-dynamics/php-fpm:8.3-prod \
+           ghcr.io/zenchron-dynamics/php-fpm:test-denied
+docker push ghcr.io/zenchron-dynamics/php-fpm:test-denied
+# EXPECTED:
+#   denied: permission_denied
+```
+
+Run the negative test **only** with the read-only token you are validating, where
+failure is the expected outcome — never with a write-capable token against the
+real namespace.
