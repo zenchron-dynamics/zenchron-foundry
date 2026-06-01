@@ -40,7 +40,10 @@ else
 fi
 
 echo "==> Done. Active hooks:"
-ls -1 "$HOOK_DST" | grep -vE '\.sample$' | sed 's/^/    /'
+for h in "$HOOK_DST"/*; do
+    case "$h" in *.sample) continue ;; esac
+    [ -f "$h" ] && printf '    %s\n' "$(basename "$h")"
+done
 echo
 echo "Reminder: local hooks are advisory and bypassable"
 echo "(ZENCHRON_ALLOW_PROTECTED_PUSH=1). They prevent accidents, not attackers."
