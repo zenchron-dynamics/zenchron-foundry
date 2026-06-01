@@ -17,6 +17,8 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   trailing-whitespace / end-of-file / large-file checks.
 - GitHub Actions: ci, build-images, scan-images, publish-ghcr, release.
 - Cosign signing, Syft SBOM, Trivy + Grype scanning policies.
+- Free-tier governance compensating controls: local pre-push hook, release
+  safety script, manual PR + CI-failure policies, and accepted-risk record.
 
 ### Security
 
