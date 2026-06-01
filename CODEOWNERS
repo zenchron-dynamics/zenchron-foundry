@@ -1,41 +1,33 @@
 # CODEOWNERS — review routing for zenchron-dynamics/zenchron-foundry
 #
-# REALITY CHECK (2026-06): the org teams `platform` and `security` DO NOT EXIST
-# yet (`gh api orgs/zenchron-dynamics/teams` -> []). A CODEOWNERS entry that names
-# a nonexistent team is silently ignored by GitHub — that would be FAKE ownership.
-# So this file uses the repo admin handle @bogdaniel as a working fallback owner
-# for every path, so code-owner review is actually requested.
-#
-# MIGRATION: once the teams exist (see docs/github-org-setup.md), replace the
-# fallback per the intended mapping below:
-#   images / Dockerfiles   -> @zenchron-dynamics/platform @zenchron-dynamics/security
-#   .github/workflows      -> @zenchron-dynamics/platform @zenchron-dynamics/security
-#   policies / profiles    -> @zenchron-dynamics/security  (+platform for profiles)
-#   docs                   -> @zenchron-dynamics/platform
-#   examples               -> @zenchron-dynamics/platform
+# Teams created 2026-06-01 and granted `push` access, so these entries resolve:
+#   @zenchron-dynamics/platform  — images, CI/CD, runtime profiles, docs, examples
+#   @zenchron-dynamics/security  — policies, signing, threat model, vuln mgmt, governance
+# (Verify: `gh api repos/zenchron-dynamics/zenchron-foundry/teams`)
+# Note: both teams currently have a single member (@bogdaniel); add members via
+# docs/github-org-setup.md as the org grows, then raise required approvals.
 
 # Default owner for everything
-*                                   @bogdaniel
+*                                   @zenchron-dynamics/platform
 
-# Images / Dockerfiles  (intended: platform + security)
-/images/                            @bogdaniel
-/images/php-fpm/7.4/                @bogdaniel
-/images/php-fpm/8.0/                @bogdaniel
-/images/php-worker/                 @bogdaniel
+# Images / Dockerfiles  — platform + security
+/images/                            @zenchron-dynamics/platform @zenchron-dynamics/security
 
-# CI/CD  (intended: platform + security)
-/.github/workflows/                 @bogdaniel
-/.github/dependabot.yml             @bogdaniel
+# CI/CD  — platform + security
+/.github/workflows/                 @zenchron-dynamics/platform @zenchron-dynamics/security
+/.github/dependabot.yml             @zenchron-dynamics/platform @zenchron-dynamics/security
 
-# Security policies & sensitive docs  (intended: security)
-/policies/                          @bogdaniel
-/profiles/                          @bogdaniel
-SECURITY.md                         @bogdaniel
-/docs/threat-model.md               @bogdaniel
-/docs/vulnerability-management.md   @bogdaniel
-/docs/release-governance.md         @bogdaniel
-/docs/repository-security.md        @bogdaniel
+# Security policies & runtime profiles
+/policies/                          @zenchron-dynamics/security
+/profiles/                          @zenchron-dynamics/platform @zenchron-dynamics/security
 
-# Docs & examples  (intended: platform)
-/docs/                              @bogdaniel
-/examples/                          @bogdaniel
+# Security-sensitive docs
+SECURITY.md                         @zenchron-dynamics/security
+/docs/threat-model.md               @zenchron-dynamics/security
+/docs/vulnerability-management.md   @zenchron-dynamics/security
+/docs/release-governance.md         @zenchron-dynamics/security
+/docs/repository-security.md        @zenchron-dynamics/security
+
+# Docs & examples  — platform
+/docs/                              @zenchron-dynamics/platform
+/examples/                          @zenchron-dynamics/platform
