@@ -59,11 +59,18 @@ Non-root cannot bind ports < 1024. Therefore:
 - Memory: container `mem_limit` should sit **above** the worker `--memory`
   self-restart threshold so the app recycles before the OOM killer fires.
 
-## Healthchecks without curl/wget
+## Healthchecks
 
-- FPM: `cgi-fcgi` queries `ping.path` (`/-/fpm-ping` → `pong`).
-- nginx: `nginx -t -q`.
-- caddy / frankenphp: `caddy version` / `frankenphp version`.
+- **FPM**: the bundled `php` binary probes the FPM TCP listener
+  (`fsockopen 127.0.0.1:9000`) — a successful connect means FPM accepts work.
+  No curl/wget/cgi-fcgi needed.
+- **worker**: heartbeat freshness — `worker-healthcheck` checks the epoch in
+  `/tmp/worker-heartbeat` (see [worker-runtime.md](worker-runtime.md)).
+- **caddy / frankenphp**: **real HTTP readiness** — an always-on `:8081/healthz`
+  site answers `200`, probed with the alpine base's `wget`. This proves the
+  server is actually serving HTTP, not merely that the binary exists.
+- **nginx**: `nginx -t -q` (config validity); the hardened base serves no site
+  until an app config is mounted, so readiness is at the orchestrator/LB layer.
 - Distroless-pure services: rely on orchestrator TCP/HTTP probes.
 
 ## Secrets

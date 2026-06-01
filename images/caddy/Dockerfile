@@ -35,10 +35,12 @@ ENV XDG_DATA_HOME=/data XDG_CONFIG_HOME=/config
 
 USER 10001:10001
 WORKDIR /app
-EXPOSE 8080 8443
+EXPOSE 8080 8443 8081
 
+# Readiness probe: hit the always-on /healthz site (proves Caddy is serving HTTP,
+# not just that the binary exists). wget ships in the alpine base; no curl needed.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["caddy", "version"]
+    CMD ["wget", "-q", "-O", "-", "http://127.0.0.1:8081/healthz"]
 
 ENTRYPOINT ["caddy"]
 CMD ["run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]

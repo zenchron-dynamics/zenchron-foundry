@@ -30,16 +30,42 @@ LABEL_ARGS      := \
 	--label org.opencontainers.image.revision="$(VCS_REF)" \
 	--label org.opencontainers.image.created="$(BUILD_DATE)"
 
-.PHONY: help init hooks lint build build-php-fpm build-php-cli build-php-worker \
+.PHONY: help doctor init hooks lint build build-php-fpm build-php-cli build-php-worker \
         build-frankenphp build-caddy build-nginx scan sbom publish clean check-structure
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
 		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
+doctor: ## Check local tool availability with install hints (informational)
+	@echo "Tool availability for local development (CI provides these regardless):"
+	@printf '%s\n' \
+	  "docker:Docker Engine:https://docs.docker.com/get-docker/" \
+	  "docker-buildx:Buildx (docker buildx):bundled with Docker Desktop / docker-buildx pkg" \
+	  "hadolint:Dockerfile lint:brew install hadolint" \
+	  "shellcheck:Shell lint:brew install shellcheck" \
+	  "yamllint:YAML lint:pipx install yamllint" \
+	  "markdownlint:Markdown lint:npm i -g markdownlint-cli" \
+	  "trivy:Vuln scan:brew install trivy" \
+	  "grype:Vuln scan:brew install grype" \
+	  "syft:SBOM:brew install syft" \
+	  "cosign:Signing:brew install cosign" \
+	  "gitleaks:Secret scan:brew install gitleaks" \
+	  "semgrep:SAST:pipx install semgrep" \
+	  "pre-commit:Hook framework:pipx install pre-commit" \
+	  "gh:GitHub CLI (release/CI checks):brew install gh" \
+	| while IFS=: read -r bin desc hint; do \
+	    if [ "$$bin" = "docker-buildx" ]; then \
+	      if docker buildx version >/dev/null 2>&1; then ok=1; else ok=0; fi; \
+	    elif command -v "$$bin" >/dev/null 2>&1; then ok=1; else ok=0; fi; \
+	    if [ "$$ok" = 1 ]; then printf "  \033[32m✓\033[0m %-14s %s\n" "$$bin" "$$desc"; \
+	    else printf "  \033[31m✗\033[0m %-14s %-28s install: %s\n" "$$bin" "$$desc" "$$hint"; fi; \
+	  done
+	@echo "(✗ tools only affect LOCAL workflows; CI installs its own.)"
+
 init: ## Bootstrap local dev environment (tool check + hooks)
 	@bash scripts/install-hooks.sh
-	@echo "Verify tools: docker buildx, hadolint, trivy, grype, syft, cosign, gitleaks, shellcheck"
+	@$(MAKE) --no-print-directory doctor
 
 hooks: ## Install/refresh git pre-commit hooks
 	@bash scripts/install-hooks.sh
@@ -67,11 +93,13 @@ build-php-cli: ## Build php-cli:$(PHP)-$(TAG_SUFFIX)
 		-t $(CLI_IMAGE):$(PHP)-$(TAG_SUFFIX) --load images/php-cli/$(PHP)
 
 build-php-worker: ## Build php-worker:$(PHP)-$(TAG_SUFFIX)
+	@test -d images/php-worker/$(PHP) || { echo "ERROR: php-worker has no version '$(PHP)' (valid: 7.4 8.0 8.3 8.4)"; exit 1; }
 	$(BUILDX) --platform $(PLATFORMS) $(LABEL_ARGS) \
 		--label org.opencontainers.image.version="$(PHP)-$(TAG_SUFFIX)" \
 		-t $(WORKER_IMAGE):$(PHP)-$(TAG_SUFFIX) --load images/php-worker/$(PHP)
 
 build-frankenphp: ## Build php-frankenphp:$(PHP)-$(TAG_SUFFIX) (8.3/8.4 only)
+	@test -d images/php-frankenphp/$(PHP) || { echo "ERROR: php-frankenphp supports only 8.3/8.4 (got PHP=$(PHP)). FrankenPHP requires PHP >= 8.2."; exit 1; }
 	$(BUILDX) --platform $(PLATFORMS) $(LABEL_ARGS) \
 		--label org.opencontainers.image.version="$(PHP)-$(TAG_SUFFIX)" \
 		-t $(FRANKEN_IMAGE):$(PHP)-$(TAG_SUFFIX) --load images/php-frankenphp/$(PHP)

@@ -28,6 +28,11 @@ LABEL org.opencontainers.image.title="zenchron-php-frankenphp" \
       com.zenchron.php="8.4" \
       com.zenchron.support="supported"
 
+# Patch ALL OS packages to clear CVEs the upstream base has not yet republished.
+# Keeps the image current between base digest bumps (Dependabot still bumps the base).
+# hadolint ignore=DL3018
+RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
+
 # Install common production PHP extensions via the helper shipped in the image,
 # then strip build tooling. Adjust the extension set per docs/php-extension-policy.md.
 # hadolint ignore=DL3018
@@ -61,10 +66,12 @@ ENV SERVER_NAME=":8080" \
 
 USER 10001:10001
 WORKDIR /app
-EXPOSE 8080 8443
+EXPOSE 8080 8443 8081
 
+# Readiness probe: hit the always-on /healthz site (proves the embedded server is
+# serving HTTP, not just that the binary runs). wget ships in the alpine base.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
-    CMD ["frankenphp", "version"]
+    CMD ["wget", "-q", "-O", "-", "http://127.0.0.1:8081/healthz"]
 
 ENTRYPOINT ["frankenphp"]
 CMD ["run", "--config", "/etc/frankenphp/Caddyfile"]

@@ -2,12 +2,12 @@
 
 | Image | Purpose | Entrypoint | Ports | Init | Healthcheck |
 |-------|---------|-----------|-------|------|-------------|
-| `php-fpm` | Web backend behind nginx/Caddy | `php-fpm --nodaemonize` | 9000 | FPM master (PID 1) | `cgi-fcgi` → FPM ping |
+| `php-fpm` | Web backend behind nginx/Caddy | `php-fpm --nodaemonize` | 9000 | FPM master (PID 1) | `php` TCP probe → :9000 |
 | `php-cli` | Console/migrations/one-off jobs | `php` | — | — | n/a (short-lived) |
-| `php-worker` | Queue / Messenger long-running | `tini -- <worker cmd>` | — | tini (PID 1) | orchestrator liveness |
-| `php-frankenphp` | App server (embedded Caddy) | `frankenphp run` | 8080/8443 | frankenphp | `frankenphp version` |
-| `caddy` | Reverse proxy / static | `caddy run` | 8080/8443 | caddy | `caddy version` |
-| `nginx` | Reverse proxy / static / FPM front | `nginx -g daemon off` | 8080 | nginx master | `nginx -t` |
+| `php-worker` | Queue / Messenger long-running | `tini -- worker-entrypoint <cmd>` | — | tini (PID 1) | heartbeat freshness (`/tmp/worker-heartbeat`) |
+| `php-frankenphp` | App server (embedded Caddy) | `frankenphp run` | 8080/8443/8081 | frankenphp | HTTP `:8081/healthz` (readiness) |
+| `caddy` | Reverse proxy / static | `caddy run` | 8080/8443/8081 | caddy | HTTP `:8081/healthz` (readiness) |
+| `nginx` | Reverse proxy / static / FPM front | `nginx -g daemon off` | 8080 | nginx master | `nginx -t` (config) |
 
 ## Versions
 

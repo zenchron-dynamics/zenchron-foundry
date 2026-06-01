@@ -26,6 +26,10 @@ LABEL org.opencontainers.image.title="zenchron-nginx" \
 
 # Already runs as uid 101 (nginx) in the upstream unprivileged image.
 USER root
+# Patch ALL OS packages to clear CVEs the upstream base has not yet republished.
+# Keeps the image current between base digest bumps (Dependabot still bumps the base).
+# hadolint ignore=DL3018
+RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
 # Remove the default site / welcome page, install our hardened config.
 RUN rm -f /etc/nginx/conf.d/default.conf /usr/share/nginx/html/index.html 2>/dev/null || true
 COPY nginx.conf       /etc/nginx/nginx.conf

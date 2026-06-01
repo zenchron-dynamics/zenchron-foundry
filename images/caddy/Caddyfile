@@ -32,4 +32,12 @@
 	respond @hidden 404
 }
 
+# Always-on readiness endpoint on a dedicated internal port. Proves Caddy is
+# actually accepting and answering HTTP (readiness), independent of any app site
+# mounted under conf.d/. The container HEALTHCHECK probes http://127.0.0.1:8081/healthz.
+:8081 {
+	respond /healthz "ok" 200
+	respond * 404
+}
+
 import /etc/caddy/conf.d/*.caddy
