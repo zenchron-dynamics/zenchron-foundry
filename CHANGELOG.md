@@ -36,6 +36,19 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   pulls all six images; push is denied (`permission_denied`).
 - OPcache JIT disabled by default; worker heartbeat liveness implemented.
 
+### Fixed (post-v2026.06.02 verification)
+
+- Hardened-runtime defects found while verifying v2026.06.02 under the documented
+  `cap_drop: ALL` + read-only profile (all fixed; **v2026.06.02 images are
+  superseded — do not deploy them, use the next tag**):
+  - **php-fpm** exited (code 78, "Unable to create the PID file") under a
+    read-only rootfs. Removed the pid directive (FPM is foreground PID 1); now
+    needs only tmpfs `/tmp`.
+  - **caddy / frankenphp** failed to exec under `cap_drop: ALL` ("operation not
+    permitted") because their binaries carry a `cap_net_bind_service` file cap.
+    Stripped it at build (`setcap -r`); they now run with zero capabilities on
+    high ports (bind :80/:443 only via an upstream LB).
+
 ### Security
 
 - Repaired `scan-images` (the `trivy-action`/`setup-trivy` tags were yanked):

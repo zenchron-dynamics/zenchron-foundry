@@ -26,7 +26,14 @@ COPY Caddyfile   /etc/caddy/Caddyfile
 COPY conf.d/     /etc/caddy/conf.d/
 
 # Deterministic non-root identity + writable state dirs.
-RUN addgroup -g 10001 app 2>/dev/null || true \
+# Strip the cap_net_bind_service file capability from the caddy binary: with it,
+# the binary cannot be exec'd under `cap_drop: ALL` + no-new-privileges
+# ("operation not permitted"). We listen on high ports (8080/8443/8081) and
+# terminate TLS upstream, so the capability is unnecessary; removing it lets the
+# image run with ZERO Linux capabilities. (To bind :80/:443 directly, front it
+# with an LB or use the upstream caddy image instead.)
+RUN setcap -r /usr/bin/caddy 2>/dev/null || true \
+    && addgroup -g 10001 app 2>/dev/null || true \
     && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app 2>/dev/null || true \
     && mkdir -p /app /data/caddy /config/caddy \
     && chown -R 10001:10001 /app /data /config /etc/caddy
