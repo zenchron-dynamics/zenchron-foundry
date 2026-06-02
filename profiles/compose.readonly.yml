@@ -11,8 +11,9 @@ services:
   php-fpm:
     read_only: true
     tmpfs:
+      # FPM runs in the foreground as PID 1 with no pid file, so /tmp is the only
+      # writable path it needs (sessions, scratch).
       - /tmp:size=64m,noexec,nosuid,nodev
-      - /var/run/php:size=4m,noexec,nosuid,nodev
     volumes:
       # Externalize framework-writable state (named volume or bind).
       - app-storage:/app/storage          # Laravel

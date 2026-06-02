@@ -18,15 +18,19 @@ pids_limit: 256
 # privileged: NEVER. docker.sock: NEVER mounted.
 ```
 
-Add back **only** what a service provably needs, e.g. `NET_BIND_SERVICE` for
-nginx/Caddy binding :80/:443 (preferred: terminate TLS at an LB and keep high
-ports 8080/8443, dropping the capability entirely).
+The runtime images need **zero** Linux capabilities: PHP-FPM/CLI/worker, nginx
+(unprivileged), and Caddy/FrankenPHP all run with `cap_drop: ALL`. The Caddy and
+FrankenPHP binaries ship a `cap_net_bind_service` file capability that the
+platform images **strip at build** — otherwise the binary fails to exec under
+`cap_drop: ALL` + `no-new-privileges` (`operation not permitted`). Consequence:
+these images cannot bind :80/:443 directly; terminate TLS at an upstream
+LB/ingress and forward to the high ports (8080/8443) — the documented topology.
 
 ## Writable-path exceptions (read-only rootfs)
 
 | Workload | Must be writable | Provided via |
 |----------|------------------|--------------|
-| PHP-FPM | `/tmp`, `/var/run/php` (pid/socket) | tmpfs |
+| PHP-FPM | `/tmp` only (foreground PID 1, no pid file) | tmpfs |
 | Laravel | `storage/`, `bootstrap/cache/` | named volume |
 | Symfony | `var/cache/`, `var/log/`, `var/sessions/` | named volume (`/app/var`) |
 | Uploads | app upload dir | volume (or object storage — preferred) |
@@ -41,9 +45,10 @@ ports 8080/8443, dropping the capability entirely).
 
 Non-root cannot bind ports < 1024. Therefore:
 
-- nginx listens on **8080**, Caddy/FrankenPHP on **8080/8443**.
-- Bind :80/:443 only by adding `NET_BIND_SERVICE`, or (preferred) let an
-  upstream LB/ingress terminate TLS and forward to high ports.
+- nginx listens on **8080**, Caddy/FrankenPHP on **8080/8443** (+8081 healthz).
+- Binding :80/:443 directly is **not supported** by the hardened images (Caddy/
+  FrankenPHP have their `cap_net_bind_service` file cap stripped so they run with
+  zero caps). Terminate TLS at an upstream LB/ingress and forward to high ports.
 
 ## Workers: signals & graceful shutdown
 

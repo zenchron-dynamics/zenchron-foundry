@@ -58,8 +58,8 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/* \
     && addgroup -g 10001 app \
     && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app \
-    && mkdir -p /app /var/run/php \
-    && chown -R 10001:10001 /app /var/run/php
+    && mkdir -p /app \
+    && chown -R 10001:10001 /app
 
 # Production configuration (no app code, no secrets). Wolfi paths: /etc/php/*.
 COPY php.ini        /etc/php/conf.d/zz-zenchron.ini

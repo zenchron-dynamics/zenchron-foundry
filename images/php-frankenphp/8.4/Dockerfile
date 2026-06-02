@@ -54,7 +54,10 @@ COPY php.ini          /usr/local/etc/php/conf.d/zz-zenchron.ini
 
 # Deterministic non-root identity + writable runtime dirs (read-only rootfs:
 # mount tmpfs for /data and /config, or use named volumes).
-RUN addgroup -g 10001 app 2>/dev/null || true \
+# Strip cap_net_bind_service from the frankenphp binary so it execs under
+# cap_drop: ALL + no-new-privileges (we use high ports + upstream TLS).
+RUN setcap -r /usr/local/bin/frankenphp 2>/dev/null || true \
+    && addgroup -g 10001 app 2>/dev/null || true \
     && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app 2>/dev/null || true \
     && mkdir -p /app /data/caddy /config/caddy \
     && chown -R 10001:10001 /app /data /config
