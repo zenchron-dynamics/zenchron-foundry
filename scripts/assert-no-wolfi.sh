@@ -23,9 +23,9 @@ rc=0
 while IFS= read -r f; do
     [ -f "$f" ] || continue
     case "$f" in scripts/assert-no-wolfi.sh) continue ;; esac
-    # Exclude references to this guard's own filename (it contains "wolfi"),
-    # which legitimately appears in CI/Makefile wiring.
-    hits="$(grep -InE "$PATTERN" "$f" 2>/dev/null | grep -vF 'assert-no-wolfi' || true)"
+    # Exclude references to our own internal filenames that legitimately contain
+    # "wolfi" (this guard, and the migration doc referenced from READMEs/CI).
+    hits="$(grep -InE "$PATTERN" "$f" 2>/dev/null | grep -vE 'assert-no-wolfi|wolfi-to-debian' || true)"
     if [ -n "$hits" ]; then
         echo "FORBIDDEN Wolfi/Chainguard/apk reference in active file: $f"
         printf '%s\n' "$hits" | sed 's/^/    /'
