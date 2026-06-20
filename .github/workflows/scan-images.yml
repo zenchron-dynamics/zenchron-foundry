@@ -37,7 +37,13 @@ jobs:
           - { fam: php-cli,    ver: "8.4", ctx: "images/php-cli/8.4",    gate: true }
           - { fam: php-worker, ver: "8.4", ctx: "images/php-worker/8.4", gate: true }
           - { fam: php-frankenphp, ver: "8.4", ctx: "images/php-frankenphp/8.4", gate: true }
-          - { fam: nginx,      ver: "prod", ctx: "images/nginx",         gate: false }
+          - { fam: nginx,      ver: "prod", ctx: "images/nginx",         gate: true }
+          # caddy: report-only. It is the one Alpine image (no upstream Debian
+          # Caddy exists); its fixable findings are Alpine openssl + the Go stdlib
+          # the Caddy BINARY was built with — neither is patchable in our layer
+          # (`apk upgrade` is forbidden by assert-no-wolfi; the Go stdlib needs an
+          # upstream rebuild). Dependabot watches the caddy digest; exceptions are
+          # recorded in policies/.trivyignore with review dates.
           - { fam: caddy,      ver: "prod", ctx: "images/caddy",         gate: false }
     steps:
       - uses: actions/checkout@v4

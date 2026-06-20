@@ -11,3 +11,28 @@
 # exercised. Awaiting an upstream Caddy rebuild with go-jose >= 3.0.5.
 # owner: platform/security · review-by 2026-07-02
 CVE-2026-34986
+
+# -----------------------------------------------------------------------------
+# UNFIXED Debian distro CRITICALs (no fix available upstream). The enforcing gate
+# runs --ignore-unfixed so these do not gate, but they are recorded here as
+# EXPLICIT, reviewed exceptions per the vulnerability-management policy. Each is
+# an essential package that cannot be removed; reachability is minimal. Re-review
+# every weekly scan and drop the entry the moment Debian ships a fix.
+# Affects: php-cli/fpm/worker/frankenphp (+ nginx perl-base, unfixed variants).
+# owner: platform/security · review-by 2026-07-20
+
+# zlib1g — CVE-2023-45853 (MiniZip integer overflow). Debian: will_not_fix
+#   (Debian does not build/ship the affected MiniZip). zlib is essential.
+CVE-2023-45853
+# perl-base — CVE-2026-42496 (fix_deferred) + CVE-2026-8376 (affected). perl-base
+#   is Priority: required (dpkg depends on it); not invoked by PHP/nginx runtime.
+CVE-2026-42496
+CVE-2026-8376
+# libsqlite3-0 — CVE-2025-7458 (affected, no fix). sqlite3/pdo_sqlite are bundled
+#   in the official PHP image; apps use Postgres/Redis, not sqlite, in production.
+CVE-2025-7458
+# frankenphp base extras (no fix available):
+#   libaom3 — CVE-2023-6879 (AV1 decoder); not used by the PHP app server path.
+CVE-2023-6879
+#   linux-libc-dev — CVE-2026-43185 (kernel headers; not executable code at runtime).
+CVE-2026-43185

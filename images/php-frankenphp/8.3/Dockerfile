@@ -54,13 +54,21 @@ RUN set -eux; \
 # tmpfs satisfies a read-only rootfs. Strip cap_net_bind_service from the
 # frankenphp binary so it execs under cap_drop: ALL + no-new-privileges (we use
 # high ports + upstream TLS). libcap2-bin provides setcap on Debian.
+# Also strip the compiler toolchain the FrankenPHP/php base inherits from
+# buildpack-deps (gcc + /usr/lib/gcc, ~100MB) + the PHP source tarball + static
+# archives: install-php-extensions already compiled everything, so no build tools
+# are needed at runtime (validation gate: "no build tools in final image").
 COPY healthcheck /usr/local/bin/frankenphp-healthcheck
 # hadolint ignore=DL3008
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends libcap2-bin; \
     setcap -r /usr/local/bin/frankenphp 2>/dev/null || true; \
-    apt-get purge -y --auto-remove libcap2-bin; \
+    apt-get purge -y --auto-remove \
+        libcap2-bin gcc g++ cpp make autoconf binutils dpkg-dev libc6-dev m4 patch re2c; \
+    rm -f /usr/local/bin/phpize /usr/local/bin/docker-php-source; \
+    rm -rf /usr/src/*; \
+    find / -xdev -name '*.a' -delete 2>/dev/null || true; \
     rm -rf /var/lib/apt/lists/*; \
     groupadd -g 10001 app 2>/dev/null || true; \
     useradd  -u 10001 -g app -d /app -s /usr/sbin/nologin -M app 2>/dev/null || true; \

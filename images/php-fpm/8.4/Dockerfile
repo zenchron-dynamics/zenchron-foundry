@@ -78,6 +78,7 @@ RUN set -eux; \
     apt-get purge -y --auto-remove \
         gcc g++ cpp make autoconf binutils dpkg-dev libc6-dev m4 patch re2c; \
     rm -f /usr/local/bin/phpize /usr/local/bin/docker-php-source; \
+    rm -rf /usr/src/*; \
     rm -rf /var/lib/apt/lists/*; \
     groupadd -g 10001 app; \
     useradd  -u 10001 -g app -d /app -s /usr/sbin/nologin -M app; \
