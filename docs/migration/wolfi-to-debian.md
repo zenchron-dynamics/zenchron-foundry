@@ -10,8 +10,9 @@ Alpine to a Debian-first platform. Decision: `docs/adr/ADR-0001-remove-wolfi-cha
   changes** at the Compose/runtime layer.
 - Internal PHP config paths moved from Wolfi's `/etc/php/*` to the official
   `/usr/local/etc/php/*`. Only matters if you mounted/overrode files there.
-- FrankenPHP writable state moved from `/data` + `/config` to **`/tmp/caddy-data`
-  + `/tmp/caddy-config`**, so a single `tmpfs /tmp` now covers a read-only rootfs.
+- FrankenPHP writable state moved from `/data` and `/config` to
+  **`/tmp/caddy-data`** and **`/tmp/caddy-config`**, so a single `tmpfs /tmp`
+  now covers a read-only rootfs.
 - Pin the new **`8.x-debian`** provider-explicit tag if you want to track the
   Debian variant precisely; `8.x-prod` becomes Debian-backed at the stable
   release (Phase G).
