@@ -3,8 +3,15 @@
 # Zenchron Dynamics — caddy (production reverse proxy / static server)
 # Non-root, listens on :8080 / :8443. Bind :80/:443 only via NET_BIND_SERVICE
 # or upstream LB. Read-only-rootfs compatible (writable /data, /config tmpfs).
+#
+# BASE EXCEPTION (Debian-first migration): the official Caddy image publishes
+# ONLY Alpine and Windows variants — there is no upstream Debian Caddy image, and
+# rebuilding Caddy on Debian (xcaddy) would be an UNOFFICIAL rebuild (forbidden
+# without an ADR). Per docs/base-image-strategy.md this image stays on the
+# OFFICIAL Alpine base: it is a durable official upstream, digest-pinned, runs no
+# `apk` commands, and clears every security gate. See ADR-0001.
 # =============================================================================
-ARG CADDY_BASE="caddy:2-alpine@sha256:86deaf5e3d3408a6ccec08fbb79989783dd26e206ae10bcf78a801dc8c9ab794"
+ARG CADDY_BASE="caddy:2-alpine@sha256:77c07d5ebfa5be9fd6c820d2094ae662c9e7eeb9bf98346b7f639900263ee2a2"
 
 FROM ${CADDY_BASE} AS runtime
 

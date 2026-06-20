@@ -35,6 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash scripts/check-structure.sh
+      - run: bash scripts/assert-no-wolfi.sh
 
   publish:
     needs: preflight
@@ -45,8 +46,6 @@ jobs:
         include:
           - { fam: php-fpm,        ver: "8.3", ctx: "images/php-fpm/8.3" }
           - { fam: php-fpm,        ver: "8.4", ctx: "images/php-fpm/8.4" }
-          - { fam: php-fpm,        ver: "7.4", ctx: "images/php-fpm/7.4" }
-          - { fam: php-fpm,        ver: "8.0", ctx: "images/php-fpm/8.0" }
           - { fam: php-cli,        ver: "8.3", ctx: "images/php-cli/8.3" }
           - { fam: php-cli,        ver: "8.4", ctx: "images/php-cli/8.4" }
           - { fam: php-worker,     ver: "8.3", ctx: "images/php-worker/8.3" }
@@ -76,8 +75,12 @@ jobs:
           base="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}"
           if [ "${{ matrix.ver }}" = "prod" ]; then suffix="prod"; else suffix="${{ matrix.ver }}-prod"; fi
           rel="${GITHUB_REF_NAME}"   # e.g. v2026.05.30
+          tags="${base}:${suffix},${base}:${suffix}-${rel#v},${base}:${suffix}-build.${{ github.run_number }}"
+          # Provider-explicit Debian alias for the PHP families (ADR-0001 §17),
+          # e.g. php-cli:8.4-debian — lets consumers pin the Debian variant.
+          case "${{ matrix.fam }}" in php-*) tags="${tags},${base}:${{ matrix.ver }}-debian" ;; esac
           {
-            echo "tags=${base}:${suffix},${base}:${suffix}-${rel#v},${base}:${suffix}-build.${{ github.run_number }}"
+            echo "tags=${tags}"
             echo "primary=${base}:${suffix}"
           } >> "$GITHUB_OUTPUT"
 

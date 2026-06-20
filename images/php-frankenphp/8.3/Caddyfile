@@ -13,7 +13,7 @@
 		# worker /app/public/index.php
 	}
 	# Persisted state under writable XDG dirs (tmpfs/volume on read-only rootfs).
-	storage file_system /data/caddy
+	storage file_system /tmp/caddy-data
 }
 
 :8080 {

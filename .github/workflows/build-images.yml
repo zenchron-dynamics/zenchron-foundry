@@ -46,8 +46,6 @@ jobs:
         include:
           - { fam: php-fpm,        ver: "8.3", ctx: "images/php-fpm/8.3" }
           - { fam: php-fpm,        ver: "8.4", ctx: "images/php-fpm/8.4" }
-          - { fam: php-fpm,        ver: "7.4", ctx: "images/php-fpm/7.4" }   # legacy
-          - { fam: php-fpm,        ver: "8.0", ctx: "images/php-fpm/8.0" }   # legacy
           - { fam: php-cli,        ver: "8.3", ctx: "images/php-cli/8.3" }
           - { fam: php-cli,        ver: "8.4", ctx: "images/php-cli/8.4" }
           - { fam: php-worker,     ver: "8.3", ctx: "images/php-worker/8.3" }

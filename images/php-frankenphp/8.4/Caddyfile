@@ -12,8 +12,9 @@
 		# worker mode (optional, high-throughput): one resident app instance.
 		# worker /app/public/index.php
 	}
-	# Persisted state under writable XDG dirs (tmpfs/volume on read-only rootfs).
-	storage file_system /data/caddy
+	# All writable state lives under /tmp so a single `tmpfs /tmp` satisfies a
+	# read-only root filesystem (see Dockerfile XDG_*_HOME).
+	storage file_system /tmp/caddy-data
 }
 
 :8080 {

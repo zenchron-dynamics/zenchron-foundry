@@ -6,13 +6,47 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ## [Unreleased]
 
+### Changed — Debian-first base image platform (BREAKING for base provider)
+
+- **Removed all Wolfi/Chainguard dependencies.** `php-cli`, `php-fpm`,
+  `php-worker` now build on official **`php:8.x-{cli,fpm}-bookworm`** (Debian 12);
+  `php-frankenphp` on **`dunglas/frankenphp:1-php8.x-bookworm`**; `nginx` on
+  **`nginxinc/nginx-unprivileged:1.27-bookworm`**. No more `cgr.dev`, `apk`, or
+  Wolfi package feeds. `caddy` stays on the official Alpine image (no upstream
+  Debian variant; documented exception). See
+  [ADR-0001](docs/adr/ADR-0001-remove-wolfi-chainguard.md).
+- PHP extensions are now **compiled from official source** (multi-stage; the
+  compiler toolchain is stripped from the final image). `redis` is a pinned pecl
+  build. Added `pgsql`, `sockets`, `sqlite3`/`pdo_sqlite` (parity + additions —
+  see [php-extension-matrix.md](docs/php-extension-matrix.md)).
+- FrankenPHP writable state moved to `/tmp/caddy-data` + `/tmp/caddy-config`
+  (single `tmpfs /tmp` covers read-only rootfs); php-based healthcheck (Debian
+  ships no wget).
+- Trivy gate now blocks on **fixable** CRITICAL/HIGH (`--ignore-unfixed`); edge
+  images (nginx/caddy) are scan-and-report. PHP images: **0 fixable CRITICAL/HIGH**.
+- Internal PHP config paths moved `/etc/php/*` → `/usr/local/etc/php/*`.
+
+### Removed
+
+- **PHP 7.4 and 8.0 source Dockerfiles** (cli/fpm/worker). These are now frozen
+  legacy: previously-published Wolfi images remain in GHCR, but they are not
+  rebuilt. See [legacy-php-policy.md](docs/legacy-php-policy.md).
+
 ### Added
+
+- Migration docs: [base-image-strategy](docs/base-image-strategy.md),
+  [base-image-patching](docs/security/base-image-patching.md),
+  [wolfi-to-debian migration guide](docs/migration/wolfi-to-debian.md),
+  [php-extension-matrix](docs/php-extension-matrix.md),
+  [release-process](docs/release-process.md), and [ADR-0001](docs/adr/ADR-0001-remove-wolfi-chainguard.md).
+- `scripts/assert-no-wolfi.sh` CI guard (forbids cgr.dev/chainguard/wolfi/apk in
+  active code); base digest-pin + no-`latest` enforcement in `check-structure.sh`.
+- Provider-explicit `8.x-debian` image tag.
 
 - Initial platform bootstrap: repository structure, security tooling, CI/CD
   workflows, shared Compose profiles, and core documentation.
-- Production Dockerfiles for the PHP 8.3 image family (php-fpm, php-cli,
-  php-worker, php-frankenphp) plus hardened Caddy and nginx images.
-- Structured stubs and legacy Dockerfiles for PHP 7.4, 8.0, and 8.4.
+- Production Dockerfiles for the PHP 8.3 and 8.4 image families (php-fpm,
+  php-cli, php-worker, php-frankenphp) plus hardened Caddy and nginx images.
 - Pre-commit hooks: gitleaks, hadolint, shellcheck, yamllint, markdownlint,
   trailing-whitespace / end-of-file / large-file checks.
 - GitHub Actions: ci, build-images, scan-images, publish-ghcr, release.

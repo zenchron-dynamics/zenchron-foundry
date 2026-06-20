@@ -1,20 +1,21 @@
-# Hadolint config — Dockerfile linting policy.
+# Hadolint config — Dockerfile linting policy (Debian-first; see ADR-0001).
 failure-threshold: warning
 
-# Trusted base-image registries.
+# Trusted base-image registries. Debian-first: official Docker Hub library
+# images (php, nginx, caddy) + GitHub Container Registry for our own images.
 trustedRegistries:
   - docker.io
   - ghcr.io
-  - cgr.dev          # Chainguard
   - registry.k8s.io
 
 # Rules we intentionally relax (with reason):
 ignored:
-  # DL3018: pin apk versions — Wolfi rolls fast and we pin the BASE by digest
-  #         instead; per-package pinning would break reproducibility on Wolfi.
-  - DL3018
-  # DL3007: 'latest' tag — only used on ARG-overridable bases, pinned by digest in CI.
-  - DL3007
+  # DL3008: pin apt package versions — we pin the BASE IMAGE by digest instead,
+  #         so every package comes from one immutable Debian snapshot. Per-apt
+  #         version pinning would fight Debian point releases and Dependabot
+  #         base bumps. CVE remediation is "bump the base digest", not in-image
+  #         package drift (see docs/security/base-image-patching.md).
+  - DL3008
 
 override:
   error:
@@ -23,5 +24,5 @@ override:
     - DL3020   # use COPY instead of ADD
     - DL4006   # set -o pipefail before pipes
   warning:
-    - DL3009   # delete apt cache
-    - DL3015   # --no-install-recommends
+    - DL3009   # delete the apt-get lists (rm -rf /var/lib/apt/lists/*)
+    - DL3015   # apt-get install --no-install-recommends
