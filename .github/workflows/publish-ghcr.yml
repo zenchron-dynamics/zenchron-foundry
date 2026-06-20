@@ -14,6 +14,9 @@ on:
       platforms:
         description: "Target platforms (e.g. linux/amd64 or linux/amd64,linux/arm64)"
         default: "linux/amd64"
+      rc:
+        description: "Release-candidate label (e.g. rc1). When set, publishes ONLY immutable RC tags (<ver>-debian-<rc>) — NEVER the generic *-prod tags."
+        default: ""
 
 permissions:
   contents: read
@@ -70,18 +73,31 @@ jobs:
 
       - name: Tags
         id: meta
+        env:
+          RC: ${{ inputs.rc || '' }}
         run: |
           set -euo pipefail
           base="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}"
           if [ "${{ matrix.ver }}" = "prod" ]; then suffix="prod"; else suffix="${{ matrix.ver }}-prod"; fi
-          rel="${GITHUB_REF_NAME}"   # e.g. v2026.05.30
-          tags="${base}:${suffix},${base}:${suffix}-${rel#v},${base}:${suffix}-build.${{ github.run_number }}"
-          # Provider-explicit Debian alias for the PHP families (ADR-0001 §17),
-          # e.g. php-cli:8.4-debian — lets consumers pin the Debian variant.
-          case "${{ matrix.fam }}" in php-*) tags="${tags},${base}:${{ matrix.ver }}-debian" ;; esac
+          if [ -n "${RC}" ]; then
+            # RC mode: publish ONLY immutable, clearly non-production RC tags.
+            # PHP families -> <ver>-debian-<rc> ; edge images -> prod-<rc>.
+            case "${{ matrix.fam }}" in
+              php-*) primary="${base}:${{ matrix.ver }}-debian-${RC}" ;;
+              *)     primary="${base}:prod-${RC}" ;;
+            esac
+            tags="${primary},${primary}.build.${{ github.run_number }}"
+          else
+            rel="${GITHUB_REF_NAME}"   # e.g. v2026.05.30
+            tags="${base}:${suffix},${base}:${suffix}-${rel#v},${base}:${suffix}-build.${{ github.run_number }}"
+            # Provider-explicit Debian alias for the PHP families (ADR-0001 §17),
+            # e.g. php-cli:8.4-debian — lets consumers pin the Debian variant.
+            case "${{ matrix.fam }}" in php-*) tags="${tags},${base}:${{ matrix.ver }}-debian" ;; esac
+            primary="${base}:${suffix}"
+          fi
           {
             echo "tags=${tags}"
-            echo "primary=${base}:${suffix}"
+            echo "primary=${primary}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Build & push (SBOM + provenance attestations)
