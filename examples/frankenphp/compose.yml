@@ -7,14 +7,15 @@ services:
     environment:
       SERVER_NAME: ":8080"
       APP_ENV: production
-    volumes:
-      - franken-data:/data
-      - franken-config:/config
+    # Debian FrankenPHP keeps all writable state under /tmp
+    # (XDG_DATA_HOME=/tmp/caddy-data, XDG_CONFIG_HOME=/tmp/caddy-config), so a
+    # single tmpfs satisfies a read-only rootfs. If you enable Caddy ACME
+    # (internet-facing + NET_BIND_SERVICE), mount a named volume at
+    # /tmp/caddy-data instead so issued certs persist across restarts.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,nosuid,nodev
     networks: [frontend]
-
-volumes:
-  franken-data:
-  franken-config:
 
 networks:
   frontend:
