@@ -31,7 +31,8 @@ LABEL_ARGS      := \
 	--label org.opencontainers.image.created="$(BUILD_DATE)"
 
 .PHONY: help doctor init hooks lint build build-php-fpm build-php-cli build-php-worker \
-        build-frankenphp build-caddy build-nginx scan sbom publish clean check-structure
+        build-frankenphp build-caddy build-nginx scan sbom publish clean check-structure \
+        validate build-test scan-local smoke-all ci-local
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -78,6 +79,29 @@ lint: ## Run all linters (dockerfiles, shell, yaml, md, secrets)
 check-structure: ## Verify required repository layout exists
 	@bash scripts/check-structure.sh
 	@bash scripts/assert-no-wolfi.sh
+
+# --- Local CI-equivalent harness (mirrors .github/workflows/ci.yml + scan-images.yml).
+#     Use during a GitHub Actions freeze; GitHub CI remains MANDATORY before merge.
+validate: ## CI-equivalent static checks: structure, supply-chain guard, lint, compose (graceful)
+	@bash scripts/validate-local.sh
+
+build-test: ## Build representative images locally (PHP 8.3 + 8.4 + nginx + caddy)
+	@$(MAKE) --no-print-directory build PHP=8.3
+	@$(MAKE) --no-print-directory build PHP=8.4
+	@echo "==> build-test OK (php 8.3/8.4 fpm/cli/worker/frankenphp + nginx + caddy)"
+
+scan-local: ## Trivy gate + Grype/Syft (advisory) on local images; reports missing tools
+	@bash scripts/scan-local.sh $(PHP)
+
+smoke-all: ## Runtime smoke (non-root, read-only, heartbeat, SIGTERM, FastCGI, HTTP/readiness)
+	@bash scripts/smoke-local.sh $(PHP)
+
+ci-local: ## Full local CI-equivalent: validate -> build-test -> scan-local -> smoke-all
+	@$(MAKE) --no-print-directory validate
+	@$(MAKE) --no-print-directory build-test
+	@$(MAKE) --no-print-directory scan-local PHP=8.4
+	@$(MAKE) --no-print-directory smoke-all  PHP=8.4
+	@echo "==> ci-local complete. NOTE: GitHub CI is still REQUIRED before any merge."
 
 build: build-php-fpm build-php-cli build-php-worker build-frankenphp build-caddy build-nginx ## Build everything (current PHP=)
 
