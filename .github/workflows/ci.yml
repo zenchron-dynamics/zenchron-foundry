@@ -18,7 +18,7 @@ jobs:
     name: repo structure
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check required layout
         run: bash scripts/check-structure.sh
 
@@ -29,7 +29,7 @@ jobs:
     name: lint (shell / yaml / md / dockerfile)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@master
@@ -66,7 +66,7 @@ jobs:
     name: secret scan (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       # Use the open-source gitleaks CLI image directly. The gitleaks-action
       # wrapper requires a paid GITLEAKS_LICENSE for organization repositories;
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     container: semgrep/semgrep
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Semgrep rules
         run: semgrep --error --config policies/semgrep/docker-security.yml .
 
@@ -100,7 +100,7 @@ jobs:
           - { fam: nginx,    ver: "" }
           - { fam: caddy,    ver: "" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - name: Build (no push, amd64)
         uses: docker/build-push-action@v6
@@ -117,7 +117,7 @@ jobs:
     name: validate compose profiles
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Validate self-contained example stacks
         run: |
           set -euo pipefail
