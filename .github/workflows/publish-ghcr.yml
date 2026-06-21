@@ -102,7 +102,7 @@ jobs:
 
       - name: Build & push (SBOM + provenance attestations)
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.ctx }}
           platforms: ${{ env.PLATFORMS }}

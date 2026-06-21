@@ -103,7 +103,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - name: Build (no push, amd64)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: images/${{ matrix.target.fam }}${{ matrix.target.ver && format('/{0}', matrix.target.ver) || '' }}
           platforms: linux/amd64
