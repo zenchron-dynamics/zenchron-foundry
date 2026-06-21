@@ -6,6 +6,51 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ## [Unreleased]
 
+## [2026.06.21] — Debian-first STABLE promotion
+
+This release **flips the generic production tags to the Debian line.**
+`php-{cli,fpm,worker,frankenphp}:{8.3,8.4}-prod`, `nginx:prod`, and `caddy:prod`
+now resolve to the Debian-backed images (provider-explicit `8.x-debian` tags also
+published). Built multi-arch (linux/amd64 + linux/arm64), Cosign-signed, with
+SPDX SBOM + provenance attestations. Promotes the validated RC1 source state
+(commit `4425011`, image contents unchanged from `8.x-debian-rc1`).
+
+Consumer validation: full Laravel + Symfony matrix (php-fpm+nginx, php-fpm+Caddy,
+FrankenPHP, worker, CLI, scheduler) passed via `php-app-template` (master
+`75a3d2b`) against the RC images — Postgres + Redis, migrations, queued job,
+heartbeat, clean SIGTERM, non-root (10001), read-only rootfs.
+
+### Rollback (previous Wolfi `*-prod` digests — retained, never deleted)
+
+Emergency rollback = re-pin consumers to these digests (no tag mutation needed):
+
+```text
+php-cli:8.4-prod        sha256:bdc99337029787dc9ab63bdbad3e386f1ea1c5e6c74f9d3e1cf210e380a0e359
+php-fpm:8.4-prod        sha256:4699b1bed89d115cd4ec1512513da2778bb149ad9d4eb19794e5b0a0e28fb3fb
+php-worker:8.4-prod     sha256:bfd83613de911aeb43eb17c953ba531ec938a833b69cd239deb9979bc4d89b61
+php-frankenphp:8.4-prod sha256:926d9b1db3ff4e15d2fb7b85c4112a16bbb8f4deb138be8ef8c4c8cef25e8011
+php-cli:8.3-prod        sha256:433a73539d88e6e2f9028ae8d04429f91104b5be737b216808bfc996fd4060a5
+php-fpm:8.3-prod        sha256:89838f2e1f1a9d641f8dba3c927d02043876280f55804ffbf7919cae71de7214
+php-worker:8.3-prod     sha256:5188724af284b272ba17a728fce6ecf944af7e32b0235893e5fed5b62f5d6694
+php-frankenphp:8.3-prod sha256:83021a9d56c0d17e866495e97e65ed8f29119e0f9bdc7fef73654b027a5d5043
+nginx:prod              sha256:a0b1ade4583e64c00bc013f16b3ad95ff1de42cc358b6ed128063f533af65953
+caddy:prod              sha256:3c02c618980d01f3d008801e0d5e429b4c515a0dcee07262efceb54b74bb04af
+```
+
+### Accepted CVE exceptions (review by 2026-07-20; see vulnerability-management.md)
+
+Unfixed Debian distro CRITICALs, excluded by `--ignore-unfixed` + recorded in
+`policies/.trivyignore`: `zlib1g` (CVE-2023-45853, will_not_fix), `perl-base`
+(CVE-2026-42496/8376), `libsqlite3-0` (CVE-2025-7458), FrankenPHP base `libaom3`
+(CVE-2023-6879), `linux-libc-dev` (CVE-2026-43185); caddy go-jose (CVE-2026-34986,
+review 2026-07-02). PHP/nginx images: **0 fixable CRITICAL/HIGH**.
+
+### Notes
+
+- PHP 7.4 / 8.0 remain **frozen legacy** (Wolfi images retained, never rebuilt).
+- Internal config path: old `/etc/php` → new `/usr/local/etc/php`.
+- FrankenPHP serves HTTP `:8080` + readiness `:8081`; state under `/tmp`.
+
 ### Changed — Debian-first base image platform (BREAKING for base provider)
 
 - **Removed all Wolfi/Chainguard dependencies.** `php-cli`, `php-fpm`,
