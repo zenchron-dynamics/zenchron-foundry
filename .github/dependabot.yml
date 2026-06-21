@@ -31,20 +31,6 @@ updates:
     commit-message:
       prefix: "chore(images)"
 
-  # Legacy Docker bases — surfaced but reviewed manually (EOL, may not patch)
-  - package-ecosystem: "docker"
-    directories:
-      - "/images/php-fpm/7.4"
-      - "/images/php-fpm/8.0"
-      - "/images/php-cli/7.4"
-      - "/images/php-cli/8.0"
-      - "/images/php-worker/7.4"
-      - "/images/php-worker/8.0"
-    schedule:
-      interval: "monthly"
-    labels: ["dependencies", "docker", "legacy"]
-    commit-message:
-      prefix: "chore(legacy)"
 
   # Composer — only active once example manifests exist
   - package-ecosystem: "composer"

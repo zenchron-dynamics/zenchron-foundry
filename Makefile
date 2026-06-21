@@ -77,6 +77,7 @@ lint: ## Run all linters (dockerfiles, shell, yaml, md, secrets)
 
 check-structure: ## Verify required repository layout exists
 	@bash scripts/check-structure.sh
+	@bash scripts/assert-no-wolfi.sh
 
 build: build-php-fpm build-php-cli build-php-worker build-frankenphp build-caddy build-nginx ## Build everything (current PHP=)
 
@@ -93,7 +94,7 @@ build-php-cli: ## Build php-cli:$(PHP)-$(TAG_SUFFIX)
 		-t $(CLI_IMAGE):$(PHP)-$(TAG_SUFFIX) --load images/php-cli/$(PHP)
 
 build-php-worker: ## Build php-worker:$(PHP)-$(TAG_SUFFIX)
-	@test -d images/php-worker/$(PHP) || { echo "ERROR: php-worker has no version '$(PHP)' (valid: 7.4 8.0 8.3 8.4)"; exit 1; }
+	@test -d images/php-worker/$(PHP) || { echo "ERROR: php-worker has no version '$(PHP)' (valid: 8.3 8.4)"; exit 1; }
 	$(BUILDX) --platform $(PLATFORMS) $(LABEL_ARGS) \
 		--label org.opencontainers.image.version="$(PHP)-$(TAG_SUFFIX)" \
 		-t $(WORKER_IMAGE):$(PHP)-$(TAG_SUFFIX) --load images/php-worker/$(PHP)

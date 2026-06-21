@@ -12,27 +12,33 @@ multiple Laravel / Symfony / PHP apps consume.
 
 ## ⚠️ Legacy PHP Warning
 
-`PHP 7.4` and `PHP 8.0` are **end-of-life** and receive no upstream security
-patches. They are provided **only** for legacy compatibility, are isolated from
-the supported runtimes, cannot be distroless, and carry accepted documented
-risk. **Do not start new projects on them.** See
-[docs/legacy-php-policy.md](docs/legacy-php-policy.md).
+`PHP 7.4` and `PHP 8.0` are **end-of-life**. They are **frozen legacy artifacts**:
+the previously-published Wolfi images remain pullable from GHCR, but their source
+has been removed and **they are never rebuilt** (Debian-first migration,
+[ADR-0001](docs/adr/ADR-0001-remove-wolfi-chainguard.md)). **Do not start new
+projects on them; migrate off.** See [docs/legacy-php-policy.md](docs/legacy-php-policy.md).
 
 ---
 
 ## Supported Images
 
-| Image | Tags | Base strategy | Distroless? |
-|-------|------|---------------|-------------|
-| `php-fpm`        | `8.3-prod`, `8.4-prod` · `7.4-prod`, `8.0-prod` (legacy) | Wolfi/Chainguard hardened-minimal · Alpine (legacy) | Near-distroless |
-| `php-cli`        | same as above | same | Near-distroless |
-| `php-worker`     | same as above | same | Near-distroless |
-| `php-frankenphp` | `8.3-prod`, `8.4-prod` | FrankenPHP (PHP ≥ 8.2 only) | Minimal |
-| `caddy`          | `prod` | Hardened Caddy, non-root :8080/:8443 | Minimal |
-| `nginx`          | `prod` | Hardened nginx, non-root :8080 | Minimal |
+Base strategy is **Debian-first** — official, upstream, digest-pinned images; PHP
+extensions compiled with the official toolchain. See
+[docs/base-image-strategy.md](docs/base-image-strategy.md) and
+[ADR-0001](docs/adr/ADR-0001-remove-wolfi-chainguard.md).
 
-> True Google "distroless" ships no PHP. We use Chainguard/Wolfi hardened
-> minimal images and document every tradeoff in
+| Image | Tags | Base strategy |
+|-------|------|---------------|
+| `php-fpm`        | `8.3-prod`, `8.4-prod`, `8.x-debian` | `php:8.x-fpm-bookworm` (Debian 12) |
+| `php-cli`        | `8.3-prod`, `8.4-prod`, `8.x-debian` | `php:8.x-cli-bookworm` (Debian 12) |
+| `php-worker`     | `8.3-prod`, `8.4-prod`, `8.x-debian` | `php:8.x-cli-bookworm` + tini |
+| `php-frankenphp` | `8.3-prod`, `8.4-prod`, `8.x-debian` | `dunglas/frankenphp:1-php8.x-bookworm` |
+| `caddy`          | `prod` | Official Caddy (Alpine; no Debian variant exists — ADR-0001 exception) |
+| `nginx`          | `prod` | `nginxinc/nginx-unprivileged:1.27-bookworm` (Debian 12) |
+
+> True Google "distroless" ships no PHP. We build on the **official Debian PHP
+> images** and keep distroless/chiseled as future experimental tracks — every
+> tradeoff is documented in
 > [docs/distroless-strategy.md](docs/distroless-strategy.md).
 
 ## Security Model (defaults)

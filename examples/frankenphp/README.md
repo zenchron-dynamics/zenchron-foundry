@@ -18,4 +18,7 @@ Tradeoffs:
 
 - Newer; validate your app (especially stateful globals) under worker mode.
 - TLS: terminate upstream and keep :8080, or grant `NET_BIND_SERVICE` for :443.
-- Writable `/data` + `/config` volumes for Caddy state under read-only rootfs.
+- Writable state lives under `/tmp` (`/tmp/caddy-data`, `/tmp/caddy-config`), so a
+  single `tmpfs /tmp` covers a read-only rootfs. For Caddy ACME, mount a named
+  volume at `/tmp/caddy-data` so issued certs persist. (Debian-first change — the
+  old Alpine image used `/data` + `/config`; see docs/migration/wolfi-to-debian.md.)

@@ -38,8 +38,9 @@ jobs:
           set -euo pipefail
           mkdir -p release-artifacts
           NS="ghcr.io/zenchron-dynamics"
-          for ref in php-fpm:8.3-prod php-cli:8.3-prod php-worker:8.3-prod \
-                     php-frankenphp:8.3-prod caddy:prod nginx:prod; do
+          for ref in php-fpm:8.4-prod php-cli:8.4-prod php-worker:8.4-prod php-frankenphp:8.4-prod \
+                     php-fpm:8.3-prod php-cli:8.3-prod php-worker:8.3-prod php-frankenphp:8.3-prod \
+                     caddy:prod nginx:prod; do
             name="${ref//[:\/]/_}"
             syft "${NS}/${ref}" -o spdx-json="release-artifacts/${name}.spdx.json" || true
           done

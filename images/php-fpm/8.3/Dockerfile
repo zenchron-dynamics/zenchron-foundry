@@ -1,76 +1,103 @@
 # syntax=docker/dockerfile:1.7
 # =============================================================================
-# Zenchron Dynamics — php-fpm 8.3 (production)
-# Base: Chainguard Wolfi (hardened-minimal, apk-based, low-CVE). PHP extensions
-# ship as prebuilt apk packages, so NO compiler/builder stage is required — the
-# image stays minimal with runtime packages only. See docs/distroless-strategy.md.
+# Zenchron Dynamics — php-fpm 8.3 (production, Debian-first)
+# Base: official php:8.3-fpm-bookworm (Debian 12), pinned by digest. Extensions
+# are compiled with the official toolchain in a throwaway build stage; the
+# runtime stage carries only the compiled .so + their shared libraries and the
+# compiler toolchain is stripped (no build tools in the final image).
 # Final image: non-root (10001:10001), read-only-rootfs compatible.
-# Pin WOLFI_BASE by digest in CI (Dependabot updates it).
+# Patch model: bump the pinned base digest to absorb CVEs — do NOT apt-get
+# upgrade inside the image (see docs/security/base-image-patching.md).
 # =============================================================================
-ARG WOLFI_BASE="cgr.dev/chainguard/wolfi-base:latest@sha256:441d6709305552a3411e585ad98aacb9dadda00c80f3267483c38ac6f86f49d4"
+ARG PHP_FPM_BASE="php:8.3-fpm-bookworm@sha256:07d1dd468a3af64edb412e98f75f52484f5ad05a60add9c2b76c2ba7a70a3ff2"
 
-FROM ${WOLFI_BASE} AS runtime
+# --- build stage: compile extensions with the official toolchain -------------
+FROM ${PHP_FPM_BASE} AS build
+
+ARG PHPREDIS_VERSION="6.1.0"
+
+# hadolint ignore=DL3008
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ${PHPIZE_DEPS} \
+        libicu-dev \
+        libpq-dev \
+        libzip-dev \
+        libpng-dev \
+        libjpeg62-turbo-dev \
+        libfreetype6-dev; \
+    docker-php-ext-configure gd --with-jpeg --with-freetype; \
+    docker-php-ext-install -j"$(nproc)" \
+        bcmath \
+        intl \
+        opcache \
+        pdo_pgsql \
+        pgsql \
+        pdo_mysql \
+        sockets \
+        zip \
+        gd; \
+    pecl install "redis-${PHPREDIS_VERSION}"; \
+    docker-php-ext-enable redis; \
+    rm -rf /tmp/pear /var/lib/apt/lists/*
+
+# --- runtime stage -----------------------------------------------------------
+FROM ${PHP_FPM_BASE} AS runtime
 
 ARG BUILD_DATE
 ARG VCS_REF
 
 LABEL org.opencontainers.image.title="zenchron-php-fpm" \
-      org.opencontainers.image.description="Hardened PHP-FPM 8.3 runtime (web app backend)" \
+      org.opencontainers.image.description="Hardened PHP-FPM 8.3 runtime (web app backend), Debian-based" \
       org.opencontainers.image.vendor="Zenchron Dynamics" \
       org.opencontainers.image.source="https://github.com/zenchron-dynamics/zenchron-foundry" \
+      org.opencontainers.image.base.name="docker.io/library/php:8.3-fpm-bookworm" \
       org.opencontainers.image.version="8.3-prod" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.licenses="LicenseRef-Zenchron-Internal" \
       com.zenchron.runtime="php-fpm" \
       com.zenchron.php="8.3" \
+      com.zenchron.base="debian-bookworm" \
       com.zenchron.support="supported"
 
-# Runtime packages only. session/tokenizer are compiled into the core php-8.3
-# package in Wolfi, so they are NOT separate apk packages.
-# hadolint ignore=DL3018
-RUN apk add --no-cache \
-        php-8.3 \
-        php-8.3-fpm \
-        php-8.3-opcache \
-        php-8.3-bcmath \
-        php-8.3-ctype \
-        php-8.3-curl \
-        php-8.3-dom \
-        php-8.3-fileinfo \
-        php-8.3-gd \
-        php-8.3-iconv \
-        php-8.3-intl \
-        php-8.3-mbstring \
-        php-8.3-openssl \
-        php-8.3-pdo \
-        php-8.3-mysqlnd \
-        php-8.3-pdo_mysql \
-        php-8.3-pdo_pgsql \
-        php-8.3-phar \
-        php-8.3-simplexml \
-        php-8.3-sodium \
-        php-8.3-xml \
-        php-8.3-zip \
-        php-8.3-redis \
+# Runtime shared libraries only, then strip the inherited compiler toolchain.
+# hadolint ignore=DL3008
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        libicu72 \
+        libpq5 \
+        libzip4 \
+        libpng16-16 \
+        libjpeg62-turbo \
+        libfreetype6 \
         tzdata \
-        ca-certificates-bundle \
-    && rm -rf /var/cache/apk/* \
-    && addgroup -g 10001 app \
-    && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app \
-    && mkdir -p /app \
-    && chown -R 10001:10001 /app
+        ca-certificates; \
+    apt-get purge -y --auto-remove \
+        gcc g++ cpp make autoconf binutils dpkg-dev libc6-dev m4 patch re2c; \
+    rm -f /usr/local/bin/phpize /usr/local/bin/docker-php-source; \
+    rm -rf /usr/src/*; \
+    rm -rf /var/lib/apt/lists/*; \
+    groupadd -g 10001 app; \
+    useradd  -u 10001 -g app -d /app -s /usr/sbin/nologin -M app; \
+    mkdir -p /app; chown -R 10001:10001 /app
 
-# Production configuration (no app code, no secrets). Wolfi paths: /etc/php/*.
-COPY php.ini        /etc/php/conf.d/zz-zenchron.ini
-COPY php-fpm.conf   /etc/php/php-fpm.conf
-COPY www.conf       /etc/php/php-fpm.d/www.conf
+COPY --from=build /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
+COPY --from=build /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
+
+# Production configuration (no app code, no secrets). Official php paths: /usr/local/etc.
+COPY php.ini        /usr/local/etc/php/conf.d/zz-zenchron.ini
+COPY php-fpm.conf   /usr/local/etc/php-fpm.conf
+COPY www.conf       /usr/local/etc/php-fpm.d/www.conf
 COPY docker-healthcheck.sh /usr/local/bin/docker-healthcheck
 
-# Drop the base apko pool override so there is exactly one [www] pool, and make
-# the healthcheck executable.
-RUN rm -f /etc/php/php-fpm.d/zz-apko.conf \
-    && chmod 0555 /usr/local/bin/docker-healthcheck
+# Drop the base image's zz-docker.conf pool override so there is exactly one
+# [www] pool, and make the healthcheck executable.
+RUN set -eux; \
+    rm -f /usr/local/etc/php-fpm.d/zz-docker.conf /usr/local/etc/php-fpm.d/www.conf.default; \
+    chmod 0555 /usr/local/bin/docker-healthcheck
 
 USER 10001:10001
 WORKDIR /app
@@ -82,4 +109,4 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
     CMD ["/usr/local/bin/docker-healthcheck"]
 
 # --nodaemonize keeps php-fpm as PID 1 for correct SIGTERM/SIGQUIT handling.
-ENTRYPOINT ["php-fpm", "--nodaemonize", "--fpm-config", "/etc/php/php-fpm.conf"]
+ENTRYPOINT ["php-fpm", "--nodaemonize", "--fpm-config", "/usr/local/etc/php-fpm.conf"]

@@ -16,18 +16,23 @@ libzip, libsodium, postgres/mysql client libs…). Reconstructing that on a
 
 ### Decision
 
-| Family | Final base | Distroless level | Why |
-|--------|-----------|------------------|-----|
-| php-fpm 8.3/8.4 | **Chainguard Wolfi** (`cgr.dev/chainguard/wolfi-base` + `apk add php-8.x-*`) | Near-distroless (busybox shell retained for FPM healthcheck via `cgi-fcgi`) | Low-CVE, apk-pinnable, prebuilt PHP packages |
-| php-cli 8.3/8.4 | Wolfi | Near-distroless | same |
-| php-worker 8.3/8.4 | Wolfi (+`tini`) | Near-distroless | signal handling needs PID-1 init |
-| php-frankenphp 8.3/8.4 | upstream `dunglas/frankenphp:*-alpine` (hardened) | Minimal | no distroless FrankenPHP exists upstream |
-| caddy | `caddy:2-alpine` (non-root) | Minimal | official, small |
-| nginx | `nginxinc/nginx-unprivileged:alpine` | Minimal | purpose-built non-root |
-| **php-fpm/cli/worker 7.4, 8.0** | `php:7.4/8.0-*-alpine` (EOL) | **Not distroless** | Wolfi has no EOL PHP; quarantined, high risk |
+> **Superseded by [ADR-0001](adr/ADR-0001-remove-wolfi-chainguard.md).** The
+> platform is now **Debian-first** on official images; the Wolfi rows below are
+> historical. "Distroless" is retained as a **future experimental track**, not the
+> current base.
 
-We **do not** silently fall back to full Debian/Ubuntu. Where Alpine is used
-(legacy + FrankenPHP/caddy/nginx upstream), it is minimal and justified above.
+| Family | Final base (current) | Minimization | Why |
+|--------|----------------------|--------------|-----|
+| php-fpm 8.3/8.4 | official `php:8.x-fpm-bookworm` (Debian 12) | multi-stage; toolchain stripped; no shell server tools | official, durable, official extension toolchain |
+| php-cli 8.3/8.4 | official `php:8.x-cli-bookworm` | same | same |
+| php-worker 8.3/8.4 | `php:8.x-cli-bookworm` (+`tini`) | same | signal handling needs PID-1 init |
+| php-frankenphp 8.3/8.4 | `dunglas/frankenphp:1-php8.x-bookworm` (Debian) | minimal | official FrankenPHP, Debian variant |
+| caddy | `caddy:2-alpine` (non-root) | minimal | official; no upstream Debian variant (ADR-0001 exception) |
+| nginx | `nginxinc/nginx-unprivileged:1.27-bookworm` (Debian) | minimal | official non-root, Debian |
+
+We build on the **official Debian PHP images**. The compiler toolchain inherited
+from `buildpack-deps` is **purged in the runtime stage**, so the final image
+carries no `gcc`/`make`/`autoconf`/`phpize`.
 
 ## Tradeoffs
 

@@ -22,14 +22,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # gate=true  -> enforcing Trivy gate (fixable CRITICAL/HIGH fail the build).
+        # gate=false -> scan + report only. Used for the edge images (nginx/caddy)
+        #   whose binaries we do NOT rebuild: their fixable CVEs come from UPSTREAM
+        #   IMAGE LAG (the official image ships a stale Debian/Alpine snapshot), so
+        #   they clear only when upstream rebuilds. The weekly cron + Dependabot
+        #   surface that drift; see docs/vulnerability-management.md.
         include:
-          - { fam: php-fpm,    ver: "8.3", ctx: "images/php-fpm/8.3",    legacy: false }
-          - { fam: php-cli,    ver: "8.3", ctx: "images/php-cli/8.3",    legacy: false }
-          - { fam: php-worker, ver: "8.3", ctx: "images/php-worker/8.3", legacy: false }
-          - { fam: php-frankenphp, ver: "8.3", ctx: "images/php-frankenphp/8.3", legacy: false }
-          - { fam: nginx,      ver: "prod", ctx: "images/nginx",         legacy: false }
-          - { fam: caddy,      ver: "prod", ctx: "images/caddy",         legacy: false }
-          - { fam: php-fpm,    ver: "7.4", ctx: "images/php-fpm/7.4",    legacy: true }
+          - { fam: php-fpm,    ver: "8.3", ctx: "images/php-fpm/8.3",    gate: true }
+          - { fam: php-cli,    ver: "8.3", ctx: "images/php-cli/8.3",    gate: true }
+          - { fam: php-worker, ver: "8.3", ctx: "images/php-worker/8.3", gate: true }
+          - { fam: php-frankenphp, ver: "8.3", ctx: "images/php-frankenphp/8.3", gate: true }
+          - { fam: php-fpm,    ver: "8.4", ctx: "images/php-fpm/8.4",    gate: true }
+          - { fam: php-cli,    ver: "8.4", ctx: "images/php-cli/8.4",    gate: true }
+          - { fam: php-worker, ver: "8.4", ctx: "images/php-worker/8.4", gate: true }
+          - { fam: php-frankenphp, ver: "8.4", ctx: "images/php-frankenphp/8.4", gate: true }
+          - { fam: nginx,      ver: "prod", ctx: "images/nginx",         gate: true }
+          # caddy: report-only. It is the one Alpine image (no upstream Debian
+          # Caddy exists); its fixable findings are Alpine openssl + the Go stdlib
+          # the Caddy BINARY was built with — neither is patchable in our layer
+          # (`apk upgrade` is forbidden by assert-no-wolfi; the Go stdlib needs an
+          # upstream rebuild). Dependabot watches the caddy digest; exceptions are
+          # recorded in policies/.trivyignore with review dates.
+          - { fam: caddy,      ver: "prod", ctx: "images/caddy",         gate: false }
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -64,14 +79,20 @@ jobs:
             --output "trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif" \
             --severity CRITICAL,HIGH
 
-      - name: Trivy gate (supported images only)
-        if: ${{ matrix.legacy == false }}
+      # Enforcing gate: fail on FIXABLE CRITICAL/HIGH only (--ignore-unfixed).
+      # Debian carries many distro CVEs with NO fix available (perl-base, zlib1g,
+      # libsqlite3-0, ncurses, ...); failing on those is not actionable — we would
+      # have to fork Debian. They are triaged in docs/vulnerability-management.md
+      # and surfaced (non-gating) in the SARIF above. A fixable finding means a
+      # fresher base digest exists: bump it (docs/security/base-image-patching.md).
+      - name: Trivy gate (fixable CRITICAL/HIGH)
+        if: ${{ matrix.gate == true }}
         run: |
           docker run --rm -e TRIVY_NO_PROGRESS=true \
             -v /tmp:/tmp -v "$PWD:/work" -w /work \
             aquasec/trivy:0.71.0 image --input /tmp/scan-image.tar \
             --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
-            --ignore-unfixed=false --ignorefile policies/.trivyignore
+            --ignore-unfixed --ignorefile policies/.trivyignore
 
       # Code-scanning SARIF upload needs GitHub Advanced Security, which is not
       # available on Free-plan private repos — so this is best-effort. The SARIF

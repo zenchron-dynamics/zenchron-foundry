@@ -22,6 +22,9 @@ jobs:
       - name: Check required layout
         run: bash scripts/check-structure.sh
 
+      - name: Assert no Wolfi/Chainguard/apk in active code
+        run: bash scripts/assert-no-wolfi.sh
+
   lint:
     name: lint (shell / yaml / md / dockerfile)
     runs-on: ubuntu-latest

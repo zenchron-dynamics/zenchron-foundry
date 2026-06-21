@@ -11,6 +11,15 @@ These runtimes receive **no upstream security patches**. They exist **only** to
 keep legacy applications running until migration. They are **not** suitable for
 new systems and must never be presented as production-ideal.
 
+## Frozen as of the Debian-first migration (ADR-0001)
+
+The 7.4 and 8.0 **source Dockerfiles have been removed** from the repository.
+The previously-published **Wolfi images remain pullable from GHCR** (not deleted)
+for rollback/compatibility, but they are **never rebuilt**, are **excluded** from
+the build/scan/publish matrices and Dependabot, and consumers **must migrate** to
+the PHP 8.3/8.4 Debian images. Source remains recoverable from git history if a
+frozen rebuild is ever forced under a documented risk exception.
+
 ## Differences from supported images
 
 - Base is `php:7.4/8.0-*-alpine` (EOL), **not** Chainguard/Wolfi. No distroless.
