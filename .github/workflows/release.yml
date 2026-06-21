@@ -14,9 +14,13 @@ permissions:
 
 jobs:
   # Reuse the publish workflow to build, push, sign, attest.
+  # Stable releases are MULTI-ARCH — publish-ghcr defaults to linux/amd64 only,
+  # so the release MUST request both arches (matches the validated RC images).
   images:
     uses: ./.github/workflows/publish-ghcr.yml
     secrets: inherit
+    with:
+      platforms: linux/amd64,linux/arm64
 
   release:
     needs: images
