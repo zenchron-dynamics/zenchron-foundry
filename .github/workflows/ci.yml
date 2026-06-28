@@ -135,8 +135,10 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Reclaim disk before build (persistent runner hygiene)
+        # builder prune only — NEVER `docker image prune` here: the daemon is
+        # shared, and pruning images would delete another concurrent job's
+        # freshly-loaded image (caused php-cli smoke "image not found").
         run: |
-          docker image prune -af 2>/dev/null || true
           docker builder prune -af 2>/dev/null || true
           df -h / | tail -1
       - name: Build (no push, amd64, loaded for smoke)
@@ -153,6 +155,9 @@ jobs:
       - name: Smoke test the built image (runtime contract)
         run: |
           set -euo pipefail
+          # Fail loudly if the image vanished (e.g. a stray prune) — otherwise the
+          # negative "tool absent" checks can false-pass on a missing image.
+          docker image inspect "zenchron-smoke/${{ matrix.target.fam }}:citest" >/dev/null
           bash "scripts/smoke/smoke-${{ matrix.target.fam }}.sh" \
             "zenchron-smoke/${{ matrix.target.fam }}:citest"
 

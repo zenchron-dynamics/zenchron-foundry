@@ -54,9 +54,10 @@ jobs:
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Reclaim disk before build (persistent runner hygiene)
+        # builder prune only — see ci.yml: `docker image prune` on the shared
+        # daemon would delete other jobs' loaded images.
         run: |
           rm -f /tmp/scan-image.tar 2>/dev/null || true
-          docker image prune -af 2>/dev/null || true
           docker builder prune -af 2>/dev/null || true
           df -h / | tail -1
 
