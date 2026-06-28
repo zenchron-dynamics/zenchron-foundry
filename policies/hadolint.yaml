@@ -16,6 +16,12 @@ ignored:
   #         base bumps. CVE remediation is "bump the base digest", not in-image
   #         package drift (see docs/security/base-image-patching.md).
   - DL3008
+  # DL3006: tag the base image explicitly — false positive here. Every base is
+  #         digest-pinned in an `ARG <NAME>_BASE="ref@sha256:..."` and the stage
+  #         does `FROM ${<NAME>_BASE}`; hadolint sees only the ARG variable, not
+  #         the pinned digest behind it. Pin enforcement lives in
+  #         scripts/check-structure.sh + scripts/verify-base-images.sh instead.
+  - DL3006
 
 override:
   error:
