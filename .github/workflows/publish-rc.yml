@@ -25,7 +25,7 @@ jobs:
   # Approval + validation gate. The `rc` GitHub Environment carries the required
   # reviewers; an empty/invalid rc id can never reach the publisher.
   gate:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     environment: rc
     steps:
       - name: Validate RC identifier (never empty, never *-prod)

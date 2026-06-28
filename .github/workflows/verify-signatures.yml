@@ -21,7 +21,7 @@ env:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     timeout-minutes: 10          # never hang on Rekor backoff
     strategy:
       fail-fast: false

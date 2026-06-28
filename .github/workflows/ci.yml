@@ -16,7 +16,7 @@ concurrency:
 jobs:
   structure:
     name: repo structure
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Check required layout
@@ -36,7 +36,7 @@ jobs:
 
   lint:
     name: lint (shell / yaml / md / dockerfile)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
@@ -73,7 +73,7 @@ jobs:
 
   secrets:
     name: secret scan (gitleaks)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with: { fetch-depth: 0 }
@@ -88,7 +88,7 @@ jobs:
 
   sast:
     name: semgrep docker security
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     container: semgrep/semgrep:1.86.0@sha256:a9ea2d5621c29d815d90c2a3b2f9571da8972ef4ff855c9e4902681730240e35
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -97,7 +97,7 @@ jobs:
 
   build-test:
     name: build+smoke ${{ matrix.target.fam }} ${{ matrix.target.ver }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     needs: [structure, lint]
     strategy:
       fail-fast: false
@@ -136,7 +136,7 @@ jobs:
 
   compose-validate:
     name: validate compose profiles
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Validate self-contained example stacks

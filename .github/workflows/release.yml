@@ -22,7 +22,7 @@ jobs:
   # The environment gate is what makes "publish stable from an arbitrary branch"
   # impossible: the tag must point at a commit already merged to master.
   guard:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     environment: release
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -68,7 +68,7 @@ jobs:
   # build the release manifest and attach SBOMs. No step here may swallow errors.
   release:
     needs: images
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     permissions:
       contents: write          # create GitHub Release
       packages: read

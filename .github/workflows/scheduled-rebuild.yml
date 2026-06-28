@@ -23,7 +23,7 @@ env:
 
 jobs:
   preflight:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - run: bash scripts/assert-pinned-actions.sh
@@ -32,7 +32,7 @@ jobs:
 
   rebuild:
     needs: preflight
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     permissions:
       contents: read
       packages: write          # candidate (rebuild-*) tags only — never *-prod

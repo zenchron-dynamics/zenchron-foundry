@@ -39,7 +39,7 @@ jobs:
   # Gate: do not publish unless CI-equivalent checks pass on this ref, and the
   # request is internally consistent (stable path requires a valid v* tag).
   preflight:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - run: bash scripts/check-structure.sh
@@ -75,7 +75,7 @@ jobs:
 
   publish:
     needs: preflight
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     strategy:
       fail-fast: true
       matrix:

@@ -32,7 +32,7 @@ env:
 jobs:
   build:
     name: ${{ matrix.fam }} ${{ matrix.ver }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     strategy:
       fail-fast: false
       matrix:

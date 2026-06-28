@@ -18,7 +18,7 @@ permissions:
 jobs:
   scan:
     name: scan ${{ matrix.fam }} ${{ matrix.ver }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     strategy:
       fail-fast: false
       matrix:
