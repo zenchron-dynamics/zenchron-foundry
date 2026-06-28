@@ -21,6 +21,8 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     strategy:
       fail-fast: false
+      # Serialized — small shared self-hosted disk; see ci.yml build-test note.
+      max-parallel: 1
       matrix:
         # gate=true  -> enforcing Trivy gate (fixable CRITICAL/HIGH fail the build).
         # gate=false -> scan + report only. Used for the edge images (nginx/caddy)
@@ -64,7 +66,6 @@ jobs:
           context: ${{ matrix.ctx }}
           load: true
           tags: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
-          cache-from: type=gha
 
       # --- SBOM (Syft) -------------------------------------------------------
       - name: Generate SBOM (Syft)

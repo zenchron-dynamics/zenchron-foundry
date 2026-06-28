@@ -110,6 +110,11 @@ jobs:
     needs: [structure, lint]
     strategy:
       fail-fast: false
+      # Serialized: the self-hosted runner has a small (~38G) shared disk. Running
+      # builds concurrently each pin the other's buildkit cache (prune can't
+      # reclaim in-use cache), exhausting the disk. One at a time lets the
+      # pre-build prune reclaim the full baseline. (Real fix: bigger runner disk.)
+      max-parallel: 1
       # FULL matrix — every one of the 10 production images is built AND smoke
       # tested on every PR/push. No representative subset (see docs/release-process.md).
       matrix:
@@ -141,8 +146,9 @@ jobs:
           platforms: linux/amd64
           push: false
           load: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # No gha cache: mode=max export is the biggest transient disk consumer
+          # on the small self-hosted disk. Validation builds don't need cross-run
+          # cache; correctness over speed here.
           tags: zenchron-smoke/${{ matrix.target.fam }}:citest
       - name: Smoke test the built image (runtime contract)
         run: |
