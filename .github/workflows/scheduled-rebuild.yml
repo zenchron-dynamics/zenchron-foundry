@@ -1,0 +1,119 @@
+name: scheduled-rebuild
+
+# Weekly rebuild of all 10 images into DATED CANDIDATE tags (<fam>:rebuild-<date>
+# / <fam>:<ver>-rebuild-<date>). It NEVER touches canonical *-prod tags — stable
+# promotion stays manual via release.yml after a human compares the candidate.
+# Purpose: surface base-image drift (a fresher Debian snapshot may fix CVEs the
+# current stable still carries) and keep signed, attested candidates ready.
+on:
+  schedule:
+    - cron: "0 4 * * 1"        # Monday 04:00 UTC (after scan-images at 03:00)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-rebuild
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: zenchron-dynamics
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - run: bash scripts/assert-pinned-actions.sh
+      - run: bash scripts/assert-image-matrix.sh
+      - run: bash scripts/verify-base-images.sh
+
+  rebuild:
+    needs: preflight
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write          # candidate (rebuild-*) tags only — never *-prod
+      id-token: write          # keyless cosign for candidates
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { fam: php-fpm,        ver: "8.3", ctx: "images/php-fpm/8.3" }
+          - { fam: php-fpm,        ver: "8.4", ctx: "images/php-fpm/8.4" }
+          - { fam: php-cli,        ver: "8.3", ctx: "images/php-cli/8.3" }
+          - { fam: php-cli,        ver: "8.4", ctx: "images/php-cli/8.4" }
+          - { fam: php-worker,     ver: "8.3", ctx: "images/php-worker/8.3" }
+          - { fam: php-worker,     ver: "8.4", ctx: "images/php-worker/8.4" }
+          - { fam: php-frankenphp, ver: "8.3", ctx: "images/php-frankenphp/8.3" }
+          - { fam: php-frankenphp, ver: "8.4", ctx: "images/php-frankenphp/8.4" }
+          - { fam: caddy,          ver: "prod", ctx: "images/caddy" }
+          - { fam: nginx,          ver: "prod", ctx: "images/nginx" }
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Candidate tag (never canonical)
+        id: meta
+        run: |
+          set -euo pipefail
+          base="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}"
+          date_tag="$(date -u +%Y.%m.%d)"
+          if [ "${{ matrix.ver }}" = "prod" ]; then
+            tag="${base}:rebuild-${date_tag}"
+          else
+            tag="${base}:${{ matrix.ver }}-rebuild-${date_tag}"
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push candidate (multi-arch, signed, attested)
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.ctx }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tag }}
+          sbom: true
+          provenance: mode=max
+
+      - name: Cosign sign candidate
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
+
+      - name: Scan candidate (fixable CRITICAL/HIGH)
+        id: scan
+        continue-on-error: true     # a finding should REPORT, not abort the matrix
+        run: |
+          set -euo pipefail
+          docker run --rm -e TRIVY_NO_PROGRESS=true -v "$PWD:/work" -w /work \
+            aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 \
+            image "${{ steps.meta.outputs.tag }}" \
+            --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
+            --ignore-unfixed --ignorefile policies/.trivyignore
+
+      - name: Open issue on new fixable findings
+        if: steps.scan.outcome == 'failure'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const tag = '${{ steps.meta.outputs.tag }}';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Scheduled rebuild: fixable CRITICAL/HIGH in ${tag}`,
+              labels: ['security', 'scheduled-rebuild'],
+              body: `The weekly rebuild candidate \`${tag}\` reports fixable CRITICAL/HIGH vulnerabilities that the current stable may not.\n\nReview, then promote via the release workflow if appropriate. See docs/vulnerability-management.md and docs/release-process.md.`,
+            });

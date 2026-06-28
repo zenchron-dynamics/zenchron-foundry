@@ -30,6 +30,13 @@ required_files=(
     policies/hadolint.yaml policies/gitleaks.toml
     policies/semgrep/docker-security.yml policies/cosign-policy.md
     scripts/assert-no-wolfi.sh
+    scripts/assert-pinned-actions.sh scripts/assert-pinned-containers.sh
+    scripts/assert-image-matrix.sh scripts/verify-base-images.sh
+    scripts/verify-release-artifacts.sh scripts/generate-release-manifest.sh
+    scripts/smoke-all.sh scripts/smoke-test.sh
+    config/base-images.env .actrc
+    .github/workflows/release.yml .github/workflows/publish-rc.yml
+    .github/workflows/scheduled-rebuild.yml
 )
 
 rc=0

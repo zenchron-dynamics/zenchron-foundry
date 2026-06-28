@@ -1,45 +1,38 @@
 name: build-images
 
+# Build-and-validate ONLY. This workflow can NEVER publish canonical production
+# tags (*-prod / prod). It builds each image locally (load) so a developer or
+# a caller can confirm every Dockerfile builds. Canonical tags are mutated
+# exclusively by release.yml (stable) and publish-rc.yml (RC). See
+# docs/release-process.md and the controls in scripts/assert-image-matrix.sh.
 on:
   workflow_dispatch:
     inputs:
-      push:
-        description: "Push to GHCR (true/false)"
-        default: "false"
       platforms:
-        description: "Target platforms (multi-arch requires push=true; load can only do one arch)"
+        description: "Target platform for the local build (single arch; load cannot hold a manifest list)"
         default: "linux/amd64"
   workflow_call:
     inputs:
-      push:
-        type: string
-        default: "false"
       platforms:
         type: string
         default: "linux/amd64"
-    outputs:
-      digests:
-        description: "JSON map of image -> digest"
-        value: ${{ jobs.build.outputs.digests }}
 
+# No packages:write — this workflow cannot push. Removing the scope makes a
+# canonical-tag push impossible even if a step tried.
 permissions:
   contents: read
-  packages: write
-  id-token: write
+
+concurrency:
+  group: build-images-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  REGISTRY: ghcr.io
-  NAMESPACE: zenchron-dynamics
-  # Default linux/amd64. To build multi-arch (linux/amd64,linux/arm64) you MUST
-  # also set push=true — the docker exporter (load) cannot hold a manifest list.
   PLATFORMS: ${{ inputs.platforms || 'linux/amd64' }}
 
 jobs:
   build:
     name: ${{ matrix.fam }} ${{ matrix.ver }}
     runs-on: ubuntu-latest
-    outputs:
-      digests: ${{ steps.collect.outputs.digests }}
     strategy:
       fail-fast: false
       matrix:
@@ -55,64 +48,19 @@ jobs:
           - { fam: caddy,          ver: "prod", ctx: "images/caddy" }
           - { fam: nginx,          ver: "prod", ctx: "images/nginx" }
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Compute tags
-        id: meta
-        run: |
-          set -euo pipefail
-          base="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}"
-          if [ "${{ matrix.ver }}" = "prod" ]; then
-            suffix="prod"
-          else
-            suffix="${{ matrix.ver }}-prod"
-          fi
-          date_tag="${suffix}-$(date -u +%Y.%m.%d)"
-          build_tag="${suffix}-build.${{ github.run_number }}"
-          {
-            echo "image=${base}"
-            echo "tags=${base}:${suffix},${base}:${date_tag},${base}:${build_tag}"
-            echo "primary=${base}:${suffix}"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Login to GHCR
-        if: inputs.push == 'true'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build (+optional push) with SBOM + provenance
-        id: build
-        uses: docker/build-push-action@v6
+      - name: Build (no push — local validation tag only)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.ctx }}
           platforms: ${{ env.PLATFORMS }}
-          push: ${{ inputs.push == 'true' }}
-          # load only when NOT pushing AND single-arch (docker exporter can't hold
-          # a multi-arch manifest list).
-          load: ${{ inputs.push != 'true' && env.PLATFORMS == 'linux/amd64' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          # Attestations (sbom/provenance) produce a manifest list, which the
-          # docker exporter (load:true) cannot handle. Only enable them when
-          # pushing to the registry (OCI exporter).
-          sbom: ${{ inputs.push == 'true' }}
-          provenance: ${{ inputs.push == 'true' && 'mode=max' || 'false' }}
+          push: false
+          load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          tags: zenchron-buildtest/${{ matrix.fam }}:${{ matrix.ver }}
           build-args: |
             BUILD_DATE=${{ github.event.repository.updated_at }}
             VCS_REF=${{ github.sha }}
-          labels: |
-            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-
-      - name: Record digest
-        id: collect
-        if: inputs.push == 'true'
-        run: echo "digests=${{ matrix.fam }}:${{ matrix.ver }}@${{ steps.build.outputs.digest }}" >> "$GITHUB_OUTPUT"

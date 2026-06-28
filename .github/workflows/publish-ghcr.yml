@@ -1,21 +1,20 @@
 name: publish-ghcr
 
-# Publishes ONLY from trusted refs: version tags (v*) on master.
-# Invoked by release.yml on a tag, or manually. Not triggered directly on push
-# to avoid double-publishing alongside release.yml.
+# Reusable publisher. NOT directly dispatchable — the only entry points are:
+#   * release.yml        -> stable *-prod tags (rc == ""), gated on a v* tag
+#                           reachable from master + the `release` environment.
+#   * publish-rc.yml     -> immutable RC tags only (rc != ""), never *-prod.
+# Removing workflow_dispatch closes the "empty rc falls through to stable"
+# hole: a stable publish can only happen via release.yml's gated path.
 on:
   workflow_call:
     inputs:
       platforms:
         type: string
         default: "linux/amd64"
-  workflow_dispatch:
-    inputs:
-      platforms:
-        description: "Target platforms (e.g. linux/amd64 or linux/amd64,linux/arm64)"
-        default: "linux/amd64"
       rc:
-        description: "Release-candidate label (e.g. rc1). When set, publishes ONLY immutable RC tags (<ver>-debian-<rc>) — NEVER the generic *-prod tags."
+        description: "Release-candidate label (e.g. rc1). When set, publishes ONLY immutable RC tags — NEVER *-prod."
+        type: string
         default: ""
 
 permissions:
@@ -23,6 +22,11 @@ permissions:
   packages: write
   security-events: write
   id-token: write          # keyless cosign via OIDC
+
+concurrency:
+  # One publish at a time per channel; never cancel a publish mid-flight.
+  group: publish-ghcr-${{ inputs.rc != '' && format('rc-{0}', inputs.rc) || 'stable' }}-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -32,13 +36,42 @@ env:
   PLATFORMS: ${{ inputs.platforms || 'linux/amd64' }}
 
 jobs:
-  # Gate: do not publish unless CI-equivalent checks pass on this ref.
+  # Gate: do not publish unless CI-equivalent checks pass on this ref, and the
+  # request is internally consistent (stable path requires a valid v* tag).
   preflight:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - run: bash scripts/check-structure.sh
       - run: bash scripts/assert-no-wolfi.sh
+      - run: bash scripts/assert-pinned-actions.sh
+      - run: bash scripts/assert-image-matrix.sh
+      - name: Verify base-image digests (multi-arch resolves)
+        run: bash scripts/verify-base-images.sh
+      - name: Stable path requires a valid release tag
+        if: ${{ inputs.rc == '' }}
+        env:
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Defense in depth: release.yml already gates, but a stable publish
+          # (rc == "") must be triggered by an annotated v* tag in the approved
+          # format. Anything else is a misuse and must fail before any push.
+          case "$REF" in
+            refs/tags/*) : ;;
+            *) echo "REFUSE: stable publish requires a tag ref, got '$REF'"; exit 1 ;;
+          esac
+          echo "$REF_NAME" | grep -Eq '^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$' \
+            || { echo "REFUSE: tag '$REF_NAME' is not a valid release version (vYYYY.MM.DD[.N])"; exit 1; }
+      - name: RC path requires a non-empty RC identifier
+        if: ${{ inputs.rc != '' }}
+        env:
+          RC: ${{ inputs.rc }}
+        run: |
+          set -euo pipefail
+          echo "$RC" | grep -Eq '^rc[0-9]+$' \
+            || { echo "REFUSE: rc identifier '$RC' must match rc<N>"; exit 1; }
 
   publish:
     needs: preflight
@@ -58,14 +91,14 @@ jobs:
           - { fam: caddy,          ver: "prod", ctx: "images/caddy" }
           - { fam: nginx,          ver: "prod", ctx: "images/nginx" }
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: sigstore/cosign-installer@v3
-      - uses: anchore/sbom-action/download-syft@v0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -102,7 +135,7 @@ jobs:
 
       - name: Build & push (SBOM + provenance attestations)
         id: build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.ctx }}
           platforms: ${{ env.PLATFORMS }}
