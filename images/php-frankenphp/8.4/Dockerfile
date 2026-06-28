@@ -12,7 +12,7 @@
 # Patch model: bump the pinned base digest to absorb CVEs — do NOT apt-get
 # upgrade inside the image (see docs/security/base-image-patching.md).
 # =============================================================================
-ARG FRANKENPHP_BASE="dunglas/frankenphp:1-php8.4-bookworm@sha256:d83ae8b7193120b51fbc6f4edbfd67eb897bf778837227a84292287c2300506c"
+ARG FRANKENPHP_BASE="dunglas/frankenphp:1-php8.4-bookworm@sha256:f38f475948c5f80a4819ab73f75234fdadfccb28a3d5192cd751d862a78151b5"
 
 FROM ${FRANKENPHP_BASE} AS runtime
 

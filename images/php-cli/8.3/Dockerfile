@@ -10,7 +10,7 @@
 # so NO compiler/autoconf/make reaches the final image.
 # Final image: non-root (10001:10001), read-only-rootfs compatible.
 # =============================================================================
-ARG PHP_CLI_BASE="php:8.3-cli-bookworm@sha256:4f520b09238c0ca8ee5d91367c7e4ba9a7db309ec969ef901d4599facaccf537"
+ARG PHP_CLI_BASE="php:8.3-cli-bookworm@sha256:615d5a1d4b010a6194eade9af903f029367335293aa297164553a1d1b41b3efc"
 
 # --- build stage: compile extensions with the official toolchain -------------
 FROM ${PHP_CLI_BASE} AS build
