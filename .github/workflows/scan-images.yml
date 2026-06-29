@@ -78,9 +78,10 @@ jobs:
           output-file: ${{ matrix.fam }}-${{ matrix.ver }}.spdx.json
 
       # --- Trivy (official image; avoids action-version churn) ---------------
-      - name: Save image for scanning
-        run: docker save "scan-target:${{ matrix.fam }}-${{ matrix.ver }}" -o /tmp/scan-image.tar
-
+      # Scan the image DIRECTLY from the docker daemon (socket mount) — no
+      # `docker save` tar. On the small shared disk, writing a ~1GB tar per image
+      # exhausted /tmp ("Save image for scanning" failed); scanning from the
+      # daemon removes that write entirely.
       - name: Trivy scan (SARIF)
         run: |
           set -euo pipefail
@@ -90,8 +91,9 @@ jobs:
           n=0
           until [ "$n" -ge 3 ]; do
             docker run --rm -e TRIVY_NO_PROGRESS=true \
-              -v /tmp:/tmp -v /tmp/trivy-cache:/root/.cache/trivy -v "$PWD:/work" -w /work \
-              aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 image --input /tmp/scan-image.tar \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v /tmp/trivy-cache:/root/.cache/trivy -v "$PWD:/work" -w /work \
+              aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 image "scan-target:${{ matrix.fam }}-${{ matrix.ver }}" \
               --scanners vuln --format sarif \
               --output "trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif" \
               --severity CRITICAL,HIGH && break
@@ -116,8 +118,9 @@ jobs:
           while :; do
             set +e
             docker run --rm -e TRIVY_NO_PROGRESS=true \
-              -v /tmp:/tmp -v /tmp/trivy-cache:/root/.cache/trivy -v "$PWD:/work" -w /work \
-              aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 image --input /tmp/scan-image.tar \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v /tmp/trivy-cache:/root/.cache/trivy -v "$PWD:/work" -w /work \
+              aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 image "scan-target:${{ matrix.fam }}-${{ matrix.ver }}" \
               --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
               --ignore-unfixed --ignorefile policies/.trivyignore
             rc=$?
