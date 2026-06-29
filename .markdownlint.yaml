@@ -14,3 +14,6 @@ MD024:
 MD041: false
 # Ordered list numbering style is not enforced.
 MD029: false
+# Table pipe spacing (new in markdownlint v0.40.0) is not enforced; existing
+# tables use a compact style and the rule is purely cosmetic.
+MD060: false
