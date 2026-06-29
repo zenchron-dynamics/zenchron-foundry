@@ -11,7 +11,7 @@
 # OFFICIAL Alpine base: it is a durable official upstream, digest-pinned, runs no
 # `apk` commands, and clears every security gate. See ADR-0001.
 # =============================================================================
-ARG CADDY_BASE="caddy:2-alpine@sha256:77c07d5ebfa5be9fd6c820d2094ae662c9e7eeb9bf98346b7f639900263ee2a2"
+ARG CADDY_BASE="caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648"
 
 FROM ${CADDY_BASE} AS runtime
 

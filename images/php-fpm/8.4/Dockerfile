@@ -9,7 +9,7 @@
 # Patch model: bump the pinned base digest to absorb CVEs — do NOT apt-get
 # upgrade inside the image (see docs/security/base-image-patching.md).
 # =============================================================================
-ARG PHP_FPM_BASE="php:8.4-fpm-bookworm@sha256:66cf4b823e8dcde762ffa705b8589d592d709e0705ce6fdcd832d9a7ea4ed0f3"
+ARG PHP_FPM_BASE="php:8.4-fpm-bookworm@sha256:d39ec536545f1f698dc971cd2a0a77424867a27a992dd43b8e82d5cf112b02cb"
 
 # --- build stage: compile extensions with the official toolchain -------------
 FROM ${PHP_FPM_BASE} AS build

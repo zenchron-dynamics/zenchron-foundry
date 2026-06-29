@@ -9,7 +9,7 @@
 # compiler toolchain is stripped from the final image.
 # Graceful-stop & restart guidance: docs/worker-runtime.md.
 # =============================================================================
-ARG PHP_CLI_BASE="php:8.4-cli-bookworm@sha256:c442ba6df65a999ea50d0e3c836aaa4da9bd70090fc81db875adb25b330632b1"
+ARG PHP_CLI_BASE="php:8.4-cli-bookworm@sha256:a436a187ed8572883a1e792b7bb2b6cd093c538032e0e65802d9e95a49892fdb"
 
 # --- build stage: compile extensions with the official toolchain -------------
 FROM ${PHP_CLI_BASE} AS build

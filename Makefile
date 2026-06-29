@@ -31,7 +31,13 @@ LABEL_ARGS      := \
 	--label org.opencontainers.image.created="$(BUILD_DATE)"
 
 .PHONY: help doctor init hooks lint build build-php-fpm build-php-cli build-php-worker \
-        build-frankenphp build-caddy build-nginx scan sbom publish clean check-structure
+        build-frankenphp build-caddy build-nginx scan sbom publish clean check-structure \
+        validate build-test smoke-all scan-local sbom-local verify-local ci-local
+
+# STRICT=1 turns every local gate into a hard requirement (no SKIPPED). Without
+# it, missing tools are reported as SKIPPED so the harness still runs offline.
+# Scripts honor LOCAL=1 (lenient skip); STRICT clears it so they fail hard.
+LOCAL_FLAG := $(if $(STRICT),,LOCAL=1)
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -53,10 +59,14 @@ doctor: ## Check local tool availability with install hints (informational)
 	  "gitleaks:Secret scan:brew install gitleaks" \
 	  "semgrep:SAST:pipx install semgrep" \
 	  "pre-commit:Hook framework:pipx install pre-commit" \
+	  "docker-compose:Compose v2:bundled with Docker Desktop / docker-compose-plugin" \
+	  "act:Local Actions runner:brew install act" \
 	  "gh:GitHub CLI (release/CI checks):brew install gh" \
 	| while IFS=: read -r bin desc hint; do \
 	    if [ "$$bin" = "docker-buildx" ]; then \
 	      if docker buildx version >/dev/null 2>&1; then ok=1; else ok=0; fi; \
+	    elif [ "$$bin" = "docker-compose" ]; then \
+	      if docker compose version >/dev/null 2>&1; then ok=1; else ok=0; fi; \
 	    elif command -v "$$bin" >/dev/null 2>&1; then ok=1; else ok=0; fi; \
 	    if [ "$$ok" = 1 ]; then printf "  \033[32m✓\033[0m %-14s %s\n" "$$bin" "$$desc"; \
 	    else printf "  \033[31m✗\033[0m %-14s %-28s install: %s\n" "$$bin" "$$desc" "$$hint"; fi; \
@@ -127,3 +137,47 @@ publish: ## Push images to GHCR (requires login; prefer CI). Guarded.
 clean: ## Remove local build/scan artifacts (no image deletion)
 	rm -rf dist artifacts ./*.sbom.json ./*.trivy.json ./*.grype.json ./*.sarif checksums.txt
 	@echo "cleaned local artifacts (images left intact)"
+
+# --- Local CI harness (mirrors the hosted gates) ----------------------------
+
+validate: ## Static gates: structure, supply-chain guard, action/container pinning, matrix
+	@bash scripts/check-structure.sh
+	@bash scripts/assert-no-wolfi.sh
+	@bash scripts/assert-pinned-actions.sh
+	@bash scripts/assert-pinned-containers.sh
+	@bash scripts/assert-image-matrix.sh
+	@$(LOCAL_FLAG) bash scripts/verify-base-images.sh
+
+build-test: ## Build all 10 images locally (load), no push
+	@$(MAKE) --no-print-directory build-php-cli build-php-fpm build-php-worker build-frankenphp PHP=8.3
+	@$(MAKE) --no-print-directory build-php-cli build-php-fpm build-php-worker build-frankenphp PHP=8.4
+	@$(MAKE) --no-print-directory build-caddy build-nginx
+
+smoke-all: ## Runtime smoke tests for all 10 images (fails if zero tested)
+	@bash scripts/smoke-all.sh
+
+scan-local: ## Trivy/Grype scan locally (SKIPPED if tools absent unless STRICT=1)
+	@if command -v trivy >/dev/null && command -v grype >/dev/null; then \
+	  bash scripts/scan-all.sh; \
+	elif [ -n "$(STRICT)" ]; then \
+	  echo "STRICT: trivy/grype required but missing"; exit 1; \
+	else echo "SKIPPED: trivy/grype not installed (set STRICT=1 to require)"; fi
+
+sbom-local: ## Generate SBOM for the current php-fpm image (SKIPPED if syft absent)
+	@if command -v syft >/dev/null; then \
+	  IMAGE=$(FPM_IMAGE):$(PHP)-$(TAG_SUFFIX) bash scripts/generate-sbom.sh; \
+	elif [ -n "$(STRICT)" ]; then \
+	  echo "STRICT: syft required but missing"; exit 1; \
+	else echo "SKIPPED: syft not installed (set STRICT=1 to require)"; fi
+
+verify-local: ## Verify release artifacts + base images (LOCAL skips missing tools)
+	@$(LOCAL_FLAG) bash scripts/verify-base-images.sh
+	@$(LOCAL_FLAG) bash scripts/verify-release-artifacts.sh
+
+ci-local: ## Full local CI: validate + build-test + smoke-all (+scan/sbom). STRICT=1 = all gates required.
+	@$(MAKE) --no-print-directory validate
+	@$(MAKE) --no-print-directory build-test
+	@$(MAKE) --no-print-directory smoke-all
+	@$(MAKE) --no-print-directory scan-local
+	@$(MAKE) --no-print-directory sbom-local
+	@echo "==> ci-local complete (STRICT=$(if $(STRICT),1,0))"

@@ -18,9 +18,11 @@ permissions:
 jobs:
   scan:
     name: scan ${{ matrix.fam }} ${{ matrix.ver }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, zenchron]
     strategy:
       fail-fast: false
+      # Serialized — small shared self-hosted disk; see ci.yml build-test note.
+      max-parallel: 1
       matrix:
         # gate=true  -> enforcing Trivy gate (fixable CRITICAL/HIGH fail the build).
         # gate=false -> scan + report only. Used for the edge images (nginx/caddy)
@@ -46,20 +48,29 @@ jobs:
           # recorded in policies/.trivyignore with review dates.
           - { fam: caddy,      ver: "prod", ctx: "images/caddy",         gate: false }
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v3
+      - name: Reset workspace ownership (self-hosted hygiene)
+        run: command -v sudo >/dev/null 2>&1 && sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Reclaim disk before build (persistent runner hygiene)
+        # builder prune only — see ci.yml: `docker image prune` on the shared
+        # daemon would delete other jobs' loaded images.
+        run: |
+          rm -f /tmp/scan-image.tar 2>/dev/null || true
+          docker builder prune -af 2>/dev/null || true
+          df -h / | tail -1
 
       - name: Build image locally
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.ctx }}
           load: true
           tags: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
-          cache-from: type=gha
 
       # --- SBOM (Syft) -------------------------------------------------------
       - name: Generate SBOM (Syft)
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           image: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
           format: spdx-json
@@ -67,17 +78,28 @@ jobs:
           output-file: ${{ matrix.fam }}-${{ matrix.ver }}.spdx.json
 
       # --- Trivy (official image; avoids action-version churn) ---------------
-      - name: Save image for scanning
-        run: docker save "scan-target:${{ matrix.fam }}-${{ matrix.ver }}" -o /tmp/scan-image.tar
-
+      # Scan the image DIRECTLY from the docker daemon (socket mount) — no
+      # `docker save` tar. On the small shared disk, writing a ~1GB tar per image
+      # exhausted /tmp ("Save image for scanning" failed); scanning from the
+      # daemon removes that write entirely.
       - name: Trivy scan (SARIF)
         run: |
-          docker run --rm -e TRIVY_NO_PROGRESS=true \
-            -v /tmp:/tmp -v "$PWD:/work" -w /work \
-            aquasec/trivy:0.71.0 image --input /tmp/scan-image.tar \
-            --scanners vuln --format sarif \
-            --output "trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif" \
-            --severity CRITICAL,HIGH
+          set -euo pipefail
+          mkdir -p /tmp/trivy-cache
+          # Retry: the trivy DB download is flaky under network contention on the
+          # shared runner. A persistent cache avoids re-downloading across steps/jobs.
+          n=0
+          until [ "$n" -ge 3 ]; do
+            docker run --rm -e TRIVY_NO_PROGRESS=true \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v /tmp/trivy-cache:/root/.cache/trivy -v "$PWD:/work" -w /work \
+              aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 image "scan-target:${{ matrix.fam }}-${{ matrix.ver }}" \
+              --scanners vuln --format sarif \
+              --output "trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif" \
+              --severity CRITICAL,HIGH && break
+            n=$((n+1)); echo "trivy scan attempt $n failed; retrying in 15s"; sleep 15
+          done
+          test -f "trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif"
 
       # Enforcing gate: fail on FIXABLE CRITICAL/HIGH only (--ignore-unfixed).
       # Debian carries many distro CVEs with NO fix available (perl-base, zlib1g,
@@ -88,11 +110,27 @@ jobs:
       - name: Trivy gate (fixable CRITICAL/HIGH)
         if: ${{ matrix.gate == true }}
         run: |
-          docker run --rm -e TRIVY_NO_PROGRESS=true \
-            -v /tmp:/tmp -v "$PWD:/work" -w /work \
-            aquasec/trivy:0.71.0 image --input /tmp/scan-image.tar \
-            --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
-            --ignore-unfixed --ignorefile policies/.trivyignore
+          set -euo pipefail
+          mkdir -p /tmp/trivy-cache
+          # Separate retry for transient DB/network errors WITHOUT masking a real
+          # gate hit: only retry on trivy's infra exit code (>1); exit 1 = findings.
+          n=0
+          while :; do
+            set +e
+            docker run --rm -e TRIVY_NO_PROGRESS=true \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v /tmp/trivy-cache:/root/.cache/trivy -v "$PWD:/work" -w /work \
+              aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 image "scan-target:${{ matrix.fam }}-${{ matrix.ver }}" \
+              --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
+              --ignore-unfixed --ignorefile policies/.trivyignore
+            rc=$?
+            set -e
+            # 0 = clean, 1 = fixable findings (real gate failure) -> stop, propagate.
+            [ "$rc" -eq 0 ] && exit 0
+            [ "$rc" -eq 1 ] && { echo "Trivy gate: fixable CRITICAL/HIGH found"; exit 1; }
+            n=$((n+1)); [ "$n" -ge 3 ] && { echo "trivy gate infra error (rc=$rc) after retries"; exit "$rc"; }
+            echo "trivy gate infra error (rc=$rc); retry $n in 15s"; sleep 15
+          done
 
       # Code-scanning SARIF upload needs GitHub Advanced Security, which is not
       # available on Free-plan private repos — so this is best-effort. The SARIF
@@ -100,7 +138,7 @@ jobs:
       - name: Upload Trivy SARIF (best-effort; needs Advanced Security)
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
         with:
           sarif_file: trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif
           category: trivy-${{ matrix.fam }}-${{ matrix.ver }}
@@ -111,7 +149,7 @@ jobs:
       # one scanner sees surfaces in Security without blocking on tool variance.
       - name: Grype scan
         id: grype
-        uses: anchore/scan-action@v4
+        uses: anchore/scan-action@64a33b277ea7a1215a3c142735a1091341939ff5 # v4
         with:
           image: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
           fail-build: false
@@ -121,7 +159,7 @@ jobs:
       - name: Upload Grype SARIF (best-effort; needs Advanced Security)
         if: always()
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@dd903d2e4f5405488e5ef1422510ee31c8b32357 # v3
         with:
           sarif_file: ${{ steps.grype.outputs.sarif }}
           category: grype-${{ matrix.fam }}-${{ matrix.ver }}
@@ -129,10 +167,17 @@ jobs:
       # --- Artifacts ---------------------------------------------------------
       - name: Upload scan artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scan-${{ matrix.fam }}-${{ matrix.ver }}
           path: |
             *.sarif
             *.spdx.json
           retention-days: 30
+
+      - name: Reclaim disk (persistent runner hygiene)
+        if: always()
+        run: |
+          rm -f /tmp/scan-image.tar 2>/dev/null || true
+          docker image rm -f "scan-target:${{ matrix.fam }}-${{ matrix.ver }}" 2>/dev/null || true
+          docker builder prune -af 2>/dev/null || true

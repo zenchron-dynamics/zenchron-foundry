@@ -1,0 +1,52 @@
+name: publish-rc
+
+# Release-candidate publisher. Publishes ONLY immutable, clearly non-production
+# RC tags (php-*:<ver>-debian-<rc>, edges :prod-<rc>) via the reusable
+# publish-ghcr workflow. It CANNOT publish canonical *-prod tags: the rc input
+# is required and validated, and publish-ghcr only emits *-prod when rc == "".
+on:
+  workflow_dispatch:
+    inputs:
+      rc:
+        description: "RC identifier, e.g. rc1 (required; must match rc<N>)"
+        required: true
+      platforms:
+        description: "Target platforms"
+        default: "linux/amd64,linux/arm64"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-rc-${{ github.event.inputs.rc }}
+  cancel-in-progress: false
+
+jobs:
+  # Approval + validation gate. The `rc` GitHub Environment carries the required
+  # reviewers; an empty/invalid rc id can never reach the publisher.
+  gate:
+    runs-on: [self-hosted, linux, x64, zenchron]
+    environment: rc
+    steps:
+      - name: Validate RC identifier (never empty, never *-prod)
+        env:
+          RC: ${{ github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          test -n "$RC" || { echo "REFUSE: empty rc identifier"; exit 1; }
+          echo "$RC" | grep -Eq '^rc[0-9]+$' \
+            || { echo "REFUSE: rc '$RC' must match rc<N> (e.g. rc1)"; exit 1; }
+          echo "RC gate passed: $RC"
+
+  images:
+    needs: gate
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      id-token: write
+    uses: ./.github/workflows/publish-ghcr.yml
+    secrets: inherit
+    with:
+      rc: ${{ github.event.inputs.rc }}
+      platforms: ${{ github.event.inputs.platforms }}

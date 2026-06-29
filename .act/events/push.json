@@ -1,0 +1,8 @@
+{
+  "ref": "refs/heads/master",
+  "repository": {
+    "name": "zenchron-foundry",
+    "full_name": "zenchron-dynamics/zenchron-foundry",
+    "default_branch": "master"
+  }
+}

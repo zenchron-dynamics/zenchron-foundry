@@ -1,0 +1,7 @@
+# act configuration — run GitHub Actions workflows locally as a SUPPLEMENT.
+# act cannot reproduce: GitHub OIDC (keyless cosign), protected Environments
+# (release/rc approvals), hosted-runner policy, SARIF upload to code-scanning,
+# or real GitHub Release creation. Treat green act runs as "the steps execute",
+# NOT as "the release is valid". See .act/README.md.
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+--container-architecture linux/amd64
