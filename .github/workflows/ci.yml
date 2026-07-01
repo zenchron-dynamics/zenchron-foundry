@@ -19,7 +19,17 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - name: Reset workspace ownership (self-hosted hygiene)
-        run: command -v sudo >/dev/null 2>&1 && sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            command -v sudo >/dev/null 2>&1 || { echo "ERROR: '$ws' not owned by $(id -u) and sudo unavailable" >&2; exit 1; }
+            sudo chown -R "$(id -u):$(id -g)" "$ws"
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Check required layout
         run: bash scripts/check-structure.sh
@@ -41,7 +51,17 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - name: Reset workspace ownership (self-hosted hygiene)
-        run: command -v sudo >/dev/null 2>&1 && sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            command -v sudo >/dev/null 2>&1 || { echo "ERROR: '$ws' not owned by $(id -u) and sudo unavailable" >&2; exit 1; }
+            sudo chown -R "$(id -u):$(id -g)" "$ws"
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: ShellCheck
@@ -81,7 +101,17 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - name: Reset workspace ownership (self-hosted hygiene)
-        run: command -v sudo >/dev/null 2>&1 && sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            command -v sudo >/dev/null 2>&1 || { echo "ERROR: '$ws' not owned by $(id -u) and sudo unavailable" >&2; exit 1; }
+            sudo chown -R "$(id -u):$(id -g)" "$ws"
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with: { fetch-depth: 0 }
       # Use the open-source gitleaks CLI image directly. The gitleaks-action
@@ -99,7 +129,17 @@ jobs:
     container: semgrep/semgrep:1.86.0@sha256:a9ea2d5621c29d815d90c2a3b2f9571da8972ef4ff855c9e4902681730240e35
     steps:
       - name: Reset workspace ownership (self-hosted hygiene)
-        run: command -v sudo >/dev/null 2>&1 && sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            command -v sudo >/dev/null 2>&1 || { echo "ERROR: '$ws' not owned by $(id -u) and sudo unavailable" >&2; exit 1; }
+            sudo chown -R "$(id -u):$(id -g)" "$ws"
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Semgrep rules
         run: semgrep --error --config policies/semgrep/docker-security.yml .
@@ -131,7 +171,17 @@ jobs:
           - { fam: caddy,          ver: "" }
     steps:
       - name: Reset workspace ownership (self-hosted hygiene)
-        run: command -v sudo >/dev/null 2>&1 && sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            command -v sudo >/dev/null 2>&1 || { echo "ERROR: '$ws' not owned by $(id -u) and sudo unavailable" >&2; exit 1; }
+            sudo chown -R "$(id -u):$(id -g)" "$ws"
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
       - name: Reclaim disk before build (persistent runner hygiene)
@@ -172,7 +222,17 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - name: Reset workspace ownership (self-hosted hygiene)
-        run: command -v sudo >/dev/null 2>&1 && sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            command -v sudo >/dev/null 2>&1 || { echo "ERROR: '$ws' not owned by $(id -u) and sudo unavailable" >&2; exit 1; }
+            sudo chown -R "$(id -u):$(id -g)" "$ws"
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Validate self-contained example stacks
         run: |

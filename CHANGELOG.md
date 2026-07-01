@@ -6,6 +6,18 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ## [Unreleased]
 
+### Changed
+- **Stable release now promotes exact RC digests instead of rebuilding** (rule
+  #14 / Sprint 6). New `promote-stable.yml` + `scripts/promote-stable.sh` copy the
+  already-signed RC image digests onto the `*-prod` aliases via registry retag
+  (`docker buildx imagetools create`) — two-phase, atomic-at-the-alias, with
+  digest-equality verification and rollback metadata. `release.yml` no longer
+  builds: it only verifies + seals the GitHub Release over the promoted images.
+- **Hardened self-hosted workspace-ownership reset** across all workflows: the
+  `sudo chown … || true` pattern is replaced with a path-validated, fail-loud
+  block (refuses to `chown` outside `$RUNNER_WORKSPACE`; errors if the tree is not
+  ours and `sudo` is unavailable) (Sprint 7).
+
 ## [2026.06.21] — Debian-first STABLE promotion
 
 This release **flips the generic production tags to the Debian line.**

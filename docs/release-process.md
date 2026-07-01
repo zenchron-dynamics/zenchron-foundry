@@ -40,34 +40,47 @@ matrix and [release-checklist.md](release-checklist.md) for the step list.
 |----------|---------|------|
 | `ci.yml` | push/PR to `master` | structure, no-wolfi, pinned actions + containers, image matrix, lint (shell/yaml/md/hadolint), gitleaks, semgrep, build + smoke **all 10** images, compose validate. **Never** pushes canonical tags. |
 | `build-images.yml` | dispatch / call | build-and-validate **only** (`load`, no push); `contents: read` only, so it cannot publish. |
-| `publish-ghcr.yml` | `workflow_call` only | reusable publisher. `rc` empty ⇒ stable `*-prod`; `rc` set ⇒ immutable RC tags only. Preflight gates + stable-requires-`v*`-tag check. |
-| `publish-rc.yml` | dispatch (`rc` required, `rc<N>`) | RC entry point; gated by the `rc` Environment; publishes RC tags only, never `*-prod`. |
-| `release.yml` | push tag `v*` | gated stable release (see below), multi-arch, then verify + manifest + GitHub Release. |
+| `publish-ghcr.yml` | `workflow_call` only | reusable **builder/publisher**. Only caller is `publish-rc.yml` (always `rc` set ⇒ immutable RC tags). Its `rc==""` stable branch is retained as defence-in-depth but no workflow invokes it — stable tags are never *built*, only *promoted*. |
+| `publish-rc.yml` | dispatch (`rc` required, `rc<N>`) | RC entry point; gated by the `rc` Environment; builds + signs RC tags only, never `*-prod`. |
+| `promote-stable.yml` | dispatch (`version`, `rc`) | **exact-digest promotion** — copies the already-signed RC digests onto `*-prod` aliases via registry retag (`docker buildx imagetools create`). **No `docker build`** (rule #14). Gated by the `release` Environment; two-phase + digest-equality verified; emits rollback metadata. |
+| `release.yml` | push tag `v*` | **seals** the stable release over already-promoted images — verify + manifest + GitHub Release. **No build.** |
 | `scheduled-rebuild.yml` | weekly cron | rebuilds 10 images into dated **candidate** tags (`<fam>:rebuild-<date>` / `<ver>-rebuild-<date>`), multi-arch + signed; scans and opens an issue on new fixable CRITICAL/HIGH. Never mutates `*-prod`. |
 
 ### Stable-tag protection
 
-`*-prod` is mutated **exclusively** by `release.yml`. Its `guard` job runs in the
-protected `release` GitHub Environment and refuses to publish unless: the tag
-matches `vYYYY.MM.DD[.N]`; the tagged commit is an ancestor of `origin/master`
-(no releasing unmerged commits); and the repo invariants (pinned actions,
-no-wolfi, image matrix) pass. `publish-ghcr.yml` adds a defensive check that a
-stable publish (`rc==""`) must come from a valid `v*` tag ref. RC and scheduled
-candidates can never write `*-prod`.
+`*-prod` is mutated **exclusively** by `promote-stable.yml`, and only by copying
+an already-validated RC digest — never by a build. It runs in the protected
+`release` GitHub Environment (required reviewers) and validates the `version`
+(`vYYYY.MM.DD[.N]`) and `rc` (`rc<N>`) inputs, verifies every RC digest is signed
++ attested before touching an alias, and fails if any promoted alias does not
+match its RC digest exactly. `release.yml`'s `guard` (also in the `release` env)
+additionally requires the tag to match `vYYYY.MM.DD[.N]` and the tagged commit to
+be an ancestor of `origin/master` (no releasing unmerged commits) before it seals
+the release. RC and scheduled candidates can never write `*-prod`.
 
 ### Steady-state stable release
 
 1. Clean, committed, reviewed commit merged to `master` (CI green). Signed
    commits.
-2. Publish and validate a release candidate first via `publish-rc.yml`.
-3. Tag `vYYYY.MM.DD[.N]` on the same merged commit → `release.yml`:
+2. Publish and validate a release candidate via `publish-rc.yml` (builds + signs
+   the immutable `rc<N>` images, multi-arch).
+3. **Promote** the validated RC via `promote-stable.yml` (`version`, `rc`), in the
+   protected `release` Environment. It performs **no build** — for each of the 10
+   images it:
+   - Phase 1: resolves the exact RC digest and verifies it is Cosign-signed +
+     SBOM-attested; records the current `*-prod` digest for rollback. Mutates
+     nothing until all 10 pass.
+   - Phase 2: retags each exact RC digest onto its stable aliases
+     (`<ver>-prod`, `<ver>-prod-<rel>`, `<ver>-debian`; edges `prod`, `prod-<rel>`).
+     Signatures ride the digest, so no re-signing.
+   - Phase 3: verifies every stable alias resolves to the exact RC digest.
+   Rollback metadata (prior alias digests) is uploaded as an artifact.
+4. Tag `vYYYY.MM.DD[.N]` on the same merged commit → `release.yml` **seals** it:
    - `guard`: tag format + master ancestry + invariants (in the `release` env).
-   - `images`: `publish-ghcr.yml` builds multi-arch (amd64+arm64), pushes, **cosign
-     sign**, **syft SBOM + cosign attest**, provenance `mode=max`.
    - `release`: `verify-release-artifacts.sh` proves signed + SBOM + provenance +
-     multi-arch **10/10 from the registry**, generates `release-manifest.yaml`,
-     collects 10 SBOMs strictly (fails if not 10).
-4. GitHub Release collects the manifest, SBOMs, checksums, and `VERIFY.md`.
+     multi-arch **10/10 from the registry** (over the promoted images — no build),
+     generates `release-manifest.yaml`, collects 10 SBOMs strictly (fails if not 10).
+5. GitHub Release collects the manifest, SBOMs, checksums, and `VERIFY.md`.
 
 ## Pre-release checklist (must all pass)
 
