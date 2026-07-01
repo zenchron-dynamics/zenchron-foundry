@@ -7,6 +7,7 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 ## [Unreleased]
 
 ### Changed
+
 - **Stable release now promotes exact RC digests instead of rebuilding** (rule
   #14 / Sprint 6). New `promote-stable.yml` + `scripts/promote-stable.sh` copy the
   already-signed RC image digests onto the `*-prod` aliases via registry retag

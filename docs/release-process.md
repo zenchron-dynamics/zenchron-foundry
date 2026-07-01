@@ -52,7 +52,7 @@ matrix and [release-checklist.md](release-checklist.md) for the step list.
 an already-validated RC digest — never by a build. It runs in the protected
 `release` GitHub Environment (required reviewers) and validates the `version`
 (`vYYYY.MM.DD[.N]`) and `rc` (`rc<N>`) inputs, verifies every RC digest is signed
-+ attested before touching an alias, and fails if any promoted alias does not
+and attested before touching an alias, and fails if any promoted alias does not
 match its RC digest exactly. `release.yml`'s `guard` (also in the `release` env)
 additionally requires the tag to match `vYYYY.MM.DD[.N]` and the tagged commit to
 be an ancestor of `origin/master` (no releasing unmerged commits) before it seals

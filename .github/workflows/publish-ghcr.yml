@@ -50,8 +50,13 @@ jobs:
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
-            command -v sudo >/dev/null 2>&1 || { echo "ERROR: '$ws' not owned by $(id -u) and sudo unavailable" >&2; exit 1; }
-            sudo chown -R "$(id -u):$(id -g)" "$ws"
+            if [ "$(id -u)" -eq 0 ]; then
+              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
+            elif command -v sudo >/dev/null 2>&1; then
+              sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else
+              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
+            fi
           fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - run: bash scripts/check-structure.sh
@@ -112,8 +117,13 @@ jobs:
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
-            command -v sudo >/dev/null 2>&1 || { echo "ERROR: '$ws' not owned by $(id -u) and sudo unavailable" >&2; exit 1; }
-            sudo chown -R "$(id -u):$(id -g)" "$ws"
+            if [ "$(id -u)" -eq 0 ]; then
+              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
+            elif command -v sudo >/dev/null 2>&1; then
+              sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else
+              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
+            fi
           fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
