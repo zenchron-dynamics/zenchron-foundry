@@ -16,6 +16,7 @@ and dispatchable helpers run with `contents: read` and no environment.
 These are set and verifiable via the API today — no reviewer identity required.
 
 ### `foundry-rc`
+
 - Deployment restricted to a **custom branch policy: `master`** (the protected
   default branch). No arbitrary feature branch, no PR branch, no fork.
 - The RC workflow independently re-validates the RC identifier (`rc<N>`), and the
@@ -23,6 +24,7 @@ These are set and verifiable via the API today — no reviewer identity required
   (`expected_revision == github.sha`, reachable from `origin/master`, valid CalVer).
 
 ### `foundry-production`
+
 - Deployment restricted to a **custom tag policy: `v*.*.*`** — tags only, no
   branches, no PR refs, no fork.
 - `v*.*.*` is a coarse net. The authoritative CalVer/RC filter is `release.yml`'s
@@ -51,7 +53,7 @@ The environments are scaffolded but **not release-ready**. GitHub will not let
 `prevent_self_review` be set until at least one reviewer exists, so both the
 reviewers and self-review hardening are a single owner action.
 
-```
+```text
 foundry-rc required reviewers:
 - [OWNER TO ASSIGN]
 
@@ -62,7 +64,7 @@ foundry-production required reviewers:
 
 Recommended policy:
 
-```
+```text
 foundry-rc:
   at least 1 required reviewer
 
