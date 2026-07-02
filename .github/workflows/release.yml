@@ -26,7 +26,22 @@ jobs:
     environment: release
     steps:
       - name: Reset workspace ownership (self-hosted hygiene)
-        run: command -v sudo >/dev/null 2>&1 && sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then
+              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
+            elif command -v sudo >/dev/null 2>&1; then
+              sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else
+              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
+            fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0          # need full history for the ancestry check
@@ -53,23 +68,13 @@ jobs:
           bash scripts/assert-no-wolfi.sh
           bash scripts/assert-image-matrix.sh
 
-  # Build, push, sign, attest all 10 images — MULTI-ARCH (matches validated RCs).
-  images:
-    needs: guard
-    permissions:
-      contents: read
-      packages: write
-      security-events: write
-      id-token: write
-    uses: ./.github/workflows/publish-ghcr.yml
-    secrets: inherit
-    with:
-      platforms: linux/amd64,linux/arm64
-
-  # Post-publish: prove every image is signed + attested FROM THE REGISTRY, then
-  # build the release manifest and attach SBOMs. No step here may swallow errors.
+  # NO BUILD HERE (rule #14 / Sprint 6). The 10 stable images must already exist,
+  # promoted from validated RC digests by promote-stable.yml BEFORE this tag was
+  # pushed. This workflow only *seals* the release: it verifies the already-
+  # promoted images from the registry, then attaches the manifest + SBOMs.
+  # If the images have not been promoted, verify-release-artifacts.sh fails loud.
   release:
-    needs: images
+    needs: guard
     runs-on: [self-hosted, linux, x64, zenchron]
     permissions:
       contents: write          # create GitHub Release
@@ -77,7 +82,22 @@ jobs:
       id-token: write
     steps:
       - name: Reset workspace ownership (self-hosted hygiene)
-        run: command -v sudo >/dev/null 2>&1 && sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" 2>/dev/null || true
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then
+              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
+            elif command -v sudo >/dev/null 2>&1; then
+              sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else
+              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
+            fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
       - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3

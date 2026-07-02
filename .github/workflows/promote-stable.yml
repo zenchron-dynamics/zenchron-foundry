@@ -1,0 +1,103 @@
+name: promote-stable
+
+# Exact RC -> stable promotion (Sprint 6 / rule #14: NO rebuild during promotion).
+#
+# This workflow performs ZERO `docker build`. It copies the *exact*, already-
+# signed RC image digests onto the canonical stable aliases via registry-side
+# retag (`docker buildx imagetools create`, already pinned via setup-buildx).
+# Cosign signatures/attestations are attached to the DIGEST, so they travel with
+# the promotion untouched — no re-signing.
+#
+# Order of operations for a release (see docs/release-process.md):
+#   1. publish-rc.yml   -> builds + signs immutable RC images (rc<N>)
+#   2. promote-stable.yml (this) -> promotes those exact digests to *-prod
+#   3. push the v* tag  -> release.yml seals the GitHub Release over the
+#                          already-promoted images (also no build).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Stable version to publish, e.g. v2026.07.02 (vYYYY.MM.DD[.N])"
+        required: true
+      rc:
+        description: "Validated RC identifier to promote, e.g. rc1 (rc<N>)"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never promote two versions at once; never cancel a promotion mid-flight.
+  group: promote-stable-${{ github.event.inputs.version }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: zenchron-dynamics
+
+jobs:
+  # Approval + input validation. The `release` GitHub Environment carries the
+  # production reviewers — promotion cannot proceed without that approval.
+  gate:
+    runs-on: [self-hosted, linux, x64, zenchron]
+    environment: release
+    steps:
+      - name: Validate version + rc inputs
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          echo "$VERSION" | grep -Eq '^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$' \
+            || { echo "REFUSE: version '$VERSION' is not vYYYY.MM.DD[.N]"; exit 1; }
+          echo "$RC" | grep -Eq '^rc[0-9]+$' \
+            || { echo "REFUSE: rc '$RC' must match rc<N> (e.g. rc1)"; exit 1; }
+          echo "OK: promoting $RC -> $VERSION"
+
+  promote:
+    needs: gate
+    runs-on: [self-hosted, linux, x64, zenchron]
+    permissions:
+      contents: read
+      packages: write          # push the canonical stable tags (retag only)
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene)
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then
+              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
+            elif command -v sudo >/dev/null 2>&1; then
+              sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else
+              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
+            fi
+          fi
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote exact RC digests to canonical stable aliases
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+        run: bash scripts/promote-stable.sh "$VERSION" "$RC"
+
+      - name: Upload rollback metadata (prior alias digests)
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: rollback-${{ github.event.inputs.version }}
+          path: release-artifacts/rollback-*.txt
+          if-no-files-found: error
