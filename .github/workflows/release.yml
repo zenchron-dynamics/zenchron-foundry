@@ -18,12 +18,12 @@ jobs:
   # P0 stable-release gate. Nothing publishes until ALL of these hold:
   #   * the ref is a tag in the approved version format (vYYYY.MM.DD[.N]);
   #   * the tagged commit is reachable from the protected default branch (master);
-  #   * the `release` GitHub Environment approval is granted (required reviewers).
+  #   * the `foundry-production` GitHub Environment approval is granted (reviewers).
   # The environment gate is what makes "publish stable from an arbitrary branch"
   # impossible: the tag must point at a commit already merged to master.
   guard:
     runs-on: [self-hosted, linux, x64, zenchron]
-    environment: release
+    environment: foundry-production
     steps:
       - name: Reset workspace ownership (self-hosted hygiene)
         run: |
@@ -45,6 +45,13 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0          # need full history for the ancestry check
+      - name: Preflight — release environments must be protected + reviewed
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_ENV_CHECK_TOKEN || secrets.GITHUB_TOKEN }}
+          # Free-tier: environment reviewers are billing-gated. Explicit acceptance
+          # (see docs/audits/free-tier-governance-accepted-risk.md). Remove on Team/public.
+          ALLOW_FREE_TIER_NO_REVIEWERS: "1"
+        run: bash scripts/check-release-environments.sh --release-ready
       - name: Validate release tag format
         env:
           REF_NAME: ${{ github.ref_name }}

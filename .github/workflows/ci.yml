@@ -51,6 +51,9 @@ jobs:
       - name: Assert the production image matrix is complete (10/10, no legacy lines)
         run: bash scripts/assert-image-matrix.sh
 
+      - name: Assert only approved release environments are referenced
+        run: bash scripts/assert-environment-names.sh
+
   lint:
     name: lint (shell / yaml / md / dockerfile)
     runs-on: [self-hosted, linux, x64, zenchron]

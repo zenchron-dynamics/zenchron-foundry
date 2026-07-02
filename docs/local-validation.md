@@ -58,7 +58,7 @@ act workflow_dispatch -e .act/events/workflow-dispatch.json -W .github/workflows
 `act` **cannot** validate, and a green `act` run is **not** a release signal for:
 
 - keyless cosign signing (needs GitHub OIDC);
-- `release` / `rc` Environment approvals (server-side protected environments);
+- `foundry-production` / `foundry-rc` Environment approvals (server-side protected environments);
 - SARIF upload to code-scanning (needs the GitHub API / Advanced Security);
 - GitHub Release creation (needs `contents: write` against GitHub);
 - tag ancestry against `origin/master` (needs the real remote);

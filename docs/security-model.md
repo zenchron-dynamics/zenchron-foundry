@@ -44,7 +44,7 @@ Key invariants:
 
 ## Release controls (stable path)
 
-`release.yml`'s `guard` job runs in the protected `release` GitHub Environment
+`release.yml`'s `guard` job runs in the protected `foundry-production` GitHub Environment
 (required reviewers) and refuses to publish unless all hold:
 
 1. **Tag format** — `vYYYY.MM.DD[.N]`.
@@ -55,7 +55,7 @@ Key invariants:
 
 Only then does `images` call `publish-ghcr.yml` multi-arch, followed by the
 post-publish `verify-release-artifacts.sh` proof (see
-[sbom-signing-provenance.md](sbom-signing-provenance.md)). The `rc` environment
+[sbom-signing-provenance.md](sbom-signing-provenance.md)). The `foundry-rc` environment
 gates `publish-rc.yml` the same way for release candidates.
 
 ## Least-privilege permissions

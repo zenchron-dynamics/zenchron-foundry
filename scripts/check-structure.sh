@@ -29,7 +29,8 @@ required_files=(
     policies/trivy.yaml policies/grype.yaml policies/syft.yaml
     policies/hadolint.yaml policies/gitleaks.toml
     policies/semgrep/docker-security.yml policies/cosign-policy.md
-    scripts/assert-no-wolfi.sh
+    scripts/assert-no-wolfi.sh scripts/assert-environment-names.sh
+    scripts/check-release-environments.sh
     scripts/assert-pinned-actions.sh scripts/assert-pinned-containers.sh
     scripts/assert-image-matrix.sh scripts/verify-base-images.sh
     scripts/verify-release-artifacts.sh scripts/generate-release-manifest.sh

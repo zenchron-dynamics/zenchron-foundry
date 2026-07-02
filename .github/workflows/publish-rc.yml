@@ -22,12 +22,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Approval + validation gate. The `rc` GitHub Environment carries the required
-  # reviewers; an empty/invalid rc id can never reach the publisher.
+  # Approval + validation gate. The `foundry-rc` GitHub Environment carries the
+  # required reviewers; an empty/invalid rc id can never reach the publisher.
   gate:
     runs-on: [self-hosted, linux, x64, zenchron]
-    environment: rc
+    environment: foundry-rc
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then
+              chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then
+              sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else
+              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
+            fi
+          fi
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Preflight — release environments must be protected + reviewed
+        env:
+          # Needs a token that can READ environment protection rules. Owner must
+          # provide RELEASE_ENV_CHECK_TOKEN (fine-grained PAT: Environments read +
+          # Administration read); GITHUB_TOKEN cannot read reviewers, so without
+          # the PAT this fails closed — which is the intended safety behaviour.
+          GH_TOKEN: ${{ secrets.RELEASE_ENV_CHECK_TOKEN || secrets.GITHUB_TOKEN }}
+          # Org is GitHub Free + repo private → environment required reviewers are
+          # billing-gated (cannot be attached). Accept that gap explicitly and lean
+          # on the deployment branch/tag policies + workflow guards. Remove this once
+          # the org is on Team (or the repo is public) and real reviewers are set.
+          ALLOW_FREE_TIER_NO_REVIEWERS: "1"
+        run: bash scripts/check-release-environments.sh --release-ready
       - name: Validate RC identifier (never empty, never *-prod)
         env:
           RC: ${{ github.event.inputs.rc }}
