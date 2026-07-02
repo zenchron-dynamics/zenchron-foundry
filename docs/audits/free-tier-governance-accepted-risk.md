@@ -29,6 +29,12 @@ On the GitHub Free plan, **private** repositories cannot use:
 - **Tag protection** (rulesets gated; the legacy `tags/protection` API is
   removed → 404).
 
+- **Environment required reviewers** (`PUT …/environments/{env}` with
+  `reviewers` → HTTP 422 "ensure the billing plan supports the required
+  reviewers protection rule"). The `foundry-rc` / `foundry-production`
+  environments exist and their **deployment branch/tag policies work** (those
+  are free), but the human **approval gate cannot be attached** on Free+private.
+
 This is a **plan** limitation, not a permissions one — the maintainer is org
 admin and repo admin; the API rejects the feature on this plan.
 
@@ -55,6 +61,8 @@ cannot block a merge.
 | Read-only GHCR deploy tokens | `docs/ghcr-consuming-private-images.md` | `read:packages` only |
 | Digest pinning + Dependabot | Dockerfiles, `dependabot.yml` | immutable bases |
 | Cosign signing + SBOM attest | `publish-ghcr.yml` | tamper-evidence |
+| Release-env deployment branch/tag policies | `foundry-rc`→`master`, `foundry-production`→`v*.*.*` | free; restricts refs even without reviewer gate |
+| Release-env preflight (fail-closed) | `scripts/check-release-environments.sh` | proves existence + policies live; still demands reviewers (unattainable on this plan) |
 | Signed commits (when key available) | `docs/signed-commits.md` | armed, opt-in |
 
 **None of these enforce policy the way paid branch protection would.** They

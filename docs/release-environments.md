@@ -49,6 +49,17 @@ checks. See the script header for the token it needs.
 
 ## BLOCKING — human reviewers required
 
+> ⚠️ **Plan limitation (Free + private).** Environment *required reviewers* are
+> billing-gated: `PUT …/environments/{env}` with `reviewers` returns HTTP 422
+> ("ensure the billing plan supports the required reviewers protection rule").
+> On the current **GitHub Free** org, private repo, the approval gate **cannot be
+> attached at all** — this is a plan limit, not a solo-maintainer limit. The
+> deployment branch/tag policies below already work and are free. To get a real
+> reviewer gate: upgrade the org to **GitHub Team**, or make the repo public
+> (the accepted-risk doc requires it stay private). Until then the reviewer step
+> is unattainable and `--release-ready` stays red by design. See
+> [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md).
+
 The environments are scaffolded but **not release-ready**. GitHub will not let
 `prevent_self_review` be set until at least one reviewer exists, so both the
 reviewers and self-review hardening are a single owner action.
