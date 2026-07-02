@@ -4,7 +4,7 @@ How a Zenchron Foundry release is made trustworthy, and what is verified where.
 
 ## Pipeline
 
-```
+```text
 CI validates source
   -> publish-rc builds immutable candidates (signed + SBOM + provenance)
   -> RC artifacts verified from the registry
@@ -47,7 +47,7 @@ identity. Track this before claiming a hardened production trust gate.
 
 The non-negotiable invariant is:
 
-```
+```text
 release tag SHA == RC manifest revision == RC provenance revision == RC OCI label
              == stable provenance revision == stable OCI label
 stable digest == validated RC digest
