@@ -115,9 +115,9 @@ author as the only production reviewer.
       **Environments: read** + **Administration: read** — so the in-workflow preflight
       can prove reviewer protection. Without it the preflight fails closed (safe, but
       blocks release).
-- [ ] Ratify CVE-2026-34986 (Caddy) separately — see
-      [security/cve-2026-34986-review.md](security/cve-2026-34986-review.md). The
-      environment work does **not** unblock stable promotion by itself.
+- [x] ~~Ratify CVE-2026-34986 (Caddy)~~ **RESOLVED** — the pinned Caddy base
+      already ships the fixed `go-jose/v3 v3.0.5`; exception removed, no ratification
+      needed. See [security/cve-2026-34986-review.md](security/cve-2026-34986-review.md).
 
 Reviewer assignment is not scriptable here without inventing identities; it is
 left to the repository owner.

@@ -76,9 +76,10 @@ default is tightened.
 
 ## Vulnerability gates
 
-See `docs/vulnerability-exceptions.md`. Caddy is an **accepted-risk** gate
-(CVE-2026-34986), not a clean gate — production must either reach 10/10 enforcing
-or explicitly sign off the exception.
+See `docs/vulnerability-exceptions.md`. The former Caddy CVE-2026-34986
+accepted-risk gate is **resolved** — the pinned base already ships the fixed
+`go-jose/v3 v3.0.5`, the exception is removed, and Caddy is a clean gate for it.
+Remaining exceptions are unfixed Debian distro CVEs behind `--ignore-unfixed`.
 
 ## Protected environments
 

@@ -12,11 +12,6 @@ ignore:
   # Negligible / unknown severity is noisy on minimal images — report, don't fail.
   - vulnerability: "*"
     severity: "negligible"
-  # caddy only: go-jose/v3 in the upstream Caddy binary (not apk-patchable; not
-  # reachable when TLS terminates upstream). Mirrors policies/.trivyignore.
-  # owner: platform/security · review-by 2026-07-20 (re-reviewed 2026-07-02,
-  #   docs/security/cve-2026-34986-review.md; owner ratification pending)
-  - vulnerability: CVE-2026-34986
 
 # Accepted-risk entries go below WITH justification (mirror .trivyignore policy).
 # ignore:
