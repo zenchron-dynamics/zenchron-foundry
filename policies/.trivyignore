@@ -9,7 +9,8 @@
 # cannot be patched in our layer). go-jose is used for ACME/JOSE; this platform
 # terminates TLS upstream (Caddy on high ports behind an LB), so the path is not
 # exercised. Awaiting an upstream Caddy rebuild with go-jose >= 3.0.5.
-# owner: platform/security · review-by 2026-07-02
+# owner: platform/security · review-by 2026-07-20 (re-reviewed 2026-07-02,
+#   see docs/security/cve-2026-34986-review.md; owner ratification pending)
 CVE-2026-34986
 
 # -----------------------------------------------------------------------------

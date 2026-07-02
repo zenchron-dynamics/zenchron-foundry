@@ -129,10 +129,13 @@ scan: ## Trivy + Grype scan of current PHP php-fpm image
 sbom: ## Generate SBOMs (syft) for current PHP php-fpm image
 	@IMAGE=$(FPM_IMAGE):$(PHP)-$(TAG_SUFFIX) bash scripts/generate-sbom.sh
 
-publish: ## Push images to GHCR (requires login; prefer CI). Guarded.
-	@echo "Publishing is normally done by CI (publish-ghcr.yml)."
-	@echo "To push manually you must be logged in to $(REGISTRY)."
-	@read -p "Push $(NAMESPACE)/* now? [y/N] " ok; [ "$$ok" = "y" ] && bash scripts/publish-all.sh || echo "aborted"
+publish: ## Publishing is CI-only. There is no local production push path.
+	@echo "Publishing is done ONLY by CI, and production tags ONLY by the protected"
+	@echo "promotion workflow:"
+	@echo "  RC candidates : .github/workflows/publish-rc.yml"
+	@echo "  stable *-prod : .github/workflows/promote-stable.yml (exact-digest retag)"
+	@echo "The local publish-all.sh bypass was removed (it pushed *-prod with || true)."
+	@exit 1
 
 clean: ## Remove local build/scan artifacts (no image deletion)
 	rm -rf dist artifacts ./*.sbom.json ./*.trivy.json ./*.grype.json ./*.sarif checksums.txt
