@@ -41,9 +41,21 @@ case "$MODE" in
 esac
 
 fail=0
+waived=0
 note() { printf '    %s\n' "$*"; }
 pass() { printf 'PASS  %s\n' "$*"; }
 bad()  { printf 'FAIL  %s\n' "$*"; fail=1; }
+warn() { printf 'WAIVE %s\n' "$*"; waived=1; }
+
+# Free-tier escape hatch. GitHub Free + PRIVATE repos CANNOT attach environment
+# required reviewers (the PUT returns HTTP 422 "billing plan"). Setting
+# ALLOW_FREE_TIER_NO_REVIEWERS=1 is an EXPLICIT, logged acceptance of that gap:
+# --release-ready then treats the (impossible) reviewer + prevent_self_review
+# checks as WAIVED and leans on the deployment branch/tag policies + workflow
+# guards instead. Everything else still fails closed. Default (unset) = strict.
+# See docs/audits/free-tier-governance-accepted-risk.md.
+FREE_TIER=0
+case "${ALLOW_FREE_TIER_NO_REVIEWERS:-}" in 1|true|yes|TRUE|YES) FREE_TIER=1 ;; esac
 
 # --- Preconditions: tooling + auth + correct repo --------------------------
 command -v gh >/dev/null 2>&1 || { echo "FAIL: gh CLI not found (cannot prove environment protection) — failing closed."; exit 1; }
@@ -127,7 +139,11 @@ check_env() {
         pass "$env: required reviewers CONFIGURED ($rev_count)"
     else
         if [ "$MODE" = "--release-ready" ]; then
-            bad "$env: required reviewers MISSING — human reviewers must be assigned before release (fail closed)"
+            if [ "$FREE_TIER" -eq 1 ]; then
+                warn "$env: required reviewers MISSING — WAIVED (ALLOW_FREE_TIER_NO_REVIEWERS): GitHub Free private repo cannot attach reviewers; relying on deployment policies + workflow guards"
+            else
+                bad "$env: required reviewers MISSING — human reviewers must be assigned before release (fail closed)"
+            fi
         else
             note "$env: required reviewers MISSING (expected at this stage; assign before release)"
         fi
@@ -139,12 +155,20 @@ check_env() {
             pass "$env: prevent_self_review ENABLED"
         elif [ -z "$self_review" ]; then
             if [ "$MODE" = "--release-ready" ]; then
-                bad "$env: prevent_self_review not provable (no required_reviewers rule yet) — fail closed"
+                if [ "$FREE_TIER" -eq 1 ]; then
+                    warn "$env: prevent_self_review not exposed — WAIVED (reviewers unavailable on GitHub Free private repo)"
+                else
+                    bad "$env: prevent_self_review not provable (no required_reviewers rule yet) — fail closed"
+                fi
             else
                 note "$env: prevent_self_review not yet exposed (attaches once reviewers are assigned)"
             fi
         else
-            bad "$env: prevent_self_review is DISABLED — production self-approval must be blocked"
+            if [ "$FREE_TIER" -eq 1 ]; then
+                warn "$env: prevent_self_review DISABLED — WAIVED (free-tier self-review accepted)"
+            else
+                bad "$env: prevent_self_review is DISABLED — production self-approval must be blocked"
+            fi
         fi
     fi
 }
@@ -155,7 +179,14 @@ check_env "$PROD_ENV" production
 echo
 if [ "$fail" -eq 0 ]; then
     if [ "$MODE" = "--release-ready" ]; then
-        echo "==> check-release-environments (--release-ready): PASS (environments protected AND reviewers assigned)."
+        if [ "$waived" -eq 1 ]; then
+            echo "==> check-release-environments (--release-ready): PASS (COMPENSATING-CONTROL MODE)."
+            echo "    Reviewer/self-review protections WAIVED via ALLOW_FREE_TIER_NO_REVIEWERS."
+            echo "    Enforcement rests on deployment branch/tag policies + workflow guards."
+            echo "    Accepted risk: docs/audits/free-tier-governance-accepted-risk.md."
+        else
+            echo "==> check-release-environments (--release-ready): PASS (environments protected AND reviewers assigned)."
+        fi
     else
         echo "==> check-release-environments (--structure): PASS (environments exist with non-human protections)."
     fi

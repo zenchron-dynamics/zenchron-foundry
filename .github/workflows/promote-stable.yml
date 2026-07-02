@@ -60,6 +60,9 @@ jobs:
       - name: Preflight — release environments must be protected + reviewed
         env:
           GH_TOKEN: ${{ secrets.RELEASE_ENV_CHECK_TOKEN || secrets.GITHUB_TOKEN }}
+          # Free-tier: environment reviewers are billing-gated. Explicit acceptance
+          # (see docs/audits/free-tier-governance-accepted-risk.md). Remove on Team/public.
+          ALLOW_FREE_TIER_NO_REVIEWERS: "1"
         run: bash scripts/check-release-environments.sh --release-ready
       - name: Validate version + rc inputs
         env:

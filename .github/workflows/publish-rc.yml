@@ -50,6 +50,11 @@ jobs:
           # Administration read); GITHUB_TOKEN cannot read reviewers, so without
           # the PAT this fails closed — which is the intended safety behaviour.
           GH_TOKEN: ${{ secrets.RELEASE_ENV_CHECK_TOKEN || secrets.GITHUB_TOKEN }}
+          # Org is GitHub Free + repo private → environment required reviewers are
+          # billing-gated (cannot be attached). Accept that gap explicitly and lean
+          # on the deployment branch/tag policies + workflow guards. Remove this once
+          # the org is on Team (or the repo is public) and real reviewers are set.
+          ALLOW_FREE_TIER_NO_REVIEWERS: "1"
         run: bash scripts/check-release-environments.sh --release-ready
       - name: Validate RC identifier (never empty, never *-prod)
         env:

@@ -47,6 +47,17 @@ existence, deployment policy, required reviewers, production self-review) blocks
 the release. `--structure` verifies everything except reviewers, for local scaffolding
 checks. See the script header for the token it needs.
 
+**Free-tier compensating-control mode.** Because environment required reviewers are
+billing-gated on this Free + private org (see the warning below), the release
+workflows set `ALLOW_FREE_TIER_NO_REVIEWERS=1`. In that mode `--release-ready`
+still hard-fails on auth / existence / deployment-policy checks, but the
+(unattainable) reviewer + self-review checks are **WAIVED** and logged, and the
+banner reads `PASS (COMPENSATING-CONTROL MODE)`. Enforcement then rests on the
+deployment branch/tag policies plus the workflow guards (CalVer, master-ancestry,
+exact-digest equality, signature/SBOM verification). Locally, without the env var,
+the script stays **strict** and fails on missing reviewers — remove the workflow
+env var (and assign real reviewers) once the org is on **Team** or the repo is public.
+
 ## BLOCKING — human reviewers required
 
 > ⚠️ **Plan limitation (Free + private).** Environment *required reviewers* are
