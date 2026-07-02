@@ -1,13 +1,19 @@
 name: verify-signatures
 
-# Proves the supply-chain loop: pull each published image and verify its Cosign
-# keyless signature + SBOM attestation. Run manually, or after a release.
+# Manual, post-release supply-chain verification. Invokes the SINGLE strict
+# verifier (scripts/verify-image-release-identity.sh) so this workflow does not
+# drift into a weaker parallel implementation: it checks signature + issuer +
+# identity, SBOM, SLSA provenance, provenance source repo + revision, the OCI
+# revision label, and multi-arch — and binds every image to an expected commit.
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Image tag suffix to verify (e.g. 8.3-prod, prod)"
-        default: ""
+      revision:
+        description: "Expected 40-hex source commit the images must be built from"
+        required: true
+      repo:
+        description: "Expected source repo owner/name"
+        default: "zenchron-dynamics/zenchron-foundry"
 
 permissions:
   contents: read
@@ -22,7 +28,7 @@ env:
 jobs:
   verify:
     runs-on: [self-hosted, linux, x64, zenchron]
-    timeout-minutes: 10          # never hang on Rekor backoff
+    timeout-minutes: 12          # never hang on Rekor backoff
     strategy:
       fail-fast: false
       # Sigstore's public-good Rekor rate-limits bursts; verify a few at a time.
@@ -40,6 +46,25 @@ jobs:
           - caddy:prod
           - nginx:prod
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene)
+        run: |
+          set -euo pipefail
+          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
+          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
+          # and fail loud if the tree is not ours and we cannot fix it.
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then
+              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
+            elif command -v sudo >/dev/null 2>&1; then
+              sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else
+              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
+            fi
+          fi
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
       - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 
       - name: Login to GHCR
@@ -49,27 +74,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify signature
-        run: |
-          set -euo pipefail
-          IMG="${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"
-          echo "::group::cosign verify ${IMG}"
-          cosign verify --timeout 90s \
-            --certificate-identity-regexp "${IDENTITY_RE}" \
-            --certificate-oidc-issuer "${ISSUER}" \
-            "${IMG}"
-          echo "::endgroup::"
-
-      - name: Verify SBOM attestation
-        run: |
-          set -euo pipefail
-          IMG="${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"
-          echo "::group::cosign verify-attestation ${IMG}"
-          cosign verify-attestation --timeout 90s --type spdxjson \
-            --certificate-identity-regexp "${IDENTITY_RE}" \
-            --certificate-oidc-issuer "${ISSUER}" \
-            "${IMG}"
-          echo "::endgroup::"
-
-      - name: Confirm pullable
-        run: docker pull "${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"
+      - name: Verify release identity
+        env:
+          EXPECTED_REVISION: ${{ inputs.revision }}
+          EXPECTED_REPO: ${{ inputs.repo }}
+          IDENTITY_RE: ${{ env.IDENTITY_RE }}
+          ISSUER: ${{ env.ISSUER }}
+        run: bash scripts/verify-image-release-identity.sh "${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"

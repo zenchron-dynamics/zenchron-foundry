@@ -43,7 +43,7 @@ policy this should be **narrowed** to the exact publisher workflow identities:
 If reusable workflows change the certificate identity, document and test the exact
 identity. Track this before claiming a hardened production trust gate.
 
-## Revision / OCI-label equality — open item
+## Revision / OCI-label equality
 
 The non-negotiable invariant is:
 
@@ -53,13 +53,26 @@ release tag SHA == RC manifest revision == RC provenance revision == RC OCI labe
 stable digest == validated RC digest
 ```
 
-`verify-release-artifacts.sh` today proves signature/SBOM/provenance/multiarch and
-(via promotion) `stable digest == RC digest`, but does **not** yet decode
-provenance to assert `provenance revision == release tag SHA` or check the OCI
-revision label. A dedicated `verify-image-release-identity.sh` (decode predicate
-→ extract repo+revision → compare to manifest + OCI label) is required to close
-this and should be the single verifier reused by RC verification, promotion,
-release sealing, and manual verification.
+**`scripts/verify-image-release-identity.sh`** is the single strict verifier that
+binds an image to an expected commit: it verifies cosign signature (exact identity
+if `EXPECTED_IDENTITY` is set, else the issuer + identity regexp), SBOM, and SLSA
+provenance, then decodes the provenance predicate to extract the source repo +
+revision and asserts `provenance revision == EXPECTED_REVISION`,
+`repo == EXPECTED_REPO`, `OCI org.opencontainers.image.revision == EXPECTED_REVISION`,
+and every expected platform. It handles SLSA provenance v1 and v0.2; its pure
+extraction/comparison logic has a 12-case self-test (`--self-test`), and it follows
+the `LOCAL=`/skip convention when cosign is absent.
+
+`verify-signatures.yml` (manual dispatch) now invokes this verifier per image with
+the release `revision` input — the weaker signature+SBOM-only version was removed.
+The same script should be reused by RC verification, promotion, and release
+sealing. Its cosign/registry path is exercised for the first time at the step-11
+live verification; the `docker buildx`/`crane` fallback resolves the image index +
+OCI config.
+
+Still open: `IDENTITY_RE` defaults to the broad repo regexp — pass a narrow
+`EXPECTED_IDENTITY` (exact publisher workflow) at verification time until the
+default is tightened.
 
 ## Vulnerability gates
 
