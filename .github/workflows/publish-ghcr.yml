@@ -2,7 +2,7 @@ name: publish-ghcr
 
 # Reusable publisher. NOT directly dispatchable — the only entry points are:
 #   * release.yml        -> stable *-prod tags (rc == ""), gated on a v* tag
-#                           reachable from master + the `release` environment.
+#                           reachable from master + the `foundry-production` environment.
 #   * publish-rc.yml     -> immutable RC tags only (rc != ""), never *-prod.
 # Removing workflow_dispatch closes the "empty rc falls through to stable"
 # hole: a stable publish can only happen via release.yml's gated path.

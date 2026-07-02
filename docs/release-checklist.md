@@ -16,6 +16,10 @@ you skip one.
       make ci-local STRICT=1
       ```
 
+- [ ] Release environments protected + reviewers assigned:
+      `bash scripts/check-release-environments.sh --release-ready` passes (it is
+      also enforced in-workflow and fails closed). See
+      [release-environments.md](release-environments.md).
 - [ ] Base digests current and multi-arch: `bash scripts/verify-base-images.sh`.
 - [ ] Vulnerability gate green: no fixable CRITICAL/HIGH on the PHP images +
       nginx (see [vulnerability-management.md](vulnerability-management.md)); any
@@ -24,7 +28,7 @@ you skip one.
 ## Release candidate first
 
 - [ ] Dispatch `publish-rc.yml` with a required `rc` identifier matching `rc<N>`
-      (e.g. `rc1`). Approve the `rc` GitHub Environment prompt.
+      (e.g. `rc1`). Approve the `foundry-rc` GitHub Environment prompt.
 - [ ] Confirm it published **only** immutable RC tags — `php-*:<ver>-debian-rc<N>`
       and edges `prod-rc<N>` (plus `.build.<run>`), and **no** `*-prod` tag.
 - [ ] Validate the RC: pull the RC tags, run consumer/integration checks, confirm
@@ -36,7 +40,7 @@ you skip one.
       commit** you validated as the RC (it must be an ancestor of
       `origin/master`). Stable is rebuilt from that commit with the same pinned
       base digests — not an arbitrary branch.
-- [ ] Approve the `release` GitHub Environment. The `guard` job enforces tag
+- [ ] Approve the `foundry-production` GitHub Environment. The `guard` job enforces tag
       format, master ancestry, and repo invariants before anything publishes.
 - [ ] `release.yml` builds multi-arch, pushes `*-prod` (+ dated, + `-build.<run>`,
       + `-debian` alias for PHP families), signs, and attests all 10 images.

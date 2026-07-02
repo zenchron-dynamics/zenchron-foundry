@@ -85,4 +85,6 @@ or explicitly sign off the exception.
 `foundry-rc` (RC publication only, cannot mutate canonical aliases) and
 `foundry-production` (required reviewers, restricted refs/tags, no self-approval,
 audit log). These are **repository settings** and cannot be proven from workflow
-code — attach settings evidence before a live production release.
+code — the preflight `scripts/check-release-environments.sh --release-ready` proves
+them live and fails closed. Full spec, reviewer placeholders, and the owner action
+checklist are in [release-environments.md](release-environments.md).

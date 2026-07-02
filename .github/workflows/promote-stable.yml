@@ -36,12 +36,31 @@ env:
   NAMESPACE: zenchron-dynamics
 
 jobs:
-  # Approval + input validation. The `release` GitHub Environment carries the
-  # production reviewers — promotion cannot proceed without that approval.
+  # Approval + input validation. The `foundry-production` GitHub Environment
+  # carries the production reviewers — promotion cannot proceed without approval.
   gate:
     runs-on: [self-hosted, linux, x64, zenchron]
-    environment: release
+    environment: foundry-production
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then
+              chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then
+              sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else
+              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
+            fi
+          fi
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Preflight — release environments must be protected + reviewed
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_ENV_CHECK_TOKEN || secrets.GITHUB_TOKEN }}
+        run: bash scripts/check-release-environments.sh --release-ready
       - name: Validate version + rc inputs
         env:
           VERSION: ${{ github.event.inputs.version }}
