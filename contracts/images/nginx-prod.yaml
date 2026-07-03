@@ -1,0 +1,12 @@
+# Runtime contract — nginx. Machine-read by verify-image-contract.sh.
+image: nginx
+selector: prod
+user: "101:101"
+non_root: true
+read_only_rootfs: true
+tmpfs: [/tmp, /var/cache/nginx, /var/run]
+ports: [8080]
+healthcheck: true
+config_test: "nginx -t -q"
+health_path: /healthz
+oci_revision_label: required

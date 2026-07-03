@@ -16,6 +16,14 @@ on:
         description: "Release-candidate label (e.g. rc1). When set, publishes ONLY immutable RC tags — NEVER *-prod."
         type: string
         default: ""
+      version:
+        description: "Release version (vYYYY.MM.DD[.N]) this RC targets. Required in RC mode; embedded in the immutable tag."
+        type: string
+        default: ""
+      expected_revision:
+        description: "Full 40-hex source revision. In RC mode MUST equal github.sha; embedded (short) in the immutable tag."
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -81,14 +89,21 @@ jobs:
           esac
           echo "$REF_NAME" | grep -Eq '^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$' \
             || { echo "REFUSE: tag '$REF_NAME' is not a valid release version (vYYYY.MM.DD[.N])"; exit 1; }
-      - name: RC path requires a non-empty RC identifier
+      - name: RC path requires version + rc + revision bound to this commit
         if: ${{ inputs.rc != '' }}
         env:
           RC: ${{ inputs.rc }}
+          VERSION: ${{ inputs.version }}
+          EXPECTED_REVISION: ${{ inputs.expected_revision }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          echo "$RC" | grep -Eq '^rc[0-9]+$' \
-            || { echo "REFUSE: rc identifier '$RC' must match rc<N>"; exit 1; }
+          . scripts/lib/common.sh
+          require_rc "$RC"
+          require_calver "$VERSION"
+          require_hex40 "$EXPECTED_REVISION"
+          [ "$EXPECTED_REVISION" = "$GITHUB_SHA" ] \
+            || die "expected_revision ($EXPECTED_REVISION) != github.sha ($GITHUB_SHA)"
 
   publish:
     needs: preflight
@@ -142,18 +157,24 @@ jobs:
         id: meta
         env:
           RC: ${{ inputs.rc || '' }}
+          VERSION: ${{ inputs.version || '' }}
+          EXPECTED_REVISION: ${{ inputs.expected_revision || '' }}
         run: |
           set -euo pipefail
+          . scripts/lib/registry-aliases.sh
           base="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}"
           if [ "${{ matrix.ver }}" = "prod" ]; then suffix="prod"; else suffix="${{ matrix.ver }}-prod"; fi
           if [ -n "${RC}" ]; then
-            # RC mode: publish ONLY immutable, clearly non-production RC tags.
-            # PHP families -> <ver>-debian-<rc> ; edge images -> prod-<rc>.
-            case "${{ matrix.fam }}" in
-              php-*) primary="${base}:${{ matrix.ver }}-debian-${RC}" ;;
-              *)     primary="${base}:prod-${RC}" ;;
-            esac
-            tags="${primary},${primary}.build.${{ github.run_number }}"
+            # RC mode: the AUTHORITATIVE tag is immutable and SHA-bound —
+            #   php: <ver>-<version>-<rc>-sha-<short>  edge: <version>-<rc>-sha-<short>
+            # A convenience alias (<ver>-debian-<rc> / prod-<rc>) is published too
+            # but is NEVER read by promotion.
+            imm_suffix="$(immutable_rc_suffix "${{ matrix.ver }}" "$VERSION" "$RC" "$EXPECTED_REVISION")"
+            conv_suffix="$(convenience_rc_suffix "${{ matrix.ver }}" "$RC")"
+            immutable="${base}:${imm_suffix}"
+            primary="$immutable"
+            tags="${immutable},${base}:${conv_suffix}"
+            echo "immutable=${immutable}" >> "$GITHUB_OUTPUT"
           else
             rel="${GITHUB_REF_NAME}"   # e.g. v2026.05.30
             tags="${base}:${suffix},${base}:${suffix}-${rel#v},${base}:${suffix}-build.${{ github.run_number }}"
@@ -166,6 +187,25 @@ jobs:
             echo "tags=${tags}"
             echo "primary=${primary}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Immutability probe (RC only — never overwrite a bound tag)
+        if: ${{ inputs.rc != '' }}
+        env:
+          IMMUTABLE: ${{ steps.meta.outputs.immutable }}
+          EXPECTED_REVISION: ${{ inputs.expected_revision }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/registry-probe.sh
+          set +e
+          out="$(probe_immutable_tag "$IMMUTABLE" "$EXPECTED_REVISION")"; code=$?
+          set -e
+          echo "$out"
+          case "$code" in
+            0)  echo "immutable tag absent -> publish" ;;
+            10) echo "immutable tag already present with this revision -> idempotent resume" ;;
+            20) echo "REFUSE: immutable tag conflict (present with different content)"; exit 1 ;;
+            *)  echo "REFUSE: registry lookup failed -> fail closed"; exit 1 ;;
+          esac
 
       - name: Build & push (SBOM + provenance attestations)
         id: build

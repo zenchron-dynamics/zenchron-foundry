@@ -1,0 +1,13 @@
+# Runtime contract — php-fpm 8.4. Machine-read by verify-image-contract.sh.
+image: php-fpm
+selector: "8.4"
+php_version: "8.4"
+user: "10001:10001"
+non_root: true
+read_only_rootfs: true
+tmpfs: [/tmp]
+ports: [9000]
+healthcheck: true
+forbidden_tools: [apk, gcc, make, phpize]
+extensions_contract: php-extensions/fpm-8.4.txt
+oci_revision_label: required

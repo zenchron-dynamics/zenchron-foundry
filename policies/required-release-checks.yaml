@@ -1,0 +1,40 @@
+# =============================================================================
+# policies/required-release-checks.yaml
+# -----------------------------------------------------------------------------
+# The exact set of CI checks that must be GREEN on the TAGGED COMMIT before a
+# stable GitHub release may be sealed. scripts/check-exact-commit-ci.sh queries
+# the GitHub Checks/Statuses API for the tag's commit and requires every name
+# below to have concluded `success` — skipped / neutral / cancelled / stale /
+# timed-out / missing / failed all reject.
+#
+# "Latest successful master run" is NOT accepted as evidence for another commit.
+# =============================================================================
+schema_version: 1
+
+# Bounded polling for checks still running on the tagged commit.
+poll:
+  timeout_seconds: 1800
+  interval_seconds: 30
+
+# Conclusions that count as a pass. Anything else (or absent) fails the gate.
+accept_conclusions: [success]
+
+required_checks:
+  - lint
+  - semgrep
+  - structure
+  - gitleaks
+  - compose-validate
+  - build-and-smoke (php-cli/8.3)
+  - build-and-smoke (php-cli/8.4)
+  - build-and-smoke (php-fpm/8.3)
+  - build-and-smoke (php-fpm/8.4)
+  - build-and-smoke (php-worker/8.3)
+  - build-and-smoke (php-worker/8.4)
+  - build-and-smoke (php-frankenphp/8.3)
+  - build-and-smoke (php-frankenphp/8.4)
+  - build-and-smoke (nginx)
+  - build-and-smoke (caddy)
+  - scan-images
+  - release-manifest-validate
+  - image-identity-validate

@@ -1,0 +1,13 @@
+# Runtime contract — php-frankenphp 8.3. Machine-read by verify-image-contract.sh.
+image: php-frankenphp
+selector: "8.3"
+php_version: "8.3"
+user: "10001:10001"
+non_root: true
+read_only_rootfs: true
+tmpfs: [/data, /config, /tmp]
+ports: [8080, 8081]
+healthcheck: true
+document_root: /app/public
+readiness: { path: /healthz, port: 8081, body: ok }
+oci_revision_label: required

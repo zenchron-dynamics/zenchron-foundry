@@ -7,8 +7,17 @@ name: publish-rc
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: "Release version this RC targets, vYYYY.MM.DD[.N] (required)"
+        required: true
       rc:
-        description: "RC identifier, e.g. rc1 (required; must match rc<N>)"
+        description: "RC identifier, e.g. rc1 (required; must match rc[1-9][0-9]*)"
+        required: true
+      expected_revision:
+        description: "Full 40-hex source revision; MUST equal the dispatched commit (required)"
+        required: true
+      confirmation:
+        description: "Typed confirmation: PUBLISH-<version>-<rc>-<expected_revision> (required)"
         required: true
       platforms:
         description: "Target platforms"
@@ -18,7 +27,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-rc-${{ github.event.inputs.rc }}
+  # Bound to the exact candidate: version + rc + revision. A different commit or
+  # a different rc is a different group, never a cancel/clobber of this publish.
+  group: publish-rc-${{ github.event.inputs.version }}-${{ github.event.inputs.rc }}-${{ github.event.inputs.expected_revision }}
   cancel-in-progress: false
 
 jobs:
@@ -43,6 +54,8 @@ jobs:
             fi
           fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0        # full history: the ancestry check needs origin/master
       - name: Preflight — release environments must be protected + reviewed
         env:
           # Needs a token that can READ environment protection rules. Owner must
@@ -56,15 +69,15 @@ jobs:
           # the org is on Team (or the repo is public) and real reviewers are set.
           ALLOW_FREE_TIER_NO_REVIEWERS: "1"
         run: bash scripts/check-release-environments.sh --release-ready
-      - name: Validate RC identifier (never empty, never *-prod)
+      - name: Validate RC publication (version + rc + revision + confirmation + ancestry)
         env:
+          VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}
-        run: |
-          set -euo pipefail
-          test -n "$RC" || { echo "REFUSE: empty rc identifier"; exit 1; }
-          echo "$RC" | grep -Eq '^rc[0-9]+$' \
-            || { echo "REFUSE: rc '$RC' must match rc<N> (e.g. rc1)"; exit 1; }
-          echo "RC gate passed: $RC"
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+          CONFIRMATION: ${{ github.event.inputs.confirmation }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+        run: bash scripts/validate-release-version.sh
 
   images:
     needs: gate
@@ -77,4 +90,6 @@ jobs:
     secrets: inherit
     with:
       rc: ${{ github.event.inputs.rc }}
+      version: ${{ github.event.inputs.version }}
+      expected_revision: ${{ github.event.inputs.expected_revision }}
       platforms: ${{ github.event.inputs.platforms }}
