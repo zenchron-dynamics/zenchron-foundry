@@ -1,0 +1,40 @@
+# =============================================================================
+# policies/release-governance.yaml
+# -----------------------------------------------------------------------------
+# Machine-readable governance for the solo-maintainer release model. The full
+# rationale is docs/solo-maintainer-release-model.md; this file is what the
+# workflows and evidence tooling read.
+# =============================================================================
+schema_version: 1
+
+model: solo-maintainer
+# Independent human separation-of-duties is unavailable on this GitHub plan.
+# The risk is mitigated by the technical controls below, NOT by a fake second
+# reviewer. See docs/accepted-risks.md.
+human_reviewers_required: 0
+
+environments:
+  rc: foundry-rc
+  production: foundry-production
+
+# Typed confirmations the maintainer must supply. <version>/<revision> are
+# substituted and compared exactly by the gate.
+confirmations:
+  publish_rc: "PUBLISH-<version>-<rc>-<revision>"
+  promote_stable: "PROMOTE-<version>-<revision>"
+  risk_acceptance: required
+
+compensating_controls:
+  - immutable, SHA-bound RC image tags
+  - exact source-revision binding (provenance + OCI label + manifest)
+  - mandatory CI on the exact tagged commit
+  - cryptographic signatures, SBOM and SLSA provenance attestations
+  - build-free promotion (retag exact digests, never rebuild)
+  - immutable evidence package retained per release
+  - tested compensating rollback
+
+# When the plan cannot enforce required reviewers, do not fake it — record the
+# limitation and rely on the controls above.
+free_tier_waiver:
+  env_var: ALLOW_FREE_TIER_NO_REVIEWERS
+  documented_in: docs/accepted-risks.md

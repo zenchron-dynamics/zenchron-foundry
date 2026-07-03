@@ -1,192 +1,114 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Zenchron Dynamics — release manifest generator.
+# scripts/generate-release-manifest.sh <version> --rc <rcN> [options]
+# -----------------------------------------------------------------------------
+# Emits the AUTHORITATIVE, schema-valid RC release manifest (schema_version 1):
+# for each of the 10 canonical images, its immutable RC tag, the resolved index
+# digest, the digest-pinned reference, the bound source revision, and the real
+# advertised platforms. This manifest — signed — is the ONLY input promotion
+# consumes; promotion never rediscovers candidates from mutable tags.
 #
-# Emits a YAML release manifest (to stdout, and to
-# release-artifacts/release-manifest.yaml when that directory exists) that
-# records, for each of the 10 canonical images, its registry index digest and
-# whether it is signed / has an SBOM attestation / has a SLSA provenance
-# attestation.
-#
-# Usage:
-#   scripts/generate-release-manifest.sh <release-version> [--created-at <ts>]
-#
-# Env overrides:
-#   REGISTRY          (default: ghcr.io)
-#   NAMESPACE         (default: zenchron-dynamics)
-#   IDENTITY_RE       (default: https://github.com/zenchron-dynamics/zenchron-foundry/.*)
-#   ISSUER            (default: https://token.actions.githubusercontent.com)
-#   GITHUB_REF_NAME   used as source_ref when no positional release tag arg
-#   SOURCE_DATE_EPOCH used for created_at (deterministic) if set
-#   LOCAL=1           tolerate an unreachable registry: emit digest "UNRESOLVED",
-#                     booleans false, warn on stderr (default/strict: hard fail
-#                     if any digest cannot be resolved)
+# Options / env:
+#   --rc <rcN>          required
+#   --revision <40hex>  default: git rev-parse HEAD
+#   --created-at <ts>   default: now (or SOURCE_DATE_EPOCH)
+#   REGISTRY/NAMESPACE  default ghcr.io / zenchron-dynamics
+#   RESOLVE_DIGEST_FN   <ref> -> sha256:… (default crane/buildx); injectable
+#   RESOLVE_PLATFORMS_FN <ref> -> csv of os/arch (default buildx); injectable
+#   LOCAL=1             tolerate offline: digest "UNRESOLVED", platforms default
+# Writes release-artifacts/release-manifest.yaml when that dir exists, and
+# self-validates the result with validate-release-manifest.sh.
 # =============================================================================
 set -euo pipefail
-
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=lib/registry-aliases.sh
+. "$ROOT/scripts/lib/registry-aliases.sh"
 
-REGISTRY="${REGISTRY:-ghcr.io}"
-NAMESPACE="${NAMESPACE:-zenchron-dynamics}"
-IDENTITY_RE="${IDENTITY_RE:-https://github.com/zenchron-dynamics/zenchron-foundry/.*}"
-ISSUER="${ISSUER:-https://token.actions.githubusercontent.com}"
-LOCAL="${LOCAL:-0}"
-
-# --- Args --------------------------------------------------------------------
-RELEASE=""
-CREATED_AT_ARG=""
+RC="" REVISION="" CREATED_AT="" VERSION="" LOCAL="${LOCAL:-0}"
 while [ "$#" -gt 0 ]; do
-    case "$1" in
-        --created-at)
-            shift
-            [ "$#" -gt 0 ] || { echo "ERROR: --created-at needs a value" >&2; exit 2; }
-            CREATED_AT_ARG="$1"
-            ;;
-        -h|--help)
-            sed -n '2,28p' "$0"
-            exit 0
-            ;;
-        *)
-            [ -z "$RELEASE" ] && RELEASE="$1" || { echo "ERROR: unexpected arg: $1" >&2; exit 2; }
-            ;;
-    esac
-    shift
+  case "$1" in
+    --rc) shift; RC="${1:?--rc needs a value}" ;;
+    --revision) shift; REVISION="${1:?--revision needs a value}" ;;
+    --created-at) shift; CREATED_AT="${1:?--created-at needs a value}" ;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    -*) die "unknown option: $1" ;;
+    *) [ -z "$VERSION" ] && VERSION="$1" || die "unexpected arg: $1" ;;
+  esac
+  shift
 done
 
-[ -n "$RELEASE" ] || { echo "ERROR: <release-version> is required" >&2; exit 2; }
-
-REVISION="$(git rev-parse HEAD)"
-SOURCE_REF="${RELEASE:-}"
-[ -n "${GITHUB_REF_NAME:-}" ] && SOURCE_REF="${GITHUB_REF_NAME}"
-[ -n "$SOURCE_REF" ] || SOURCE_REF="$RELEASE"
-
-# --- created_at (prefer deterministic sources) -------------------------------
-if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
-    # date -u accepts epoch via -r on BSD/macOS and -d @ on GNU.
-    if date -u -r "$SOURCE_DATE_EPOCH" +%FT%TZ >/dev/null 2>&1; then
-        CREATED_AT="$(date -u -r "$SOURCE_DATE_EPOCH" +%FT%TZ)"
-    else
-        CREATED_AT="$(date -u -d "@$SOURCE_DATE_EPOCH" +%FT%TZ)"
-    fi
-elif [ -n "$CREATED_AT_ARG" ]; then
-    CREATED_AT="$CREATED_AT_ARG"
-else
-    CREATED_AT="$(date -u +%FT%TZ)"
+require_calver "$VERSION"
+require_rc "$RC"
+[ -n "$REVISION" ] || REVISION="$(git rev-parse HEAD)"
+require_hex40 "$REVISION"
+if [ -z "$CREATED_AT" ]; then
+  if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+    CREATED_AT="$(date -u -r "$SOURCE_DATE_EPOCH" +%FT%TZ 2>/dev/null || date -u -d "@$SOURCE_DATE_EPOCH" +%FT%TZ)"
+  else CREATED_AT="$(date -u +%FT%TZ)"; fi
 fi
 
-# --- Tooling -----------------------------------------------------------------
-HAVE_COSIGN=0
-HAVE_BUILDX=0
-HAVE_CRANE=0
-command -v cosign >/dev/null 2>&1 && HAVE_COSIGN=1
-docker buildx version >/dev/null 2>&1 && HAVE_BUILDX=1
-command -v crane >/dev/null 2>&1 && HAVE_CRANE=1
+_default_digest() { crane digest "$1" 2>/dev/null || \
+  docker buildx imagetools inspect "$1" --format '{{.Manifest.Digest}}' 2>/dev/null; }
+_default_platforms() {
+  docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' 2>/dev/null \
+    | jq -r '[ (.manifests // [])[] | select(.platform.os=="linux") | .platform.os+"/"+.platform.architecture ] | unique | join(",")' 2>/dev/null
+}
+RESOLVE_DIGEST_FN="${RESOLVE_DIGEST_FN:-_default_digest}"
+RESOLVE_PLATFORMS_FN="${RESOLVE_PLATFORMS_FN:-_default_platforms}"
 
-# Canonical images: "manifest-key|image:tag"
-IMAGES=(
-    "php-cli-8.3|php-cli:8.3-prod"
-    "php-cli-8.4|php-cli:8.4-prod"
-    "php-fpm-8.3|php-fpm:8.3-prod"
-    "php-fpm-8.4|php-fpm:8.4-prod"
-    "php-worker-8.3|php-worker:8.3-prod"
-    "php-worker-8.4|php-worker:8.4-prod"
-    "php-frankenphp-8.3|php-frankenphp:8.3-prod"
-    "php-frankenphp-8.4|php-frankenphp:8.4-prod"
-    "caddy|caddy:prod"
-    "nginx|nginx:prod"
-)
-
-# --- Helpers -----------------------------------------------------------------
-resolve_digest() {
-    ref="$1"
-    if [ "$HAVE_CRANE" -eq 1 ]; then
-        crane digest "$ref" 2>/dev/null && return 0
+# Gather one TSV row per image: key repo immutable_tag digest reference revision platforms
+gather() {
+  for t in $MATRIX_IMAGES; do
+    local fam="${t%:*}" sel="${t#*:}" key repo imm ref dig plats
+    case "$sel" in prod) key="$fam" ;; *) key="$fam-$sel" ;; esac
+    repo="$NS/$fam"
+    imm="$(immutable_rc_suffix "$sel" "$VERSION" "$RC" "$REVISION")"
+    dig="$("$RESOLVE_DIGEST_FN" "$repo:$imm" || true)"
+    plats="$("$RESOLVE_PLATFORMS_FN" "$repo:$imm" || true)"
+    if [ -z "$dig" ]; then
+      [ "$LOCAL" = 1 ] || die "could not resolve digest for $repo:$imm (set LOCAL=1 for offline)"
+      dig="UNRESOLVED"
     fi
-    if [ "$HAVE_BUILDX" -eq 1 ]; then
-        docker buildx imagetools inspect "$ref" --format '{{json .Manifest}}' 2>/dev/null \
-            | grep -Eo '"digest"[[:space:]]*:[[:space:]]*"sha256:[0-9a-f]+"' \
-            | head -1 \
-            | grep -Eo 'sha256:[0-9a-f]+' && return 0
-    fi
-    return 1
+    [ -n "$plats" ] || plats="linux/amd64,linux/arm64"
+    ref="$repo@$dig"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$key" "$repo" "$imm" "$dig" "$ref" "$REVISION" "$plats"
+  done
 }
 
-verify_signature() {
-    [ "$HAVE_COSIGN" -eq 1 ] || return 1
-    cosign verify \
-        --certificate-identity-regexp "$IDENTITY_RE" \
-        --certificate-oidc-issuer "$ISSUER" \
-        "$1" >/dev/null 2>&1
+emit() {  # <rows-file>
+  ROWS="$1" VERSION="$VERSION" RC="$RC" REVISION="$REVISION" CREATED_AT="$CREATED_AT" \
+  REPO="${SOURCE_REPO:-zenchron-dynamics/zenchron-foundry}" \
+  SREF="${GITHUB_REF:-refs/heads/master}" \
+  WF="${GITHUB_WORKFLOW:-publish-rc}" RUNID="${GITHUB_RUN_ID:-0}" ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}" \
+  python3 - <<'PY'
+import os, sys, yaml
+rows = [l.rstrip("\n").split("\t") for l in open(os.environ["ROWS"]) if l.strip()]
+imgs = {}
+for key, repo, imm, dig, ref, rev, plats in rows:
+    imgs[key] = {"repository": repo, "immutable_tag": imm, "digest": dig,
+                 "reference": ref, "revision": rev,
+                 "platforms": [p for p in plats.split(",") if p]}
+m = {"schema_version": 1, "release": os.environ["VERSION"], "candidate": os.environ["RC"],
+     "revision": os.environ["REVISION"], "source_repository": os.environ["REPO"],
+     "source_ref": os.environ["SREF"], "workflow_name": os.environ["WF"],
+     "workflow_run_id": os.environ["RUNID"], "workflow_run_attempt": os.environ["ATTEMPT"],
+     "created_at": os.environ["CREATED_AT"], "images": imgs}
+yaml.safe_dump(m, sys.stdout, sort_keys=True)
+PY
 }
 
-verify_attestation() {
-    [ "$HAVE_COSIGN" -eq 1 ] || return 1
-    cosign verify-attestation --type "$2" \
-        --certificate-identity-regexp "$IDENTITY_RE" \
-        --certificate-oidc-issuer "$ISSUER" \
-        "$1" >/dev/null 2>&1
-}
+_rows="$(mktemp)"; gather > "$_rows"
+MANIFEST="$(emit "$_rows")"
+rm -f "$_rows"
+printf '%s' "$MANIFEST"
 
-# --- Build manifest ----------------------------------------------------------
-unresolved=0
-manifest=""
-
-manifest="${manifest}release: ${RELEASE}
-revision: ${REVISION}
-source_ref: ${SOURCE_REF}
-created_at: ${CREATED_AT}
-images:
-"
-
-for entry in "${IMAGES[@]}"; do
-    key="${entry%%|*}"
-    imgtag="${entry##*|}"
-    ref="${REGISTRY}/${NAMESPACE}/${imgtag}"
-
-    digest="$(resolve_digest "$ref" || true)"
-    signed="false"
-    sbom="false"
-    provenance="false"
-
-    if [ -z "$digest" ]; then
-        unresolved=$((unresolved + 1))
-        if [ "$LOCAL" = "1" ]; then
-            echo "WARNING: could not resolve digest for ${ref} (LOCAL=1) — marking UNRESOLVED" >&2
-            digest="UNRESOLVED"
-        else
-            echo "ERROR: could not resolve index digest for ${ref} (strict mode)." >&2
-            echo "       Ensure the registry is reachable and you are authenticated," >&2
-            echo "       or set LOCAL=1 for offline manifest generation." >&2
-            exit 1
-        fi
-    else
-        vref="${ref}@${digest}"
-        verify_signature "$vref" && signed="true"
-        verify_attestation "$vref" "spdxjson" && sbom="true"
-        if verify_attestation "$vref" "slsaprovenance" \
-            || verify_attestation "$vref" "slsaprovenance1"; then
-            provenance="true"
-        fi
-    fi
-
-    manifest="${manifest}  ${key}:
-    ref: ${ref}@${digest}
-    platforms: [linux/amd64, linux/arm64]
-    signed: ${signed}
-    sbom: ${sbom}
-    provenance: ${provenance}
-"
-done
-
-# --- Emit --------------------------------------------------------------------
-printf '%s' "$manifest"
-
-if [ -d "release-artifacts" ]; then
-    printf '%s' "$manifest" > "release-artifacts/release-manifest.yaml"
-    echo "Wrote release-artifacts/release-manifest.yaml" >&2
-fi
-
-if [ "$unresolved" -gt 0 ] && [ "$LOCAL" = "1" ]; then
-    echo "WARNING: ${unresolved} image digest(s) UNRESOLVED (LOCAL mode)." >&2
+if [ -d release-artifacts ]; then
+  # atomic write + checksum sidecar
+  tmp="$(mktemp release-artifacts/rm.XXXXXX)"; printf '%s' "$MANIFEST" > "$tmp"
+  mv -f "$tmp" release-artifacts/release-manifest.yaml
+  ( cd release-artifacts && { sha256sum release-manifest.yaml 2>/dev/null || shasum -a 256 release-manifest.yaml; } > release-manifest.yaml.sha256 )
+  echo "Wrote release-artifacts/release-manifest.yaml (+ .sha256)" >&2
+  # self-validate unless offline placeholders are present
+  if [ "$LOCAL" != 1 ]; then bash scripts/validate-release-manifest.sh release-artifacts/release-manifest.yaml >&2; fi
 fi

@@ -6,6 +6,33 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ## [Unreleased]
 
+### Added — release binding & supply-chain macro-increment (v2026.07.03)
+
+- **RC identity binding**: `publish-rc` requires version + rc + 40-hex revision +
+  typed confirmation + master ancestry; immutable SHA-bound RC tags; pre-publish
+  immutability probe (fails closed on conflict).
+- **Signed RC manifest** (`schema_version: 1`) as the sole promotion source of
+  truth — generate/validate/sign/verify with a real parser + JSON Schema.
+- **Single authoritative image-identity verifier** with explicit per-role cosign
+  identities (`policies/cosign-identities.yaml`); scheduled-rebuild candidates can
+  no longer satisfy production policy; the two former verifiers are thin wrappers.
+- **Exact-commit release gate** (GitHub Checks API) + the tag/manifest/provenance/
+  OCI/stable-digest equality chain across all 10 images.
+- **Two-phase promotion with automatic compensating rollback** — signed rollback
+  manifest, mutation journal, reverse-order restore, emergency incident (exit 99).
+- **Runner hardening**: one strict workspace-reset helper across all 9 workflows;
+  job-scoped Docker cleanup (no global prune); fork-PR guards; runner-hook template.
+- **Vulnerability enforcement**: validator now requires approver / compensating
+  controls / created_at format / explicit release_blocking / future expiry; Caddy
+  enforcing; scheduled-rebuild isolated with immutable candidate tags + least-priv
+  issue reporting.
+- **Runtime + multi-arch certification** (`verify-rc.yml`): cold build + smoke +
+  data-driven contract check (10/10) + amd64/arm64 verification per RC digest.
+- **Solo-maintainer governance + immutable evidence package**; typed production
+  confirmation; accepted-risk record. No artificial two-reviewer requirement.
+- **Offline macro-validation + release dry-run** (`scripts/macro-validate.sh`,
+  `scripts/release-dry-run.sh`) — full pipeline rehearsal with no live actions.
+
 ### Changed
 
 - **Stable release now promotes exact RC digests instead of rebuilding** (rule

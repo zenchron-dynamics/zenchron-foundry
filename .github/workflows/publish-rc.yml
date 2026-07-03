@@ -7,8 +7,17 @@ name: publish-rc
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: "Release version this RC targets, vYYYY.MM.DD[.N] (required)"
+        required: true
       rc:
-        description: "RC identifier, e.g. rc1 (required; must match rc<N>)"
+        description: "RC identifier, e.g. rc1 (required; must match rc[1-9][0-9]*)"
+        required: true
+      expected_revision:
+        description: "Full 40-hex source revision; MUST equal the dispatched commit (required)"
+        required: true
+      confirmation:
+        description: "Typed confirmation: PUBLISH-<version>-<rc>-<expected_revision> (required)"
         required: true
       platforms:
         description: "Target platforms"
@@ -18,7 +27,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-rc-${{ github.event.inputs.rc }}
+  # Bound to the exact candidate: version + rc + revision. A different commit or
+  # a different rc is a different group, never a cancel/clobber of this publish.
+  group: publish-rc-${{ github.event.inputs.version }}-${{ github.event.inputs.rc }}-${{ github.event.inputs.expected_revision }}
   cancel-in-progress: false
 
 jobs:
@@ -28,21 +39,19 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     environment: foundry-rc
     steps:
-      - name: Reset workspace ownership (self-hosted hygiene)
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
-            if [ "$(id -u)" -eq 0 ]; then
-              chown -R "$(id -u):$(id -g)" "$ws"
-            elif command -v sudo >/dev/null 2>&1; then
-              sudo chown -R "$(id -u):$(id -g)" "$ws"
-            else
-              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
-            fi
-          fi
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0        # full history: the ancestry check needs origin/master
       - name: Preflight — release environments must be protected + reviewed
         env:
           # Needs a token that can READ environment protection rules. Owner must
@@ -56,15 +65,15 @@ jobs:
           # the org is on Team (or the repo is public) and real reviewers are set.
           ALLOW_FREE_TIER_NO_REVIEWERS: "1"
         run: bash scripts/check-release-environments.sh --release-ready
-      - name: Validate RC identifier (never empty, never *-prod)
+      - name: Validate RC publication (version + rc + revision + confirmation + ancestry)
         env:
+          VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}
-        run: |
-          set -euo pipefail
-          test -n "$RC" || { echo "REFUSE: empty rc identifier"; exit 1; }
-          echo "$RC" | grep -Eq '^rc[0-9]+$' \
-            || { echo "REFUSE: rc '$RC' must match rc<N> (e.g. rc1)"; exit 1; }
-          echo "RC gate passed: $RC"
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+          CONFIRMATION: ${{ github.event.inputs.confirmation }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+        run: bash scripts/validate-release-version.sh
 
   images:
     needs: gate
@@ -77,4 +86,72 @@ jobs:
     secrets: inherit
     with:
       rc: ${{ github.event.inputs.rc }}
+      version: ${{ github.event.inputs.version }}
+      expected_revision: ${{ github.event.inputs.expected_revision }}
       platforms: ${{ github.event.inputs.platforms }}
+
+  # Post-publication: verify each immutable RC image's identity, then build the
+  # authoritative signed RC manifest — the ONLY input stable promotion consumes.
+  manifest:
+    needs: images
+    runs-on: [self-hosted, linux, x64, zenchron]
+    permissions:
+      contents: read
+      packages: read
+      id-token: write          # cosign sign-blob (keyless) for the manifest
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+      - name: Login to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify each immutable RC image identity (rc-publisher)
+        env:
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+          EXPECTED_ROLE: rc-publisher
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/registry-aliases.sh
+          for t in $MATRIX_IMAGES; do
+            fam="${t%:*}"; sel="${t#*:}"
+            imm="$(immutable_rc_suffix "$sel" "$VERSION" "$RC" "$EXPECTED_REVISION")"
+            EXPECTED_REVISION="$EXPECTED_REVISION" EXPECTED_ROLE=rc-publisher \
+              bash scripts/verify-image-release-identity.sh "$NS/$fam:$imm"
+          done
+      - name: Generate + sign the RC manifest
+        env:
+          RC: ${{ github.event.inputs.rc }}
+          VERSION: ${{ github.event.inputs.version }}
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          bash scripts/generate-release-manifest.sh "$VERSION" --rc "$RC" --revision "$EXPECTED_REVISION"
+          bash scripts/sign-release-manifest.sh release-artifacts/release-manifest.yaml
+          bash scripts/verify-release-manifest.sh release-artifacts/release-manifest.yaml
+      - name: Upload signed RC manifest (immutable evidence)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rc-manifest-${{ github.event.inputs.version }}-${{ github.event.inputs.rc }}
+          path: |
+            release-artifacts/release-manifest.yaml
+            release-artifacts/release-manifest.yaml.sha256
+            release-artifacts/release-manifest.yaml.sig
+            release-artifacts/release-manifest.yaml.pem
+          if-no-files-found: error

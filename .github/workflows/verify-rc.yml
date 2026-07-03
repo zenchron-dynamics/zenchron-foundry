@@ -1,0 +1,137 @@
+name: verify-rc
+
+# Ten-image runtime + multi-architecture certification. Cold-builds every image
+# from a clean builder, runs its runtime smoke test AND its machine-readable
+# contract check, and (when an RC is published) verifies each RC digest is a
+# manifest list carrying linux/amd64 + linux/arm64. Acceptance is strict 10/10 —
+# no representative subset satisfies the gate.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "RC version to also verify published digests for (optional), vYYYY.MM.DD[.N]"
+        required: false
+      rc:
+        description: "RC identifier (optional), rc<N>"
+        required: false
+      expected_revision:
+        description: "40-hex revision the published RC digests must carry (optional)"
+        required: false
+  workflow_call:
+    inputs:
+      version: { type: string, required: false }
+      rc: { type: string, required: false }
+      expected_revision: { type: string, required: false }
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-rc-${{ github.ref }}-${{ inputs.version || github.event.inputs.version || 'adhoc' }}
+  cancel-in-progress: true
+
+jobs:
+  # Cold build + runtime smoke + contract check, one job per image (10/10).
+  certify:
+    runs-on: [self-hosted, linux, x64, zenchron]
+    strategy:
+      fail-fast: false          # every image is reported; no early abort
+      max-parallel: 1           # serial matrix on the single self-hosted runner
+      matrix:
+        include:
+          - { fam: php-cli,        ver: "8.3", ctx: images/php-cli/8.3,        smoke: smoke-php-cli.sh }
+          - { fam: php-cli,        ver: "8.4", ctx: images/php-cli/8.4,        smoke: smoke-php-cli.sh }
+          - { fam: php-fpm,        ver: "8.3", ctx: images/php-fpm/8.3,        smoke: smoke-php-fpm.sh }
+          - { fam: php-fpm,        ver: "8.4", ctx: images/php-fpm/8.4,        smoke: smoke-php-fpm.sh }
+          - { fam: php-worker,     ver: "8.3", ctx: images/php-worker/8.3,     smoke: smoke-php-worker.sh }
+          - { fam: php-worker,     ver: "8.4", ctx: images/php-worker/8.4,     smoke: smoke-php-worker.sh }
+          - { fam: php-frankenphp, ver: "8.3", ctx: images/php-frankenphp/8.3, smoke: smoke-php-frankenphp.sh }
+          - { fam: php-frankenphp, ver: "8.4", ctx: images/php-frankenphp/8.4, smoke: smoke-php-frankenphp.sh }
+          - { fam: nginx,          ver: prod,   ctx: images/nginx,             smoke: smoke-nginx.sh }
+          - { fam: caddy,          ver: prod,   ctx: images/caddy,             smoke: smoke-caddy.sh }
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+
+      - name: Cold build (clean builder, load locally, no push)
+        env:
+          MATRIX_KEY: ${{ matrix.fam }}-${{ matrix.ver }}
+        run: |
+          set -euo pipefail
+          builder="$(GITHUB_WORKFLOW='${{ github.workflow }}' GITHUB_RUN_ID='${{ github.run_id }}' \
+                     GITHUB_RUN_ATTEMPT='${{ github.run_attempt }}' MATRIX_KEY="$MATRIX_KEY" \
+                     bash scripts/ci/cleanup-docker-job.sh name)"
+          docker buildx create --name "$builder" --use
+          docker buildx build --builder "$builder" --load \
+            -t "zf-verify/${{ matrix.fam }}:${{ matrix.ver }}" "${{ matrix.ctx }}"
+
+      - name: Runtime smoke test
+        run: bash "scripts/smoke/${{ matrix.smoke }}" "zf-verify/${{ matrix.fam }}:${{ matrix.ver }}"
+
+      - name: Contract check (config metadata vs contracts/images)
+        env:
+          SKIP_OCI_LABEL: "1"   # revision label is stamped at publish, not on local cold build
+        run: |
+          set -euo pipefail
+          c="contracts/images/${{ matrix.fam }}-${{ matrix.ver }}.yaml"
+          bash scripts/verify-image-contract.sh "zf-verify/${{ matrix.fam }}:${{ matrix.ver }}" "$c"
+
+      - name: Cleanup Docker (job-scoped)
+        if: always()
+        env:
+          MATRIX_KEY: ${{ matrix.fam }}-${{ matrix.ver }}
+        run: bash scripts/ci/cleanup-docker-job.sh
+
+  # Multi-arch certification of PUBLISHED RC digests (only when an RC is given).
+  platforms:
+    if: ${{ (inputs.version || github.event.inputs.version) != '' && (inputs.rc || github.event.inputs.rc) != '' }}
+    runs-on: [self-hosted, linux, x64, zenchron]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+      - name: Login to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify amd64 + arm64 on every published RC digest (10/10)
+        env:
+          VERSION: ${{ inputs.version || github.event.inputs.version }}
+          RC: ${{ inputs.rc || github.event.inputs.rc }}
+          EXPECTED_REVISION: ${{ inputs.expected_revision || github.event.inputs.expected_revision }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/registry-aliases.sh
+          n=0
+          for t in $MATRIX_IMAGES; do
+            fam="${t%:*}"; sel="${t#*:}"
+            imm="$(immutable_rc_suffix "$sel" "$VERSION" "$RC" "$EXPECTED_REVISION")"
+            bash scripts/verify-platforms.sh "$NS/$fam:$imm"
+            n=$((n+1))
+          done
+          test "$n" -eq 10 || { echo "REFUSE: expected 10 images, checked $n"; exit 1; }
+          echo "MULTI-ARCH OK: 10/10 RC digests carry amd64 + arm64"

@@ -1,0 +1,44 @@
+# =============================================================================
+# policies/cosign-identities.yaml
+# -----------------------------------------------------------------------------
+# Explicit cosign keyless identities per signing role. Replaces the repo-wide
+# wildcard (…/zenchron-foundry/.*) that let ANY workflow's signature satisfy
+# production policy — including scheduled-rebuild candidates.
+#
+# Each role pins the exact workflow FILE that is allowed to produce that class
+# of signature. Because the files differ, a scheduled-rebuild signature can no
+# longer pass the rc-publisher / release identity check.
+#
+# Consumed by scripts/verify-image-release-identity.sh (EXPECTED_IDENTITY /
+# IDENTITY_RE) via scripts/lib. `identity_regexp` is anchored to one file + a
+# ref class; it is NOT a bare `/.*`.
+# =============================================================================
+schema_version: 1
+issuer: https://token.actions.githubusercontent.com
+repository: zenchron-dynamics/zenchron-foundry
+repo_url: https://github.com/zenchron-dynamics/zenchron-foundry
+
+roles:
+  rc-publisher:
+    description: >-
+      Publishes and signs immutable RC images. Runs from publish-ghcr.yml
+      (invoked by publish-rc.yml) on master.
+    workflow: .github/workflows/publish-ghcr.yml
+    identity_regexp: '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-ghcr\.yml@refs/heads/master$'
+    valid_for: [rc, stable]      # stable digests are the promoted RC digests
+
+  release:
+    description: Seals the GitHub release. Runs from release.yml on a v* tag.
+    workflow: .github/workflows/release.yml
+    # Pins the exact workflow file + a v* tag ref (distinct from rc-publisher on
+    # master); the precise CalVer is validated by the release gate, not the SAN.
+    identity_regexp: '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/release\.yml@refs/tags/v.*$'
+    valid_for: [release]
+
+  scheduled-rebuild:
+    description: >-
+      Produces dated CANDIDATE images only. MUST NOT satisfy rc-publisher or
+      release policy — candidates are never promoted.
+    workflow: .github/workflows/scheduled-rebuild.yml
+    identity_regexp: '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/scheduled-rebuild\.yml@refs/heads/master$'
+    valid_for: [candidate]

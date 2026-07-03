@@ -25,23 +25,16 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     environment: foundry-production
     steps:
-      - name: Reset workspace ownership (self-hosted hygiene)
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
           set -euo pipefail
-          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
-          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
-          # and fail loud if the tree is not ours and we cannot fix it.
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
-            if [ "$(id -u)" -eq 0 ]; then
-              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
-            elif command -v sudo >/dev/null 2>&1; then
-              sudo chown -R "$(id -u):$(id -g)" "$ws"
-            else
-              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
-            fi
-          fi
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0          # need full history for the ancestry check
@@ -74,6 +67,26 @@ jobs:
           bash scripts/assert-pinned-actions.sh
           bash scripts/assert-no-wolfi.sh
           bash scripts/assert-image-matrix.sh
+      - name: Exact-commit CI gate (every required check green on THIS commit)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: bash scripts/check-exact-commit-ci.sh "$SHA"
+      - name: Verify signed RC manifest binds this tag + commit
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The signed RC manifest (produced + signed by publish-rc, verified at
+          # promotion) is the sole promotion source of truth. It is committed under
+          # release-evidence/<tag>/ when the release tag is prepared. Fail closed if
+          # it is absent — a stable release may not seal an unbound commit.
+          m="release-evidence/${REF_NAME}/release-manifest.yaml"
+          [ -f "$m" ] || { echo "REFUSE: signed RC manifest not found at $m"; exit 1; }
+          bash scripts/verify-release-manifest.sh "$m"
+          bash scripts/verify-release-binding.sh "$m" "$REF_NAME" "$SHA"
 
   # NO BUILD HERE (rule #14 / Sprint 6). The 10 stable images must already exist,
   # promoted from validated RC digests by promote-stable.yml BEFORE this tag was
@@ -88,23 +101,16 @@ jobs:
       packages: read
       id-token: write
     steps:
-      - name: Reset workspace ownership (self-hosted hygiene)
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
           set -euo pipefail
-          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
-          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
-          # and fail loud if the tree is not ours and we cannot fix it.
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
-            if [ "$(id -u)" -eq 0 ]; then
-              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
-            elif command -v sudo >/dev/null 2>&1; then
-              sudo chown -R "$(id -u):$(id -g)" "$ws"
-            else
-              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
-            fi
-          fi
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
       - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
@@ -116,16 +122,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify release artifacts (signatures, SBOM, provenance, multi-arch — all 10)
+      - name: Verify release artifacts (identity, SBOM, provenance, revision, multi-arch — all 10)
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+          EXPECTED_ROLE: rc-publisher
         run: bash scripts/verify-release-artifacts.sh
 
-      - name: Generate release manifest (10/10 images)
+      - name: Stage the signed RC manifest for attachment (no regeneration)
         env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           mkdir -p release-artifacts
-          bash scripts/generate-release-manifest.sh "${GITHUB_REF_NAME}" > release-artifacts/release-manifest.yaml
+          cp "release-evidence/${REF_NAME}/release-manifest.yaml"* release-artifacts/
           cat release-artifacts/release-manifest.yaml
 
       - name: Collect per-image SBOMs + checksums (strict — no image may be skipped)
@@ -139,26 +148,31 @@ jobs:
             # Strict: a failed SBOM fails the release (no `|| true`).
             syft "${NS}/${ref}" -o spdx-json="release-artifacts/${name}.spdx.json"
           done
-          test "$(ls -1 release-artifacts/*.spdx.json | wc -l)" -eq 10 \
+          test "$(find release-artifacts -maxdepth 1 -name '*.spdx.json' | wc -l)" -eq 10 \
             || { echo "REFUSE: expected 10 SBOMs, found fewer"; exit 1; }
           ( cd release-artifacts && sha256sum ./*.json > checksums.txt )
 
-      - name: Verification notes
+      - name: Build + validate the release evidence package (exact identities)
+        env:
+          VERSION: ${{ github.ref_name }}
+          REVISION: ${{ github.sha }}
+          RC_MANIFEST: release-artifacts/release-manifest.yaml
+          SIG_RESULT: "10/10"
+          SBOM_RESULT: "10/10"
+          PROV_RESULT: "10/10"
+          OCIREV_RESULT: "10/10"
+          ARCH_RESULT: "10/10"
+          RUNTIME_RESULT: "10/10"
+          VULN_RESULT: enforced
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          ENV_CONFIG: foundry-production
         run: |
-          cat > release-artifacts/VERIFY.md <<'EOF'
-          # Verifying this release
-
-          All images are Cosign keyless-signed (GitHub OIDC). Verify:
-
-              cosign verify \
-                --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
-                --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-                ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
-
-          SBOM attestations: cosign verify-attestation --type spdxjson <image>.
-          Checksums for the attached SBOMs are in checksums.txt.
-          The signed digest of every image is in release-manifest.yaml.
-          EOF
+          set -euo pipefail
+          # RC is recorded in the manifest; pass it through for the evidence.
+          RC="$(yq -r '.candidate' release-artifacts/release-manifest.yaml)"
+          export RC
+          bash scripts/build-release-evidence.sh release-artifacts
+          bash scripts/validate-release-evidence.sh release-artifacts/evidence.json
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
@@ -168,4 +182,6 @@ jobs:
             release-artifacts/release-manifest.yaml
             release-artifacts/*.spdx.json
             release-artifacts/checksums.txt
+            release-artifacts/evidence.json
+            release-artifacts/EVIDENCE.md
             release-artifacts/VERIFY.md

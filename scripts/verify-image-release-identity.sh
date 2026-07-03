@@ -40,7 +40,19 @@ ISSUER="${ISSUER:-https://token.actions.githubusercontent.com}"
 EXPECTED_PLATFORMS="${EXPECTED_PLATFORMS:-linux/amd64,linux/arm64}"
 SHA_RE='^[0-9a-f]{40}$'
 
-fail() { echo "IDENTITY FAIL [$IMG]: $*" >&2; exit 1; }
+# Narrow the accepted identity to an explicit per-role policy when EXPECTED_ROLE
+# is set (rc-publisher / release / scheduled-rebuild). This replaces the broad
+# `…/zenchron-foundry/.*` default so a scheduled-rebuild signature can never pass
+# production verification. An explicit EXPECTED_IDENTITY still takes precedence.
+if [ -n "${EXPECTED_ROLE:-}" ] && [ -z "${EXPECTED_IDENTITY:-}" ]; then
+  _virid_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # shellcheck source=lib/cosign-identity.sh
+  . "$_virid_dir/lib/cosign-identity.sh"
+  IDENTITY_RE="$(identity_re_for_role "$EXPECTED_ROLE")"
+  ISSUER="$(issuer_from_policy)"
+fi
+
+fail() { echo "IDENTITY FAIL [${IMG:-}]: $*" >&2; exit 1; }
 
 # ---- Pure extraction/comparison logic (unit-tested; no network) -------------
 

@@ -1,0 +1,4 @@
+# Custom self-hosted runner label used across the release workflows.
+self-hosted-runner:
+  labels:
+    - zenchron

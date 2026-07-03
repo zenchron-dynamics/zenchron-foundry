@@ -1,0 +1,15 @@
+# Runtime contract — php-worker 8.4. Machine-read by verify-image-contract.sh.
+image: php-worker
+selector: "8.4"
+php_version: "8.4"
+user: "10001:10001"
+non_root: true
+read_only_rootfs: true
+tmpfs: [/tmp]
+ports: []
+healthcheck: true
+pid1: tini
+heartbeat_file: /tmp/worker-heartbeat
+graceful_sigterm_seconds: 9
+forbidden_tools: [apk, gcc, make, phpize]
+oci_revision_label: required

@@ -1,10 +1,12 @@
 name: scheduled-rebuild
 
-# Weekly rebuild of all 10 images into DATED CANDIDATE tags (<fam>:rebuild-<date>
-# / <fam>:<ver>-rebuild-<date>). It NEVER touches canonical *-prod tags — stable
-# promotion stays manual via release.yml after a human compares the candidate.
-# Purpose: surface base-image drift (a fresher Debian snapshot may fix CVEs the
-# current stable still carries) and keep signed, attested candidates ready.
+# Weekly rebuild of all 10 images into IMMUTABLE dated CANDIDATE tags
+# (<fam>:rebuild-<date>-<run>-<attempt>-sha-<short> etc). It NEVER touches
+# canonical *-prod tags — stable promotion stays manual via release.yml after a
+# human compares the candidate. Candidates are signed under THIS workflow's
+# identity (scheduled-rebuild.yml), which policies/cosign-identities.yaml keeps
+# DISTINCT from rc-publisher — so a candidate can never satisfy production RC
+# verification.
 on:
   schedule:
     - cron: "0 4 * * 1"        # Monday 04:00 UTC (after scan-images at 03:00)
@@ -25,27 +27,22 @@ jobs:
   preflight:
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
-      - name: Reset workspace ownership (self-hosted hygiene)
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
           set -euo pipefail
-          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
-          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
-          # and fail loud if the tree is not ours and we cannot fix it.
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
-            if [ "$(id -u)" -eq 0 ]; then
-              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
-            elif command -v sudo >/dev/null 2>&1; then
-              sudo chown -R "$(id -u):$(id -g)" "$ws"
-            else
-              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
-            fi
-          fi
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - run: bash scripts/assert-pinned-actions.sh
       - run: bash scripts/assert-image-matrix.sh
       - run: bash scripts/verify-base-images.sh
+      - name: Validate vulnerability-exception policy before building
+        run: bash scripts/validate-vulnerability-exceptions.sh
 
   rebuild:
     needs: preflight
@@ -53,7 +50,8 @@ jobs:
     permissions:
       contents: read
       packages: write          # candidate (rebuild-*) tags only — never *-prod
-      id-token: write          # keyless cosign for candidates
+      id-token: write          # keyless cosign for candidates (distinct identity)
+      # NOTE: NO `issues: write` here — issue reporting is a separate least-priv job.
     strategy:
       fail-fast: false
       matrix:
@@ -69,23 +67,16 @@ jobs:
           - { fam: caddy,          ver: "prod", ctx: "images/caddy" }
           - { fam: nginx,          ver: "prod", ctx: "images/nginx" }
     steps:
-      - name: Reset workspace ownership (self-hosted hygiene)
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
           set -euo pipefail
-          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
-          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
-          # and fail loud if the tree is not ours and we cannot fix it.
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
-            if [ "$(id -u)" -eq 0 ]; then
-              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
-            elif command -v sudo >/dev/null 2>&1; then
-              sudo chown -R "$(id -u):$(id -g)" "$ws"
-            else
-              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
-            fi
-          fi
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4
       - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
@@ -98,18 +89,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Candidate tag (never canonical)
+      - name: Immutable candidate tag (never canonical) + base digest
         id: meta
         run: |
           set -euo pipefail
           base="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}"
           date_tag="$(date -u +%Y.%m.%d)"
+          short="$(printf '%s' "${{ github.sha }}" | cut -c1-12)"
+          stamp="${date_tag}-${{ github.run_id }}-${{ github.run_attempt }}-sha-${short}"
           if [ "${{ matrix.ver }}" = "prod" ]; then
-            tag="${base}:rebuild-${date_tag}"
+            tag="${base}:rebuild-${stamp}"
           else
-            tag="${base}:${{ matrix.ver }}-rebuild-${date_tag}"
+            tag="${base}:${{ matrix.ver }}-rebuild-${stamp}"
           fi
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          # Pinned base image digest (dedup key for issue reporting).
+          basedg="$(grep -oE 'sha256:[0-9a-f]{64}' '${{ matrix.ctx }}/Dockerfile' | head -1)"
+          {
+            echo "tag=${tag}"
+            echo "base_digest=${basedg:-unknown}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build & push candidate (multi-arch, signed, attested)
         id: build
@@ -121,8 +119,12 @@ jobs:
           tags: ${{ steps.meta.outputs.tag }}
           sbom: true
           provenance: mode=max
+          build-args: |
+            VCS_REF=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
 
-      - name: Cosign sign candidate
+      - name: Cosign sign candidate (scheduled-rebuild identity)
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: cosign sign --yes "${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
@@ -138,16 +140,87 @@ jobs:
             --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
             --ignore-unfixed --ignorefile policies/.trivyignore
 
-      - name: Open issue on new fixable findings
+      - name: Record finding (for the separate reporting job)
         if: steps.scan.outcome == 'failure'
+        run: |
+          set -euo pipefail
+          mkdir -p rebuild-findings
+          # Dedup key = image family/ver @ pinned base digest. Same base across
+          # weeks -> one issue. (ponytail: base-digest granularity; per-CVE dedup
+          # if the noise ever warrants parsing the Trivy report.)
+          cat > "rebuild-findings/${{ matrix.fam }}-${{ matrix.ver }}.txt" <<EOF
+          fam=${{ matrix.fam }}
+          ver=${{ matrix.ver }}
+          tag=${{ steps.meta.outputs.tag }}
+          base_digest=${{ steps.meta.outputs.base_digest }}
+          key=${{ matrix.fam }}/${{ matrix.ver }}@${{ steps.meta.outputs.base_digest }}
+          EOF
+
+      - name: Upload findings
+        if: steps.scan.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rebuild-findings-${{ matrix.fam }}-${{ matrix.ver }}
+          path: rebuild-findings/
+          if-no-files-found: ignore
+
+
+  # Least-privilege reporting job: the ONLY job with `issues: write`. Dedupes by
+  # the family/ver@base-digest key so a persistent base does not spam issues.
+  report:
+    needs: rebuild
+    if: always()
+    runs-on: [self-hosted, linux, x64, zenchron]
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Download all findings
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4
+        with:
+          path: all-findings
+          pattern: rebuild-findings-*
+          merge-multiple: true
+        continue-on-error: true
+      - name: Open deduplicated issues on new fixable findings
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
-            const tag = '${{ steps.meta.outputs.tag }}';
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `Scheduled rebuild: fixable CRITICAL/HIGH in ${tag}`,
-              labels: ['security', 'scheduled-rebuild'],
-              body: `The weekly rebuild candidate \`${tag}\` reports fixable CRITICAL/HIGH vulnerabilities that the current stable may not.\n\nReview, then promote via the release workflow if appropriate. See docs/vulnerability-management.md and docs/release-process.md.`,
+            const fs = require('fs');
+            const dir = 'all-findings';
+            if (!fs.existsSync(dir)) { core.info('no findings'); return; }
+            const files = fs.readdirSync(dir).filter(f => f.endsWith('.txt'));
+            if (!files.length) { core.info('no findings'); return; }
+            // existing open issues labelled scheduled-rebuild -> dedup by key marker.
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'scheduled-rebuild', per_page: 100,
             });
+            const seen = new Set(existing.map(i => (i.body || '').match(/rebuild-key:\s*(\S+)/)?.[1]).filter(Boolean));
+            for (const f of files) {
+              const kv = Object.fromEntries(fs.readFileSync(`${dir}/${f}`, 'utf8')
+                .split('\n').map(l => l.split('=')).filter(a => a.length === 2).map(([k, v]) => [k.trim(), v.trim()]));
+              if (!kv.key || seen.has(kv.key)) { core.info(`skip (dup/no-key): ${kv.key||f}`); continue; }
+              seen.add(kv.key);
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: `Scheduled rebuild: fixable CRITICAL/HIGH in ${kv.fam}/${kv.ver}`,
+                labels: ['security', 'scheduled-rebuild'],
+                body: `Candidate \`${kv.tag}\` reports fixable CRITICAL/HIGH the current stable may not.\n\n`
+                    + `rebuild-key: ${kv.key}\n\n`
+                    + `Review, then promote via the release workflow if appropriate. `
+                    + `See docs/vulnerability-management.md and docs/release-process.md.`,
+              });
+              core.info(`opened issue for ${kv.key}`);
+            }

@@ -22,6 +22,18 @@ on:
       rc:
         description: "Validated RC identifier to promote, e.g. rc1 (rc<N>)"
         required: true
+      rc_manifest_run_id:
+        description: "publish-rc run ID whose signed RC manifest is the promotion source of truth"
+        required: true
+      expected_revision:
+        description: "Full 40-hex revision being promoted (must equal the RC manifest revision)"
+        required: true
+      confirmation:
+        description: "Typed confirmation: PROMOTE-<version>-<expected_revision>"
+        required: true
+      risk_acceptance_confirmation:
+        description: "Solo-maintainer risk acceptance (type: ACCEPT-RISK)"
+        required: true
 
 permissions:
   contents: read
@@ -42,20 +54,16 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     environment: foundry-production
     steps:
-      - name: Reset workspace ownership (self-hosted hygiene)
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
-            if [ "$(id -u)" -eq 0 ]; then
-              chown -R "$(id -u):$(id -g)" "$ws"
-            elif command -v sudo >/dev/null 2>&1; then
-              sudo chown -R "$(id -u):$(id -g)" "$ws"
-            else
-              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
-            fi
-          fi
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - name: Preflight — release environments must be protected + reviewed
         env:
@@ -64,17 +72,23 @@ jobs:
           # (see docs/audits/free-tier-governance-accepted-risk.md). Remove on Team/public.
           ALLOW_FREE_TIER_NO_REVIEWERS: "1"
         run: bash scripts/check-release-environments.sh --release-ready
-      - name: Validate version + rc inputs
+      - name: Validate inputs + typed production confirmation
         env:
           VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+          CONFIRMATION: ${{ github.event.inputs.confirmation }}
+          RISK: ${{ github.event.inputs.risk_acceptance_confirmation }}
         run: |
           set -euo pipefail
-          echo "$VERSION" | grep -Eq '^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$' \
-            || { echo "REFUSE: version '$VERSION' is not vYYYY.MM.DD[.N]"; exit 1; }
-          echo "$RC" | grep -Eq '^rc[0-9]+$' \
-            || { echo "REFUSE: rc '$RC' must match rc<N> (e.g. rc1)"; exit 1; }
-          echo "OK: promoting $RC -> $VERSION"
+          . scripts/lib/common.sh
+          require_calver "$VERSION"
+          require_rc "$RC"
+          require_hex40 "$EXPECTED_REVISION"
+          [ "$CONFIRMATION" = "PROMOTE-${VERSION}-${EXPECTED_REVISION}" ] \
+            || die "confirmation must be PROMOTE-<version>-<expected_revision>"
+          [ "$RISK" = "ACCEPT-RISK" ] || die "risk_acceptance_confirmation must be ACCEPT-RISK"
+          echo "OK: promoting $RC -> $VERSION @ $EXPECTED_REVISION (confirmed)"
 
   promote:
     needs: gate
@@ -83,23 +97,16 @@ jobs:
       contents: read
       packages: write          # push the canonical stable tags (retag only)
     steps:
-      - name: Reset workspace ownership (self-hosted hygiene)
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
           set -euo pipefail
-          # Self-hosted hygiene: reclaim the checkout so actions/checkout can clean it.
-          # Hardened (no `|| true`): refuse to chown anything outside the runner workspace,
-          # and fail loud if the tree is not ours and we cannot fix it.
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
-            if [ "$(id -u)" -eq 0 ]; then
-              chown -R "$(id -u):$(id -g)" "$ws"                 # root: no sudo needed
-            elif command -v sudo >/dev/null 2>&1; then
-              sudo chown -R "$(id -u):$(id -g)" "$ws"
-            else
-              echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1
-            fi
-          fi
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
       - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
@@ -111,15 +118,44 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Promote exact RC digests to canonical stable aliases
+      - name: Download the signed RC manifest (promotion source of truth)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.inputs.rc_manifest_run_id }}
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          gh run download "$RUN_ID" -n "rc-manifest-${VERSION}-${RC}" -D release-artifacts
+          test -f release-artifacts/release-manifest.yaml \
+            || { echo "REFUSE: signed RC manifest not found in run $RUN_ID"; exit 1; }
+
+      - name: Verify the signed RC manifest + bind to the confirmed revision
+        env:
+          EXPECTED_ROLE: rc-publisher
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+        run: |
+          set -euo pipefail
+          bash scripts/verify-release-manifest.sh release-artifacts/release-manifest.yaml
+          got="$(yq -r '.revision' release-artifacts/release-manifest.yaml)"
+          [ "$got" = "$EXPECTED_REVISION" ] \
+            || { echo "REFUSE: manifest revision $got != confirmed $EXPECTED_REVISION"; exit 1; }
+
+      - name: Promote exact RC digests to canonical stable aliases (two-phase + rollback)
         env:
           VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}
-        run: bash scripts/promote-stable.sh "$VERSION" "$RC"
+        run: bash scripts/promote-stable.sh "$VERSION" "$RC" --manifest release-artifacts/release-manifest.yaml
 
-      - name: Upload rollback metadata (prior alias digests)
+      - name: Upload promotion evidence (rollback + journal + promotion manifest)
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: rollback-${{ github.event.inputs.version }}
-          path: release-artifacts/rollback-*.txt
-          if-no-files-found: error
+          name: promotion-evidence-${{ github.event.inputs.version }}
+          path: |
+            release-artifacts/rollback-*.yaml*
+            release-artifacts/promotion-journal-*.txt
+            release-artifacts/promotion-*.yaml*
+            release-artifacts/ROLLBACK-INCIDENT.txt
+          if-no-files-found: warn
