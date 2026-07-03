@@ -74,6 +74,26 @@ jobs:
           bash scripts/assert-pinned-actions.sh
           bash scripts/assert-no-wolfi.sh
           bash scripts/assert-image-matrix.sh
+      - name: Exact-commit CI gate (every required check green on THIS commit)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: bash scripts/check-exact-commit-ci.sh "$SHA"
+      - name: Verify signed RC manifest binds this tag + commit
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # The signed RC manifest (produced + signed by publish-rc, verified at
+          # promotion) is the sole promotion source of truth. It is committed under
+          # release-evidence/<tag>/ when the release tag is prepared. Fail closed if
+          # it is absent — a stable release may not seal an unbound commit.
+          m="release-evidence/${REF_NAME}/release-manifest.yaml"
+          [ -f "$m" ] || { echo "REFUSE: signed RC manifest not found at $m"; exit 1; }
+          bash scripts/verify-release-manifest.sh "$m"
+          bash scripts/verify-release-binding.sh "$m" "$REF_NAME" "$SHA"
 
   # NO BUILD HERE (rule #14 / Sprint 6). The 10 stable images must already exist,
   # promoted from validated RC digests by promote-stable.yml BEFORE this tag was
@@ -116,16 +136,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify release artifacts (signatures, SBOM, provenance, multi-arch — all 10)
+      - name: Verify release artifacts (identity, SBOM, provenance, revision, multi-arch — all 10)
+        env:
+          EXPECTED_REVISION: ${{ github.sha }}
+          EXPECTED_ROLE: rc-publisher
         run: bash scripts/verify-release-artifacts.sh
 
-      - name: Generate release manifest (10/10 images)
+      - name: Stage the signed RC manifest for attachment (no regeneration)
         env:
-          GITHUB_REF_NAME: ${{ github.ref_name }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           mkdir -p release-artifacts
-          bash scripts/generate-release-manifest.sh "${GITHUB_REF_NAME}" > release-artifacts/release-manifest.yaml
+          cp "release-evidence/${REF_NAME}/release-manifest.yaml"* release-artifacts/
           cat release-artifacts/release-manifest.yaml
 
       - name: Collect per-image SBOMs + checksums (strict — no image may be skipped)
@@ -139,7 +162,7 @@ jobs:
             # Strict: a failed SBOM fails the release (no `|| true`).
             syft "${NS}/${ref}" -o spdx-json="release-artifacts/${name}.spdx.json"
           done
-          test "$(ls -1 release-artifacts/*.spdx.json | wc -l)" -eq 10 \
+          test "$(find release-artifacts -maxdepth 1 -name '*.spdx.json' | wc -l)" -eq 10 \
             || { echo "REFUSE: expected 10 SBOMs, found fewer"; exit 1; }
           ( cd release-artifacts && sha256sum ./*.json > checksums.txt )
 
