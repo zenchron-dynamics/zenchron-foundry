@@ -5,13 +5,10 @@
 #   - No entry may sit here past its review date without re-approval.
 #   - Legacy (7.4/8.0) EOL CVEs are handled per-image in CI, not blanket-ignored.
 
-# caddy only: go-jose/v3 in the upstream Caddy BINARY (not an apk package, so it
-# cannot be patched in our layer). go-jose is used for ACME/JOSE; this platform
-# terminates TLS upstream (Caddy on high ports behind an LB), so the path is not
-# exercised. Awaiting an upstream Caddy rebuild with go-jose >= 3.0.5.
-# owner: platform/security · review-by 2026-07-20 (re-reviewed 2026-07-02,
-#   see docs/security/cve-2026-34986-review.md; owner ratification pending)
-CVE-2026-34986
+# NOTE: the former Caddy go-jose/v3 exception was RESOLVED and removed — the
+# pinned caddy:2-alpine base (Caddy v2.11.4) already ships go-jose/v3 v3.0.5 (the
+# fixed version), verified multi-arch. See docs/security/cve-2026-34986-review.md.
+# (Intentionally no CVE id here: the validator greps this file for CVE tokens.)
 
 # -----------------------------------------------------------------------------
 # UNFIXED Debian distro CRITICALs (no fix available upstream). The enforcing gate
