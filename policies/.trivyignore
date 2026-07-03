@@ -34,3 +34,13 @@ CVE-2025-7458
 CVE-2023-6879
 #   linux-libc-dev — CVE-2026-43185 (kernel headers; not executable code at runtime).
 CVE-2026-43185
+
+# -----------------------------------------------------------------------------
+# Caddy Go-stdlib (gobinary) — the caddy:2-alpine binary is compiled against a Go
+# toolchain whose crypto/x509 has fixable HIGH CVEs. "Fixable" only by an UPSTREAM
+# caddy rebuild on a newer Go — we do not rebuild the caddy binary, and cannot
+# patch the embedded stdlib in our layer. Accepted so caddy can ENFORCE the gate
+# (state B); Dependabot watches the caddy digest — bump the base + drop these when
+# upstream ships a Go-bumped caddy. owner: platform/security · review-by 2026-08-03
+CVE-2026-27145
+CVE-2026-42504

@@ -18,9 +18,17 @@ jobs:
     name: repo structure
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
-        run: bash scripts/ci/reset-workspace-ownership.sh
       - name: Check required layout
         run: bash scripts/check-structure.sh
 
@@ -43,10 +51,17 @@ jobs:
     name: lint (shell / yaml / md / dockerfile)
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-
-      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
-        run: bash scripts/ci/reset-workspace-ownership.sh
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@00cae500b08a931fb5698e11e79bfbd38e612a38 # 2.0.0
         with:
@@ -83,13 +98,21 @@ jobs:
     name: secret scan (gitleaks)
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with: { fetch-depth: 0 }
       # Use the open-source gitleaks CLI image directly. The gitleaks-action
       # wrapper requires a paid GITLEAKS_LICENSE for organization repositories;
       # the CLI itself does not.
-      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
-        run: bash scripts/ci/reset-workspace-ownership.sh
       - name: Gitleaks (CLI)
         run: |
           docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.21.2@sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46 \
@@ -140,9 +163,17 @@ jobs:
           - { fam: nginx,          ver: "" }
           - { fam: caddy,          ver: "" }
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
-        run: bash scripts/ci/reset-workspace-ownership.sh
       - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
       - name: Disk snapshot before build (job-scoped cleanup runs at job end)
         run: df -h / | tail -1
@@ -166,24 +197,22 @@ jobs:
           bash "scripts/smoke/smoke-${{ matrix.target.fam }}.sh" \
             "zenchron-smoke/${{ matrix.target.fam }}:citest"
 
-      - name: Cleanup Docker (job-scoped)
-        if: always()
-        env:
-          MATRIX_KEY: ${{ matrix.target.fam }}-${{ matrix.target.ver }}
-        run: |
-          # Targeted: remove only THIS job's smoke image, then the job-scoped
-          # builder/containers/logout. No global builder/image prune (which could
-          # evict a concurrently-running workflow's cache on the shared runner).
-          docker image rm -f "zenchron-smoke/${{ matrix.target.fam }}:citest" 2>/dev/null || true
-          bash scripts/ci/cleanup-docker-job.sh
 
   compose-validate:
     name: validate compose profiles
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
-        run: bash scripts/ci/reset-workspace-ownership.sh
       - name: Validate self-contained example stacks
         run: |
           set -euo pipefail

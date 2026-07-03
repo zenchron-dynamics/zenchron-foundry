@@ -54,9 +54,17 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     environment: foundry-production
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
-        run: bash scripts/ci/reset-workspace-ownership.sh
       - name: Preflight — release environments must be protected + reviewed
         env:
           GH_TOKEN: ${{ secrets.RELEASE_ENV_CHECK_TOKEN || secrets.GITHUB_TOKEN }}
@@ -89,9 +97,17 @@ jobs:
       contents: read
       packages: write          # push the canonical stable tags (retag only)
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
-        run: bash scripts/ci/reset-workspace-ownership.sh
       - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
       - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
 

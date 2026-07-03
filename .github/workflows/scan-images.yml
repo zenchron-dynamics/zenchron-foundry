@@ -50,9 +50,17 @@ jobs:
           # policies/vulnerability-exceptions.yaml — never as report-only.
           - { fam: caddy,      ver: "prod", ctx: "images/caddy",         gate: true }
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          if [ "$(stat -c %u "$ws" 2>/dev/null || echo -1)" != "$(id -u)" ]; then
+            if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+            elif command -v sudo >/dev/null 2>&1; then sudo chown -R "$(id -u):$(id -g)" "$ws"
+            else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+          fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
-        run: bash scripts/ci/reset-workspace-ownership.sh
       - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
 
       - name: Disk snapshot before build (job-scoped cleanup runs at job end)
@@ -174,13 +182,3 @@ jobs:
             *.spdx.json
           retention-days: 30
 
-      - name: Cleanup Docker (job-scoped)
-        if: always()
-        env:
-          MATRIX_KEY: ${{ matrix.fam }}-${{ matrix.ver }}
-        run: |
-          # Targeted only: this job's scan tar + image, then job-scoped builder/
-          # logout. No global builder/image prune on the shared runner.
-          rm -f /tmp/scan-image.tar 2>/dev/null || true
-          docker image rm -f "scan-target:${{ matrix.fam }}-${{ matrix.ver }}" 2>/dev/null || true
-          bash scripts/ci/cleanup-docker-job.sh

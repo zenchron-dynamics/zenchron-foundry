@@ -11,17 +11,20 @@ ck "reset-workspace-ownership self-test" 'bash scripts/ci/reset-workspace-owners
 ck "cleanup-docker-job self-test"        'bash scripts/ci/cleanup-docker-job.sh --self-test >/dev/null'
 ck "install-runner-hook self-test"       'bash scripts/ci/install-runner-hook.sh --self-test >/dev/null'
 
-# every workflow uses the shared reset helper, not an inline chown block
-ck "no inline chown -R remains in workflows" \
-   '! grep -rlED "chown -R" .github/workflows/ 2>/dev/null | grep -q .'
-ck "workflows call the shared reset helper" \
-   'grep -rl "scripts/ci/reset-workspace-ownership.sh" .github/workflows/ | grep -q .'
-# no broad docker prune
+# Ownership reset MUST be inline + PRE-checkout on this runner (the repo script
+# is absent before checkout; a post-checkout reset lets checkout fail on a
+# root-owned .git). So the workflows carry the inline chown, NOT the repo helper.
+ck "workflows carry an inline pre-checkout ownership reset" \
+   'grep -rl "chown -R" .github/workflows/ 2>/dev/null | grep -q .'
+ck "workflows do NOT call the repo reset script (would run post-checkout)" \
+   '! grep -rl "scripts/ci/reset-workspace-ownership.sh" .github/workflows/ | grep -q .'
+# no broad docker prune, and no shared-daemon cleanup in PR-path jobs
 ck "no global builder/system prune in workflows" \
    '! grep -rED "docker (builder prune -af|system prune)" .github/workflows/ 2>/dev/null | grep -q .'
-# image-building jobs run the job-scoped cleanup
-ck "job-scoped docker cleanup is wired" \
-   'grep -rl "scripts/ci/cleanup-docker-job.sh" .github/workflows/ | grep -q .'
+ck "job-scoped docker cleanup only in verify-rc (named builder)" \
+   '[ "$(grep -rl "scripts/ci/cleanup-docker-job.sh" .github/workflows/ | grep -v verify-rc.yml | wc -l | tr -d " ")" = 0 ]'
+# the reset helper still exists + self-tests (used by the runner job-started hook)
+ck "reset helper retained for the runner hook" 'test -x scripts/ci/reset-workspace-ownership.sh'
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_runner: PASS" || echo "test_runner: FAIL"
 exit $fail
