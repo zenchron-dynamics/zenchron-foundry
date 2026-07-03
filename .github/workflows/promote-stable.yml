@@ -25,6 +25,15 @@ on:
       rc_manifest_run_id:
         description: "publish-rc run ID whose signed RC manifest is the promotion source of truth"
         required: true
+      expected_revision:
+        description: "Full 40-hex revision being promoted (must equal the RC manifest revision)"
+        required: true
+      confirmation:
+        description: "Typed confirmation: PROMOTE-<version>-<expected_revision>"
+        required: true
+      risk_acceptance_confirmation:
+        description: "Solo-maintainer risk acceptance (type: ACCEPT-RISK)"
+        required: true
 
 permissions:
   contents: read
@@ -55,17 +64,23 @@ jobs:
           # (see docs/audits/free-tier-governance-accepted-risk.md). Remove on Team/public.
           ALLOW_FREE_TIER_NO_REVIEWERS: "1"
         run: bash scripts/check-release-environments.sh --release-ready
-      - name: Validate version + rc inputs
+      - name: Validate inputs + typed production confirmation
         env:
           VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+          CONFIRMATION: ${{ github.event.inputs.confirmation }}
+          RISK: ${{ github.event.inputs.risk_acceptance_confirmation }}
         run: |
           set -euo pipefail
-          echo "$VERSION" | grep -Eq '^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$' \
-            || { echo "REFUSE: version '$VERSION' is not vYYYY.MM.DD[.N]"; exit 1; }
-          echo "$RC" | grep -Eq '^rc[0-9]+$' \
-            || { echo "REFUSE: rc '$RC' must match rc<N> (e.g. rc1)"; exit 1; }
-          echo "OK: promoting $RC -> $VERSION"
+          . scripts/lib/common.sh
+          require_calver "$VERSION"
+          require_rc "$RC"
+          require_hex40 "$EXPECTED_REVISION"
+          [ "$CONFIRMATION" = "PROMOTE-${VERSION}-${EXPECTED_REVISION}" ] \
+            || die "confirmation must be PROMOTE-<version>-<expected_revision>"
+          [ "$RISK" = "ACCEPT-RISK" ] || die "risk_acceptance_confirmation must be ACCEPT-RISK"
+          echo "OK: promoting $RC -> $VERSION @ $EXPECTED_REVISION (confirmed)"
 
   promote:
     needs: gate
@@ -100,10 +115,16 @@ jobs:
           test -f release-artifacts/release-manifest.yaml \
             || { echo "REFUSE: signed RC manifest not found in run $RUN_ID"; exit 1; }
 
-      - name: Verify the signed RC manifest before trusting it
+      - name: Verify the signed RC manifest + bind to the confirmed revision
         env:
           EXPECTED_ROLE: rc-publisher
-        run: bash scripts/verify-release-manifest.sh release-artifacts/release-manifest.yaml
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+        run: |
+          set -euo pipefail
+          bash scripts/verify-release-manifest.sh release-artifacts/release-manifest.yaml
+          got="$(yq -r '.revision' release-artifacts/release-manifest.yaml)"
+          [ "$got" = "$EXPECTED_REVISION" ] \
+            || { echo "REFUSE: manifest revision $got != confirmed $EXPECTED_REVISION"; exit 1; }
 
       - name: Promote exact RC digests to canonical stable aliases (two-phase + rollback)
         env:

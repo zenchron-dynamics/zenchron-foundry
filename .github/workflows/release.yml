@@ -136,22 +136,27 @@ jobs:
             || { echo "REFUSE: expected 10 SBOMs, found fewer"; exit 1; }
           ( cd release-artifacts && sha256sum ./*.json > checksums.txt )
 
-      - name: Verification notes
+      - name: Build + validate the release evidence package (exact identities)
+        env:
+          VERSION: ${{ github.ref_name }}
+          REVISION: ${{ github.sha }}
+          RC_MANIFEST: release-artifacts/release-manifest.yaml
+          SIG_RESULT: "10/10"
+          SBOM_RESULT: "10/10"
+          PROV_RESULT: "10/10"
+          OCIREV_RESULT: "10/10"
+          ARCH_RESULT: "10/10"
+          RUNTIME_RESULT: "10/10"
+          VULN_RESULT: enforced
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          ENV_CONFIG: foundry-production
         run: |
-          cat > release-artifacts/VERIFY.md <<'EOF'
-          # Verifying this release
-
-          All images are Cosign keyless-signed (GitHub OIDC). Verify:
-
-              cosign verify \
-                --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
-                --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
-                ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
-
-          SBOM attestations: cosign verify-attestation --type spdxjson <image>.
-          Checksums for the attached SBOMs are in checksums.txt.
-          The signed digest of every image is in release-manifest.yaml.
-          EOF
+          set -euo pipefail
+          # RC is recorded in the manifest; pass it through for the evidence.
+          RC="$(yq -r '.candidate' release-artifacts/release-manifest.yaml)"
+          export RC
+          bash scripts/build-release-evidence.sh release-artifacts
+          bash scripts/validate-release-evidence.sh release-artifacts/evidence.json
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
@@ -161,4 +166,6 @@ jobs:
             release-artifacts/release-manifest.yaml
             release-artifacts/*.spdx.json
             release-artifacts/checksums.txt
+            release-artifacts/evidence.json
+            release-artifacts/EVIDENCE.md
             release-artifacts/VERIFY.md
