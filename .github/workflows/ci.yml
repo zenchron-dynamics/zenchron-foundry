@@ -102,8 +102,12 @@ jobs:
     container: semgrep/semgrep:1.86.0@sha256:a9ea2d5621c29d815d90c2a3b2f9571da8972ef4ff855c9e4902681730240e35
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
-        run: bash scripts/ci/reset-workspace-ownership.sh
+      # This job runs INSIDE the semgrep container (fresh bind-mounted workspace,
+      # container user is root) — the host-runner ownership reset does not apply
+      # here and its `_work` path assumption fails in a container. Instead mark
+      # the checkout safe so semgrep's git file enumeration works.
+      - name: Mark workspace safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Semgrep rules
         run: semgrep --error --config policies/semgrep/docker-security.yml .
 
