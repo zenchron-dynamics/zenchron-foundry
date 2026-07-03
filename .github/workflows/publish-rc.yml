@@ -93,3 +93,61 @@ jobs:
       version: ${{ github.event.inputs.version }}
       expected_revision: ${{ github.event.inputs.expected_revision }}
       platforms: ${{ github.event.inputs.platforms }}
+
+  # Post-publication: verify each immutable RC image's identity, then build the
+  # authoritative signed RC manifest — the ONLY input stable promotion consumes.
+  manifest:
+    needs: images
+    runs-on: [self-hosted, linux, x64, zenchron]
+    permissions:
+      contents: read
+      packages: read
+      id-token: write          # cosign sign-blob (keyless) for the manifest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Reset workspace ownership (self-hosted hygiene, post-checkout)
+        run: bash scripts/ci/reset-workspace-ownership.sh
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
+      - name: Login to GHCR
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify each immutable RC image identity (rc-publisher)
+        env:
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+          EXPECTED_ROLE: rc-publisher
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/registry-aliases.sh
+          for t in $MATRIX_IMAGES; do
+            fam="${t%:*}"; sel="${t#*:}"
+            imm="$(immutable_rc_suffix "$sel" "$VERSION" "$RC" "$EXPECTED_REVISION")"
+            EXPECTED_REVISION="$EXPECTED_REVISION" EXPECTED_ROLE=rc-publisher \
+              bash scripts/verify-image-release-identity.sh "$NS/$fam:$imm"
+          done
+      - name: Generate + sign the RC manifest
+        env:
+          RC: ${{ github.event.inputs.rc }}
+          VERSION: ${{ github.event.inputs.version }}
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          bash scripts/generate-release-manifest.sh "$VERSION" --rc "$RC" --revision "$EXPECTED_REVISION"
+          bash scripts/sign-release-manifest.sh release-artifacts/release-manifest.yaml
+          bash scripts/verify-release-manifest.sh release-artifacts/release-manifest.yaml
+      - name: Upload signed RC manifest (immutable evidence)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rc-manifest-${{ github.event.inputs.version }}-${{ github.event.inputs.rc }}
+          path: |
+            release-artifacts/release-manifest.yaml
+            release-artifacts/release-manifest.yaml.sha256
+            release-artifacts/release-manifest.yaml.sig
+            release-artifacts/release-manifest.yaml.pem
+          if-no-files-found: error
