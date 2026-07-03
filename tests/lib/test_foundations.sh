@@ -11,6 +11,8 @@ ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 ck "common.sh self-test"           'bash scripts/lib/common.sh --self-test >/dev/null'
 ck "registry-aliases.sh self-test" 'bash scripts/lib/registry-aliases.sh --self-test >/dev/null'
 ck "release-manifest.sh self-test" 'bash scripts/lib/release-manifest.sh --self-test >/dev/null'
+ck "registry-ops.sh self-test"     'bash scripts/lib/registry-ops.sh --self-test >/dev/null'
+ck "cosign-identity.sh self-test"  'bash scripts/lib/cosign-identity.sh --self-test >/dev/null'
 
 # 2. schemas are valid JSON and load as JSON Schema
 for s in schemas/*.json; do
@@ -35,9 +37,8 @@ ck "assert-image-matrix families match common.sh" '
   am=$(grep -oE "php-(cli|fpm|worker|frankenphp)|nginx|caddy" scripts/assert-image-matrix.sh | sort -u | tr "\n" " ")
   cm=$(matrix_families | sort -u | tr "\n" " ")
   [ "$am" = "$cm" ]'
-ck "promote-stable IMAGES count == 10" '
-  n=$(PROMOTE_LIB_ONLY=1; grep -E "^IMAGES=" scripts/promote-stable.sh | grep -oE "php-[a-z]+:[0-9.]+|caddy:prod|nginx:prod" | wc -l | tr -d " ")
-  [ "$n" = "10" ]'
+ck "promote-stable derives matrix from the shared lib (no local IMAGES=)" '
+  grep -q "registry-aliases.sh" scripts/promote-stable.sh && ! grep -qE "^IMAGES=" scripts/promote-stable.sh'
 ck "each contract selector is in the matrix" '
   ok=1
   for f in contracts/images/*.yaml; do

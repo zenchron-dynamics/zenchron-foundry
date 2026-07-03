@@ -22,6 +22,9 @@ on:
       rc:
         description: "Validated RC identifier to promote, e.g. rc1 (rc<N>)"
         required: true
+      rc_manifest_run_id:
+        description: "publish-rc run ID whose signed RC manifest is the promotion source of truth"
+        required: true
 
 permissions:
   contents: read
@@ -111,15 +114,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Promote exact RC digests to canonical stable aliases
+      - name: Download the signed RC manifest (promotion source of truth)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.inputs.rc_manifest_run_id }}
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifacts
+          gh run download "$RUN_ID" -n "rc-manifest-${VERSION}-${RC}" -D release-artifacts
+          test -f release-artifacts/release-manifest.yaml \
+            || { echo "REFUSE: signed RC manifest not found in run $RUN_ID"; exit 1; }
+
+      - name: Verify the signed RC manifest before trusting it
+        env:
+          EXPECTED_ROLE: rc-publisher
+        run: bash scripts/verify-release-manifest.sh release-artifacts/release-manifest.yaml
+
+      - name: Promote exact RC digests to canonical stable aliases (two-phase + rollback)
         env:
           VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}
-        run: bash scripts/promote-stable.sh "$VERSION" "$RC"
+        run: bash scripts/promote-stable.sh "$VERSION" "$RC" --manifest release-artifacts/release-manifest.yaml
 
-      - name: Upload rollback metadata (prior alias digests)
+      - name: Upload promotion evidence (rollback + journal + promotion manifest)
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: rollback-${{ github.event.inputs.version }}
-          path: release-artifacts/rollback-*.txt
-          if-no-files-found: error
+          name: promotion-evidence-${{ github.event.inputs.version }}
+          path: |
+            release-artifacts/rollback-*.yaml*
+            release-artifacts/promotion-journal-*.txt
+            release-artifacts/promotion-*.yaml*
+            release-artifacts/ROLLBACK-INCIDENT.txt
+          if-no-files-found: warn
