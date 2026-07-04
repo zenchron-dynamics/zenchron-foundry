@@ -181,4 +181,4 @@ review 2026-07-02). PHP/nginx images: **0 fixable CRITICAL/HIGH**.
   cap_drop ALL, no-new-privileges.
 - PHP 7.4 / 8.0 marked high-risk legacy (EOL); isolated and documented.
 
-[Unreleased]: https://github.com/zenchron-dynamics/zenchron-foundry/commits/master
+[v2026.07.04]: https://github.com/zenchron-dynamics/zenchron-foundry/releases/tag/v2026.07.04
