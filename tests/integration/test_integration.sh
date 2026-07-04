@@ -12,8 +12,8 @@ d="$(mktemp -d)"
 ck "release dry-run succeeds offline"  'bash scripts/release-dry-run.sh "$d" >/dev/null 2>&1'
 ck "dry-run wrote PLAN.md"             'test -f "$d/PLAN.md"'
 ck "dry-run produced RC manifest"      'test -f "$d/art/release-manifest.yaml"'
-ck "dry-run produced rollback manifest" 'test -f "$d/art/rollback-v2026.07.03.yaml"'
-ck "dry-run produced promotion manifest" 'test -f "$d/art/promotion-v2026.07.03.yaml"'
+ck "dry-run produced rollback manifest" 'test -f "$d/art/rollback-v2026.07.04.yaml"'
+ck "dry-run produced promotion manifest" 'test -f "$d/art/promotion-v2026.07.04.yaml"'
 ck "dry-run produced evidence"         'test -f "$d/art/evidence.json"'
 ck "PLAN names no executed live op"    '! grep -qE "^(docker|gh|cosign) " "$d/PLAN.md"'
 rm -rf "$d"
@@ -26,7 +26,7 @@ ck "readiness verdict is allowed" '
 # version + changelog + war-room
 ck "VERSION is CalVer"                 'grep -qE "^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}" VERSION'
 ck "changelog notes the increment"     'grep -q "RC identity binding" CHANGELOG.md'
-ck "war-room runbook exists"           'test -f docs/releases/v2026.07.03-war-room.md'
+ck "war-room runbook exists"           'test -f docs/releases/v2026.07.04-war-room.md'
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_integration: PASS" || echo "test_integration: FAIL"
 exit $fail
