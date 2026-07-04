@@ -4,9 +4,9 @@ All notable changes to the Zenchron Dynamics `docker-platform` are documented
 here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
-## [Unreleased]
+## [v2026.07.04] - 2026-07-04
 
-### Added — release binding & supply-chain macro-increment (v2026.07.03)
+### Added — release binding & supply-chain macro-increment (v2026.07.04)
 
 - **RC identity binding**: `publish-rc` requires version + rc + 40-hex revision +
   typed confirmation + master ancestry; immutable SHA-bound RC tags; pre-publish

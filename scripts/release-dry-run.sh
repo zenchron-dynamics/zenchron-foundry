@@ -17,7 +17,7 @@ ROOT="$(cd "$_d/.." && pwd)"
 . "$_d/lib/registry-aliases.sh"
 
 OUT="${1:-$(mktemp -d)}"; mkdir -p "$OUT/art" "$OUT/mock" "$OUT/bin"
-export VERSION="${VERSION:-v2026.07.03}" RC="${RC:-rc1}"
+export VERSION="${VERSION:-v2026.07.04}" RC="${RC:-rc1}"
 export REVISION="${REVISION:-$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo 7b4985a1234567890abcdef1234567890abcdef1)}"
 
 log() { printf '%s\n' "$*"; }

@@ -1,4 +1,4 @@
-# Production readiness report — v2026.07.03 macro-increment
+# Production readiness report — v2026.07.04 macro-increment
 
 **Verdict: `READY FOR RC`**
 
