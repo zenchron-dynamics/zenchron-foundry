@@ -65,7 +65,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends libcap2-bin; \
     setcap -r /usr/local/bin/frankenphp 2>/dev/null || true; \
     apt-get purge -y --auto-remove \
-        libcap2-bin gcc g++ cpp make autoconf binutils dpkg-dev libc6-dev m4 patch re2c; \
+        libcap2-bin gcc g++ cpp make autoconf binutils dpkg-dev libc6-dev linux-libc-dev m4 patch re2c; \
     rm -f /usr/local/bin/phpize /usr/local/bin/docker-php-source; \
     rm -rf /usr/src/*; \
     find / -xdev -name '*.a' -delete 2>/dev/null || true; \
