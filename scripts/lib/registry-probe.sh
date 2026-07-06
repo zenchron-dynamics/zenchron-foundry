@@ -33,7 +33,21 @@ _default_exists() {
   return 2
 }
 _default_rev() {
-  docker buildx imagetools inspect "$1" --format '{{ index .Image.Config.Labels "org.opencontainers.image.revision" }}' 2>/dev/null
+  # Read org.opencontainers.image.revision. For a multi-arch image the ref is an
+  # OCI index whose `.Image.Config` is empty (the label lives on each platform
+  # child), so a direct read returns "" and would spuriously CONFLICT on resume.
+  # Resolve one linux platform child manifest first, then read the label off it.
+  # A single-arch image has no `.Manifest.Manifests`, so child is empty and we
+  # read the ref directly.
+  local ref="$1" child target="$1" repo
+  child="$(docker buildx imagetools inspect "$ref" \
+    --format '{{ range .Manifest.Manifests }}{{ if eq .Platform.OS "linux" }}{{ println .Digest }}{{ end }}{{ end }}' 2>/dev/null \
+    | grep -m1 '^sha256:')"
+  if [ -n "$child" ]; then
+    repo="${ref%%@*}"; repo="${repo%:*}"; target="$repo@$child"
+  fi
+  docker buildx imagetools inspect "$target" \
+    --format '{{ index .Image.Config.Labels "org.opencontainers.image.revision" }}' 2>/dev/null
 }
 
 probe_immutable_tag() {
