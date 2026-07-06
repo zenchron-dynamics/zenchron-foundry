@@ -102,7 +102,10 @@ jobs:
     needs: preflight
     runs-on: [self-hosted, linux, x64, zenchron]
     strategy:
-      fail-fast: true
+      # One image's transient infra flake (buildkit graceful_stop, cosign GHCR
+      # token blip) must NOT cancel its siblings — let each publish independently
+      # so `gh run rerun --failed` only re-attempts the ones that actually failed.
+      fail-fast: false
       matrix:
         include:
           - { fam: php-fpm,        ver: "8.3", ctx: "images/php-fpm/8.3" }
@@ -216,15 +219,26 @@ jobs:
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          cosign sign --yes "${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
+          # cosign pulls the image to sign it; GHCR occasionally returns a
+          # transient token 401. Retry a few times before failing the job.
+          ref="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
+          for i in 1 2 3 4 5; do
+            cosign sign --yes "$ref" && exit 0
+            echo "cosign sign attempt $i failed; retrying in $((i*10))s" >&2; sleep "$((i*10))"
+          done
+          echo "cosign sign failed after retries" >&2; exit 1
 
       - name: Syft SBOM + cosign attest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          syft "${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}" -o spdx-json=sbom.spdx.json
-          cosign attest --yes --predicate sbom.spdx.json --type spdxjson \
-            "${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
+          ref="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
+          syft "$ref" -o spdx-json=sbom.spdx.json
+          for i in 1 2 3 4 5; do
+            cosign attest --yes --predicate sbom.spdx.json --type spdxjson "$ref" && exit 0
+            echo "cosign attest attempt $i failed; retrying in $((i*10))s" >&2; sleep "$((i*10))"
+          done
+          echo "cosign attest failed after retries" >&2; exit 1
 
       - name: Summary
         run: |
