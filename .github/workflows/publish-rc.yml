@@ -121,6 +121,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Ensure release tooling (gh + jq + yq present on runner)
+        run: bash scripts/ci/ensure-release-tools.sh
       - name: Verify each immutable RC image identity (rc-publisher)
         env:
           EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
