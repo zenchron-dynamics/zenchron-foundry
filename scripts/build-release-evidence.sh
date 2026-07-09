@@ -82,8 +82,10 @@ checksum_file "$OUT/evidence.json" > "$OUT/evidence.json.sha256"
 
 # consumer VERIFY.md from the template, exact identity substituted
 if [ -f "$_d/../templates/VERIFY.md" ]; then
-  sed -e "s|{{RELEASE}}|$VERSION|g" -e "s|{{REVISION}}|$REVISION|g" \
-      -e "s|{{ISSUER}}|$ISSUER|g" -e "s|{{IDENTITY}}|$RC_ID|g" \
+  # NB: '#' delimiter, not '|' — the rc-publisher identity regexp contains a '|'
+  # (the publish-(ghcr|rc) alternation) which would break an s|…|…| substitution.
+  sed -e "s#{{RELEASE}}#$VERSION#g" -e "s#{{REVISION}}#$REVISION#g" \
+      -e "s#{{ISSUER}}#$ISSUER#g" -e "s#{{IDENTITY}}#$RC_ID#g" \
       "$_d/../templates/VERIFY.md" > "$OUT/VERIFY.md"
 fi
 echo "wrote $OUT/{evidence.json,evidence.json.sha256,EVIDENCE.md,VERIFY.md}"

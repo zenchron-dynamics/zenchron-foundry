@@ -95,16 +95,28 @@ ensure_yq() {
   install -m 0755 "$TMP/yq" "$BIN/yq"
 }
 
+# generate-/validate-release-manifest.sh are python3 + PyYAML + jsonschema
+# (Draft202012Validator, needs jsonschema >= 4). Debian bookworm ships
+# python3-jsonschema 4.10 via apt. Idempotent: skip when the imports already work.
+ensure_python() {
+  python3 -c 'import yaml, jsonschema' >/dev/null 2>&1 && return 0
+  command -v apt-get >/dev/null 2>&1 || { echo "ensure-release-tools: python yaml/jsonschema missing and no apt-get to install them" >&2; return 1; }
+  echo "ensure-release-tools: installing python3 + pyyaml + jsonschema (apt)"
+  apt-get update -qq && apt-get install -y -qq python3 python3-yaml python3-jsonschema
+  python3 -c 'import yaml, jsonschema' >/dev/null 2>&1 || { echo "ensure-release-tools: python yaml/jsonschema still missing after install" >&2; return 1; }
+}
+
 ensure() {
   local a; a="$(arch)"
   trap cleanup EXIT
   command -v jq >/dev/null 2>&1 || install_jq "$a"
   command -v gh >/dev/null 2>&1 || install_gh "$a"
   ensure_yq "$a"
+  ensure_python
   command -v jq >/dev/null 2>&1 || { echo "ensure-release-tools: jq still missing" >&2; return 1; }
   command -v gh >/dev/null 2>&1 || { echo "ensure-release-tools: gh still missing" >&2; return 1; }
   [ -x "$BIN/yq" ] || { echo "ensure-release-tools: yq still missing" >&2; return 1; }
-  echo "ensure-release-tools: OK (gh=$(command -v gh), jq=$(command -v jq), yq=$BIN/yq)"
+  echo "ensure-release-tools: OK (gh=$(command -v gh), jq=$(command -v jq), yq=$BIN/yq, python=$(command -v python3) +yaml+jsonschema)"
 }
 
 self_test() {
