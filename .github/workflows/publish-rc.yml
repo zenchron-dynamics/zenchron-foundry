@@ -126,6 +126,7 @@ jobs:
       - name: Verify each immutable RC image identity (rc-publisher)
         env:
           EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+          EXPECTED_REPO: ${{ github.repository }}
           EXPECTED_ROLE: rc-publisher
           VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}

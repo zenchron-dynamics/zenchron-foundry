@@ -21,10 +21,12 @@ repo_url: https://github.com/zenchron-dynamics/zenchron-foundry
 roles:
   rc-publisher:
     description: >-
-      Publishes and signs immutable RC images. Runs from publish-ghcr.yml
-      (invoked by publish-rc.yml) on master.
+      Signs RC artifacts on master: the immutable RC images (publish-ghcr.yml,
+      invoked by publish-rc.yml) AND the signed RC manifest blob (the manifest
+      job in publish-rc.yml itself). Both are legitimate RC-publishing identities
+      pinned to master; scheduled-rebuild.yml is deliberately excluded.
     workflow: .github/workflows/publish-ghcr.yml
-    identity_regexp: '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-ghcr\.yml@refs/heads/master$'
+    identity_regexp: '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$'
     valid_for: [rc, stable]      # stable digests are the promoted RC digests
 
   release:
