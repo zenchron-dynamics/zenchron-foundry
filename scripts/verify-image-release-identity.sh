@@ -94,24 +94,44 @@ index_has_platform() { # <index-json> <linux/amd64>
 
 # ---- Runtime wrappers (cosign / registry) -----------------------------------
 
-cosign_id_args() {
-  if [ -n "${EXPECTED_IDENTITY:-}" ]; then printf '%s\0%s' --certificate-identity "$EXPECTED_IDENTITY";
-  else printf '%s\0%s' --certificate-identity-regexp "$IDENTITY_RE"; fi
+# Populate the COSIGN_ID array with the identity flag+value. An array is safe for
+# a regex value containing shell/regex metachars (incl. the '|' in the
+# publish-(ghcr|rc) alternation). An exact EXPECTED_IDENTITY wins over the role
+# regexp. (The previous `printf '%s\0%s' | read -d '' a1 a2` dropped the value:
+# read -d '' stops at the FIRST null, so a2 was always empty and cosign received
+# an empty --certificate-identity-regexp — matching nothing.)
+_set_cosign_id() {
+  if [ -n "${EXPECTED_IDENTITY:-}" ]; then COSIGN_ID=(--certificate-identity "$EXPECTED_IDENTITY")
+  else COSIGN_ID=(--certificate-identity-regexp "$IDENTITY_RE"); fi
 }
 _cosign_verify() {
-  local ref="$1"; local a1 a2; IFS= read -r -d '' a1 a2 < <(cosign_id_args; printf '\0')
-  cosign verify "$a1" "$a2" --certificate-oidc-issuer "$ISSUER" "$ref" >/dev/null 2>&1
+  local ref="$1"; _set_cosign_id
+  cosign verify "${COSIGN_ID[@]}" --certificate-oidc-issuer "$ISSUER" "$ref" >/dev/null 2>&1
 }
 _cosign_attest() {
-  local ref="$1" ptype="$2" a1 a2; IFS= read -r -d '' a1 a2 < <(cosign_id_args; printf '\0')
-  cosign verify-attestation --type "$ptype" "$a1" "$a2" --certificate-oidc-issuer "$ISSUER" "$ref" >/dev/null 2>&1
+  local ref="$1" ptype="$2"; _set_cosign_id
+  cosign verify-attestation --type "$ptype" "${COSIGN_ID[@]}" --certificate-oidc-issuer "$ISSUER" "$ref" >/dev/null 2>&1
 }
 _prov_predicate_json() { # emit the decoded provenance statement JSON
-  local ref="$1" a1 a2; IFS= read -r -d '' a1 a2 < <(cosign_id_args; printf '\0')
-  cosign verify-attestation --type slsaprovenance "$a1" "$a2" --certificate-oidc-issuer "$ISSUER" "$ref" 2>/dev/null \
+  local ref="$1"; _set_cosign_id
+  cosign verify-attestation --type slsaprovenance "${COSIGN_ID[@]}" --certificate-oidc-issuer "$ISSUER" "$ref" 2>/dev/null \
     | jq -r '.payload' 2>/dev/null | base64 -d 2>/dev/null || true
 }
-_config_json() { crane config "$1" 2>/dev/null || docker buildx imagetools inspect "$1" --format '{{json .Image}}' 2>/dev/null || true; }
+# Image CONFIG JSON (has .config.Labels). crane handles multi-arch; the buildx
+# fallback does NOT — `{{json .Image}}` on an OCI index returns a platform-keyed
+# MAP ({"linux/amd64":{...}}), not {"config":{...}}, so the OCI-label read comes
+# back empty. Resolve a linux platform child manifest first, then inspect that
+# single-platform image (whose .Image IS the config). Single-arch refs have no
+# child list and are read directly.
+_config_json() {
+  local ref="$1" child repo
+  crane config "$ref" 2>/dev/null && return 0
+  child="$(docker buildx imagetools inspect "$ref" \
+    --format '{{range .Manifest.Manifests}}{{if eq .Platform.OS "linux"}}{{println .Digest}}{{end}}{{end}}' 2>/dev/null \
+    | grep -m1 '^sha256:')"
+  if [ -n "$child" ]; then repo="${ref%%@*}"; repo="${repo%:*}"; ref="$repo@$child"; fi
+  docker buildx imagetools inspect "$ref" --format '{{json .Image}}' 2>/dev/null || true
+}
 _index_json()  { crane manifest "$1" 2>/dev/null || docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' 2>/dev/null || true; }
 
 verify_image() {

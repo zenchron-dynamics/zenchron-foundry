@@ -236,9 +236,31 @@ jobs:
           syft "$ref" -o spdx-json=sbom.spdx.json
           for i in 1 2 3 4 5; do
             cosign attest --yes --predicate sbom.spdx.json --type spdxjson "$ref" && exit 0
-            echo "cosign attest attempt $i failed; retrying in $((i*10))s" >&2; sleep "$((i*10))"
+            echo "cosign attest (sbom) attempt $i failed; retrying in $((i*10))s" >&2; sleep "$((i*10))"
           done
-          echo "cosign attest failed after retries" >&2; exit 1
+          echo "cosign attest (sbom) failed after retries" >&2; exit 1
+
+      - name: SLSA provenance attest (source-revision binding)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          # buildx provenance:mode=max attaches UNSIGNED buildkit provenance to the
+          # index; the release identity verifier requires a COSIGN-signed
+          # slsaprovenance attestation and reads the source repo+commit from its
+          # predicate (.materials[].uri / .digest.sha1). Emit that predicate and
+          # cosign-attest it, keylessly signed by this workflow's OIDC identity.
+          ref="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
+          jq -n --arg repo "$GITHUB_REPOSITORY" --arg gref "$GITHUB_REF" --arg sha "$GITHUB_SHA" '{
+            buildType: "https://github.com/\($repo)/publish-ghcr",
+            builder: { id: "https://github.com/\($repo)/.github/workflows/publish-ghcr.yml@\($gref)" },
+            invocation: { configSource: { uri: "git+https://github.com/\($repo)@\($gref)", digest: { sha1: $sha } } },
+            materials: [ { uri: "git+https://github.com/\($repo)", digest: { sha1: $sha } } ]
+          }' > provenance.json
+          for i in 1 2 3 4 5; do
+            cosign attest --yes --predicate provenance.json --type slsaprovenance "$ref" && exit 0
+            echo "cosign attest (provenance) attempt $i failed; retrying in $((i*10))s" >&2; sleep "$((i*10))"
+          done
+          echo "cosign attest (provenance) failed after retries" >&2; exit 1
 
       - name: Summary
         run: |

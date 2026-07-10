@@ -18,7 +18,7 @@ images by digest, never by a moving tag.
 ```sh
 cosign verify \
   --certificate-oidc-issuer "{{ISSUER}}" \
-  --certificate-identity "{{IDENTITY}}" \
+  --certificate-identity-regexp "{{IDENTITY}}" \
   ghcr.io/zenchron-dynamics/<image>@<digest>
 ```
 
@@ -27,7 +27,7 @@ cosign verify \
 ```sh
 cosign verify-attestation --type spdxjson \
   --certificate-oidc-issuer "{{ISSUER}}" \
-  --certificate-identity "{{IDENTITY}}" \
+  --certificate-identity-regexp "{{IDENTITY}}" \
   ghcr.io/zenchron-dynamics/<image>@<digest>
 ```
 
@@ -36,7 +36,7 @@ cosign verify-attestation --type spdxjson \
 ```sh
 cosign verify-attestation --type slsaprovenance \
   --certificate-oidc-issuer "{{ISSUER}}" \
-  --certificate-identity "{{IDENTITY}}" \
+  --certificate-identity-regexp "{{IDENTITY}}" \
   ghcr.io/zenchron-dynamics/<image>@<digest>
 # provenance predicate .buildDefinition…resolvedDependencies / materials must
 # reference revision {{REVISION}}
