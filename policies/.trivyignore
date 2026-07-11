@@ -55,3 +55,12 @@ CVE-2026-42504
 # owner: platform/security · review-by 2026-07-23
 CVE-2026-40355
 CVE-2026-40356
+
+# -----------------------------------------------------------------------------
+# frankenphp Go-stdlib (gobinary) — the dunglas/frankenphp binary is compiled
+# against Go stdlib v1.26.4, which has a fixable HIGH (crypto/x509 class). Fixable
+# only by an UPSTREAM frankenphp rebuild on Go >=1.26.5 — we do not rebuild the
+# frankenphp binary and cannot patch the embedded stdlib in our layer. Same class
+# as the caddy go-stdlib entries. Drop + bump the base when upstream ships a
+# Go-bumped frankenphp. owner: platform/security · review-by 2026-07-25
+CVE-2026-39822
