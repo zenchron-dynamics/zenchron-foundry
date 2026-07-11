@@ -35,6 +35,7 @@ for t in $MATRIX_IMAGES; do
     if [ "$got" != "$rcdig" ]; then verified=false; bad=$((bad+1)); warn "MISMATCH $ref: $got != $rcdig"; fi
     if [ "$verified" = true ] && [ "${LOCAL:-0}" != 1 ] && command -v cosign >/dev/null 2>&1; then
       EXPECTED_REVISION="$REV" EXPECTED_ROLE=rc-publisher \
+      EXPECTED_REPO="${EXPECTED_REPO:-${GITHUB_REPOSITORY:-zenchron-dynamics/zenchron-foundry}}" \
         bash "$_d/verify-image-release-identity.sh" "$NS/$fam@$got" >/dev/null 2>&1 \
         || { verified=false; bad=$((bad+1)); warn "IDENTITY FAIL $ref"; }
     fi
