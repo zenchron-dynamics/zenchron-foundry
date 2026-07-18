@@ -82,3 +82,12 @@ CVE-2026-33630
 # short TTL accepted-risk pending the base absorbing +deb12u15; drop + bump then.
 # owner: platform/security · review-by 2026-07-18
 CVE-2026-5773
+
+# -----------------------------------------------------------------------------
+# caddy curl/libcurl (alpine) — the caddy:2-alpine base ships curl 8.19.0-r0;
+# Alpine fixed CVE-2026-6276 in 8.20.0-r0 but the pinned base (== current upstream
+# digest) has not absorbed it. caddy is a Go binary using Go's HTTP stack; the
+# alpine curl is a transitive base tool not on the caddy runtime path. Drop + bump
+# the base when caddy:2-alpine ships curl 8.20.0-r0.
+# owner: platform/security · review-by 2026-07-20
+CVE-2026-6276
