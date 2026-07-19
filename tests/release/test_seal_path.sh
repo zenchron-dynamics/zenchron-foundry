@@ -49,6 +49,20 @@ ck "promote-stable.yml keeps the production environment gate" \
 ck "promote-stable.yml still performs no docker build (comments aside)" \
    '! grep -v "^ *#" .github/workflows/promote-stable.yml | grep -Eq "docker build|buildx build"'
 
+# --- required-check naming drift is caught (the gate matches names verbatim) -
+tmp="$(mktemp -d)"
+yq '.required_checks += ["a-check-no-workflow-emits"]' policies/required-release-checks.yaml > "$tmp/drift.yaml"
+ck "unproducible required check is rejected" \
+   '! POLICY="$tmp/drift.yaml" bash scripts/assert-required-checks.sh >/dev/null 2>&1'
+yq '.required_checks -= ["build+smoke caddy"]' policies/required-release-checks.yaml > "$tmp/drop.yaml"
+ck "dropping a gating job is rejected" \
+   '! POLICY="$tmp/drop.yaml" bash scripts/assert-required-checks.sh >/dev/null 2>&1'
+ck "release guard asserts the check names" \
+   'grep -q "assert-required-checks.sh" .github/workflows/release.yml'
+ck "ci asserts the check names" \
+   'grep -q "assert-required-checks.sh" .github/workflows/ci.yml'
+rm -rf "$tmp"
+
 # --- the manifest signature check is actually wired (cosign runs in CI) -----
 ck "manifest verification calls cosign verify-blob" \
    'grep -q "cosign verify-blob" scripts/verify-release-manifest.sh'

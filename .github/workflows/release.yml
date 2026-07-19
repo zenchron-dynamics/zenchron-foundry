@@ -94,6 +94,9 @@ jobs:
           bash scripts/assert-pinned-actions.sh
           bash scripts/assert-no-wolfi.sh
           bash scripts/assert-image-matrix.sh
+          # The exact-commit gate below matches check names verbatim; refuse if the
+          # policy names drifted from the workflows (they once all had).
+          bash scripts/assert-required-checks.sh
       - name: Exact-commit CI gate (every required check green on THIS commit)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

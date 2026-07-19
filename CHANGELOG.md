@@ -27,6 +27,18 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   release (from tag). `release.yml` is dispatch-only (no tag-push auto-seal) and
   its guard fails if the stable aliases do not already hold the RC digests.
 - Neither workflow builds images; promotion remains a registry-side retag.
+- **Third blocker found while verifying the gate: the exact-commit CI policy could
+  never pass.** Every name in `policies/required-release-checks.yaml` was
+  unproducible — measured against a real `master` commit, all 18 reported
+  `missing:`, so `release.yml`'s guard would refuse every seal. The gate's own
+  self-test built its fixture *from the policy*, so the drift was invisible.
+  Policy rewritten with the exact rendered check names (15 from `ci.yml`, 10 from
+  `scan-images.yml`); the two names no workflow ever emitted
+  (`release-manifest-validate`, `image-identity-validate`) are dropped — those
+  validations already run inside the release guard itself. New
+  `scripts/assert-required-checks.sh` compares the policy against the workflow job
+  names (matrices expanded) and runs in both `ci.yml` and the release guard, so
+  the drift cannot recur silently.
 
 ## [v2026.07.04] - 2026-07-04
 

@@ -37,6 +37,17 @@ you skip one.
       manifest for the rest of the ceremony. Never commit the manifest to git —
       see [rc-manifest.md](rc-manifest.md).
 
+## Exact-commit CI (what the seal gate reads)
+
+- [ ] `ci.yml` green on the release revision (it runs on every push to `master`).
+- [ ] **Dispatch `scan-images.yml` on the release revision.** It does *not* run on
+      push to `master`, and the seal gate requires its 10 `scan <fam> <ver>`
+      check-runs on that exact commit. A `workflow_dispatch` attaches them to the
+      dispatched ref's commit.
+- [ ] The required names live in `policies/required-release-checks.yaml` and are
+      matched **verbatim**; `scripts/assert-required-checks.sh` (run in `ci.yml`
+      and in the release guard) keeps them in sync with the workflow job names.
+
 ## Tag the release (before promotion)
 
 - [ ] Push an annotated tag `vYYYY.MM.DD[.N]` pointing at the **exact commit the
