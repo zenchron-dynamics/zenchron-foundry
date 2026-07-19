@@ -10,9 +10,11 @@ Who can publish, from where, and how the pipeline resists tampering.
 | `scan-images.yml` | PR (images), schedule | **No** (builds locally to scan; no registry push) |
 | `build-images.yml` | `workflow_dispatch`, `workflow_call` | Only if `inputs.push == 'true'` (default `false`) |
 | `publish-ghcr.yml` | `workflow_call`, `workflow_dispatch` | **Yes** — push + cosign sign + SBOM attest |
-| `release.yml` | push **tag** `v*` | calls `publish-ghcr.yml`, then creates the GitHub Release |
+| `promote-stable.yml` | dispatch from `refs/tags/<version>` | **No build** — registry retag of validated RC digests onto `*-prod` |
+| `release.yml` | dispatch from `refs/tags/<version>` | **No build** — verifies the promoted images, then creates the GitHub Release |
 
-**Publishing occurs only from:** a `v*` tag (via `release.yml` → `publish-ghcr.yml`),
+**Publishing occurs only from:** `publish-rc.yml` → `publish-ghcr.yml` (RC tags),
+and `promote-stable.yml` (retag to `*-prod`),
 or a deliberate `workflow_dispatch` of `publish-ghcr`/`build-images` with
 `push=true`. **No workflow publishes from a pull request**, and `publish-ghcr`
 has no `pull_request` or `push: branches` trigger — confirmed.
@@ -54,11 +56,14 @@ exists. Signing is keyless (Fulcio/Rekor), so there is no private key to leak.
 ## Release procedure (summary)
 
 1. PR merged to `master` (reviewed, CI green).
-2. Maintainer pushes tag `vYYYY.MM.DD` (e.g. `v2026.05.30`).
-3. `release.yml` → `preflight` → `publish-ghcr.yml`: build, push, **cosign sign**,
-   **SBOM attest** for all 12 images.
-4. GitHub Release created with SBOMs, checksums, `VERIFY.md`.
-5. Optionally run `verify-signatures.yml` to confirm the published set.
+2. `publish-rc.yml` → `publish-ghcr.yml`: build, push, **cosign sign**,
+   **SBOM attest** all 10 images as immutable RC tags; signs the RC manifest.
+3. Maintainer pushes tag `vYYYY.MM.DD` (e.g. `v2026.05.30`) on the RC revision.
+4. `promote-stable.yml`, dispatched from that tag: retag the exact RC digests
+   onto `*-prod` (no build, no re-sign).
+5. `release.yml`, dispatched from the same tag: verify the promoted images, then
+   create the GitHub Release with manifest, SBOMs, checksums, `VERIFY.md`.
+6. Optionally run `verify-signatures.yml` to confirm the published set.
 
 See [image-versioning.md](image-versioning.md) for tag immutability/rollback and
 [sbom-and-signing.md](sbom-and-signing.md) for the signing identity.

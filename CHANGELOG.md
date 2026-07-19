@@ -4,6 +4,42 @@ All notable changes to the Zenchron Dynamics `docker-platform` are documented
 here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
+## [Unreleased]
+
+### Fixed — stable seal path (first live ceremony blockers)
+
+- **RC manifest is artifact-sourced, never committed.** `release.yml` no longer
+  requires `release-evidence/<version>/release-manifest.yaml` in git — committing
+  generated RC evidence created a commit *after* the RC images were built and
+  broke `tag commit == manifest.revision == provenance revision == OCI revision`.
+  New `scripts/fetch-rc-manifest.sh` downloads the signed manifest from the
+  `publish-rc` artifact and fails closed on wrong repository, wrong workflow,
+  non-success run, `head_sha` != tag commit, missing/incomplete artifact, checksum
+  or signature failure, schema/policy failure, or version/rc/revision mismatch.
+  No fallback to local evidence.
+- **Promotion and sealing run from the stable tag.** New
+  `scripts/check-promotion-ref.sh` requires `github.ref == refs/tags/<version>`
+  (branch refs and RC tags refused) in both `promote-stable.yml` and
+  `release.yml`, matching the `foundry-production` stable-tags-only policy that
+  blocked the first attempt. `promote-stable.yml` additionally binds the tag
+  commit to `expected_revision`.
+- **Ceremony order enforced**: publish-rc → tag → promote-stable (from tag) →
+  release (from tag). `release.yml` is dispatch-only (no tag-push auto-seal) and
+  its guard fails if the stable aliases do not already hold the RC digests.
+- Neither workflow builds images; promotion remains a registry-side retag.
+- **Third blocker found while verifying the gate: the exact-commit CI policy could
+  never pass.** Every name in `policies/required-release-checks.yaml` was
+  unproducible — measured against a real `master` commit, all 18 reported
+  `missing:`, so `release.yml`'s guard would refuse every seal. The gate's own
+  self-test built its fixture *from the policy*, so the drift was invisible.
+  Policy rewritten with the exact rendered check names (15 from `ci.yml`, 10 from
+  `scan-images.yml`); the two names no workflow ever emitted
+  (`release-manifest-validate`, `image-identity-validate`) are dropped — those
+  validations already run inside the release guard itself. New
+  `scripts/assert-required-checks.sh` compares the policy against the workflow job
+  names (matrices expanded) and runs in both `ci.yml` and the release guard, so
+  the drift cannot recur silently.
+
 ## [v2026.07.04] - 2026-07-04
 
 ### Added — release binding & supply-chain macro-increment (v2026.07.04)

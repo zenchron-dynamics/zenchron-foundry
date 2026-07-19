@@ -1,9 +1,27 @@
 name: release
 
+# SEAL ONLY — the LAST step of the release ceremony. Dispatch this from the
+# stable tag ref AFTER promote-stable.yml has moved the validated RC digests
+# onto the canonical *-prod aliases:
+#
+#   publish-rc -> create stable tag -> promote-stable (from tag) -> release (from tag)
+#
+# Deliberately NOT `on: push: tags`. A tag push happens before promotion, so an
+# automatic seal would always race ahead of the aliases it must verify; and the
+# workflow needs the publish-rc run id to fetch the signed RC manifest, which a
+# push trigger cannot carry.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Stable version being sealed, e.g. v2026.07.04 — MUST equal the tag this runs from"
+        required: true
+      rc:
+        description: "RC identifier that was promoted, e.g. rc1 (rc<N>)"
+        required: true
+      rc_manifest_run_id:
+        description: "publish-rc run ID whose signed RC manifest artifact is the release source of truth"
+        required: true
 
 # Caller permissions cap the reusable publish workflow — must grant what it needs.
 permissions:
@@ -27,6 +45,7 @@ jobs:
     permissions:
       contents: read
       packages: read          # verify-release-binding resolves + cosign-verifies private -prod images
+      actions: read           # gh run download: fetch the signed RC manifest artifact
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
@@ -41,7 +60,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0          # need full history for the ancestry check
-      - name: Ensure release tooling (gh + jq present on runner)
+      - name: Ensure release tooling (gh + jq + yq present on runner)
         run: bash scripts/ci/ensure-release-tools.sh
       - name: Preflight — release environments must be protected + reviewed
         env:
@@ -50,13 +69,16 @@ jobs:
           # (see docs/audits/free-tier-governance-accepted-risk.md). Remove on Team/public.
           ALLOW_FREE_TIER_NO_REVIEWERS: "1"
         run: bash scripts/check-release-environments.sh --release-ready
-      - name: Validate release tag format
+      - name: Sealing must run from the stable release tag (ref == version input)
         env:
-          REF_NAME: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
         run: |
           set -euo pipefail
-          echo "$REF_NAME" | grep -Eq '^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$' \
-            || { echo "REFUSE: '$REF_NAME' is not a valid release tag (vYYYY.MM.DD[.N])"; exit 1; }
+          . scripts/lib/common.sh
+          require_rc "$RC"
+          bash scripts/check-promotion-ref.sh "$REF" "$VERSION"
       - name: Tag commit must be reachable from master
         env:
           SHA: ${{ github.sha }}
@@ -72,6 +94,9 @@ jobs:
           bash scripts/assert-pinned-actions.sh
           bash scripts/assert-no-wolfi.sh
           bash scripts/assert-image-matrix.sh
+          # The exact-commit gate below matches check names verbatim; refuse if the
+          # policy names drifted from the workflows (they once all had).
+          bash scripts/assert-required-checks.sh
       - name: Exact-commit CI gate (every required check green on THIS commit)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -88,25 +113,38 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Verify signed RC manifest binds this tag + commit
+      - name: Fetch + verify the signed RC manifest (from the publish-rc artifact)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_REVISION: ${{ github.sha }}
+          EXPECTED_REPO: ${{ github.repository }}
+          EXPECTED_ROLE: rc-publisher
+          RUN_ID: ${{ github.event.inputs.rc_manifest_run_id }}
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          # The signed RC manifest is NEVER committed: committing it would create a
+          # commit after the RC was built and break tag-commit == manifest.revision.
+          # It is downloaded from the successful publish-rc run that signed it, and
+          # that run must have been built from THIS tag's commit. No local fallback.
+          bash scripts/fetch-rc-manifest.sh "$RUN_ID" "$VERSION" "$RC" release-artifacts
+
+      - name: Stable aliases must ALREADY hold the RC digests (promotion done)
         env:
           REF_NAME: ${{ github.ref_name }}
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # The signed RC manifest (produced + signed by publish-rc, verified at
-          # promotion) is the sole promotion source of truth. It is committed under
-          # release-evidence/<tag>/ when the release tag is prepared. Fail closed if
-          # it is absent — a stable release may not seal an unbound commit.
-          m="release-evidence/${REF_NAME}/release-manifest.yaml"
-          [ -f "$m" ] || { echo "REFUSE: signed RC manifest not found at $m"; exit 1; }
-          bash scripts/verify-release-manifest.sh "$m"
-          bash scripts/verify-release-binding.sh "$m" "$REF_NAME" "$SHA"
+          # Fails loud if promote-stable.yml has not run for this release: the
+          # equality chain covers tag == manifest.release, tag commit ==
+          # manifest.revision, and stable alias digest == RC digest for all 10.
+          bash scripts/verify-release-binding.sh release-artifacts/release-manifest.yaml "$REF_NAME" "$SHA"
 
   # NO BUILD HERE (rule #14 / Sprint 6). The 10 stable images must already exist,
-  # promoted from validated RC digests by promote-stable.yml BEFORE this tag was
-  # pushed. This workflow only *seals* the release: it verifies the already-
-  # promoted images from the registry, then attaches the manifest + SBOMs.
+  # promoted from validated RC digests by promote-stable.yml BEFORE this workflow
+  # is dispatched. This workflow only *seals* the release: it verifies the
+  # already-promoted images from the registry, then attaches the manifest + SBOMs.
   # If the images have not been promoted, verify-release-artifacts.sh fails loud.
   release:
     needs: guard
@@ -114,6 +152,7 @@ jobs:
     permissions:
       contents: write          # create GitHub Release
       packages: read
+      actions: read            # gh run download: fetch the signed RC manifest artifact
       id-token: write
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
@@ -147,13 +186,20 @@ jobs:
           EXPECTED_ROLE: rc-publisher
         run: bash scripts/verify-release-artifacts.sh
 
-      - name: Stage the signed RC manifest for attachment (no regeneration)
+      - name: Fetch the signed RC manifest for attachment (no regeneration)
         env:
-          REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_REVISION: ${{ github.sha }}
+          EXPECTED_REPO: ${{ github.repository }}
+          EXPECTED_ROLE: rc-publisher
+          RUN_ID: ${{ github.event.inputs.rc_manifest_run_id }}
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
         run: |
           set -euo pipefail
-          mkdir -p release-artifacts
-          cp "release-evidence/${REF_NAME}/release-manifest.yaml"* release-artifacts/
+          # Same artifact the guard verified; re-fetched here because jobs do not
+          # share a workspace. Attached as-is — never regenerated at seal time.
+          bash scripts/fetch-rc-manifest.sh "$RUN_ID" "$VERSION" "$RC" release-artifacts
           cat release-artifacts/release-manifest.yaml
 
       - name: Collect per-image SBOMs + checksums (strict — no image may be skipped)
@@ -196,6 +242,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
         with:
+          tag_name: ${{ github.ref_name }}   # explicit: dispatched, not tag-push triggered
           generate_release_notes: true
           files: |
             release-artifacts/release-manifest.yaml

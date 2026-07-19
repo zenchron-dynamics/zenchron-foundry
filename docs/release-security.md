@@ -8,12 +8,17 @@ How a Zenchron Foundry release is made trustworthy, and what is verified where.
 CI validates source
   -> publish-rc builds immutable candidates (signed + SBOM + provenance)
   -> RC artifacts verified from the registry
-  -> signed RC manifest (docs/rc-manifest.md)
-  -> promote-stable retags exact digests (docs/stable-promotion.md)
+  -> signed RC manifest, kept as a workflow artifact (docs/rc-manifest.md)
+  -> stable tag created on the exact RC revision
+  -> promote-stable (from the tag) retags exact digests (docs/stable-promotion.md)
   -> compensating rollback on failure
-  -> release tag verifies revision equality
+  -> release (from the same tag) verifies revision + alias equality
   -> GitHub release seals the evidence bundle
 ```
+
+The signed RC manifest is **downloaded from the `publish-rc` run artifact**, never
+committed to the source tree: committing it would add a commit after the images
+were built and break `tag commit == manifest.revision == provenance revision`.
 
 Release tags do **not** build images. Stable publication does **not** rebuild.
 Generic workflows cannot push production tags — only the protected

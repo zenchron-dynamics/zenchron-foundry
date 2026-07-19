@@ -13,8 +13,10 @@ ck "release.yml runs exact-commit CI gate" 'grep -q "check-exact-commit-ci.sh" .
 ck "release.yml verifies RC manifest binding" 'grep -q "verify-release-binding.sh" .github/workflows/release.yml'
 ck "release.yml verify-artifacts passes revision" \
    'yq -e ".jobs.release.steps[] | select(.name==\"Verify release artifacts (identity, SBOM, provenance, revision, multi-arch — all 10)\") | .env.EXPECTED_REVISION" .github/workflows/release.yml >/dev/null'
-ck "required-release-checks policy lists lint+semgrep+gitleaks" \
-   'yq -e ".required_checks | contains([\"lint\",\"semgrep\",\"gitleaks\"])" policies/required-release-checks.yaml >/dev/null'
+ck "required-release-checks names match the real workflow jobs" \
+   'bash scripts/assert-required-checks.sh >/dev/null'
+ck "required-release-checks still gates the vulnerability scan" \
+   'yq -e ".required_checks | map(select(. == \"scan php-cli 8.4\")) | length == 1" policies/required-release-checks.yaml >/dev/null'
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_release_binding: PASS" || echo "test_release_binding: FAIL"
 exit $fail

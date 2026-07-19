@@ -6,9 +6,19 @@ images** — it retags exact RC digests. Cross-repository atomicity is not
 available, so this is *two-phase promotion with compensating rollback*, **not**
 truly atomic. Do not describe it as atomic.
 
+## Where it runs from
+
+Only from the stable release tag: `github.ref` must be `refs/tags/<version>`,
+enforced by `scripts/check-promotion-ref.sh` and again by the tag policy on the
+`foundry-production` environment. Branch refs and RC tags are refused. The tag
+commit must equal `expected_revision` and the RC manifest revision.
+
 ## Inputs it consumes
 
-- The signed RC manifest (exact per-image digests + revision).
+- The signed RC manifest, **downloaded from the `publish-rc` run artifact**
+  `rc-manifest-<version>-<rc>` via `scripts/fetch-rc-manifest.sh` (exact per-image
+  digests + revision). It is never read from the source tree — see
+  [rc-manifest.md](rc-manifest.md).
 - The 10 published RC images (signed + attested) in GHCR.
 
 ## Phase 1 — preflight (mutates nothing)

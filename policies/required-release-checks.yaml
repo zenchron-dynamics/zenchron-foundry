@@ -20,21 +20,38 @@ poll:
 accept_conclusions: [success]
 
 required_checks:
-  - lint
-  - semgrep
-  - structure
-  - gitleaks
-  - compose-validate
-  - build-and-smoke (php-cli/8.3)
-  - build-and-smoke (php-cli/8.4)
-  - build-and-smoke (php-fpm/8.3)
-  - build-and-smoke (php-fpm/8.4)
-  - build-and-smoke (php-worker/8.3)
-  - build-and-smoke (php-worker/8.4)
-  - build-and-smoke (php-frankenphp/8.3)
-  - build-and-smoke (php-frankenphp/8.4)
-  - build-and-smoke (nginx)
-  - build-and-smoke (caddy)
-  - scan-images
-  - release-manifest-validate
-  - image-identity-validate
+  # EXACT check-run names, as GitHub renders them. scripts/assert-required-checks.sh
+  # keeps this list in sync with the workflow job names (matrices expanded) — the
+  # exact-commit gate matches names verbatim, so any drift here silently rejects
+  # every release commit with "missing: <name>".
+  #
+  # ci.yml — runs on every push to master.
+  - repo structure
+  - lint (shell / yaml / md / dockerfile)
+  - secret scan (gitleaks)
+  - semgrep docker security
+  - validate compose profiles
+  - build+smoke php-cli 8.3
+  - build+smoke php-cli 8.4
+  - build+smoke php-fpm 8.3
+  - build+smoke php-fpm 8.4
+  - build+smoke php-worker 8.3
+  - build+smoke php-worker 8.4
+  - build+smoke php-frankenphp 8.3
+  - build+smoke php-frankenphp 8.4
+  - build+smoke nginx
+  - build+smoke caddy
+  # scan-images.yml — the vulnerability gate. It does NOT run on push to master
+  # (dispatch / schedule / image-touching PRs only), so the release operator must
+  # dispatch it on the release revision; a workflow_dispatch attaches its
+  # check-runs to that commit, which is what this gate then reads.
+  - scan php-cli 8.3
+  - scan php-cli 8.4
+  - scan php-fpm 8.3
+  - scan php-fpm 8.4
+  - scan php-worker 8.3
+  - scan php-worker 8.4
+  - scan php-frankenphp 8.3
+  - scan php-frankenphp 8.4
+  - scan nginx prod
+  - scan caddy prod

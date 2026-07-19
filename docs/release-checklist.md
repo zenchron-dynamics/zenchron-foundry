@@ -33,24 +33,51 @@ you skip one.
       and edges `prod-rc<N>` (plus `.build.<run>`), and **no** `*-prod` tag.
 - [ ] Validate the RC: pull the RC tags, run consumer/integration checks, confirm
       multi-arch (`linux/amd64,linux/arm64`).
+- [ ] **Record the `publish-rc` run ID.** It is the only source of the signed RC
+      manifest for the rest of the ceremony. Never commit the manifest to git —
+      see [rc-manifest.md](rc-manifest.md).
 
-## Stable promotion (same source)
+## Exact-commit CI (what the seal gate reads)
 
-- [ ] Push an annotated tag `vYYYY.MM.DD[.N]` pointing at the **same merged
-      commit** you validated as the RC (it must be an ancestor of
-      `origin/master`). Stable is rebuilt from that commit with the same pinned
-      base digests — not an arbitrary branch.
-- [ ] Approve the `foundry-production` GitHub Environment. The `guard` job enforces tag
-      format, master ancestry, and repo invariants before anything publishes.
-- [ ] `release.yml` builds multi-arch, pushes `*-prod` (+ dated, + `-build.<run>`,
-      + `-debian` alias for PHP families), signs, and attests all 10 images.
+- [ ] `ci.yml` green on the release revision (it runs on every push to `master`).
+- [ ] **Dispatch `scan-images.yml` on the release revision.** It does *not* run on
+      push to `master`, and the seal gate requires its 10 `scan <fam> <ver>`
+      check-runs on that exact commit. A `workflow_dispatch` attaches them to the
+      dispatched ref's commit.
+- [ ] The required names live in `policies/required-release-checks.yaml` and are
+      matched **verbatim**; `scripts/assert-required-checks.sh` (run in `ci.yml`
+      and in the release guard) keeps them in sync with the workflow job names.
 
-## Verify from GHCR + publish the manifest
+## Tag the release (before promotion)
 
+- [ ] Push an annotated tag `vYYYY.MM.DD[.N]` pointing at the **exact commit the
+      RC was built from** (it must be an ancestor of `origin/master`). Nothing is
+      built or sealed by the tag push: the tag exists so `foundry-production`
+      (stable tags only) becomes reachable and the release is bound to the commit.
+
+## Stable promotion (dispatched from the tag)
+
+- [ ] Dispatch `promote-stable.yml` **from `refs/tags/<version>`** with `version`
+      (equal to the tag), `rc`, `rc_manifest_run_id`, `expected_revision` (the tag
+      commit), `confirmation` = `PROMOTE-<version>-<revision>` and
+      `risk_acceptance_confirmation` = `ACCEPT-RISK`. A branch ref or an RC tag is
+      refused by `scripts/check-promotion-ref.sh`.
+- [ ] Approve the `foundry-production` GitHub Environment.
+- [ ] Promotion retags the **exact** RC digests onto `*-prod` — no `docker build`.
+      Confirm every stable alias matches its RC digest in the job output.
+
+## Seal the release (dispatched from the same tag)
+
+- [ ] Dispatch `release.yml` **from `refs/tags/<version>`** with the same
+      `version`, `rc` and `rc_manifest_run_id`.
+- [ ] The `guard` job must pass: stable-tag ref policy, master ancestry, repo
+      invariants, exact-commit CI (incl. `scan-images`), RC manifest fetched and
+      verified from the `publish-rc` artifact, and **stable aliases already equal
+      the RC digests**. Sealing before promotion fails here by design.
 - [ ] The release job runs `verify-release-artifacts.sh` automatically and must
       report **10/10 on signed, sbom, provenance, and multiarch**.
-- [ ] `generate-release-manifest.sh` produces `release-manifest.yaml`; 10 SBOMs
-      are collected strictly (the job fails if fewer than 10) with
+- [ ] The signed RC manifest is attached **as fetched** (never regenerated); 10
+      SBOMs are collected strictly (the job fails if fewer than 10) with
       `checksums.txt` and `VERIFY.md`.
 - [ ] The GitHub Release for the tag carries the manifest, SBOMs, checksums, and
       `VERIFY.md`.

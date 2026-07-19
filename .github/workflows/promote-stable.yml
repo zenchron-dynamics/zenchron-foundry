@@ -10,14 +10,19 @@ name: promote-stable
 #
 # Order of operations for a release (see docs/release-process.md):
 #   1. publish-rc.yml   -> builds + signs immutable RC images (rc<N>)
-#   2. promote-stable.yml (this) -> promotes those exact digests to *-prod
-#   3. push the v* tag  -> release.yml seals the GitHub Release over the
-#                          already-promoted images (also no build).
+#   2. create the stable v* tag on the EXACT revision the RC was built from
+#   3. promote-stable.yml (this), dispatched FROM refs/tags/<version>
+#                       -> promotes those exact digests to *-prod
+#   4. release.yml, dispatched FROM the same tag -> seals the GitHub Release
+#                       over the already-promoted images (also no build).
+#
+# This workflow MUST be dispatched from the stable tag: `foundry-production`
+# admits stable tags only, and the tag ref is what binds promotion to the commit.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Stable version to publish, e.g. v2026.07.02 (vYYYY.MM.DD[.N])"
+        description: "Stable version to publish, e.g. v2026.07.02 — MUST equal the tag this runs from"
         required: true
       rc:
         description: "Validated RC identifier to promote, e.g. rc1 (rc<N>)"
@@ -74,8 +79,10 @@ jobs:
           # (see docs/audits/free-tier-governance-accepted-risk.md). Remove on Team/public.
           ALLOW_FREE_TIER_NO_REVIEWERS: "1"
         run: bash scripts/check-release-environments.sh --release-ready
-      - name: Validate inputs + typed production confirmation
+      - name: Validate inputs + ref policy + typed production confirmation
         env:
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
           VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}
           EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
@@ -87,10 +94,15 @@ jobs:
           require_calver "$VERSION"
           require_rc "$RC"
           require_hex40 "$EXPECTED_REVISION"
+          # Must be dispatched FROM the stable tag: `foundry-production` admits
+          # stable tags only, and the tag is what binds promotion to the commit.
+          bash scripts/check-promotion-ref.sh "$REF" "$VERSION"
+          [ "$SHA" = "$EXPECTED_REVISION" ] \
+            || die "tag commit $SHA != expected_revision $EXPECTED_REVISION"
           [ "$CONFIRMATION" = "PROMOTE-${VERSION}-${EXPECTED_REVISION}" ] \
             || die "confirmation must be PROMOTE-<version>-<expected_revision>"
           [ "$RISK" = "ACCEPT-RISK" ] || die "risk_acceptance_confirmation must be ACCEPT-RISK"
-          echo "OK: promoting $RC -> $VERSION @ $EXPECTED_REVISION (confirmed)"
+          echo "OK: promoting $RC -> $VERSION @ $EXPECTED_REVISION from $REF (confirmed)"
 
   promote:
     needs: gate
@@ -98,6 +110,7 @@ jobs:
     permissions:
       contents: read
       packages: write          # push the canonical stable tags (retag only)
+      actions: read            # gh run download: fetch the signed RC manifest artifact
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
@@ -124,29 +137,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download the signed RC manifest (promotion source of truth)
+      - name: Fetch + verify the signed RC manifest (promotion source of truth)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+          EXPECTED_REPO: ${{ github.repository }}
+          EXPECTED_ROLE: rc-publisher
           RUN_ID: ${{ github.event.inputs.rc_manifest_run_id }}
           VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}
         run: |
           set -euo pipefail
-          mkdir -p release-artifacts
-          gh run download "$RUN_ID" -n "rc-manifest-${VERSION}-${RC}" -D release-artifacts
-          test -f release-artifacts/release-manifest.yaml \
-            || { echo "REFUSE: signed RC manifest not found in run $RUN_ID"; exit 1; }
-
-      - name: Verify the signed RC manifest + bind to the confirmed revision
-        env:
-          EXPECTED_ROLE: rc-publisher
-          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
-        run: |
-          set -euo pipefail
-          bash scripts/verify-release-manifest.sh release-artifacts/release-manifest.yaml
-          got="$(yq -r '.revision' release-artifacts/release-manifest.yaml)"
-          [ "$got" = "$EXPECTED_REVISION" ] \
-            || { echo "REFUSE: manifest revision $got != confirmed $EXPECTED_REVISION"; exit 1; }
+          # Verifies run origin (this repo, publish-rc.yml, success, head_sha ==
+          # the tag commit), artifact completeness, checksum, cosign signature,
+          # schema/policy, and that the manifest names exactly this version+rc+revision.
+          bash scripts/fetch-rc-manifest.sh "$RUN_ID" "$VERSION" "$RC" release-artifacts
 
       - name: Promote exact RC digests to canonical stable aliases (two-phase + rollback)
         env:

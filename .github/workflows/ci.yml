@@ -38,6 +38,9 @@ jobs:
       - name: Assert all GitHub Actions are SHA-pinned
         run: bash scripts/assert-pinned-actions.sh
 
+      - name: Assert required-release-checks match the real job names
+        run: bash scripts/assert-required-checks.sh
+
       - name: Assert all CI container images are digest-pinned
         run: bash scripts/assert-pinned-containers.sh
 

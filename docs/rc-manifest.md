@@ -30,6 +30,31 @@ All 10 images must be present. The manifest must be schema-validated, signed or
 attested, uploaded as a workflow artifact, attached to the RC, and **consumed by
 promotion** (promotion reads the immutable digest refs, never a mutable alias).
 
+## Retrieval — artifact only, never git
+
+The manifest lives as the `publish-rc` workflow artifact
+`rc-manifest-<version>-<rc>` (four files: `release-manifest.yaml`, `.sha256`,
+`.sig`, `.pem`). Both `promote-stable.yml` and `release.yml` obtain it with
+
+```sh
+EXPECTED_REVISION=<tag commit> scripts/fetch-rc-manifest.sh <rc-run-id> <version> <rc> release-artifacts
+```
+
+**Do not commit the generated RC manifest into the source tree for sealing.** A
+commit made after the RC images were built moves the release tag off the revision
+baked into those images and breaks the equality chain
+`tag commit == manifest.revision == provenance revision == OCI revision`. The old
+`release-evidence/<version>/release-manifest.yaml` model is removed; there is no
+fallback to it.
+
+`fetch-rc-manifest.sh` fails closed unless **all** of these hold: the run exists in
+this repository, is `.github/workflows/publish-rc.yml`, concluded `success`, and
+its `head_sha` equals the release tag commit; the artifact downloads with all four
+files; the checksum and cosign signature verify; the schema/policy validation
+passes (10/10 images, digest-pinned refs, one revision); and `.release`,
+`.candidate`, `.revision` equal the release version, the selected RC, and the tag
+commit.
+
 ## Immutability
 
 Immutable RC tags encode `version + rc + short-sha`, e.g.
