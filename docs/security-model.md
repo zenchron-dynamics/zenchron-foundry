@@ -27,7 +27,8 @@ thing:
 | `scheduled-rebuild.yml` | weekly cron | Yes | dated candidate `rebuild-*` only |
 | `publish-rc.yml` | dispatch (`rc` required) | Yes (via reusable) | immutable RC tags only |
 | `publish-ghcr.yml` | `workflow_call` only | Yes | RC when `rc` set; `*-prod` only when `rc==""` |
-| `release.yml` | push tag `v*` | Yes (via reusable) | `*-prod` + dated + build + `-debian` |
+| `promote-stable.yml` | dispatch from `refs/tags/<version>` | Retag only (no build) | `*-prod` + dated + `-debian` aliases |
+| `release.yml` | dispatch from `refs/tags/<version>` | No | seals the GitHub Release only |
 
 Key invariants:
 

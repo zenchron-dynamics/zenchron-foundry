@@ -65,6 +65,9 @@ vuln policy (12 cases); platforms + contract; evidence build/validate.
 
 1. `publish-rc.yml` → build+sign immutable RC images + signed RC manifest.
 2. `verify-rc.yml` → runtime + multi-arch certification of the published RC.
-3. `promote-stable.yml` (typed `PROMOTE-…` + `ACCEPT-RISK`) → retag to stable.
-4. commit the signed RC manifest under `release-evidence/<tag>/`, push the `v*`
-   tag → `release.yml` seals the release with the evidence package.
+3. push the `v*` tag on the exact revision the RC was built from.
+4. `promote-stable.yml`, dispatched **from that tag** (typed `PROMOTE-…` +
+   `ACCEPT-RISK`) → retag to stable.
+5. `release.yml`, dispatched **from the same tag** with `rc_manifest_run_id` →
+   seals the release with the evidence package. The signed RC manifest is fetched
+   from the `publish-rc` artifact; it is never committed to the source tree.

@@ -42,8 +42,8 @@ matrix and [release-checklist.md](release-checklist.md) for the step list.
 | `build-images.yml` | dispatch / call | build-and-validate **only** (`load`, no push); `contents: read` only, so it cannot publish. |
 | `publish-ghcr.yml` | `workflow_call` only | reusable **builder/publisher**. Only caller is `publish-rc.yml` (always `rc` set ⇒ immutable RC tags). Its `rc==""` stable branch is retained as defence-in-depth but no workflow invokes it — stable tags are never *built*, only *promoted*. |
 | `publish-rc.yml` | dispatch (`rc` required, `rc<N>`) | RC entry point; gated by the `foundry-rc` Environment; builds + signs RC tags only, never `*-prod`. |
-| `promote-stable.yml` | dispatch (`version`, `rc`) | **exact-digest promotion** — copies the already-signed RC digests onto `*-prod` aliases via registry retag (`docker buildx imagetools create`). **No `docker build`** (rule #14). Gated by the `foundry-production` Environment; two-phase + digest-equality verified; emits rollback metadata. |
-| `release.yml` | push tag `v*` | **seals** the stable release over already-promoted images — verify + manifest + GitHub Release. **No build.** |
+| `promote-stable.yml` | dispatch **from `refs/tags/<version>`** (`version`, `rc`, `rc_manifest_run_id`) | **exact-digest promotion** — copies the already-signed RC digests onto `*-prod` aliases via registry retag (`docker buildx imagetools create`). **No `docker build`** (rule #14). Gated by the `foundry-production` Environment; two-phase + digest-equality verified; emits rollback metadata. |
+| `release.yml` | dispatch **from `refs/tags/<version>`** (`version`, `rc`, `rc_manifest_run_id`) | **seals** the stable release over already-promoted images — verify + manifest + GitHub Release. **No build.** Refuses if the stable aliases have not been promoted yet. |
 | `scheduled-rebuild.yml` | weekly cron | rebuilds 10 images into dated **candidate** tags (`<fam>:rebuild-<date>` / `<ver>-rebuild-<date>`), multi-arch + signed; scans and opens an issue on new fixable CRITICAL/HIGH. Never mutates `*-prod`. |
 
 ### Stable-tag protection
@@ -58,15 +58,43 @@ additionally requires the tag to match `vYYYY.MM.DD[.N]` and the tagged commit t
 be an ancestor of `origin/master` (no releasing unmerged commits) before it seals
 the release. RC and scheduled candidates can never write `*-prod`.
 
+### Ceremony order (tag-first, artifact-sourced)
+
+```text
+publish-rc  →  create the stable tag on the SAME revision
+            →  promote-stable  (dispatched from refs/tags/<version>)
+            →  release         (dispatched from the same tag)
+```
+
+Two rules make this order mandatory, both learned from the first live attempt:
+
+- **Tag before promotion.** `foundry-production` admits stable tags only, so a
+  promotion dispatched from a branch is refused by the environment. Both
+  workflows now assert `github.ref == refs/tags/<version>` themselves
+  (`scripts/check-promotion-ref.sh`) so the failure is loud and local.
+- **Never commit the generated RC manifest.** The signed manifest is downloaded
+  from the successful `publish-rc` run that produced it
+  (`scripts/fetch-rc-manifest.sh`, artifact `rc-manifest-<version>-<rc>`).
+  Committing it under `release-evidence/<version>/` would create a *new* commit
+  after the RC images were built, so the release tag would no longer point at the
+  revision baked into the images — breaking the equality chain
+  `tag commit == manifest.revision == provenance revision == OCI revision`.
+  There is no fallback to locally committed evidence.
+
 ### Steady-state stable release
 
-1. Clean, committed, reviewed commit merged to `master` (CI green). Signed
-   commits.
+1. Clean, committed, reviewed commit merged to `master` (CI green, `scan-images`
+   green on that exact commit). Signed commits.
 2. Publish and validate a release candidate via `publish-rc.yml` (builds + signs
-   the immutable `rc<N>` images, multi-arch).
-3. **Promote** the validated RC via `promote-stable.yml` (`version`, `rc`), in the
-   protected `foundry-production` Environment. It performs **no build** — for each of the 10
-   images it:
+   the immutable `rc<N>` images, multi-arch). Record its **run ID** — it is the
+   only source of the signed RC manifest.
+3. Tag `vYYYY.MM.DD[.N]` on the **exact revision the RC was built from** and push
+   the tag. Nothing is sealed by the tag push; the tag only makes the production
+   environment reachable and binds the release to the commit.
+4. **Promote** the validated RC via `promote-stable.yml`, dispatched **from
+   `refs/tags/<version>`** (`version`, `rc`, `rc_manifest_run_id`,
+   `expected_revision` = the tag commit), in the protected `foundry-production`
+   Environment. It performs **no build** — for each of the 10 images it:
    - Phase 1: resolves the exact RC digest and verifies it is Cosign-signed +
      SBOM-attested; records the current `*-prod` digest for rollback. Mutates
      nothing until all 10 pass.
@@ -75,12 +103,17 @@ the release. RC and scheduled candidates can never write `*-prod`.
      Signatures ride the digest, so no re-signing.
    - Phase 3: verifies every stable alias resolves to the exact RC digest.
    Rollback metadata (prior alias digests) is uploaded as an artifact.
-4. Tag `vYYYY.MM.DD[.N]` on the same merged commit → `release.yml` **seals** it:
-   - `guard`: tag format + master ancestry + invariants (in the `release` env).
+5. **Seal** via `release.yml`, dispatched **from the same tag** with the same
+   `version`, `rc` and `rc_manifest_run_id`:
+   - `guard`: ref is the stable tag for `version`, master ancestry, invariants,
+     exact-commit CI (incl. `scan-images`), RC manifest fetched + verified from
+     the `publish-rc` artifact, and **stable aliases already equal the RC
+     digests** (`verify-release-binding.sh`) — sealing before promotion fails here.
    - `release`: `verify-release-artifacts.sh` proves signed + SBOM + provenance +
      multi-arch **10/10 from the registry** (over the promoted images — no build),
-     generates `release-manifest.yaml`, collects 10 SBOMs strictly (fails if not 10).
-5. GitHub Release collects the manifest, SBOMs, checksums, and `VERIFY.md`.
+     attaches the signed RC manifest **as fetched** (never regenerated), collects
+     10 SBOMs strictly (fails if not 10).
+6. GitHub Release collects the manifest, SBOMs, checksums, and `VERIFY.md`.
 
 ## Pre-release checklist (must all pass)
 

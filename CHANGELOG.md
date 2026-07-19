@@ -4,6 +4,30 @@ All notable changes to the Zenchron Dynamics `docker-platform` are documented
 here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
+## [Unreleased]
+
+### Fixed — stable seal path (first live ceremony blockers)
+
+- **RC manifest is artifact-sourced, never committed.** `release.yml` no longer
+  requires `release-evidence/<version>/release-manifest.yaml` in git — committing
+  generated RC evidence created a commit *after* the RC images were built and
+  broke `tag commit == manifest.revision == provenance revision == OCI revision`.
+  New `scripts/fetch-rc-manifest.sh` downloads the signed manifest from the
+  `publish-rc` artifact and fails closed on wrong repository, wrong workflow,
+  non-success run, `head_sha` != tag commit, missing/incomplete artifact, checksum
+  or signature failure, schema/policy failure, or version/rc/revision mismatch.
+  No fallback to local evidence.
+- **Promotion and sealing run from the stable tag.** New
+  `scripts/check-promotion-ref.sh` requires `github.ref == refs/tags/<version>`
+  (branch refs and RC tags refused) in both `promote-stable.yml` and
+  `release.yml`, matching the `foundry-production` stable-tags-only policy that
+  blocked the first attempt. `promote-stable.yml` additionally binds the tag
+  commit to `expected_revision`.
+- **Ceremony order enforced**: publish-rc → tag → promote-stable (from tag) →
+  release (from tag). `release.yml` is dispatch-only (no tag-push auto-seal) and
+  its guard fails if the stable aliases do not already hold the RC digests.
+- Neither workflow builds images; promotion remains a registry-side retag.
+
 ## [v2026.07.04] - 2026-07-04
 
 ### Added — release binding & supply-chain macro-increment (v2026.07.04)

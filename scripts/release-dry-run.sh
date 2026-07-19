@@ -69,8 +69,10 @@ A real, authorized run would:
 1. publish-rc.yml: build+push immutable RC tags, sign, attest, generate+sign the RC manifest.
    - each: docker buildx build --push ghcr.io/zenchron-dynamics/<img>:$(immutable_rc_suffix 8.4 "$VERSION" "$RC" "$REVISION")-style tag
    - cosign sign --yes <digest>; cosign attest --type spdxjson <digest>
-2. promote-stable.yml: docker buildx imagetools create <stable-alias> <rc-digest>   (retag, no rebuild)
-3. git tag $VERSION && push  ->  release.yml seals the GitHub release
+2. git tag $VERSION && push   (on the exact RC revision; seals nothing by itself)
+3. promote-stable.yml, dispatched from refs/tags/$VERSION:
+   docker buildx imagetools create <stable-alias> <rc-digest>   (retag, no rebuild)
+4. release.yml, dispatched from refs/tags/$VERSION -> seals the GitHub release
    - gh release create $VERSION (with manifest + SBOMs + evidence + VERIFY.md)
 
 Artifacts produced by THIS dry run (offline, mock registry):
