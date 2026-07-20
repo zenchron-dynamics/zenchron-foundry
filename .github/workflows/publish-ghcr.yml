@@ -106,6 +106,13 @@ jobs:
       # token blip) must NOT cancel its siblings — let each publish independently
       # so `gh run rerun --failed` only re-attempts the ones that actually failed.
       fail-fast: false
+      # Serialized, matching ci.yml / scan-images.yml / verify-rc.yml. The host is
+      # 2 vCPU / 4 GB: two concurrent multi-arch builds split one core each under
+      # QEMU arm64 emulation (no throughput gained) and risk an OOM with buildkit
+      # + QEMU + Trivy resident. This was the only heavy matrix without the guard.
+      # (Note: ci.yml's note blames disk; RAM/CPU is the real ceiling. Real fix is
+      # a bigger runner, or a native arm64 runner to drop the emulation.)
+      max-parallel: 1
       matrix:
         include:
           - { fam: php-fpm,        ver: "8.3", ctx: "images/php-fpm/8.3" }
