@@ -47,6 +47,86 @@ Consequences:
 | already correctly owned | no-op |
 | non-root, wrong owner, no sudo | fail with explicit diagnosis |
 
+## Shared `$HOME`: tool installers are shared mutable state
+
+The runner instances (`...-1`, `...-2`) run on **one host as one user**, so they
+share a single `$HOME`. Any action that installs a tool into a fixed home-relative
+path is therefore writing to state that a concurrently-running job on the *other*
+instance can see and clobber.
+
+This is not theoretical. It broke the `v2026.07.04` RC publish three times.
+`sigstore/cosign-installer` defaults to `install-dir: $HOME/.cosign` and installs
+by doing `rm <bootstrap>` then `mv <verified> <bootstrap>`. Two jobs interleaving
+those four operations produce two *different* symptoms from one cause:
+
+| Symptom | Which job | What happened |
+|---|---|---|
+| `mv: cannot stat 'cosign_v2.5.2': No such file or directory` | the loser | the other job's `rm` deleted the file between its download and its `mv` |
+| `cosign: command not found` → `cosign sign failed after retries` | the winner | install "succeeded", then the other job's `rm` removed the binary before the signing step ran |
+
+The second is the nastier one: it fails late, after a multi-arch build, and looks
+like a signing/credential problem rather than an install problem.
+
+**Fix — isolate per job, do not serialize.** Every `sigstore/cosign-installer`
+use pins:
+
+```yaml
+- uses: sigstore/cosign-installer@<sha> # v4.1.2
+  with:
+    cosign-release: v2.5.2
+    install-dir: ${{ runner.temp }}/cosign
+```
+
+`RUNNER_TEMP` is per-runner-instance and a runner executes one job at a time, so
+two jobs can never share it. Prefer this over overriding `HOME` wholesale: an
+`env: { HOME: ... }` on the step also relocates docker/git config that other
+steps in the same job expect to find.
+
+**Applies to any home-relative installer**, not just cosign — syft/grype, Go/Rust
+toolchains, `~/.docker`, `~/.cache`. When adding one, ask where it writes and
+whether a parallel job could be writing there too.
+
+### Workflow-level concurrency is a complement, not the fix
+
+`publish-rc.yml` and `scheduled-rebuild.yml` share the literal group
+`org-cosign-publish` (`cancel-in-progress: false`) so the two signing workflows
+are mutually exclusive org-wide, including against the matching pair in
+`php-app-template`. The group must be the **same literal string** in every file —
+that is what makes them exclusive.
+
+Two constraints when adding it elsewhere:
+
+1. **Both files already had a top-level `concurrency:` key.** A workflow gets
+   exactly one; a second is a duplicate YAML mapping key and the workflow will not
+   load. Replace the existing block, don't append one.
+2. **It does not fix the intra-workflow case.** All three observed `v2026.07.04`
+   failures were two legs of the *same* `publish-ghcr` matrix racing each other.
+   A workflow-level group cannot prevent that — only per-job `install-dir` can.
+   Ship both; they cover different halves.
+
+Replacing the previous groups had two deliberate side effects: `publish-rc` lost
+per-`version+rc+revision` keying, so distinct publishes now serialize (one shared
+runner host required that anyway), and `scheduled-rebuild` went
+`cancel-in-progress: true → false`, so a rebuild now waits for a release instead
+of cancelling a wedged predecessor.
+
+### Recovering a stuck publish
+
+`fail-fast: false` on the publish matrix means a race victim does not cancel its
+siblings — but `gh run rerun --failed` re-runs **all** failed jobs concurrently
+and can reproduce the race. Re-run them **one at a time**:
+
+```bash
+gh run rerun --job "$(gh run view <run-id> --json jobs \
+  --jq '.jobs[]|select(.name|test("<matrix leg>"))|.databaseId')"
+```
+
+Then `gh run rerun --failed <run-id>` once only one failure remains, so the last
+job and its dependents run alone. Re-runs stay under the same run ID (a new
+*attempt*), so a recorded `rc_manifest_run_id` remains valid. Note reruns replay
+the workflow file from the original commit — a fix pushed to `master` mid-flight
+does **not** reach an in-flight run.
+
 ## Cache & cleanup
 
 - Cleanup is **targeted** (per run-id/attempt/matrix builders + tags). Never run a
