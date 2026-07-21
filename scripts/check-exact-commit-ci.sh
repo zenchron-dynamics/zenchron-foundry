@@ -32,9 +32,26 @@ fetch_checks() { # <sha> -> {checks:[{name,status,conclusion}]}
   local sha="$1"
   if [ -n "${CHECKS_FIXTURE:-}" ]; then cat "$CHECKS_FIXTURE"; return 0; fi
   # check-runs (GitHub Actions) + legacy commit statuses, merged.
+  #
+  # FAIL CLOSED on an API error. `gh api` prints the error BODY to stdout and
+  # exits non-zero, so the old `$(gh api ... || echo '{}')` concatenated two JSON
+  # documents ({"message":"Resource not accessible by integration"}{}) and jq
+  # --argjson died with exit 2 — an unreadable crash for what is really "the
+  # token cannot read checks". Assign first, test the exit status separately,
+  # and refuse with the actual API response. Never silently treat an
+  # unreadable check list as an empty one: that would make a gate whose whole
+  # job is "prove CI is green" pass vacuously if it could not see CI at all.
   local cr st
-  cr="$(gh api "repos/$REPO/commits/$sha/check-runs" --paginate 2>/dev/null || echo '{}')"
-  st="$(gh api "repos/$REPO/commits/$sha/status" 2>/dev/null || echo '{}')"
+  if ! cr="$(gh api "repos/$REPO/commits/$sha/check-runs" --paginate 2>&1)"; then
+    echo "REFUSE: cannot read check-runs for $sha (needs 'checks: read')." >&2
+    printf '%s\n' "$cr" >&2
+    return 1
+  fi
+  if ! st="$(gh api "repos/$REPO/commits/$sha/status" 2>&1)"; then
+    echo "REFUSE: cannot read commit statuses for $sha (needs 'statuses: read')." >&2
+    printf '%s\n' "$st" >&2
+    return 1
+  fi
   jq -n --argjson cr "$cr" --argjson st "$st" '
     { checks:
       ( ($cr.check_runs // [] | map({name:.name, status:.status, conclusion:.conclusion}))
@@ -107,6 +124,26 @@ _ci_self_test() {
   _no "one null-conclusion rejects" '.checks[3].conclusion=null'
   _no "missing check rejects"       'del(.checks[4])'
   _no "one still-running rejects (fixture=no-poll)" '.checks[5].status="in_progress" | .checks[5].conclusion=null'
+
+  # --- fetch_checks error path (regression: v2026.07.04 seal) ----------------
+  # `gh api` prints the error BODY to stdout and exits non-zero. The old
+  # `$(gh api ... || echo '{}')` glued two JSON docs together and jq --argjson
+  # exited 2. A gate that proves CI is green must REFUSE when it cannot read
+  # CI — never crash cryptically, never treat unreadable as empty/green.
+  # CHECKS_FIXTURE bypasses fetch_checks, so this stubs `gh` on PATH instead.
+  local stub="$tmp/bin"; mkdir -p "$stub"
+  cat > "$stub/gh" <<'STUB'
+#!/usr/bin/env bash
+echo '{"message":"Resource not accessible by integration","status":"403"}'
+exit 1
+STUB
+  chmod +x "$stub/gh"
+  if ( PATH="$stub:$PATH"; unset CHECKS_FIXTURE; fetch_checks "$SHA" ) >/dev/null 2>&1; then
+    echo "FAIL - unreadable checks must refuse (want reject)"; fail=1
+  else
+    echo "ok   - unreadable checks refuse (no vacuous pass, no jq crash)"
+  fi
+
   rm -rf "$tmp"; return $fail
 }
 

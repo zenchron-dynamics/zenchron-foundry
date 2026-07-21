@@ -46,6 +46,8 @@ jobs:
       contents: read
       packages: read          # verify-release-binding resolves + cosign-verifies private -prod images
       actions: read           # gh run download: fetch the signed RC manifest artifact
+      checks: read            # check-exact-commit-ci.sh: GET /commits/{sha}/check-runs
+      statuses: read          # check-exact-commit-ci.sh: GET /commits/{sha}/status
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         run: |
