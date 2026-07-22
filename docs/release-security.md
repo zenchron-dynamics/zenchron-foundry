@@ -34,6 +34,16 @@ Generic workflows cannot push production tags — only the protected
   (amd64+arm64)` — and exits nonzero unless **all four are 10/10** (no "at least
   one"). `LOCAL=1` prints SKIPPED when cosign is absent; strict mode treats a
   missing cosign as a hard failure.
+- The evidence package's verification values are **derived, never hardcoded**:
+  `verify-release-artifacts.sh` writes per-check-class pass counts to a
+  machine-readable results file (`RESULTS_JSON`, default
+  `release-verify-results.json`), and the release workflow reads
+  `SIG/SBOM/PROV/OCIREV/ARCH_RESULT` from that file. `RUNTIME_RESULT` is derived
+  by the seal guard from the `verify_rc_run_id` dispatch input: the referenced
+  run must be `verify-rc`, concluded `success`, on the exact release commit,
+  with 10/10 successful `certify` matrix jobs. `validate-release-evidence.sh`
+  refuses any counted result that is not a full `n/n` (so a real `9/10` — or a
+  missing/absent value — blocks the seal).
 
 ## Identity pinning — open hardening item
 
