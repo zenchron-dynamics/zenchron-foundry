@@ -1,0 +1,145 @@
+name: release-preflight
+
+# Read-only rehearsal of the release seal gates against a candidate revision,
+# BEFORE any tag exists. Four ceremonies in a row died on gate defects that
+# only surfaced live, after ~24h of builds, on a frozen tag where no fix can
+# reach the workflow (#59 check names, #66 guard permissions, v2026.07.21
+# argv-limit crash). This workflow runs the same gate scripts release.yml's
+# guard runs — on the real runner, against the real API payloads — and
+# publishes nothing, mutates nothing, and requires no environment approval.
+#
+# Dispatch it on master any time; dispatch it again late in the ceremony
+# (after verify-rc) when the check-runs payload is at its largest.
+on:
+  workflow_dispatch:
+    inputs:
+      expected_revision:
+        description: "Full 40-hex candidate revision to preflight the gates against"
+        required: true
+      version:
+        description: "Optional release version (vYYYY.MM.DD[.N]) — required with rc_manifest_run_id"
+        required: false
+        default: ""
+      rc:
+        description: "Optional RC identifier (rc<N>) — required with rc_manifest_run_id"
+        required: false
+        default: ""
+      rc_manifest_run_id:
+        description: "Optional publish-rc run ID: also fetch+verify the signed RC manifest and, when promoted aliases exist, the stable binding"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: [self-hosted, linux, x64, zenchron]
+    permissions:
+      contents: read
+      packages: read          # binding check resolves private -prod/RC images
+      actions: read           # gh run download: fetch the signed RC manifest artifact
+      checks: read            # check-exact-commit-ci.sh: GET /commits/{sha}/check-runs
+      statuses: read          # check-exact-commit-ci.sh: GET /commits/{sha}/status
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0          # need full history for the ancestry check
+      - name: Ensure release tooling (gh + jq + yq present on runner)
+        run: bash scripts/ci/ensure-release-tools.sh
+      - name: Validate inputs
+        env:
+          SHA: ${{ github.event.inputs.expected_revision }}
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+          RUN_ID: ${{ github.event.inputs.rc_manifest_run_id }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/common.sh
+          require_hex40 "$SHA"
+          [ -z "$VERSION" ] || require_calver "$VERSION"
+          [ -z "$RC" ] || require_rc "$RC"
+          if [ -n "$RUN_ID" ]; then
+            [ -n "$VERSION" ] && [ -n "$RC" ] || { echo "REFUSE: rc_manifest_run_id needs version and rc" >&2; exit 1; }
+          fi
+      - name: Candidate revision must be reachable from master
+        env:
+          SHA: ${{ github.event.inputs.expected_revision }}
+        run: |
+          set -euo pipefail
+          git fetch origin master --quiet
+          git merge-base --is-ancestor "$SHA" origin/master \
+            || { echo "REFUSE: $SHA is not an ancestor of origin/master" >&2; exit 1; }
+          echo "OK: $SHA is reachable from master"
+      - name: Repo invariants (pinning / matrix / supply-chain guard)
+        run: |
+          set -euo pipefail
+          bash scripts/assert-pinned-actions.sh
+          bash scripts/assert-no-wolfi.sh
+          bash scripts/assert-image-matrix.sh
+          bash scripts/assert-required-checks.sh
+      - name: Environment preflight (protected + reviewed, or documented waiver)
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_ENV_CHECK_TOKEN || secrets.GITHUB_TOKEN }}
+          # Free-tier: environment reviewers are billing-gated. Explicit acceptance
+          # (see docs/audits/free-tier-governance-accepted-risk.md). Remove on Team/public.
+          ALLOW_FREE_TIER_NO_REVIEWERS: "1"
+        run: bash scripts/check-release-environments.sh --release-ready
+      - name: Exact-commit CI gate (every required check green on the candidate)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.inputs.expected_revision }}
+        run: bash scripts/check-exact-commit-ci.sh "$SHA"
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        if: ${{ github.event.inputs.rc_manifest_run_id != '' }}
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: ${{ github.event.inputs.rc_manifest_run_id != '' }}
+        with:
+          cosign-release: v2.5.2   # scripts use v2 sign-blob semantics (.sig/.pem); cosign v3 defaults to the bundle format
+          # Per-job install dir: the self-hosted runners share one $HOME, so the
+          # default ~/.cosign lets concurrent jobs rm/mv over each other mid-install.
+          install-dir: ${{ runner.temp }}/cosign
+      - name: Login to GHCR (read-only image resolution)
+        if: ${{ github.event.inputs.rc_manifest_run_id != '' }}
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Fetch + verify the signed RC manifest (from the publish-rc artifact)
+        if: ${{ github.event.inputs.rc_manifest_run_id != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_REVISION: ${{ github.event.inputs.expected_revision }}
+          EXPECTED_REPO: ${{ github.repository }}
+          EXPECTED_ROLE: rc-publisher
+          RUN_ID: ${{ github.event.inputs.rc_manifest_run_id }}
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          bash scripts/fetch-rc-manifest.sh "$RUN_ID" "$VERSION" "$RC" preflight-artifacts
+      - name: Stable binding check (only meaningful once aliases are promoted)
+        if: ${{ github.event.inputs.rc_manifest_run_id != '' }}
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          SHA: ${{ github.event.inputs.expected_revision }}
+        run: |
+          set -euo pipefail
+          # Pre-promotion this step reports the mismatch and is expected to be
+          # skipped by the operator reading the log; it never mutates anything.
+          bash scripts/verify-release-binding.sh preflight-artifacts/release-manifest.yaml "$VERSION" "$SHA" \
+            || echo "NOTE: binding not satisfied (expected before promotion) — gates above are the preflight signal"
+      - name: Preflight summary
+        run: echo "RELEASE PREFLIGHT OK — all seal gates exercised read-only against ${{ github.event.inputs.expected_revision }}"
