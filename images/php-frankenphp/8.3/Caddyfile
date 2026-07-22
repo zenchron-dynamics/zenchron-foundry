@@ -1,6 +1,6 @@
 # =============================================================================
 # Zenchron Dynamics — FrankenPHP production Caddyfile (template)
-# Non-root: listen on :8080 (HTTP) / :8443 (HTTPS). TLS is normally terminated
+# Non-root: listen on :8080 (HTTP) + :8081 (healthz). TLS is normally terminated
 # at an upstream LB/ingress; enable Caddy auto-TLS only if this process is
 # internet-facing AND has NET_BIND_SERVICE. No project domains baked in.
 # =============================================================================
@@ -21,13 +21,15 @@
 
 	encode zstd gzip
 
-	# Security headers.
+	# Security headers (aligned with the caddy image's security_headers snippet).
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options    "nosniff"
 		X-Frame-Options           "DENY"
-		Referrer-Policy           "no-referrer-when-downgrade"
+		Referrer-Policy           "strict-origin-when-cross-origin"
+		Permissions-Policy        "geolocation=(), microphone=(), camera=()"
 		-Server
+		-X-Powered-By
 	}
 
 	# Deny dotfiles and sensitive paths.

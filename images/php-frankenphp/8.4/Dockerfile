@@ -7,7 +7,7 @@
 # Base: official dunglas/frankenphp:1-php8.4-bookworm (Debian 12), pinned by
 # digest. Extensions are installed with the image's official helper, which
 # compiles them and removes its own build tooling.
-# Non-root, listens on high ports (8080/8443); bind :80/:443 only via
+# Non-root, listens on high ports (8080 HTTP, 8081 healthz); bind :80/:443 only via
 # cap_add NET_BIND_SERVICE or an upstream LB. See docs/runtime-hardening.md.
 # Patch model: bump the pinned base digest to absorb CVEs — do NOT apt-get
 # upgrade inside the image (see docs/security/base-image-patching.md).
@@ -87,7 +87,7 @@ ENV SERVER_NAME=":8080" \
 
 USER 10001:10001
 WORKDIR /app
-EXPOSE 8080 8443 8081
+EXPOSE 8080 8081
 
 # Readiness probe: hit the always-on /healthz site (proves the embedded server is
 # serving HTTP, not just that the binary runs). Uses the bundled php binary —
