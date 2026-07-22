@@ -6,7 +6,7 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ## [Unreleased]
 
-_(nothing yet)_
+Nothing yet.
 
 ## [v2026.07.21] - 2026-07-22
 
