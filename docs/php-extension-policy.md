@@ -35,11 +35,16 @@ PR with justification; document the consuming app.
 
 ## How extensions are added
 
-- **Supported (Wolfi):** add the prebuilt `php-8.x-<ext>` apk package to the
-  Dockerfile's apk list. No compiler in the final image.
+- **Supported (Debian, current):** compiled **from source in the builder
+  stage** with the official PHP toolchain (`docker-php-ext-configure` /
+  `docker-php-ext-install`, PECL for `redis`); the runtime stage copies only
+  the built extensions and config (under `/usr/local/etc/php/`) — **no
+  compiler or build deps in the final image** (multi-stage).
 - **FrankenPHP:** `install-php-extensions <ext>` in the build step.
-- **Legacy (7.4/8.0):** `docker-php-ext-install`/`pecl` in a build stage; build
-  deps removed afterward.
+- **Legacy (7.4/8.0, frozen):** were built with `docker-php-ext-install`/`pecl`
+  in a build stage; never rebuilt.
+- *(Historical: the retired Wolfi images used prebuilt `php-8.x-<ext>` apk
+  packages — see ADR-0001.)*
 
 ## OPcache JIT
 
