@@ -16,7 +16,9 @@ _ci_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -n "${_COMMON_SOURCED:-}" ] || . "$_ci_dir/common.sh"
 _COMMON_SOURCED=1
 
-_ci_policy_default="$_ci_dir/../../policies/cosign-identities.yaml"
+# COSIGN_IDENTITY_POLICY overrides the policy path (self-tests point it at
+# fixture/unreadable policies to prove callers fail closed).
+_ci_policy_default="${COSIGN_IDENTITY_POLICY:-$_ci_dir/../../policies/cosign-identities.yaml}"
 
 identity_re_for_role() {
   local role="$1" policy="${2:-$_ci_policy_default}"
@@ -29,7 +31,11 @@ identity_re_for_role() {
 
 issuer_from_policy() {
   local policy="${1:-$_ci_policy_default}"
-  yq -r '.issuer' "$policy"
+  command -v yq >/dev/null 2>&1 || die "yq required to read cosign-identities.yaml"
+  [ -f "$policy" ] || die "cosign identity policy not found: $policy"
+  local iss; iss="$(yq -r '.issuer // ""' "$policy")"
+  [ -n "$iss" ] && [ "$iss" != "null" ] || die "no issuer pinned in $policy"
+  printf '%s' "$iss"
 }
 
 # --- self-test ---------------------------------------------------------------

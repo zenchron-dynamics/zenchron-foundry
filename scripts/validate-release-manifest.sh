@@ -28,6 +28,15 @@ expected_keys() {
 validate_manifest() {
   local file="$1" exprepo="${2:-zenchron-dynamics/zenchron-foundry}"
   [ -f "$file" ] || die "manifest not found: $file"
+  # Bash-layer digest anchoring (SC-24): every digest is re-checked against
+  # DIGEST_RE from common.sh, INDEPENDENT of the JSON schema — defense in depth
+  # so a schema regression can never admit an unanchored digest.
+  command -v yq >/dev/null 2>&1 || die "yq required for bash-layer digest anchoring"
+  local dg
+  while IFS= read -r dg; do
+    [ -n "$dg" ] || continue
+    is_digest "$dg" || die "bash-layer digest anchor: '$dg' does not match sha256:<64-hex>"
+  done < <(yq -r '(.images // {})[] | .digest // ""' "$file")
   local keys; keys="$(expected_keys | tr '\n' ',' )"
   EXPECTED_KEYS="$keys" EXPECTED_REPO="$exprepo" SCHEMA="$SCHEMA" MANIFEST="$file" python3 - <<'PY'
 import os, sys, json, yaml
@@ -91,8 +100,9 @@ m = {"schema_version":1, "release":"v2026.07.03","candidate":"rc1","revision":R,
      "workflow_run_id":"123","created_at":"2026-07-03T12:00:00Z","images":imgs}
 yaml.safe_dump(m, open(os.environ["OUT"],"w"), sort_keys=True)
 PY
-  _ok() { if validate_manifest "$1" >/dev/null 2>&1; then echo "ok   - $2"; else echo "FAIL - $2 (expected valid)"; fail=1; fi; }
-  _no() { if validate_manifest "$1" >/dev/null 2>&1; then echo "FAIL - $2 (expected reject)"; fail=1; else echo "ok   - $2"; fi; }
+  # subshell: the bash-layer digest anchor die()s; contain the exit per case
+  _ok() { if ( validate_manifest "$1" ) >/dev/null 2>&1; then echo "ok   - $2"; else echo "FAIL - $2 (expected valid)"; fail=1; fi; }
+  _no() { if ( validate_manifest "$1" ) >/dev/null 2>&1; then echo "FAIL - $2 (expected reject)"; fail=1; else echo "ok   - $2"; fi; }
   _mut() { python3 - "$1" "$2" <<'PY'    # apply a python expr `m` mutation
 import sys, yaml
 f, expr = sys.argv[1], sys.argv[2]
@@ -108,6 +118,15 @@ PY
   cp "$tmp/good.yaml" "$tmp/repo.yaml";   _mut "$tmp/repo.yaml" 'm["source_repository"]="evil/repo"';            _no "$tmp/repo.yaml"  "wrong source_repository"
   cp "$tmp/good.yaml" "$tmp/sv.yaml";     _mut "$tmp/sv.yaml" 'm["schema_version"]=2';                           _no "$tmp/sv.yaml"    "unsupported schema_version"
   cp "$tmp/good.yaml" "$tmp/ref.yaml";    _mut "$tmp/ref.yaml" 'm["images"]["caddy"]["reference"]="ghcr.io/x/caddy@"+"sha256:"+"b"*64'; _no "$tmp/ref.yaml" "reference/digest mismatch"
+  # SC-24: the malformed digest must be rejected by the BASH layer (is_digest),
+  # before the python/schema stage even runs — assert the error message source.
+  local err
+  err="$( ( validate_manifest "$tmp/dig.yaml" ) 2>&1 >/dev/null || true )"
+  if printf '%s' "$err" | grep -q "bash-layer digest anchor"; then
+    echo "ok   - malformed digest rejected by the bash layer (schema bypassed)"
+  else
+    echo "FAIL - malformed digest not caught by the bash layer: $err"; fail=1
+  fi
   rm -rf "$tmp"
   return $fail
 }
