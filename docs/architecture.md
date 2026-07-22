@@ -38,11 +38,17 @@ wherever technically feasible (see [distroless-strategy.md](distroless-strategy.
 ## Registry flow
 
 ```text
-dev push tag v* ──► GitHub Actions (publish-ghcr.yml)
-                     ├─ buildx build (multi-stage)
-                     ├─ push ghcr.io/zenchron-dynamics/<fam>:<ver>-prod (+date,+build)
+publish-rc.yml (dispatch, master) ──► publish-ghcr.yml (workflow_call)
+                     ├─ buildx build (multi-stage, amd64+arm64)
+                     ├─ push immutable RC tags (e.g. 8.4-vYYYY.MM.DD-rcN-sha-<12>)
                      ├─ cosign sign (keyless, OIDC)
-                     └─ syft SBOM + cosign attest
+                     └─ syft SBOM + cosign attest; signed RC manifest artifact
+verify-rc.yml   ──► cold-build + smoke + multi-arch certification of the RC
+tag vYYYY.MM.DD ──► on the exact RC revision
+promote-stable.yml (dispatch FROM the tag)
+                     └─ digest-only retag RC digests → *-prod (zero builds)
+release.yml (dispatch FROM the same tag; no tag-push trigger)
+                     └─ verify + seal GitHub Release (builds nothing)
 production host ──► docker login ghcr.io (read-only token)
                      ├─ cosign verify  (REQUIRED)
                      └─ docker pull <image>@sha256:<digest>
@@ -53,10 +59,22 @@ production host ──► docker login ghcr.io (read-only token)
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | `ci.yml` | PR, push | structure, lint, secrets, SAST, build-test, compose validate |
-| `build-images.yml` | manual / called | matrix build, cache, multi-arch ready |
-| `scan-images.yml` | PR(images), weekly | Trivy + Grype + Syft, SARIF upload |
-| `publish-ghcr.yml` | tag `v*` | build + push + sign + attest |
-| `release.yml` | tag `v*` | GitHub Release with SBOMs, checksums, verify notes |
+| `build-images.yml` | dispatch / called | matrix build validation only — no `packages: write`, cannot push |
+| `scan-images.yml` | PR(images), weekly, dispatch | Trivy + Grype + Syft, SARIF upload |
+| `publish-rc.yml` | dispatch (from `master`, `foundry-rc` environment) | build + push + sign + attest immutable RC tags; signs the RC manifest |
+| `publish-ghcr.yml` | `workflow_call` **only** (sole caller: `publish-rc.yml`) | reusable build/push/sign/attest engine |
+| `verify-rc.yml` | dispatch / called | cold-build, smoke, contract + multi-arch certification of a published RC |
+| `promote-stable.yml` | dispatch from `refs/tags/<version>` | digest-only retag of RC digests onto `*-prod` — zero builds, no re-sign |
+| `release-preflight.yml` | dispatch | read-only readiness checks before sealing |
+| `release.yml` | dispatch from `refs/tags/<version>` — **no tag-push trigger, no build** | verifies promoted images + signed RC manifest (from the `publish-rc` artifact), seals the GitHub Release |
+| `scheduled-rebuild.yml` | weekly cron / dispatch | dated candidate tags only; never mutates `*-prod` |
+| `verify-signatures.yml` | dispatch | registry-side signature + attestation verification |
+
+The `foundry-rc` / `foundry-production` environments gate the publish and
+promote/seal dispatches via deployment branch (`master`) and tag (`v*.*.*`)
+policies. Environment *required reviewers* are billing-gated on the GitHub Free
+private plan — waived via `ALLOW_FREE_TIER_NO_REVIEWERS=1`, see
+[audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md).
 
 ## Runtime profile flow
 

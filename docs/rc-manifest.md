@@ -13,16 +13,23 @@ attestation / has a SLSA provenance attestation. A complete RC manifest also
 carries release-level identity:
 
 ```yaml
-release: v2026.07.02
+schema_version: 1
+release: v2026.07.21
 candidate: rc1
 revision: <40-char-sha>          # == github.sha of the RC publish run
+source_repository: zenchron-dynamics/zenchron-foundry
 source_ref: refs/heads/master
+workflow_name: publish-rc
 workflow_run_id: <run-id>
+workflow_run_attempt: "1"
 created_at: <UTC>                # deterministic via SOURCE_DATE_EPOCH
 images:
   php-cli-8.4:
-    immutable_ref: ghcr.io/zenchron-dynamics/php-cli@sha256:<64-hex>
-    rc_tag: ghcr.io/zenchron-dynamics/php-cli:8.4-v2026.07.02-rc1-sha-<12>
+    repository: ghcr.io/zenchron-dynamics/php-cli
+    immutable_tag: 8.4-v2026.07.21-rc1-sha-<12-hex>   # scripts/lib/registry-aliases.sh scheme
+    digest: sha256:<64-hex>
+    reference: ghcr.io/zenchron-dynamics/php-cli@sha256:<64-hex>
+    revision: <40-char-sha>
     platforms: [linux/amd64, linux/arm64]
 ```
 
@@ -57,12 +64,15 @@ commit.
 
 ## Immutability
 
-Immutable RC tags encode `version + rc + short-sha`, e.g.
-`8.4-v2026.07.02-rc1-sha-<12>`. Before publishing: if the immutable tag is
+Immutable RC tags encode `version + rc + short-sha` (12 hex chars — see
+`scripts/lib/registry-aliases.sh`), e.g. `8.4-v2026.07.21-rc1-sha-<12-hex>`
+for PHP images and `v2026.07.21-rc1-sha-<12-hex>` for the nginx/caddy edges.
+Before publishing: if the immutable tag is
 absent, continue; if it exists with the **same** digest+revision, allow an
 explicit resume; if it exists with **different** content, fail. Never silently
 overwrite immutable RC identity. A mutable convenience alias
-(`8.4-v2026.07.02-rc1`) may exist but must not be consumed by promotion.
+(`8.4-debian-rc1`, edge `prod-rc1`) may exist but must not be consumed by
+promotion.
 
 ## Strict/local modes
 
@@ -71,9 +81,12 @@ overwrite immutable RC identity. A mutable convenience alias
 - `LOCAL=1`: tolerate an unreachable registry (digests `UNRESOLVED`, booleans
   false, warn) — for offline authoring only, never for a real RC.
 
-## Open items
+## Live status
 
-- Revision + OCI-label equality between manifest, provenance, and OCI labels is
-  the target invariant but is **not yet verified end-to-end** — see
-  `docs/release-security.md`.
-- The manifest has not been generated against a live RC publish in this cycle.
+Both former open items are now proven live by the sealed **v2026.07.21**
+release (see [releases/v2026.07.21-war-room.md](releases/v2026.07.21-war-room.md)):
+
+- The manifest was generated, signed, fetched from the `publish-rc` artifact,
+  and verified against a live RC publish.
+- The equality chain held **10/10**: release tag commit == manifest revision ==
+  provenance revision == OCI revision, and each stable digest == its RC digest.

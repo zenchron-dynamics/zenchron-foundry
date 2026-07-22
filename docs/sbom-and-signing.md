@@ -15,9 +15,20 @@ Every published image gets, in CI (`publish-ghcr.yml`):
 ## Signing identity
 
 - Issuer: `https://token.actions.githubusercontent.com`
-- Identity: the `publish-ghcr.yml` workflow on a `v*` tag ref.
+- Identity (role `rc-publisher` in
+  [../policies/cosign-identities.yaml](../policies/cosign-identities.yaml)):
+  `publish-(ghcr|rc).yml@refs/heads/master` — i.e. the `publish-ghcr.yml` /
+  `publish-rc.yml` workflows running on `master` via GitHub OIDC.
 
-Branch/PR builds are **not** release-signed.
+Images are signed once, at RC publish. Stable aliases (`*-prod`) are
+**digest-only retags** of the RC digests, so they **carry the RC signature via
+the digest** — nothing re-signs at promotion. Branch/PR builds are **not**
+release-signed, and `scheduled-rebuild.yml` signatures deliberately cannot
+satisfy the rc-publisher identity.
+
+**Compatibility:** the repo pins **cosign v2.5.2** and publishes v2-format
+signatures (`.sig`/`.pem`). Verify with a cosign v2-compatible client using
+`--certificate-identity-regexp` plus the issuer above.
 
 ## Verifying (required before deploy)
 

@@ -1,12 +1,27 @@
 # Production readiness report — v2026.07.04 macro-increment
 
-**Verdict: `READY FOR RC`**
+**Verdict: `READY FOR RC` — since LIVE-PROVEN by the sealed v2026.07.21 release**
 
-Next authorized action: run `publish-rc.yml` (owner-triggered) to cut the first
-RC. No live registry action, tag, or release was performed in preparing this
-branch — everything below was validated **offline** (mock registry, local
-crypto). Live builds, published-digest verification, and cosign run in CI /
-during the authorized RC publish.
+At the time of writing, everything below had been validated **offline only**
+(mock registry, local crypto). That caveat no longer applies: the controls this
+increment introduced were exercised end-to-end by the sealed **v2026.07.21**
+release (sealed 2026-07-22) —
+<https://github.com/zenchron-dynamics/zenchron-foundry/releases/tag/v2026.07.21>,
+ceremony log in
+[releases/v2026.07.21-war-room.md](releases/v2026.07.21-war-room.md):
+
+- **Equality chain live-proven, 10/10**: release tag commit == manifest
+  revision == provenance revision == OCI revision, and each stable `*-prod`
+  digest == its RC digest.
+- **Evidence package live-proven**: the GitHub Release ships `evidence.json`,
+  `rollback-results.json`, and `DEVIATION.md` (manual seal, owner-approved,
+  after the ARG_MAX defect fixed in #67).
+- **Rollback exercised live** during the ceremony (`rollback-results.json`).
+
+Honest remaining gaps: the read-only `release-preflight.yml` workflow now
+exists (#68), but there is still **no automated rollback-exercise workflow** —
+the v2026.07.21 rollback exercise was performed manually as part of the
+ceremony.
 
 ## What this increment delivers
 
@@ -26,7 +41,8 @@ Binding + formalization layer on top of the existing platform:
   inventory, signed rollback manifest, journal, reverse-order restore, emergency
   incident (exit 99).
 - **Runner + Docker + trust hardening** — one strict workspace-reset helper
-  wired into all 9 workflows; job-scoped Docker cleanup (no global prune);
+  wired into every workflow (11 files under `.github/workflows/` as of
+  v2026.07.21); job-scoped Docker cleanup (no global prune);
   fork-PR guards; publish/OIDC scoped to non-PR jobs.
 - **Vulnerability enforcement** — validator now requires approver /
   compensating_controls / created_at format / explicit release_blocking /
@@ -62,6 +78,11 @@ vuln policy (12 cases); platforms + contract; evidence build/validate.
 - Live cosign signing / attestation / Rekor
 
 ## Remaining live steps to reach production
+
+> **Status: all five steps were executed live for v2026.07.21** (with a
+> documented, owner-approved manual seal deviation — see `DEVIATION.md` in the
+> release assets and the war-room log). Kept for reference as the canonical
+> sequence.
 
 1. `publish-rc.yml` → build+sign immutable RC images + signed RC manifest.
 2. `verify-rc.yml` → runtime + multi-arch certification of the published RC.
