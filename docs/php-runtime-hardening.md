@@ -44,8 +44,7 @@ opcache.jit_buffer_size = 64M
 services:
   php-fpm:
     volumes:
-      - ./deploy/php/zz-jit.ini:/etc/php/conf.d/zzz-jit.ini:ro   # Wolfi path
-      # FrankenPHP path: /usr/local/etc/php/conf.d/zzz-jit.ini
+      - ./deploy/php/zz-jit.ini:/usr/local/etc/php/conf.d/zzz-jit.ini:ro
 ```
 
 Use a filename that sorts **after** `zz-zenchron` (e.g. `zzz-jit.ini`).
@@ -62,7 +61,7 @@ docker run --rm --entrypoint php ghcr.io/zenchron-dynamics/php-frankenphp:8.3-pr
 # php-fpm: opcache is NOT loaded in the image's CLI SAPI, so `php -i` (CLI) does
 # not surface opcache.jit. The directive is set in the FPM-loaded scan dir:
 docker run --rm --entrypoint sh ghcr.io/zenchron-dynamics/php-fpm:8.3-prod \
-  -c 'grep opcache.jit /etc/php/conf.d/zz-zenchron.ini'
+  -c 'grep opcache.jit /usr/local/etc/php/conf.d/zz-zenchron.ini'
 # -> opcache.jit = disable / opcache.jit_buffer_size = 0
 # Authoritative observation in production: a phpinfo() page served via FPM shows
 #   opcache.jit => disable.

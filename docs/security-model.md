@@ -26,7 +26,7 @@ thing:
 | `scan-images.yml` | PR(images) / weekly | No | none |
 | `scheduled-rebuild.yml` | weekly cron | Yes | dated candidate `rebuild-*` only |
 | `publish-rc.yml` | dispatch (`rc` required) | Yes (via reusable) | immutable RC tags only |
-| `publish-ghcr.yml` | `workflow_call` only | Yes | RC when `rc` set; `*-prod` only when `rc==""` |
+| `publish-ghcr.yml` | `workflow_call` only (sole caller: `publish-rc.yml`) | Yes | immutable RC tags only |
 | `promote-stable.yml` | dispatch from `refs/tags/<version>` | Retag only (no build) | `*-prod` + dated + `-debian` aliases |
 | `release.yml` | dispatch from `refs/tags/<version>` | No | seals the GitHub Release only |
 
@@ -34,30 +34,39 @@ Key invariants:
 
 - `build-images.yml` has **no `packages: write`**, so it physically cannot push a
   canonical tag even if a step tried.
-- `publish-ghcr.yml` is **reusable only** (no `workflow_dispatch`): the only ways
-  to reach it are `release.yml` (stable) and `publish-rc.yml` (RC). When its `rc`
-  input is non-empty it emits **only** immutable RC tags (`php-*:<ver>-debian-rc<N>`,
-  edges `prod-rc<N>`) and never `*-prod`. Stable (`rc==""`) additionally requires
-  a tag ref matching `vYYYY.MM.DD[.N]` — a defensive check beyond `release.yml`.
+- `publish-ghcr.yml` is **reusable only** (no `workflow_dispatch`), and its
+  **sole caller is `publish-rc.yml`**. It emits **only** immutable, SHA-bound RC
+  tags (e.g. `php-*:<ver>-vYYYY.MM.DD-rc<N>-sha-<12>` plus mutable convenience
+  aliases) and never `*-prod`. Stable `*-prod` tags are **never built by any
+  workflow** — they exist only as digest-only retags of verified RC digests,
+  performed by `promote-stable.yml`.
 - `scheduled-rebuild.yml` writes only dated candidate tags
   (`<fam>:rebuild-<date>` / `<ver>-rebuild-<date>`) and **never** mutates
   `*-prod`. Promotion stays manual via `release.yml`.
 
 ## Release controls (stable path)
 
-`release.yml`'s `guard` job runs in the protected `foundry-production` GitHub Environment
-(required reviewers) and refuses to publish unless all hold:
+`release.yml`'s `guard` job runs in the `foundry-production` GitHub Environment
+(deployment tag policy `v*.*.*`; environment *required reviewers* are
+billing-gated on the GitHub Free private plan and explicitly waived via
+`ALLOW_FREE_TIER_NO_REVIEWERS=1` — see
+[audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md))
+and refuses to seal unless all hold:
 
-1. **Tag format** — `vYYYY.MM.DD[.N]`.
+1. **Tag format** — `vYYYY.MM.DD[.N]`, and the dispatch ref **is** that tag.
 2. **Ancestry** — the tagged commit is an ancestor of `origin/master`
    (`git merge-base --is-ancestor`), so an unmerged commit cannot be released.
 3. **Repo invariants** — `assert-pinned-actions.sh`, `assert-no-wolfi.sh`, and
    `assert-image-matrix.sh` pass.
+4. **Exact-commit CI gate** — the required CI checks concluded successfully on
+   the tagged commit itself.
 
-Only then does `images` call `publish-ghcr.yml` multi-arch, followed by the
-post-publish `verify-release-artifacts.sh` proof (see
-[sbom-signing-provenance.md](sbom-signing-provenance.md)). The `foundry-rc` environment
-gates `publish-rc.yml` the same way for release candidates.
+`release.yml` **builds and pushes nothing**: it downloads the signed RC
+manifest from the `publish-rc` workflow **artifact** (never committed, never
+regenerated), verifies the promoted `*-prod` digests against it (see
+[sbom-signing-provenance.md](sbom-signing-provenance.md)), and seals the GitHub
+Release. The `foundry-rc` environment gates `publish-rc.yml` the same way
+(deployment branch policy `master`) for release candidates.
 
 ## Least-privilege permissions
 

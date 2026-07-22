@@ -1,8 +1,19 @@
 # Runner capacity & self-hosted hygiene
 
 Applies to the org-level self-hosted runners labelled
-`[self-hosted, linux, x64, zenchron]` (observed: `runner-prod-fsn1-org-zenchron-dynamics-1`,
-`...-2` — **more than one**, so jobs run in parallel, not strictly serial).
+`[self-hosted, linux, x64, zenchron]` (observed instances:
+`runner-prod-fsn1-org-zenchron-dynamics-1`, `...-2`).
+
+## Capacity ground truth (proved by the v2026.07.21 release ceremony)
+
+All runner instances live on **one host**: **2 vCPU / 4 GB RAM / 40 GB disk**.
+Registered instances are **not** extra capacity — two heavy jobs on the same
+2-vCPU host contend for CPU, RAM, disk, and shared `$HOME` (below). Plan on
+these measured numbers:
+
+- Heavy build matrices run with **`max-parallel: 1`** — strictly serial.
+- One multi-arch publish leg takes **≈ 63–77 min** (arm64 under QEMU emulation).
+- `verify-rc` (cold-builds all 10 images) takes **≈ 12 h end-to-end**.
 
 ## Ground truth (observed from CI logs, run 28601963xxx)
 
@@ -15,8 +26,13 @@ Applies to the org-level self-hosted runners labelled
 - Disk observed ~11G/38G used post-cleanup — keep headroom for 10 images × 2 arches
   plus Trivy/Grype DBs.
 
-> Correction: earlier notes claimed a single root/no-sudo serial runner. CI proved
-> otherwise — multiple runners, non-root, sudo-capable. Plan against these facts.
+> Correction history: earlier notes claimed a single root/no-sudo serial
+> runner; CI logs then showed two registered, non-root, sudo-capable instances;
+> the v2026.07.21 ceremony settled the contradiction — the instances share
+> **one 2 vCPU / 4 GB host**, so a second instance is a concurrency *hazard*
+> (shared `$HOME`, cosign race below), not extra throughput. Heavy matrices are
+> therefore deliberately `max-parallel: 1` (serial). Plan against the capacity
+> ground truth above.
 
 ## Workspace ownership reset — MUST be pre-checkout
 
@@ -138,8 +154,9 @@ does **not** reach an in-flight run.
 
 ## Emergency CVE response
 
-With multiple runners there is some parallel capacity, but an urgent rebuild still
-competes with routine CI. Options: cancel a non-release job, use the
+There is **no spare parallel capacity**: everything shares the single 2-vCPU
+host, and an urgent rebuild competes head-on with routine CI (a full multi-arch
+publish leg alone is ≈ 63–77 min). Options: cancel a non-release job, use the
 scheduled-rebuild path (candidate tags only — never mutates `*-prod`), or add a
 dedicated release runner.
 

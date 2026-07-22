@@ -63,18 +63,20 @@ provenance and inherited permissions.
 
 ## Multi-arch (linux/arm64)
 
-Images default to `linux/amd64`. The `build-images` and `publish-ghcr` workflows
-accept a `platforms` input to publish multi-arch:
+Releases are published multi-arch (`linux/amd64,linux/arm64`) through
+`publish-rc.yml` → the reusable `publish-ghcr.yml` (`publish-ghcr` is
+`workflow_call`-only and cannot be dispatched directly). `build-images.yml`
+accepts a `platforms` input for local build validation:
 
 ```bash
-# build only (single arch — the docker exporter cannot load a manifest list):
-gh workflow run build-images.yml -f push=false -f platforms=linux/amd64
-
-# publish multi-arch (push uses the OCI exporter, so a manifest list is fine):
-gh workflow run publish-ghcr.yml -f platforms=linux/amd64,linux/arm64
+# build only (single arch — the docker exporter cannot load a manifest list;
+# build-images cannot push):
+gh workflow run build-images.yml -f platforms=linux/amd64
 ```
 
-The Wolfi, Alpine, Caddy, nginx, and FrankenPHP bases all provide arm64, and the
-Dockerfiles build natively on arm64 (verified). Note: arm64 legacy builds run
-under QEMU emulation in CI and are slower. Pulling on an arm64 host needs the
+The Debian (bookworm) PHP/nginx/FrankenPHP bases and the Alpine Caddy base all
+provide arm64, and the Dockerfiles build natively on arm64 (verified). Note:
+arm64 builds run under QEMU emulation in CI and are substantially slower (one
+multi-arch publish leg takes roughly 63–77 minutes on the shared runner — see
+[runner-capacity.md](runner-capacity.md)). Pulling on an arm64 host needs the
 arm64 variant present, or `docker pull --platform linux/amd64` with emulation.

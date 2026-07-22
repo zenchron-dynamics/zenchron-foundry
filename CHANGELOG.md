@@ -6,6 +6,57 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [v2026.07.21] - 2026-07-22
+
+First fully sealed production release: 10 images (php-{cli,fpm,worker,frankenphp}
+× {8.3,8.4} + nginx + caddy), linux/amd64 + linux/arm64, promoted by exact digest
+from RC `rc1` at revision `29f26c4f1bf7e53d8bc07f99b34708ba32322046`. Image
+content is identical to the v2026.07.04 promotion (CI-only changes in between);
+this release adds the completed identity chain and the sealed evidence package.
+
+### Release ceremony
+
+- publish-rc run 29845853856 (10/10 images signed + SBOM + SLSA provenance,
+  signed RC manifest artifact), verify-rc run 29876269380 (10/10 runtime
+  certification, both architectures), promote-stable run 29895243521 (digest-only
+  retag, zero builds), stable-alias binding verified 10/10 against the signed
+  manifest, rollback exercised live against the registry (priors restored,
+  verified, smoked; new release restored, verified, smoked).
+- The GitHub Release was created manually with owner approval after the tagged
+  seal workflow failed on the ARG_MAX defect fixed in #67 — full justification
+  and independently re-proven gate results in the release's `DEVIATION.md`.
+
+### Fixed — release pipeline hardening (#65, #66, #67, #68)
+
+- **#65** — cosign installs are per-job (`install-dir: $RUNNER_TEMP/cosign`),
+  eliminating the shared-`$HOME` install race between the two runner instances;
+  signing workflows share an `org-cosign-publish` concurrency group; the
+  publish matrix runs `max-parallel: 1` (2 vCPU / 4 GB single-host runner).
+- **#66** — the seal guard has `checks: read` + `statuses: read`, and
+  `check-exact-commit-ci.sh` refuses with the real API response instead of
+  producing malformed JSON when it cannot read CI (never passes vacuously).
+- **#67** — `check-exact-commit-ci.sh` reads the check-runs payload via files,
+  never argv: a busy release commit's checks (~180 KB, growing with every
+  verify/promote/seal run) overflowed Linux `MAX_ARG_STRLEN` and killed the
+  seal on a frozen tag. Also merges multi-page `--paginate` output.
+- **#68** — new dispatch-only `release-preflight.yml`: read-only rehearsal of
+  every seal gate against a candidate SHA on the real runner. Each of the four
+  historical seal failures would have been caught by it in minutes instead of
+  after ~24 h of builds. Dispatch before tagging and again after verify-rc.
+
+### Accepted CVE exceptions (all expire 2026-08-31)
+
+Complete ledger in [docs/vulnerability-exceptions.md](docs/vulnerability-exceptions.md):
+php-all zlib1g/perl-base/libsqlite3-0/curl (CVE-2023-45853, CVE-2026-42496,
+CVE-2026-8376, CVE-2025-7458, CVE-2026-5773); php-frankenphp libaom3/
+linux-libc-dev/Go-stdlib (CVE-2023-6879, CVE-2026-43185, CVE-2026-39822); nginx
+krb5 (CVE-2026-40355/40356); caddy Go-stdlib/c-ares/curl (CVE-2026-27145,
+CVE-2026-42504, CVE-2026-33630, CVE-2026-6276). caddy go-jose CVE-2026-34986
+remains RESOLVED (no standing exception). All are "pinned base lags upstream
+fix" or "no fix exists", watched by the weekly enforcing rebuild scan.
+
 ### Fixed — stable seal path (first live ceremony blockers)
 
 - **RC manifest is artifact-sourced, never committed.** `release.yml` no longer
@@ -40,7 +91,12 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   names (matrices expanded) and runs in both `ci.yml` and the release guard, so
   the drift cannot recur silently.
 
-## [v2026.07.04] - 2026-07-04
+## [v2026.07.04] - 2026-07-04 (promoted, never sealed — superseded by v2026.07.21)
+
+> The v2026.07.04 stable aliases were promoted and verified, but the GitHub
+> Release could never be sealed: the tag-pinned seal workflow lacked
+> `checks: read` (fixed in #66 after the tag was frozen). The identical image
+> content shipped, sealed, as v2026.07.21.
 
 ### Added — release binding & supply-chain macro-increment (v2026.07.04)
 
@@ -217,4 +273,5 @@ review 2026-07-02). PHP/nginx images: **0 fixable CRITICAL/HIGH**.
   cap_drop ALL, no-new-privileges.
 - PHP 7.4 / 8.0 marked high-risk legacy (EOL); isolated and documented.
 
-[v2026.07.04]: https://github.com/zenchron-dynamics/zenchron-foundry/releases/tag/v2026.07.04
+[v2026.07.21]: https://github.com/zenchron-dynamics/zenchron-foundry/releases/tag/v2026.07.21
+[v2026.07.04]: https://github.com/zenchron-dynamics/zenchron-foundry/compare/2026.06.21...v2026.07.04

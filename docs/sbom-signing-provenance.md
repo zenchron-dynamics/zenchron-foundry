@@ -20,9 +20,14 @@ local SBOM commands.
 
 ## Strict "10/10 or fail" at release
 
-`release.yml` does not trust the build job alone; after publishing it
-re-verifies everything **from the registry** and refuses to ship a partial set:
+`release.yml` **publishes and builds nothing** — the images were built and
+signed at RC publish and promoted by digest. At seal time it verifies
+everything **from the registry** and refuses to ship a partial set:
 
+- The signed RC manifest is **fetched from the `publish-rc` workflow artifact**
+  (`scripts/fetch-rc-manifest.sh`, checksum + cosign-signature + schema
+  verified) — it is never committed to the source tree and never regenerated at
+  release time — and is attached to the GitHub Release **as fetched**.
 - `scripts/verify-release-artifacts.sh` checks each of the 10 canonical images
   independently across four columns — **signed**, **sbom**, **provenance**
   (accepts `slsaprovenance` or `slsaprovenance1`), and **multiarch** (the index
@@ -31,12 +36,12 @@ re-verifies everything **from the registry** and refuses to ship a partial set:
 - The SBOM-collection step runs Syft against all 10 `*-prod` images with **no**
   `|| true`: any failed SBOM fails the release, and it asserts exactly 10 SBOM
   files were produced before writing `checksums.txt`.
-- `scripts/generate-release-manifest.sh` records each image's resolved index
-  digest plus its signed/sbom/provenance booleans into
-  `release-manifest.yaml`, attached to the GitHub Release.
+- `scripts/verify-release-binding.sh` checks the equality chain: release tag
+  commit == manifest revision == provenance revision == OCI revision, and each
+  stable `*-prod` digest == the RC digest recorded in the manifest.
 
 The GitHub Release ships the per-image SBOMs, `checksums.txt`, `VERIFY.md`, and
-the release manifest.
+the RC manifest exactly as fetched from the `publish-rc` artifact.
 
 ## Registry-side verification (consumers and CI)
 

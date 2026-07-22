@@ -1,12 +1,16 @@
 # Repository Security Configuration
 
 > **Status: `ACCEPTED RISK — FREE PLAN LIMITATION`.** The repo is on **GitHub
-> Free** and **must remain private**. Classic branch protection, repository
-> rulesets, and tag protection are **unavailable on this plan for private repos**
-> (verified: HTTP 403 "Upgrade … or make this repository public"). The settings
-> below are therefore the **target** once protection becomes available; today
-> they are compensated by local hooks + policy, which are **not equivalent to
-> enforced GitHub branch protection**. See
+> Free** and **must remain private**. Classic branch protection, required
+> reviewers, repository rulesets, and tag protection are **unavailable on this
+> plan for private repos** (verified: the API rejects them with 422
+> "Upgrade … or make this repository public"). The settings below are therefore
+> the **target** once protection becomes available; today they are compensated
+> by deployment branch/tag policies on the `foundry-rc` (branch `master`) and
+> `foundry-production` (tags `v*.*.*`) environments, typed-confirmation
+> workflow inputs, the exact-commit CI gate, local hooks + policy, and the
+> documented `ALLOW_FREE_TIER_NO_REVIEWERS=1` waiver — which are **not
+> equivalent to enforced GitHub branch protection**. See
 > [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md),
 > [manual-pr-policy.md](manual-pr-policy.md), and
 > [ci-failure-policy.md](ci-failure-policy.md).
@@ -20,6 +24,10 @@ it**.
 > "required", not "verified-applied" — applying them needs org/repo admin rights.
 
 ## Branch protection / ruleset — `master`
+
+> **Requires GitHub Team plan or a public repository.** On the current Free
+> private plan the API rejects every setting below with 422 — this checklist is
+> the target state, not the applied state.
 
 Target branch: `master` (the project's primary branch).
 
@@ -53,6 +61,11 @@ Target branch: `master` (the project's primary branch).
       have signing configured, or it will block all merges.
 
 ## Tag & release protection
+
+> **Requires GitHub Team plan or a public repository.** Tag rulesets are
+> unavailable on the current Free private plan (API 422). Until then, the
+> enforced control is the `foundry-production` environment's deployment tag
+> policy (`v*.*.*`) plus the fact that `release.yml` has no tag-push trigger.
 
 - [ ] **Tag ruleset** for `v*`: restrict **tag creation** to maintainers
       (publishing triggers off `v*` tags — see
@@ -106,6 +119,10 @@ Routed via [`SECURITY.md`](../SECURITY.md) to `security@zenchron.com` / private
 reporting; SLAs there.
 
 ## Apply via `gh` (example — requires admin)
+
+> **Requires GitHub Team plan or a public repository.** Both commands below
+> fail with 422 on the current Free private plan. Keep them for the day the
+> plan changes; do not treat them as applied.
 
 ```bash
 # Branch protection (encode the checklist as JSON):

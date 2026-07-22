@@ -21,8 +21,8 @@ risks. Consuming apps own their own application-layer threat models.
 
 | # | Threat | Mitigation | Residual / accepted |
 |---|--------|-----------|---------------------|
-| T1 | **Vulnerable base image** ships CVEs | Wolfi low-CVE bases pinned by digest; Trivy+Grype gates; weekly rebuild; Dependabot | Zero-day window between disclosure and rebuild |
-| T2 | **Malicious / compromised dependency** (apk pkg, PHP ext, action) | Pinned bases; minimal extension set; SBOM; actions pinned; Dependabot review | Upstream compromise before detection |
+| T1 | **Vulnerable base image** ships CVEs | Official Debian (bookworm) bases pinned by digest (caddy: Alpine, ADR-0001 exception); Trivy+Grype gates; weekly rebuild; Dependabot | Zero-day window between disclosure and rebuild |
+| T2 | **Malicious / compromised dependency** (Debian/dpkg package, PHP ext, action) | Pinned bases; minimal extension set compiled from source; SBOM; actions pinned; Dependabot review | Upstream compromise before detection |
 | T3 | **Image tampering** in registry | Cosign keyless signatures + Rekor log; consumers verify; digest pinning | Consumer skipping verification (process control) |
 | T4 | **Registry compromise** (GHCR) | Signatures detect tampering; digests immutable; verify-before-run | GHCR availability outage |
 | T5 | **CI compromise** (poisoned workflow/runner) | Least-priv `permissions`; OIDC (no static keys); `publish` gated to `v*` tags + preflight; protected branches; CODEOWNERS on workflows | Malicious maintainer with tag rights |

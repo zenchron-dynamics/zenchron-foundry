@@ -38,17 +38,18 @@ carries no `gcc`/`make`/`autoconf`/`phpize`.
 
 | Concern | Approach |
 |---------|----------|
-| **PHP extensions** | Wolfi provides prebuilt `php-8.x-<ext>` apk packages — no compiler in final image. Legacy compiles via `docker-php-ext-install` in a build stage, build deps removed. |
+| **PHP extensions** | Compiled from source in the builder stage with the official toolchain (`docker-php-ext-*`); no compiler in the final image. (Historical: the retired Wolfi images used prebuilt `php-8.x-<ext>` apk packages.) |
 | **Composer** | Never in the final image. Belongs in the app's own builder stage. |
 | **Debugging / shell** | FPM keeps busybox + `cgi-fcgi` for the healthcheck. Pure-distroless would push the healthcheck to the orchestrator. Use `docker debug` / ephemeral debug containers rather than baking tools in. |
-| **CA certificates** | `ca-certificates-bundle` (Wolfi) / present in Alpine. Required for TLS to DBs/APIs. |
+| **CA certificates** | Debian `ca-certificates` package; present in Alpine for caddy. Required for TLS to DBs/APIs. (Historical: Wolfi used `ca-certificates-bundle`.) |
 | **Timezone data** | `tzdata` installed; default `UTC`. |
-| **Native deps** | Pulled as explicit runtime apk packages, captured in the SBOM. |
+| **Native deps** | Pulled as explicit runtime Debian (dpkg) packages, captured in the SBOM. |
 | **Healthchecks** | FPM: `cgi-fcgi` against `ping.path`. nginx: `nginx -t`. caddy/franken: `version`. Distroless-pure services rely on orchestrator TCP/HTTP probes. |
 
 ## Future path
 
-If Chainguard/Zenchron-internal fully shell-less PHP-FPM images become viable
-(static healthcheck binary + no busybox), migrate FPM to them and move the
+If a fully shell-less PHP-FPM image becomes viable (static healthcheck binary +
+no busybox — Chainguard is history per ADR-0001, so this would be a
+Zenchron-internal or Debian-based track), migrate FPM to it and move the
 healthcheck to a tiny static binary. Track in `docs/vulnerability-management.md`
 rebuild cadence.

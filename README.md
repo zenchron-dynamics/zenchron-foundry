@@ -27,6 +27,10 @@ extensions compiled with the official toolchain. See
 [docs/base-image-strategy.md](docs/base-image-strategy.md) and
 [ADR-0001](docs/adr/ADR-0001-remove-wolfi-chainguard.md).
 
+The release matrix is **10 images** — `php-cli`, `php-fpm`, `php-worker`, and
+`php-frankenphp`, each in PHP **8.3** and **8.4**, plus `nginx` and `caddy` —
+every one published multi-arch for **linux/amd64 + linux/arm64**.
+
 | Image | Tags | Base strategy |
 |-------|------|---------------|
 | `php-fpm`        | `8.3-prod`, `8.4-prod`, `8.x-debian` | `php:8.x-fpm-bookworm` (Debian 12) |
@@ -84,6 +88,10 @@ cosign verify \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 ```
 
+> Signature compatibility: the repo pins **cosign v2.5.2** and publishes
+> v2-format `.sig`/`.pem` signatures — verify with a cosign v2-compatible
+> client using `--certificate-identity-regexp` and the issuer above.
+
 A minimal Laravel consumer Dockerfile and Compose stack live in
 [examples/laravel](examples/laravel). Full guide:
 [docs/consuming-images.md](docs/consuming-images.md).
@@ -105,8 +113,8 @@ Run `make help` for the full target list.
 
 Strict immutable tags, digest pinning, separate legacy lines, documented
 rollback: [docs/image-versioning.md](docs/image-versioning.md).
-Release process: [docs/sbom-and-signing.md](docs/sbom-and-signing.md) +
-`.github/workflows/release.yml`.
+Release process: [docs/release-checklist.md](docs/release-checklist.md);
+signing details: [docs/sbom-and-signing.md](docs/sbom-and-signing.md).
 
 ## Repository Map
 
