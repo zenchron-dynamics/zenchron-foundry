@@ -58,8 +58,16 @@ v2026.07.21 ceremony (`rollback-results.json` in the release assets).
   **mutation journal** (the aliases actually changed, in order):
 
   ```bash
-  scripts/rollback-stable.sh <rollback-manifest.yaml> <journal>
+  ALLOW_LOCAL_PROMOTE=1 scripts/rollback-stable.sh <rollback-manifest.yaml> <journal>
   ```
+
+- **`ALLOW_LOCAL_PROMOTE=1` is required outside CI.** The registry primitives
+  (`scripts/lib/registry-ops.sh`) refuse to mutate a production alias unless
+  they are running inside GitHub Actions or this variable is set explicitly —
+  the v2026.07.21 rollback exercise proved a laptop could silently retag
+  `*-prod`, and that path is now closed. Setting it is a deliberate, logged
+  operator decision; without it the script exits with
+  `REFUSE: production alias mutation outside CI`.
 
 - **Verification** — the script restores last-mutated-first and re-resolves
   every alias, requiring digest equality with the recorded prior. Afterwards,
