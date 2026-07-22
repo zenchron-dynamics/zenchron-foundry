@@ -76,13 +76,26 @@ _ra_self_test() {
   _t "edge stable aliases (canonical last)" \
      "$(stable_aliases prod 2026.07.03)" "prod-2026.07.03 prod"
   _t "full ref" "$(full_ref php-cli 8.4-prod)" "ghcr.io/zenchron-dynamics/php-cli:8.4-prod"
-  # every matrix image yields ≥1 stable alias, canonical prod present
-  local n=0
+  # Every matrix image must yield EXACTLY ONE canonical prod alias in its
+  # stable_aliases output. The expected canonical name is HARDCODED here
+  # ("prod" for edges, "<sel>-prod" for PHP) — independent of the lib's own
+  # ordering logic — and the expected total derives from the iterated list.
+  local n=0 want=0 t sel canon hits
   for t in $MATRIX_IMAGES; do
-    case " $(stable_aliases "${t#*:}" 2026.07.03) " in *" ${t##*:} "*|*" prod "*) : ;; *) :; esac
-    n=$((n+1))
+    want=$((want+1)); sel="${t#*:}"
+    case "$sel" in prod) canon="prod" ;; *) canon="${sel}-prod" ;; esac
+    hits=0
+    for a in $(stable_aliases "$sel" 2026.07.03); do
+      [ "$a" = "$canon" ] && hits=$((hits+1))
+    done
+    if [ "$hits" -eq 1 ]; then
+      n=$((n+1))
+    else
+      echo "FAIL - canonical alias for $t: '$canon' appears ${hits}x in '$(stable_aliases "$sel" 2026.07.03)'"
+      fail=1
+    fi
   done
-  _t "matrix fully mapped" "$n" "10"
+  _t "matrix fully mapped (one canonical prod alias each)" "$n" "$want"
   return $fail
 }
 

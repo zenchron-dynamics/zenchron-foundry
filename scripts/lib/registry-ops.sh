@@ -45,6 +45,13 @@ reg_retag() { # <dst-ref> <digest>
         warn "mock registry: simulated retag failure at #$REG_RETAG_COUNT ($1)"
         return 1
       fi
+      if [ -n "${REG_WRITE_WRONG_AT:-}" ] && [ "$REG_RETAG_COUNT" -eq "$REG_WRITE_WRONG_AT" ]; then
+        # Mock-only seam: the registry ACKs the retag but stores the WRONG
+        # manifest — a silent corruption Phase-3 verification must catch.
+        warn "mock registry: simulated wrong-write at #$REG_RETAG_COUNT ($1)"
+        printf 'sha256:%064d' 0 > "$(_mock_path "$1")"
+        return 0
+      fi
       printf '%s' "$2" > "$(_mock_path "$1")" ;;
     *)
       local base="${1%:*}"; docker buildx imagetools create -t "$1" "${base}@${2}" ;;
@@ -60,7 +67,7 @@ reg_untag() { # <ref>
 
 # --- self-test (mock backend) ------------------------------------------------
 _ro_self_test() {
-  local fail=0 d; d="$(mktemp -d)"
+  local fail=0 d rc; d="$(mktemp -d)"
   export REG_BACKEND=mock REG_MOCK_DIR="$d"
   _t() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
   local A=ghcr.io/x/php-cli:8.4-prod D1=sha256:1111111111111111111111111111111111111111111111111111111111111111
@@ -69,14 +76,26 @@ _ro_self_test() {
   _t "after retag -> digest matches"    'test "$(reg_digest "$A")" = "$D1"'
   reg_untag "$A"
   _t "after untag -> absent again"      '! reg_digest "$A" >/dev/null 2>&1'
-  # REG_FAIL_AT triggers on the nth retag
+  # REG_FAIL_AT triggers on the nth retag. Capture the subshell status into rc
+  # IMMEDIATELY — asserting on a later `$?` relies on nothing running in
+  # between, which the _t indirection cannot guarantee.
   ( REG_RETAG_COUNT=0 REG_FAIL_AT=2 bash -c '
       . '"$_ro_dir"'/registry-ops.sh
       export REG_BACKEND=mock REG_MOCK_DIR="'"$d"'"
       reg_retag ghcr.io/x/a:1 sha256:'"$(printf a | shasum -a256 | cut -c1-64)"'
       reg_retag ghcr.io/x/b:1 sha256:'"$(printf b | shasum -a256 | cut -c1-64)"'
-    ' ) >/dev/null 2>&1
-  _t "REG_FAIL_AT=2 fails second retag" '[ "$?" -ne 0 ]'
+    ' ) >/dev/null 2>&1; rc=$?
+  _t "REG_FAIL_AT=2 fails second retag" '[ "$rc" -ne 0 ]'
+  # REG_WRITE_WRONG_AT: retag ACKs but stores a wrong digest (silent corruption)
+  ( REG_RETAG_COUNT=0 REG_WRITE_WRONG_AT=1 bash -c '
+      . '"$_ro_dir"'/registry-ops.sh
+      export REG_BACKEND=mock REG_MOCK_DIR="'"$d"'"
+      reg_retag ghcr.io/x/c:1 sha256:'"$(printf c | shasum -a256 | cut -c1-64)"'
+    ' ) >/dev/null 2>&1; rc=$?
+  if [ "$rc" -eq 0 ]; then echo "ok   - REG_WRITE_WRONG_AT retag still ACKs (exit 0)"
+  else echo "FAIL - REG_WRITE_WRONG_AT retag still ACKs (exit 0)"; fail=1; fi
+  _t "REG_WRITE_WRONG_AT stored digest differs" \
+     '[ "$(reg_digest ghcr.io/x/c:1)" != "sha256:$(printf c | shasum -a256 | cut -c1-64)" ]'
   rm -rf "$d"; return $fail
 }
 
