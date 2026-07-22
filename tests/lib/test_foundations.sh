@@ -3,7 +3,7 @@
 # critical matrix drift-guard (common.sh must agree with the existing consumers).
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-cd "$ROOT"
+cd "$ROOT" || exit 1
 fail=0
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
@@ -29,10 +29,11 @@ for f in contracts/images/*.yaml; do ck "yaml valid: $f" "yq -e '.' '$f' >/dev/n
 ck "4 extension contracts"    'test "$(ls contracts/php-extensions/*.txt | wc -l | tr -d " ")" = 4'
 
 # 4. MATRIX DRIFT GUARD — common.sh is the source of truth; the existing
-#    consumers must not diverge from it.
-. scripts/lib/common.sh >/dev/null 2>&1 || true
-# common.sh families, sorted
-COMMON_FAMS="$(matrix_families | tr '\n' ' ')"
+#    consumers must not diverge from it. A common.sh that fails to source must
+#    fail the suite LOUDLY (PT-13) — silently continuing would let every
+#    downstream matrix assertion run against unset/stale definitions.
+. scripts/lib/common.sh >/dev/null 2>&1 \
+  || { echo "FAIL - scripts/lib/common.sh failed to source (aborting suite)"; exit 1; }
 ck "assert-image-matrix families match common.sh" '
   am=$(grep -oE "php-(cli|fpm|worker|frankenphp)|nginx|caddy" scripts/assert-image-matrix.sh | sort -u | tr "\n" " ")
   cm=$(matrix_families | sort -u | tr "\n" " ")
