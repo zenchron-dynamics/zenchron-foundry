@@ -28,6 +28,10 @@ already trust, not changing anything in this repo or the registry.
      ghcr.io/zenchron-dynamics/php-fpm:8.4-prod@sha256:<digest>
    ```
 
+   > Signature compatibility: the repo pins **cosign v2.5.2** and publishes
+   > v2-format `.sig`/`.pem` signatures — use a cosign v2-compatible client
+   > with `--certificate-identity-regexp` and the issuer above.
+
 4. Redeploy. No DB migration or secret change is tied to the base-image swap; the
    healthcheck ships inside the image, so probe behaviour reverts automatically.
 
@@ -35,6 +39,43 @@ Triggers that justify a rollback: missing extension, worker heartbeat failure,
 FPM/FrankenPHP incompatibility, unexpected filesystem write under read-only
 rootfs, startup or perf regression, multi-arch mismatch, or a severe CVE
 regression.
+
+## Registry-side rollback (operator runbook)
+
+Consumer re-pinning (above) is the normal path. `scripts/rollback-stable.sh`
+handles the other case: a **stable promotion that mutated aliases and then
+failed** (or a just-promoted release that must be backed out registry-side
+before sealing). It replays the promotion's mutation journal in **reverse**,
+restoring each mutated alias to the prior digest recorded in the rollback
+manifest. `promote-stable.yml` runs it automatically on failure; this section
+is for running it by hand. The mechanism was exercised **live** during the
+v2026.07.21 ceremony (`rollback-results.json` in the release assets).
+
+- **Required inputs** — both come from the **promotion evidence artifact**
+  (`promotion-evidence-<version>`: `rollback-*.yaml*` +
+  `promotion-journal-*.txt`) of the failed `promote-stable.yml` run:
+  the **rollback manifest** (prior digest per alias) and the
+  **mutation journal** (the aliases actually changed, in order):
+
+  ```bash
+  scripts/rollback-stable.sh <rollback-manifest.yaml> <journal>
+  ```
+
+- **Verification** — the script restores last-mutated-first and re-resolves
+  every alias, requiring digest equality with the recorded prior. Afterwards,
+  re-resolve the aliases yourself (`docker buildx imagetools inspect` /
+  `cosign verify`) before trusting the registry state.
+- **Exit 99 = EMERGENCY** — one or more aliases could not be restored. The
+  script writes `ROLLBACK-INCIDENT.txt` listing every inconsistent alias, and
+  release sealing is blocked until the registry state is reconciled.
+- **Known limitation (GHCR)** — an alias that was newly *created* by the
+  promotion (prior = `NONE`) cannot be untagged from CI on GHCR. It is left
+  tagged, recorded as a non-fatal `LEFT-TAGGED` note; every alias that had a
+  prior digest is fully restored.
+- **Recovery path** — after fixing the root cause, **re-dispatch
+  `promote-stable.yml` from the release tag** (`refs/tags/<version>`).
+  Promotion is a digest-only retag driven by the same signed RC manifest, so
+  re-running it converges the aliases without any rebuild.
 
 ## Wolfi digests are rollback-only history
 

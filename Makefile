@@ -82,8 +82,11 @@ hooks: ## Install/refresh git pre-commit hooks
 
 lint: ## Run all linters (dockerfiles, shell, yaml, md, secrets)
 	@bash scripts/lint-dockerfiles.sh
-	@command -v pre-commit >/dev/null && pre-commit run --all-files || \
-		echo "pre-commit not installed; run 'make hooks'"
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit run --all-files; \
+	else \
+		echo "pre-commit not installed; run 'make hooks'"; \
+	fi
 
 check-structure: ## Verify required repository layout exists
 	@bash scripts/check-structure.sh
