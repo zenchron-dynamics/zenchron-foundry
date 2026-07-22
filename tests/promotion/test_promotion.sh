@@ -16,6 +16,10 @@ ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 . scripts/lib/registry-aliases.sh
 set +e   # the sourced libs enable `set -e`; this harness checks exit codes itself
 
+ck "promote-stable self-test"          'bash scripts/promote-stable.sh --self-test >/dev/null'
+ck "rollback-stable self-test"         'bash scripts/rollback-stable.sh --self-test >/dev/null'
+ck "verify-promotion-state self-test"  'bash scripts/verify-promotion-state.sh --self-test >/dev/null'
+
 R=7b4985a1234567890abcdef1234567890abcdef1
 mkey() { case "$2" in prod) printf '%s' "$1" ;; *) printf '%s-%s' "$1" "$2" ;; esac; }
 
@@ -126,6 +130,17 @@ printf '%s\n' "$ref" > "$d/art/journal.txt"
 rc=$?
 ck "unrestorable rollback -> exit 99" "[ $rc -eq 99 ]"
 ck "incident artifact written"        "test -f '$d/art/ROLLBACK-INCIDENT.txt'"
+rm -rf "$d"
+
+# --- PT-11 (negative #35): rollback with an ABSENT rollback manifest must
+# refuse cleanly — a plain die, neither success nor the emergency exit 99.
+d="$(mktemp -d)"; mkdir -p "$d/mock" "$d/art"
+printf '%s\n' "ghcr.io/zenchron-dynamics/php-cli:8.4-prod" > "$d/art/journal.txt"
+( export REG_BACKEND=mock REG_MOCK_DIR="$d/mock" ARTDIR="$d/art"
+  bash scripts/rollback-stable.sh "$d/art/no-such-rollback.yaml" "$d/art/journal.txt" ) >/dev/null 2>&1
+rc=$?
+ck "absent rollback manifest -> refused (rc!=0)" "[ $rc -ne 0 ]"
+ck "absent rollback manifest -> not emergency 99" "[ $rc -ne 99 ]"
 rm -rf "$d"
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_promotion: PASS" || echo "test_promotion: FAIL"

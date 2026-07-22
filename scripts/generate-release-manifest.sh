@@ -25,29 +25,6 @@ cd "$ROOT"
 # shellcheck source=lib/registry-aliases.sh
 . "$ROOT/scripts/lib/registry-aliases.sh"
 
-RC="" REVISION="" CREATED_AT="" VERSION="" LOCAL="${LOCAL:-0}"
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --rc) shift; RC="${1:?--rc needs a value}" ;;
-    --revision) shift; REVISION="${1:?--revision needs a value}" ;;
-    --created-at) shift; CREATED_AT="${1:?--created-at needs a value}" ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
-    -*) die "unknown option: $1" ;;
-    *) [ -z "$VERSION" ] && VERSION="$1" || die "unexpected arg: $1" ;;
-  esac
-  shift
-done
-
-require_calver "$VERSION"
-require_rc "$RC"
-[ -n "$REVISION" ] || REVISION="$(git rev-parse HEAD)"
-require_hex40 "$REVISION"
-if [ -z "$CREATED_AT" ]; then
-  if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
-    CREATED_AT="$(date -u -r "$SOURCE_DATE_EPOCH" +%FT%TZ 2>/dev/null || date -u -d "@$SOURCE_DATE_EPOCH" +%FT%TZ)"
-  else CREATED_AT="$(date -u +%FT%TZ)"; fi
-fi
-
 _default_digest() { crane digest "$1" 2>/dev/null || \
   docker buildx imagetools inspect "$1" --format '{{.Manifest.Digest}}' 2>/dev/null; }
 _default_platforms() {
@@ -98,17 +75,92 @@ yaml.safe_dump(m, sys.stdout, sort_keys=True)
 PY
 }
 
-_rows="$(mktemp)"; gather > "$_rows"
-MANIFEST="$(emit "$_rows")"
-rm -f "$_rows"
-printf '%s' "$MANIFEST"
+main() {
+  RC="" REVISION="" CREATED_AT="" VERSION="" LOCAL="${LOCAL:-0}"
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --rc) shift; RC="${1:?--rc needs a value}" ;;
+      --revision) shift; REVISION="${1:?--revision needs a value}" ;;
+      --created-at) shift; CREATED_AT="${1:?--created-at needs a value}" ;;
+      -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+      -*) die "unknown option: $1" ;;
+      *) [ -z "$VERSION" ] && VERSION="$1" || die "unexpected arg: $1" ;;
+    esac
+    shift
+  done
 
-if [ -d release-artifacts ]; then
-  # atomic write + checksum sidecar
-  tmp="$(mktemp release-artifacts/rm.XXXXXX)"; printf '%s' "$MANIFEST" > "$tmp"
-  mv -f "$tmp" release-artifacts/release-manifest.yaml
-  ( cd release-artifacts && { sha256sum release-manifest.yaml 2>/dev/null || shasum -a 256 release-manifest.yaml; } > release-manifest.yaml.sha256 )
-  echo "Wrote release-artifacts/release-manifest.yaml (+ .sha256)" >&2
-  # self-validate unless offline placeholders are present
-  if [ "$LOCAL" != 1 ]; then bash scripts/validate-release-manifest.sh release-artifacts/release-manifest.yaml >&2; fi
-fi
+  require_calver "$VERSION"
+  require_rc "$RC"
+  [ -n "$REVISION" ] || REVISION="$(git rev-parse HEAD)"
+  require_hex40 "$REVISION"
+  if [ -z "$CREATED_AT" ]; then
+    if [ -n "${SOURCE_DATE_EPOCH:-}" ]; then
+      CREATED_AT="$(date -u -r "$SOURCE_DATE_EPOCH" +%FT%TZ 2>/dev/null || date -u -d "@$SOURCE_DATE_EPOCH" +%FT%TZ)"
+    else CREATED_AT="$(date -u +%FT%TZ)"; fi
+  fi
+
+  local _rows MANIFEST tmp
+  _rows="$(mktemp)"; gather > "$_rows"
+  MANIFEST="$(emit "$_rows")"
+  rm -f "$_rows"
+  printf '%s' "$MANIFEST"
+
+  # SKIP_ARTIFACT_WRITE=1 is set ONLY by the self-test so a recursive test run
+  # can never clobber a live release-artifacts/ directory.
+  if [ -d release-artifacts ] && [ "${SKIP_ARTIFACT_WRITE:-0}" != 1 ]; then
+    # atomic write + checksum sidecar
+    tmp="$(mktemp release-artifacts/rm.XXXXXX)"; printf '%s' "$MANIFEST" > "$tmp"
+    mv -f "$tmp" release-artifacts/release-manifest.yaml
+    ( cd release-artifacts && { sha256sum release-manifest.yaml 2>/dev/null || shasum -a 256 release-manifest.yaml; } > release-manifest.yaml.sha256 )
+    echo "Wrote release-artifacts/release-manifest.yaml (+ .sha256)" >&2
+    # self-validate unless offline placeholders are present
+    if [ "$LOCAL" != 1 ]; then bash scripts/validate-release-manifest.sh release-artifacts/release-manifest.yaml >&2; fi
+  fi
+}
+
+# --- self-test (injected resolver mocks, offline) ----------------------------
+_grm_self_test() {
+  command -v python3 >/dev/null 2>&1 && command -v yq >/dev/null 2>&1 \
+    || { echo "SKIP - python3/yq absent"; return 0; }
+  python3 -c 'import yaml, jsonschema' 2>/dev/null || { echo "SKIP - pyyaml/jsonschema absent"; return 0; }
+  local fail=0 tmp; tmp="$(mktemp -d)"
+  local R=7b4985a1234567890abcdef1234567890abcdef1
+  _t() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
+
+  # Injected resolver mocks via the RESOLVE_*_FN seams (deterministic per ref).
+  mkdir -p "$tmp/bin"
+  cat > "$tmp/bin/mockdig" <<'EOF'
+#!/usr/bin/env bash
+printf 'sha256:%s\n' "$(printf '%s' "$1" | shasum -a 256 | cut -c1-64)"
+EOF
+  printf '#!/usr/bin/env bash\necho linux/amd64,linux/arm64\n' > "$tmp/bin/mockplat"
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$tmp/bin/mockfail"
+  chmod +x "$tmp/bin/"*
+
+  ( cd "$tmp" && SKIP_ARTIFACT_WRITE=1 \
+      RESOLVE_DIGEST_FN="$tmp/bin/mockdig" RESOLVE_PLATFORMS_FN="$tmp/bin/mockplat" \
+      bash "$ROOT/scripts/generate-release-manifest.sh" v2026.07.03 --rc rc1 \
+        --revision "$R" --created-at 2026-07-03T12:00:00Z ) > "$tmp/m.yaml" 2>/dev/null
+  _t "generation succeeds with mock resolvers" "[ $? -eq 0 ]"
+  _t "manifest lists 10 images" '[ "$(yq -r ".images | keys | length" "$tmp/m.yaml")" = 10 ]'
+  _t "manifest revision bound"  '[ "$(yq -r ".revision" "$tmp/m.yaml")" = "$R" ]'
+  _t "digests are anchored"     '! yq -r ".images[].digest" "$tmp/m.yaml" | grep -Ev "^sha256:[0-9a-f]{64}$" | grep -q .'
+  _t "manifest schema-validates" 'bash "$ROOT/scripts/validate-release-manifest.sh" "$tmp/m.yaml" >/dev/null 2>&1'
+
+  # resolver failure without LOCAL=1 -> refuse (no UNRESOLVED placeholders)
+  if ( cd "$tmp" && SKIP_ARTIFACT_WRITE=1 \
+        RESOLVE_DIGEST_FN="$tmp/bin/mockfail" RESOLVE_PLATFORMS_FN="$tmp/bin/mockplat" \
+        bash "$ROOT/scripts/generate-release-manifest.sh" v2026.07.03 --rc rc1 \
+          --revision "$R" ) >/dev/null 2>&1; then
+    echo "FAIL - unresolvable digest must refuse without LOCAL=1"; fail=1
+  else
+    echo "ok   - unresolvable digest refuses without LOCAL=1"
+  fi
+
+  rm -rf "$tmp"; return $fail
+}
+
+case "${1:-}" in
+  --self-test) _grm_self_test && echo "generate-release-manifest.sh: SELF-TEST OK" ;;
+  *) main "$@" ;;
+esac

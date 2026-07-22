@@ -131,6 +131,36 @@ _ci_self_test() {
   _ok() { _fixture "$2" > "$tmp/f.json"; if _run "$tmp/f.json"; then echo "ok   - $1"; else echo "FAIL - $1 (want pass)"; fail=1; fi; }
   _no() { _fixture "$2" > "$tmp/f.json"; if _run "$tmp/f.json"; then echo "FAIL - $1 (want reject)"; fail=1; else echo "ok   - $1"; fi; }
 
+  # --- independent-policy positive (SC-05) -----------------------------------
+  # Every other case builds its fixture FROM the live policy, which cannot
+  # prove the gate actually reads policy names. This one uses a HARDCODED
+  # fixture policy with 3 invented names + a matching fixture snapshot: if the
+  # gate merely echoed the live policy (or ignored POLICY), it would fail here.
+  cat > "$tmp/pol.yaml" <<'POL'
+schema_version: 1
+accept_conclusions: [success]
+required_checks:
+  - fixture check alpha
+  - fixture check beta
+  - fixture check gamma
+POL
+  jq -n '{checks: [
+    {name:"fixture check alpha", status:"completed", conclusion:"success"},
+    {name:"fixture check beta",  status:"completed", conclusion:"success"},
+    {name:"fixture check gamma", status:"completed", conclusion:"success"}]}' > "$tmp/pol-fx.json"
+  if ( POLICY="$tmp/pol.yaml" CHECKS_FIXTURE="$tmp/pol-fx.json" check_commit "$SHA" ) >/dev/null 2>&1; then
+    echo "ok   - hardcoded fixture policy passes (gate reads POLICY names)"
+  else
+    echo "FAIL - hardcoded fixture policy passes (gate reads POLICY names)"; fail=1
+  fi
+  # same fixture snapshot, but the policy demands a 4th name -> must reject
+  printf '  - fixture check delta\n' >> "$tmp/pol.yaml"
+  if ( POLICY="$tmp/pol.yaml" CHECKS_FIXTURE="$tmp/pol-fx.json" check_commit "$SHA" ) >/dev/null 2>&1; then
+    echo "FAIL - extra policy name must reject (gate reads POLICY names)"; fail=1
+  else
+    echo "ok   - extra policy name rejects (gate reads POLICY names)"
+  fi
+
   _ok "all green passes"            '.'
   _no "one skipped rejects"         '.checks[0].conclusion="skipped"'
   _no "one failure rejects"         '.checks[1].conclusion="failure"'

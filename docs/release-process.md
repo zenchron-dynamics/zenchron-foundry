@@ -104,7 +104,13 @@ Two rules make this order mandatory, both learned from the first live attempt:
    - Phase 3: verifies every stable alias resolves to the exact RC digest.
    Rollback metadata (prior alias digests) is uploaded as an artifact.
 5. **Seal** via `release.yml`, dispatched **from the same tag** with the same
-   `version`, `rc` and `rc_manifest_run_id`:
+   `version`, `rc` and `rc_manifest_run_id`, plus the **required**
+   `verify_rc_run_id` — the `verify-rc` run that certified this exact commit.
+   The guard verifies that run (workflow name, `success` conclusion,
+   `head_sha == release commit`, 10/10 successful `certify` jobs) and derives
+   `RUNTIME_RESULT` from it; the evidence verification counts
+   (signature/SBOM/provenance/OCI-revision/arch) are read from the results file
+   `verify-release-artifacts.sh` writes, never entered by hand:
    - `guard`: ref is the stable tag for `version`, master ancestry, invariants,
      exact-commit CI (incl. `scan-images`), RC manifest fetched + verified from
      the `publish-rc` artifact, and **stable aliases already equal the RC

@@ -9,6 +9,8 @@ ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 ck "manifest validator self-test"  'bash scripts/validate-release-manifest.sh --self-test >/dev/null'
 ck "cosign-identity self-test"      'bash scripts/lib/cosign-identity.sh --self-test >/dev/null'
 ck "identity verifier self-test"    'bash scripts/verify-image-release-identity.sh --self-test >/dev/null'
+ck "manifest verifier self-test"    'bash scripts/verify-release-manifest.sh --self-test >/dev/null'
+ck "manifest generator self-test"   'bash scripts/generate-release-manifest.sh --self-test >/dev/null'
 
 # End-to-end offline: generate -> sign(LOCAL) -> verify(LOCAL).
 tmpd="$(mktemp -d)"; mkdir -p "$tmpd/bin"

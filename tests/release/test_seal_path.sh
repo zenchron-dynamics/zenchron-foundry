@@ -12,6 +12,7 @@ ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 # --- script-level negative coverage (fixture gh, offline) --------------------
 ck "rc manifest artifact self-test"   'bash scripts/fetch-rc-manifest.sh --self-test >/dev/null'
 ck "promotion ref policy self-test"   'bash scripts/check-promotion-ref.sh --self-test >/dev/null'
+ck "required-checks assert self-test" 'bash scripts/assert-required-checks.sh --self-test >/dev/null'
 
 # --- the committed-evidence model is gone -----------------------------------
 ck "release.yml does not read committed release-evidence/" \
