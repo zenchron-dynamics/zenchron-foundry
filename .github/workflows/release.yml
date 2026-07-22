@@ -22,6 +22,9 @@ on:
       rc_manifest_run_id:
         description: "publish-rc run ID whose signed RC manifest artifact is the release source of truth"
         required: true
+      verify_rc_run_id:
+        description: "verify-rc run ID that certified THIS commit (10/10 runtime) — RUNTIME_RESULT is derived from it"
+        required: true
 
 # Caller permissions cap the reusable publish workflow — must grant what it needs.
 permissions:
@@ -42,6 +45,10 @@ jobs:
   guard:
     runs-on: [self-hosted, linux, x64, zenchron]
     environment: foundry-production
+    outputs:
+      # Derived (never hardcoded) runtime certification result, consumed by the
+      # release job's evidence build (RA-02).
+      runtime_result: ${{ steps.runtime.outputs.runtime_result }}
     permissions:
       contents: read
       packages: read          # verify-release-binding resolves + cosign-verifies private -prod images
@@ -105,6 +112,34 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: bash scripts/check-exact-commit-ci.sh "$SHA"
+      - name: Runtime certification gate (verify-rc succeeded on THIS commit; derive RUNTIME_RESULT)
+        id: runtime
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.inputs.verify_rc_run_id }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/common.sh
+          # RA-02: RUNTIME_RESULT is DERIVED from the referenced verify-rc run,
+          # never asserted by hand. Fail closed on every mismatch.
+          meta="$(gh api "repos/$REPO/actions/runs/$RUN_ID")" \
+            || { echo "REFUSE: verify-rc run $RUN_ID not readable in $REPO"; exit 1; }
+          wf="$(jq -r '.name // ""' <<<"$meta")"
+          concl="$(jq -r '.conclusion // ""' <<<"$meta")"
+          head="$(jq -r '.head_sha // ""' <<<"$meta")"
+          [ "$wf" = "verify-rc" ] || { echo "REFUSE: run $RUN_ID is workflow '$wf', not verify-rc"; exit 1; }
+          [ "$concl" = "success" ] || { echo "REFUSE: verify-rc run $RUN_ID concluded '$concl', not success"; exit 1; }
+          [ "$head" = "$SHA" ] || { echo "REFUSE: verify-rc run $RUN_ID certified $head, not the release commit $SHA"; exit 1; }
+          # Count its successful certify matrix jobs ("certify (…)" — the
+          # aggregate 'certified' gate job is deliberately excluded).
+          n="$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
+                 --jq '[.jobs[] | select(.name | startswith("certify (")) | select(.conclusion == "success")] | length')"
+          [ "$n" -eq "$MATRIX_COUNT" ] \
+            || { echo "REFUSE: expected $MATRIX_COUNT successful certify jobs in verify-rc run $RUN_ID, found $n"; exit 1; }
+          echo "runtime_result=${n}/${n}" >> "$GITHUB_OUTPUT"
+          echo "RUNTIME_RESULT derived: ${n}/${n} (verify-rc run $RUN_ID @ $SHA)"
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
@@ -192,6 +227,9 @@ jobs:
         env:
           EXPECTED_REVISION: ${{ github.sha }}
           EXPECTED_ROLE: rc-publisher
+          # Machine-readable per-class results — the evidence step below derives
+          # its verification fields from this file (RA-01/WF-02).
+          RESULTS_JSON: release-verify-results.json
         run: bash scripts/verify-release-artifacts.sh
 
       - name: Fetch the signed RC manifest for attachment (no regeneration)
@@ -225,17 +263,13 @@ jobs:
             || { echo "REFUSE: expected 10 SBOMs, found fewer"; exit 1; }
           ( cd release-artifacts && sha256sum ./*.json > checksums.txt )
 
-      - name: Build + validate the release evidence package (exact identities)
+      - name: Build + validate the release evidence package (derived results, exact identities)
         env:
           VERSION: ${{ github.ref_name }}
           REVISION: ${{ github.sha }}
           RC_MANIFEST: release-artifacts/release-manifest.yaml
-          SIG_RESULT: "10/10"
-          SBOM_RESULT: "10/10"
-          PROV_RESULT: "10/10"
-          OCIREV_RESULT: "10/10"
-          ARCH_RESULT: "10/10"
-          RUNTIME_RESULT: "10/10"
+          # Derived by the guard job from the verify-rc run's certify jobs (RA-02).
+          RUNTIME_RESULT: ${{ needs.guard.outputs.runtime_result }}
           VULN_RESULT: enforced
           RELEASE_RUN_ID: ${{ github.run_id }}
           ENV_CONFIG: foundry-production
@@ -243,7 +277,16 @@ jobs:
           set -euo pipefail
           # RC is recorded in the manifest; pass it through for the evidence.
           RC="$(yq -r '.candidate' release-artifacts/release-manifest.yaml)"
-          export RC
+          # RA-01: the five verification results are READ from the results file
+          # verify-release-artifacts.sh wrote in this job — never literals.
+          # `jq -er` fails closed if a field is missing or null; the evidence
+          # validator additionally refuses any partial (n/m, n != m) count.
+          SIG_RESULT="$(jq -er '.signature' release-verify-results.json)"
+          SBOM_RESULT="$(jq -er '.sbom' release-verify-results.json)"
+          PROV_RESULT="$(jq -er '.provenance' release-verify-results.json)"
+          OCIREV_RESULT="$(jq -er '.oci_revision' release-verify-results.json)"
+          ARCH_RESULT="$(jq -er '.architecture' release-verify-results.json)"
+          export RC SIG_RESULT SBOM_RESULT PROV_RESULT OCIREV_RESULT ARCH_RESULT
           bash scripts/build-release-evidence.sh release-artifacts
           bash scripts/validate-release-evidence.sh release-artifacts/evidence.json
 
