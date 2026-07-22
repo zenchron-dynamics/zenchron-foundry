@@ -22,8 +22,10 @@ permissions:
 env:
   REGISTRY: ghcr.io
   NAMESPACE: zenchron-dynamics
-  IDENTITY_RE: "https://github.com/zenchron-dynamics/zenchron-foundry/.*"
-  ISSUER: "https://token.actions.githubusercontent.com"
+  # SC-17: no broad IDENTITY_RE wildcard. The verifier resolves the anchored
+  # identity regexp for this role from policies/cosign-identities.yaml
+  # (stable *-prod digests ARE the promoted RC digests, signed on master).
+  EXPECTED_ROLE: rc-publisher
 
 jobs:
   verify:
@@ -77,6 +79,5 @@ jobs:
         env:
           EXPECTED_REVISION: ${{ inputs.revision }}
           EXPECTED_REPO: ${{ inputs.repo }}
-          IDENTITY_RE: ${{ env.IDENTITY_RE }}
-          ISSUER: ${{ env.ISSUER }}
+          EXPECTED_ROLE: ${{ env.EXPECTED_ROLE }}
         run: bash scripts/verify-image-release-identity.sh "${REGISTRY}/${NAMESPACE}/${{ matrix.ref }}"

@@ -8,13 +8,15 @@
 # weaker parallel implementation.
 #
 # Checks (all must hold):
-#   1. cosign signature      (exact identity if EXPECTED_IDENTITY set, else regexp)
+#   1. cosign signature      (exact identity if EXPECTED_IDENTITY set, else the
+#                             EXPECTED_ROLE regexp from policies/cosign-identities.yaml)
 #   2. OIDC issuer           (--certificate-oidc-issuer)
 #   3. SPDX SBOM attestation present + verifies
 #   4. SLSA provenance attestation present + verifies
 #   5. provenance source REPO  == EXPECTED_REPO
 #   6. provenance source REVISION == EXPECTED_REVISION (40-hex)
-#   7. OCI revision label      == EXPECTED_REVISION
+#   7. OCI revision label      == EXPECTED_REVISION on EVERY linux child
+#                                manifest of the index (amd64 AND arm64 — RA-05)
 #   8. image index advertises every EXPECTED_PLATFORM (default amd64+arm64)
 #
 # Usage:
@@ -24,28 +26,35 @@
 # Required env (real runs):
 #   EXPECTED_REVISION   40-hex source commit
 #   EXPECTED_REPO       owner/repo (e.g. zenchron-dynamics/zenchron-foundry)
+#   EXPECTED_ROLE or EXPECTED_IDENTITY — the identity to pin. There is NO
+#                       wildcard fallback (SC-17): unset -> refuse.
 # Optional env:
 #   EXPECTED_IDENTITY   exact cosign cert identity (narrow pin; preferred)
-#   IDENTITY_RE         fallback identity regexp (default broad repo regex)
 #   ISSUER              OIDC issuer (default GitHub Actions)
 #   EXPECTED_PLATFORMS  comma list (default linux/amd64,linux/arm64)
 #   LOCAL=1             if cosign/crane missing, print SKIPPED and exit 0
 # =============================================================================
 set -euo pipefail
 
+_virid_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/common.sh
+[ -n "${_COMMON_SOURCED:-}" ] || . "$_virid_dir/lib/common.sh"
+_COMMON_SOURCED=1
+
 REGISTRY="${REGISTRY:-ghcr.io}"
 NAMESPACE="${NAMESPACE:-zenchron-dynamics}"
-IDENTITY_RE="${IDENTITY_RE:-https://github.com/zenchron-dynamics/zenchron-foundry/.*}"
+# SC-17: no wildcard default. The accepted identity comes ONLY from an explicit
+# EXPECTED_IDENTITY or the EXPECTED_ROLE policy resolution below; verify_image
+# refuses when neither is set.
+IDENTITY_RE="${IDENTITY_RE:-}"
 ISSUER="${ISSUER:-https://token.actions.githubusercontent.com}"
 EXPECTED_PLATFORMS="${EXPECTED_PLATFORMS:-linux/amd64,linux/arm64}"
-SHA_RE='^[0-9a-f]{40}$'
 
 # Narrow the accepted identity to an explicit per-role policy when EXPECTED_ROLE
-# is set (rc-publisher / release / scheduled-rebuild). This replaces the broad
-# `…/zenchron-foundry/.*` default so a scheduled-rebuild signature can never pass
-# production verification. An explicit EXPECTED_IDENTITY still takes precedence.
+# is set (rc-publisher / release / scheduled-rebuild) — each role is anchored to
+# one workflow file, so a scheduled-rebuild signature can never pass production
+# verification. An explicit EXPECTED_IDENTITY still takes precedence.
 if [ -n "${EXPECTED_ROLE:-}" ] && [ -z "${EXPECTED_IDENTITY:-}" ]; then
-  _virid_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   # shellcheck source=lib/cosign-identity.sh
   . "$_virid_dir/lib/cosign-identity.sh"
   IDENTITY_RE="$(identity_re_for_role "$EXPECTED_ROLE")"
@@ -117,28 +126,51 @@ _prov_predicate_json() { # emit the decoded provenance statement JSON
   cosign verify-attestation --type slsaprovenance "${COSIGN_ID[@]}" --certificate-oidc-issuer "$ISSUER" "$ref" 2>/dev/null \
     | jq -r '.payload' 2>/dev/null | base64 -d 2>/dev/null || true
 }
-# Image CONFIG JSON (has .config.Labels). crane handles multi-arch; the buildx
-# fallback does NOT — `{{json .Image}}` on an OCI index returns a platform-keyed
-# MAP ({"linux/amd64":{...}}), not {"config":{...}}, so the OCI-label read comes
-# back empty. Resolve a linux platform child manifest first, then inspect that
-# single-platform image (whose .Image IS the config). Single-arch refs have no
-# child list and are read directly.
-_config_json() {
-  local ref="$1" child repo
+# Image CONFIG JSON (has .config.Labels) for ONE ref — a single-platform child
+# digest or a single-arch tag. Do not call this on a multi-arch index: buildx's
+# `{{json .Image}}` on an OCI index returns a platform-keyed MAP
+# ({"linux/amd64":{...}}), not {"config":{...}}, and crane would silently
+# resolve a default platform. Callers iterate the linux children instead (RA-05).
+_config_json_single() {
+  local ref="$1"
   crane config "$ref" 2>/dev/null && return 0
-  child="$(docker buildx imagetools inspect "$ref" \
-    --format '{{range .Manifest.Manifests}}{{if eq .Platform.OS "linux"}}{{println .Digest}}{{end}}{{end}}' 2>/dev/null \
-    | grep -m1 '^sha256:')"
-  if [ -n "$child" ]; then repo="${ref%%@*}"; repo="${repo%:*}"; ref="$repo@$child"; fi
   docker buildx imagetools inspect "$ref" --format '{{json .Image}}' 2>/dev/null || true
 }
 _index_json()  { crane manifest "$1" 2>/dev/null || docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' 2>/dev/null || true; }
 
+# RA-05: assert the OCI revision label on the config of EVERY linux child
+# manifest in the index (amd64 AND arm64) — reading only the first child would
+# let a per-arch label mismatch (a swapped/stale arm64 child) pass unseen.
+# Single-arch refs (no linux children advertised) are read directly.
+verify_oci_revision_labels() { # <ref>
+  local ref="$1" idx children child repo cfg ocirev
+  idx="$(_index_json "$ref")"
+  children="$(jq -r '(.manifests // [])[] | select(.platform.os == "linux") | .digest' <<<"$idx" 2>/dev/null || true)"
+  if [ -z "$children" ]; then
+    cfg="$(_config_json_single "$ref")"; [ -n "$cfg" ] || fail "could not fetch image config for OCI label"
+    ocirev="$(oci_revision <<<"$cfg")"
+    [ "$ocirev" = "$EXPECTED_REVISION" ] || fail "OCI revision label '$ocirev' != expected $EXPECTED_REVISION"
+    return 0
+  fi
+  repo="${ref%%@*}"; repo="${repo%:*}"
+  for child in $children; do
+    cfg="$(_config_json_single "$repo@$child")"
+    [ -n "$cfg" ] || fail "could not fetch config for linux child $child"
+    ocirev="$(oci_revision <<<"$cfg")"
+    [ "$ocirev" = "$EXPECTED_REVISION" ] \
+      || fail "OCI revision label '$ocirev' on linux child $child != expected $EXPECTED_REVISION"
+  done
+}
+
 verify_image() {
   IMG="$1"
   [ -n "$IMG" ] || fail "no image ref given"
-  [[ "${EXPECTED_REVISION:-}" =~ $SHA_RE ]] || fail "EXPECTED_REVISION must be 40-hex (got '${EXPECTED_REVISION:-}')"
+  [[ "${EXPECTED_REVISION:-}" =~ $HEX40_RE ]] || fail "EXPECTED_REVISION must be 40-hex (got '${EXPECTED_REVISION:-}')"
   [ -n "${EXPECTED_REPO:-}" ] || fail "EXPECTED_REPO required"
+  # SC-17: no wildcard identity fallback. Refuse outright unless the caller
+  # pinned an identity — an exact EXPECTED_IDENTITY or a policy EXPECTED_ROLE.
+  [ -n "${EXPECTED_IDENTITY:-}" ] || [ -n "${EXPECTED_ROLE:-}" ] \
+    || fail "EXPECTED_ROLE or EXPECTED_IDENTITY must be set (wildcard identity fallback removed)"
 
   if ! command -v cosign >/dev/null 2>&1; then
     if [ "${LOCAL:-0}" = 1 ]; then echo "SKIPPED: cosign missing ($IMG)"; return 0; fi
@@ -150,22 +182,20 @@ verify_image() {
   _cosign_attest "$IMG" spdxjson        || fail "SBOM attestation missing/invalid"
   _cosign_attest "$IMG" slsaprovenance  || fail "provenance attestation missing/invalid"
 
-  local pj rev repo cfg ocirev idx plat
+  local pj rev repo idx plat
   pj="$(_prov_predicate_json "$IMG")"; [ -n "$pj" ] || fail "could not decode provenance predicate"
   rev="$(prov_revision <<<"$pj")";  [ -n "$rev" ]  || fail "no source revision in provenance"
   repo="$(prov_repo <<<"$pj")"
   [ "$rev" = "$EXPECTED_REVISION" ] || fail "provenance revision $rev != expected $EXPECTED_REVISION"
   [ "$repo" = "$EXPECTED_REPO" ]    || fail "provenance repo '$repo' != expected '$EXPECTED_REPO'"
 
-  cfg="$(_config_json "$IMG")"; [ -n "$cfg" ] || fail "could not fetch image config for OCI label"
-  ocirev="$(oci_revision <<<"$cfg")"
-  [ "$ocirev" = "$EXPECTED_REVISION" ] || fail "OCI revision label '$ocirev' != expected $EXPECTED_REVISION"
+  verify_oci_revision_labels "$IMG"
 
   idx="$(_index_json "$IMG")"; [ -n "$idx" ] || fail "could not fetch image index for platform check"
   IFS=',' read -ra plat <<<"$EXPECTED_PLATFORMS"
   for p in "${plat[@]}"; do index_has_platform "$idx" "$p" || fail "missing platform $p"; done
 
-  echo "IDENTITY OK [$IMG]: sig+sbom+prov, revision=$rev repo=$repo, OCI label ok, platforms=$EXPECTED_PLATFORMS"
+  echo "IDENTITY OK [$IMG]: sig+sbom+prov, revision=$rev repo=$repo, OCI label ok on every linux child, platforms=$EXPECTED_PLATFORMS"
 }
 
 # ---- Self-test (pure logic, synthetic fixtures) -----------------------------
@@ -198,8 +228,57 @@ self_test() {
   local single='{"manifests":[{"platform":{"os":"linux","architecture":"amd64"}}]}'
   if index_has_platform "$single" "linux/arm64"; then bad=$((bad+1)); echo "  FAIL single-arch arm64"; else ok=$((ok+1)); echo "  ok   single-arch missing arm64 detected"; fi
 
+  # --- SC-17: neither EXPECTED_ROLE nor EXPECTED_IDENTITY -> refuse -----------
+  # (fail() exits; contain in a subshell. Placed before any cosign/network use,
+  # so this refusal is provable offline.)
+  if ( EXPECTED_REVISION="$REV" EXPECTED_REPO=zenchron-dynamics/zenchron-foundry \
+       EXPECTED_IDENTITY='' EXPECTED_ROLE='' IDENTITY_RE='' \
+       verify_image ghcr.io/zenchron-dynamics/php-cli:8.4-prod ) >/dev/null 2>&1; then
+    bad=$((bad+1)); echo "  FAIL unset role/identity must refuse (no wildcard fallback)"
+  else
+    ok=$((ok+1)); echo "  ok   unset role/identity refused (no wildcard fallback)"
+  fi
+
+  # --- RA-05: OCI revision label asserted on EVERY linux child ----------------
+  # Stub the registry seams; the index has two linux children plus an
+  # attestation child (unknown/unknown) that must be skipped.
+  local ra_calls; ra_calls="$(mktemp)"
+  _ra_case() { # <arm64-label> -> exit status of verify_oci_revision_labels
+    local armlabel="$1"
+    ( EXPECTED_REVISION="$REV"
+      : > "$ra_calls"
+      _index_json() {
+        printf '%s' '{"manifests":[
+          {"platform":{"os":"linux","architecture":"amd64"},"digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111"},
+          {"platform":{"os":"linux","architecture":"arm64"},"digest":"sha256:2222222222222222222222222222222222222222222222222222222222222222"},
+          {"platform":{"os":"unknown","architecture":"unknown"},"digest":"sha256:3333333333333333333333333333333333333333333333333333333333333333"}]}'
+      }
+      _config_json_single() {
+        echo "$1" >> "$ra_calls"
+        case "$1" in
+          *1111*) printf '{"config":{"Labels":{"org.opencontainers.image.revision":"%s"}}}' "$REV" ;;
+          *2222*) printf '{"config":{"Labels":{"org.opencontainers.image.revision":"%s"}}}' "$armlabel" ;;
+          *)      printf '{"config":{"Labels":{}}}' ;;
+        esac
+      }
+      verify_oci_revision_labels ghcr.io/zenchron-dynamics/php-cli:8.4-prod
+    ) >/dev/null 2>&1
+  }
+  if _ra_case "$REV"; then ok=$((ok+1)); echo "  ok   all linux children labeled -> pass"
+  else bad=$((bad+1)); echo "  FAIL all linux children labeled -> pass"; fi
+  if [ "$(wc -l < "$ra_calls" | tr -d ' ')" = 2 ]; then ok=$((ok+1)); echo "  ok   both linux children inspected (attestation child skipped)"
+  else bad=$((bad+1)); echo "  FAIL both linux children inspected (got $(wc -l < "$ra_calls" | tr -d ' ') fetches)"; fi
+  if _ra_case deadbeefdeadbeefdeadbeefdeadbeefdeadbeef; then
+    bad=$((bad+1)); echo "  FAIL wrong label on child 2 must reject"
+  else
+    ok=$((ok+1)); echo "  ok   wrong label on child 2 rejected"
+  fi
+  rm -f "$ra_calls"
+
   echo "self-test: $ok ok, $bad failed"
   [ "$bad" -eq 0 ]
 }
 
-if [ "${1:-}" = "--self-test" ]; then self_test; else verify_image "${1:-}"; fi
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  if [ "${1:-}" = "--self-test" ]; then self_test; else verify_image "${1:-}"; fi
+fi
