@@ -6,6 +6,10 @@ cd "$ROOT"
 fail=0
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
+ck "evidence builder self-test"   'bash scripts/build-release-evidence.sh --self-test >/dev/null'
+ck "evidence validator self-test" 'bash scripts/validate-release-evidence.sh --self-test >/dev/null'
+ck "release artifacts verifier self-test" 'bash scripts/verify-release-artifacts.sh --self-test >/dev/null'
+
 R=7b4985a1234567890abcdef1234567890abcdef1
 tmp="$(mktemp -d)"; printf x > "$tmp/rc.yaml"
 build() { VERSION=v2026.07.03 RC=rc1 REVISION="$R" RC_MANIFEST="$tmp/rc.yaml" \
