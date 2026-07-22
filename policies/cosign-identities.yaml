@@ -30,11 +30,21 @@ roles:
     valid_for: [rc, stable]      # stable digests are the promoted RC digests
 
   release:
-    description: Seals the GitHub release. Runs from release.yml on a v* tag.
+    description: >-
+      Seals the GitHub release. Runs from release.yml on a CalVer v* tag.
+      RESERVED, currently consumed by no verifier: image and manifest
+      verification deliberately keep using rc-publisher, because the stable
+      digests ARE the promoted RC digests signed on master. This role exists
+      for FUTURE seal-time artifacts signed from the release tag itself
+      (e.g. a cosign-signed release evidence bundle produced by release.yml).
+      Wire it into the verifier that consumes those artifacts when they exist.
     workflow: .github/workflows/release.yml
-    # Pins the exact workflow file + a v* tag ref (distinct from rc-publisher on
-    # master); the precise CalVer is validated by the release gate, not the SAN.
-    identity_regexp: '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/release\.yml@refs/tags/v.*$'
+    # Pins the exact workflow file + a strict CalVer tag ref
+    # (vYYYY.MM.DD[.N]) — no broad `v.*` tail, so an arbitrary v-prefixed tag
+    # (v-test, v2, vNext) can never satisfy this identity.
+    # The regexp is a single unbreakable token, slightly over the 160-col limit:
+    # yamllint disable-line rule:line-length
+    identity_regexp: '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/release\.yml@refs/tags/v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$'
     valid_for: [release]
 
   scheduled-rebuild:
