@@ -25,9 +25,11 @@ cd "$ROOT"
 
 # Non-gating jobs: real check names that must NOT be required on a release commit.
 # `scan` is required (it is the vulnerability gate); nothing else is exempt here.
+# WORKFLOWS (space-separated paths) is injectable for the self-test only.
 producible_names() {
+  WORKFLOWS="${WORKFLOWS:-.github/workflows/ci.yml .github/workflows/scan-images.yml}" \
   python3 - <<'PY'
-import re, yaml
+import os, re, yaml
 
 def render(tmpl, ctx):
     def sub(m):
@@ -49,7 +51,7 @@ def expand(matrix):
     combos += matrix.get("include") or []
     return combos or [{}]
 
-for wf in (".github/workflows/ci.yml", ".github/workflows/scan-images.yml"):
+for wf in os.environ["WORKFLOWS"].split():
     doc = yaml.safe_load(open(wf))
     for key, job in (doc.get("jobs") or {}).items():
         name = job.get("name", key)
@@ -87,9 +89,69 @@ EOF
   log "REQUIRED CHECKS OK: $(printf '%s\n' "$req" | wc -l | tr -d ' ') names, all producible and all gating jobs required"
 }
 
+# --- self-test ---------------------------------------------------------------
+# Fixture pair: a mini workflow (with a matrix) + a policy listing the RENDERED
+# names. The check re-uses its own render/expand logic against the FIXTURE
+# workflow — the policy-vs-workflow comparison is what makes it non-tautological:
+# a drifted policy name must fail against the very same fixture workflow.
+_arc_self_test() {
+  command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' 2>/dev/null \
+    || { echo "SKIP - python3/pyyaml absent"; return 0; }
+  command -v yq >/dev/null 2>&1 || { echo "SKIP - yq absent"; return 0; }
+  local fail=0 tmp; tmp="$(mktemp -d)"
+  cat > "$tmp/wf.yml" <<'YAML'
+name: fixture
+on: push
+jobs:
+  plain:
+    name: fixture plain job
+    runs-on: ubuntu-latest
+    steps: [{run: "true"}]
+  matrixed:
+    name: fixture build ${{ matrix.img }} ${{ matrix.ver }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        img: [alpha, beta]
+        ver: ["1.0", ""]
+    steps: [{run: "true"}]
+YAML
+  cat > "$tmp/pol.yaml" <<'POL'
+schema_version: 1
+accept_conclusions: [success]
+required_checks:
+  - fixture plain job
+  - fixture build alpha 1.0
+  - fixture build alpha
+  - fixture build beta 1.0
+  - fixture build beta
+POL
+  if ( WORKFLOWS="$tmp/wf.yml" POLICY="$tmp/pol.yaml" assert_required_checks ) >/dev/null 2>&1; then
+    echo "ok   - fixture policy matches fixture workflow (matrix expanded)"
+  else
+    echo "FAIL - fixture policy matches fixture workflow (matrix expanded)"; fail=1
+  fi
+  # drifted policy name -> FAIL (unproducible by the workflow)
+  yq '.required_checks += ["fixture build gamma 1.0"]' "$tmp/pol.yaml" > "$tmp/drift.yaml"
+  if ( WORKFLOWS="$tmp/wf.yml" POLICY="$tmp/drift.yaml" assert_required_checks ) >/dev/null 2>&1; then
+    echo "FAIL - drifted policy name must fail"; fail=1
+  else
+    echo "ok   - drifted policy name fails"
+  fi
+  # dropped gating job -> FAIL (workflow job not required)
+  yq '.required_checks -= ["fixture plain job"]' "$tmp/pol.yaml" > "$tmp/drop.yaml"
+  if ( WORKFLOWS="$tmp/wf.yml" POLICY="$tmp/drop.yaml" assert_required_checks ) >/dev/null 2>&1; then
+    echo "FAIL - dropped gating job must fail"; fail=1
+  else
+    echo "ok   - dropped gating job fails"
+  fi
+  rm -rf "$tmp"; return $fail
+}
+
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "${1:-}" in
     --list) producible_names | sort -u ;;
+    --self-test) _arc_self_test && echo "assert-required-checks.sh: SELF-TEST OK" ;;
     *) assert_required_checks ;;
   esac
 fi
