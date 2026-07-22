@@ -44,7 +44,25 @@ legacy compatibility and carry accepted, documented risk.
 - Image vulnerability scanning (Trivy + Grype) with SARIF upload.
 - SBOM generation (Syft, SPDX + CycloneDX) per image.
 - Keyless image signing and attestation (Cosign + GitHub OIDC).
-- Branch protection, required reviews, CODEOWNERS, signed commits, Dependabot.
+- Dependabot (GitHub Actions, Docker bases, Composer examples).
+- **Governance (GitHub Free, private repo):** branch protection, required
+  reviewers, CODEOWNERS enforcement, and tag rulesets are **unavailable** on
+  this plan (the API rejects them with 422). Compensating controls instead:
+  deployment branch/tag policies on the `foundry-rc` (branch `master`) and
+  `foundry-production` (tags `v*.*.*`) environments, typed-confirmation
+  workflow inputs, an exact-commit CI gate, local git hooks, and the documented
+  `ALLOW_FREE_TIER_NO_REVIEWERS=1` waiver. Signed commits and CODEOWNERS remain
+  **policy** (local hooks + review practice), not GitHub-enforced. Accepted-risk
+  record: [docs/audits/free-tier-governance-accepted-risk.md](docs/audits/free-tier-governance-accepted-risk.md).
+
+## Accepted Vulnerability Exceptions
+
+Known CVEs that are accepted rather than fixed are recorded — with approver,
+expiry, compensating controls, and an explicit release-blocking flag — in
+[docs/vulnerability-exceptions.md](docs/vulnerability-exceptions.md). The
+exception ledger is enforced in CI by
+`scripts/validate-vulnerability-exceptions.sh` (expired or malformed entries
+fail the pipeline).
 
 ## Expectations for Consumers
 

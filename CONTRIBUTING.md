@@ -17,9 +17,14 @@ authorized platform/security engineers.
 2. Install hooks: `make hooks` (or `scripts/install-hooks.sh`).
 3. Make changes. Keep one image family / concern per PR where possible.
 4. Run locally: `make lint` and, for image changes, `make build` + `make scan`.
-5. **Sign your commits**: `git commit -S` (required by branch protection).
-6. Open a PR. CI must be green. CODEOWNERS review required.
-7. No direct pushes to `master`. No force-push to shared branches.
+5. **Sign your commits**: `git commit -S`. This is **policy, enforced by local
+   hooks** (`scripts/install-hooks.sh`) — the repo is on GitHub Free (private),
+   where branch protection cannot enforce it. See
+   [docs/audits/free-tier-governance-accepted-risk.md](docs/audits/free-tier-governance-accepted-risk.md).
+6. Open a PR. CI must be green. CODEOWNERS routes reviews as **policy**
+   (GitHub Free cannot enforce CODEOWNERS approval on a private repo).
+7. No direct pushes to `master`. No force-push to shared branches. Also policy +
+   local hooks, not GitHub-enforced — see the accepted-risk record above.
 
 ## Commit Convention
 
