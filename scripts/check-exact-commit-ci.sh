@@ -41,22 +41,36 @@ fetch_checks() { # <sha> -> {checks:[{name,status,conclusion}]}
   # and refuse with the actual API response. Never silently treat an
   # unreadable check list as an empty one: that would make a gate whose whole
   # job is "prove CI is green" pass vacuously if it could not see CI at all.
-  local cr st
-  if ! cr="$(gh api "repos/$REPO/commits/$sha/check-runs" --paginate 2>&1)"; then
+  #
+  # Read via TEMP FILES, never `--argjson`. A busy release commit accumulates
+  # dozens of check-runs (~180 KB across pages); passing that as a jq
+  # command-line argument overflows ARG_MAX and jq dies with "Argument list too
+  # long" (exit 126). Files have no such limit. `--paginate` (no --slurp) may
+  # emit several concatenated top-level objects; jq's `--slurpfile` reads them
+  # all into an array, so every page is collected — this also fixes a latent
+  # multi-page bug the old single-`$cr` capture had.
+  local tmp; tmp="$(mktemp -d)"
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmp'" RETURN
+  if ! gh api "repos/$REPO/commits/$sha/check-runs" --paginate > "$tmp/cr.json" 2>"$tmp/cr.err"; then
     echo "REFUSE: cannot read check-runs for $sha (needs 'checks: read')." >&2
-    printf '%s\n' "$cr" >&2
+    cat "$tmp/cr.err" >&2; cat "$tmp/cr.json" >&2
     return 1
   fi
-  if ! st="$(gh api "repos/$REPO/commits/$sha/status" 2>&1)"; then
+  if ! gh api "repos/$REPO/commits/$sha/status" > "$tmp/st.json" 2>"$tmp/st.err"; then
     echo "REFUSE: cannot read commit statuses for $sha (needs 'statuses: read')." >&2
-    printf '%s\n' "$st" >&2
+    cat "$tmp/st.err" >&2; cat "$tmp/st.json" >&2
     return 1
   fi
-  jq -n --argjson cr "$cr" --argjson st "$st" '
+  jq -n \
+    --slurpfile cr "$tmp/cr.json" \
+    --slurpfile st "$tmp/st.json" '
     { checks:
-      ( ($cr.check_runs // [] | map({name:.name, status:.status, conclusion:.conclusion}))
-      + ($st.statuses    // [] | map({name:.context, status:"completed",
-            conclusion:(if .state=="success" then "success" else .state end)})) ) }'
+      ( ($cr | map(.check_runs // []) | add // []
+             | map({name:.name, status:.status, conclusion:.conclusion}))
+      + ($st | map(.statuses    // []) | add // []
+             | map({name:.context, status:"completed",
+                    conclusion:(if .state=="success" then "success" else .state end)})) ) }'
 }
 
 # Evaluate one snapshot. Echoes PENDING if any required check is still running,
@@ -142,6 +156,32 @@ STUB
     echo "FAIL - unreadable checks must refuse (want reject)"; fail=1
   else
     echo "ok   - unreadable checks refuse (no vacuous pass, no jq crash)"
+  fi
+
+  # --- large multi-page payload (regression: v2026.07.21 seal, E2BIG) --------
+  # A busy release commit's check-runs are ~180 KB across pages. The old
+  # `--argjson "$cr"` passed that on argv and jq died "Argument list too long"
+  # (exit 126). fetch_checks must handle a big MULTI-PAGE response — two
+  # concatenated {check_runs:[...]} objects, hundreds of runs — via files.
+  cat > "$stub/gh" <<'STUB'
+#!/usr/bin/env bash
+# Emit two pages (as --paginate does): concatenated top-level objects, 1500
+# check-runs total with long names to blow a command-line ARG_MAX.
+pad="$(printf 'x%.0s' {1..400})"
+page() { jq -cn --arg pad "$pad" '{check_runs: [range(750) | {name:("chk-\(.)-"+$pad), status:"completed", conclusion:"success"}]}'; }
+case "$*" in
+  *check-runs*) page; page ;;
+  *status*)     echo '{"statuses":[]}' ;;
+  *)            echo '{}' ;;
+esac
+STUB
+  chmod +x "$stub/gh"
+  local out
+  if out="$( PATH="$stub:$PATH"; unset CHECKS_FIXTURE; fetch_checks "$SHA" 2>&1 )" \
+     && printf '%s' "$out" | jq -e '.checks | length == 1500' >/dev/null 2>&1; then
+    echo "ok   - large multi-page payload handled (no ARG_MAX overflow, pages merged)"
+  else
+    echo "FAIL - large multi-page payload (want 1500 merged checks)"; fail=1
   fi
 
   rm -rf "$tmp"; return $fail
