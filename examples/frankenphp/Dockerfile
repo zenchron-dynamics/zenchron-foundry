@@ -6,8 +6,9 @@ USER root
 WORKDIR /app
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction --optimize-autoloader
 COPY . .
+RUN composer dump-autoload --optimize --classmap-authoritative
 
 FROM ghcr.io/zenchron-dynamics/php-frankenphp:8.3-prod AS app
 WORKDIR /app

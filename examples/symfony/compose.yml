@@ -25,7 +25,7 @@ services:
 
   worker:
     image: ghcr.io/zenchron-dynamics/php-worker:8.3-prod
-    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=256M", "--limit=1000"]
+    command: ["php", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=200M", "--limit=1000"]
     stop_grace_period: 35s
     volumes:
       - app-var:/app/var

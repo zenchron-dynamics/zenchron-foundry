@@ -12,8 +12,8 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction --optimize-autoloader
 COPY . .
 RUN composer dump-autoload --optimize --classmap-authoritative \
- && php artisan config:cache || true \
- && php artisan route:cache || true
+ && php artisan config:cache \
+ && php artisan route:cache
 
 # --- runtime: php-fpm (ships) -----------------------------------------------
 FROM ghcr.io/zenchron-dynamics/php-fpm:8.3-prod AS app

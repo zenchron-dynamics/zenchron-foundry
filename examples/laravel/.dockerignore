@@ -3,12 +3,11 @@
 # Copy this into real projects alongside the Dockerfile.
 
 # --- secrets / credentials (NEVER in an image) ---
-.env
-.env.*
+.env*
 *.pem
+*.p12
 *.key
 *.crt
-*.p12
 auth.json
 
 # --- VCS / CI ---

@@ -2,9 +2,9 @@
 # Prevents `COPY . .` from leaking secrets / bloat into the image.
 
 # --- secrets / credentials (NEVER in an image) ---
-.env
-.env.*
+.env*
 *.pem
+*.p12
 *.key
 *.crt
 auth.json
@@ -14,6 +14,7 @@ auth.json
 .gitignore
 .gitattributes
 .github
+.gitlab-ci.yml
 
 # --- dependencies rebuilt in the builder stage ---
 node_modules
