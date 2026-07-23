@@ -9,40 +9,61 @@
 # confirmation.
 #
 # Usage:
-#   scripts/prepare-release.sh [--dry-run] vYYYY.MM.DD
+#   scripts/prepare-release.sh [--dry-run] vYYYY.MM.DD[.N]
 # Examples:
 #   scripts/prepare-release.sh --dry-run v2026.06.01
 #   scripts/prepare-release.sh v2026.06.01
+#   scripts/prepare-release.sh v2026.06.01.1     # hotfix ordinal
 # =============================================================================
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=lib/common.sh
+. "$ROOT/scripts/lib/common.sh"
+
+ok()   { printf '  ✓ %s\n' "$*"; }
+step() { printf '\n==> %s\n' "$*"; }
+
+# Format-only tag validation (shared regexes from common.sh — accepts the
+# hotfix .N ordinal, same as check-promotion-ref.sh). die()s on any refusal.
+validate_tag() {
+    local tag="${1:-}"
+    [ -n "$tag" ] || die "no tag given. Usage: scripts/prepare-release.sh [--dry-run] vYYYY.MM.DD[.N]"
+    case "$tag" in
+        latest|*latest*) die "refusing tag containing 'latest' — 'latest' is never a release tag." ;;
+    esac
+    require_calver "$tag"
+}
+
+# --- self-test ---------------------------------------------------------------
+_pr_self_test() {
+    local fail=0
+    _t() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
+    _t "happy CalVer accepted"        '( validate_tag v2026.06.01 ) >/dev/null 2>&1'
+    _t "hotfix .N accepted"           '( validate_tag v2026.06.01.1 ) >/dev/null 2>&1'
+    _t "garbage rejected"             '! ( validate_tag not-a-version ) >/dev/null 2>&1'
+    _t "empty tag rejected"           '! ( validate_tag "" ) >/dev/null 2>&1'
+    _t "latest rejected"              '! ( validate_tag latest ) >/dev/null 2>&1'
+    _t "tag containing latest reject" '! ( validate_tag v2026.06.01-latest ) >/dev/null 2>&1'
+    _t "non-zero-padded reject"       '! ( validate_tag v2026.6.1 ) >/dev/null 2>&1'
+    return $fail
+}
 
 DRY_RUN=0
 TAG=""
 for arg in "$@"; do
     case "$arg" in
+        --self-test) _pr_self_test && echo "prepare-release.sh: SELF-TEST OK"; exit ;;
         --dry-run) DRY_RUN=1 ;;
-        -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
         *) TAG="$arg" ;;
     esac
 done
 
-die()  { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
-ok()   { printf '  ✓ %s\n' "$*"; }
-step() { printf '\n==> %s\n' "$*"; }
-
-[ -n "$TAG" ] || die "no tag given. Usage: scripts/prepare-release.sh [--dry-run] vYYYY.MM.DD"
-
 # --- Tag format ------------------------------------------------------------
-step "Validating release tag '$TAG'"
-[ "$TAG" != "latest" ] || die "'latest' is never a release tag."
-case "$TAG" in
-    latest|*latest*) die "refusing tag containing 'latest'." ;;
-esac
-echo "$TAG" | grep -Eq '^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}$' \
-    || die "tag must match vYYYY.MM.DD (e.g. v2026.06.01). Got: $TAG"
+step "Validating release tag '${TAG:-<none>}'"
+validate_tag "$TAG"
 ok "tag format ok"
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
     die "tag $TAG already exists locally (immutable releases — pick a new date/suffix)."
