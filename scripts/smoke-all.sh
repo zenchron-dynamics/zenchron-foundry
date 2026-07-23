@@ -16,22 +16,24 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=lib/common.sh
+. "$ROOT/scripts/lib/common.sh"
 
 DISPATCH="${ROOT}/scripts/smoke-test.sh"
 
-# Full matrix: "<family> <version>" (version empty for nginx/caddy).
-MATRIX="
-php-cli 8.3
-php-cli 8.4
-php-fpm 8.3
-php-fpm 8.4
-php-worker 8.3
-php-worker 8.4
-php-frankenphp 8.3
-php-frankenphp 8.4
-nginx
-caddy
-"
+# Full matrix, derived from MATRIX_IMAGES in lib/common.sh (SC-15): one
+# "<family> <version>" pair per line, version empty for the versionless "prod"
+# edge images (nginx/caddy) — the shape smoke-test.sh dispatches on.
+smoke_matrix() {
+    local t fam sel
+    for t in $MATRIX_IMAGES; do
+        fam="${t%:*}"; sel="${t#*:}"
+        case "$sel" in
+            prod) printf '%s\n' "$fam" ;;
+            *)    printf '%s %s\n' "$fam" "$sel" ;;
+        esac
+    done
+}
 
 FAMILIES_FILTER="${SMOKE_FAMILIES:-}"
 
@@ -76,12 +78,13 @@ while read -r family version; do
     images_tested=$((images_tested + 1))
     [ "$f" -gt 0 ] && images_failed=$((images_failed + 1))
 done <<EOF
-$MATRIX
+$(smoke_matrix)
 EOF
 
+# Denominator derived from the authoritative matrix (no hardcoded /10).
 printf '\n############################################################\n'
-printf 'SMOKE-ALL: %d/10 images, %d checks passed, %d failed\n' \
-    "$images_tested" "$total_pass" "$total_fail"
+printf 'SMOKE-ALL: %d/%d images, %d checks passed, %d failed\n' \
+    "$images_tested" "$MATRIX_COUNT" "$total_pass" "$total_fail"
 printf '############################################################\n'
 
 if [ "$images_tested" -eq 0 ]; then
