@@ -96,3 +96,11 @@ CVE-2026-5773
 # the base when caddy:2-alpine ships curl 8.20.0-r0.
 # owner: platform/security · review-by 2026-08-31
 CVE-2026-6276
+
+# -----------------------------------------------------------------------------
+# grpc-go xDS RBAC + HTTP/2 (no CVE assigned; trivy reports the GHSA id) —
+# compiled into the upstream caddy (grpc 1.81.0) and frankenphp (1.81.1)
+# binaries; fixed in grpc-go 1.82.1, upstream-rebuild-only. xDS unused; HTTP
+# serving is net/http. Drop + bump bases when upstream rebuilds.
+# owner: platform/security · review-by 2026-08-31 (aligned to policy expires_at)
+GHSA-hrxh-6v49-42gf
