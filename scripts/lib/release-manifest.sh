@@ -30,7 +30,14 @@ manifest_image_keys() { _yq -r '.images | keys | .[]' "$1" | sort; }
 manifest_image_field() { _yq -r ".images.\"$2\".$3" "$1"; }
 
 # manifest_image_platforms <file> <key>  -> one platform per line
-manifest_image_platforms() { _yq -r ".images.\"$1\".platforms // [] | .[]" "$2" 2>/dev/null || true; }
+# (SC-23: arg order matches the doc comment and the manifest_image_* siblings)
+manifest_image_platforms() { _yq -r ".images.\"$2\".platforms // [] | .[]" "$1" 2>/dev/null || true; }
+
+# manifest_key <family> <selector>  -> manifest image key for a matrix token:
+# the versionless "prod" selector collapses to the bare family (nginx, caddy);
+# everything else is <family>-<selector> (php-cli-8.4). The ONE key-derivation
+# rule shared by generate/validate/promote/verify (SC-18).
+manifest_key() { case "${2:-}" in prod) printf '%s' "$1" ;; *) printf '%s-%s' "$1" "${2:-}" ;; esac; }
 
 # checksum_file <path>  -> sha256 hex (portable: sha256sum or shasum)
 checksum_file() {
@@ -65,7 +72,9 @@ YAML
   _t "image keys"     "$(manifest_image_keys "$tmp/m.yaml")" "php-cli-8.4"
   _t "image digest"   "$(manifest_image_field "$tmp/m.yaml" php-cli-8.4 digest)" \
      "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-  _t "platforms count" "$(manifest_image_platforms php-cli-8.4 "$tmp/m.yaml" | wc -l | tr -d ' ')" "2"
+  _t "platforms count" "$(manifest_image_platforms "$tmp/m.yaml" php-cli-8.4 | wc -l | tr -d ' ')" "2"
+  _t "manifest_key prod -> family"  "$(manifest_key nginx prod)" "nginx"
+  _t "manifest_key sel -> fam-sel"  "$(manifest_key php-cli 8.4)" "php-cli-8.4"
   printf 'hello' | atomic_write "$tmp/a.txt"
   _t "atomic write"   "$(cat "$tmp/a.txt")" "hello"
   _t "checksum stable" "$(checksum_file "$tmp/a.txt")" "$(checksum_file "$tmp/a.txt")"

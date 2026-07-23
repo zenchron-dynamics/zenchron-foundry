@@ -13,15 +13,15 @@
 # =============================================================================
 set -euo pipefail
 _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib/common.sh
-. "$_d/lib/common.sh"
+# shellcheck source=lib/release-manifest.sh
+. "$_d/lib/release-manifest.sh"
 SCHEMA="$_d/../schemas/release-manifest.schema.json"
 
-# Expected image keys, derived from the ONE matrix source of truth.
+# Expected image keys, derived from the ONE matrix source of truth via the
+# shared manifest_key rule (SC-18).
 expected_keys() {
   for t in $MATRIX_IMAGES; do
-    fam="${t%:*}"; sel="${t#*:}"
-    case "$sel" in prod) printf '%s\n' "$fam" ;; *) printf '%s-%s\n' "$fam" "$sel" ;; esac
+    manifest_key "${t%:*}" "${t#*:}"; printf '\n'
   done | sort
 }
 
@@ -82,6 +82,10 @@ _vrm_self_test() {
   local R=7b4985a1234567890abcdef1234567890abcdef1
   local D=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   # Build a GOOD manifest with all 10 keys via python (deterministic).
+  # SC-20: this fixture's image list INTENTIONALLY duplicates MATRIX_IMAGES
+  # instead of deriving from it — an independent copy makes the self-test a
+  # drift tripwire for accidental edits to the authoritative matrix
+  # (owner-accepted duplication; do not centralize).
   R="$R" D="$D" OUT="$tmp/good.yaml" python3 - <<'PY'
 import os, yaml
 R, D = os.environ["R"], os.environ["D"]

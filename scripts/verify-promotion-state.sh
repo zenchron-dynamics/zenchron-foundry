@@ -19,8 +19,6 @@ _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/release-manifest.sh
 . "$_d/lib/release-manifest.sh"
 
-mkey() { case "$2" in prod) printf '%s' "$1" ;; *) printf '%s-%s' "$1" "$2" ;; esac; }
-
 verify_promotion_state() {
   local MANIFEST="${1:?usage: verify-promotion-state.sh <rc-manifest> <version>}"
   local VERSION="${2:?usage: verify-promotion-state.sh <rc-manifest> <version>}"
@@ -32,7 +30,7 @@ verify_promotion_state() {
   local ROWS bad=0 t fam sel key rcdig suf ref got verified
   ROWS="$(mktemp)"
   for t in $MATRIX_IMAGES; do
-    fam="${t%:*}"; sel="${t#*:}"; key="$(mkey "$fam" "$sel")"
+    fam="${t%:*}"; sel="${t#*:}"; key="$(manifest_key "$fam" "$sel")"
     rcdig="$(manifest_image_field "$MANIFEST" "$key" digest)"
     # SC-24: bash-layer digest anchoring, independent of any schema validation.
     is_digest "$rcdig" || { rm -f "$ROWS"; die "bash-layer digest anchor: manifest digest for $key is not sha256:<64-hex>: '$rcdig'"; }
@@ -78,6 +76,9 @@ _vps_self_test() {
   local R=7b4985a1234567890abcdef1234567890abcdef1
 
   # Fixture manifest: per-image digests derived from an independent seed.
+  # SC-20: the fixture's image list INTENTIONALLY duplicates MATRIX_IMAGES —
+  # an independent copy is a drift tripwire for the authoritative matrix
+  # (owner-accepted duplication; do not centralize).
   R="$R" OUT="$tmp/rc.yaml" python3 - <<'PY'
 import os, yaml, hashlib
 R = os.environ["R"]
@@ -100,7 +101,7 @@ PY
     for t in $MATRIX_IMAGES; do
       fam="${t%:*}"; sel="${t#*:}"
       for suf in $(stable_aliases "$sel" 2026.07.03); do
-        reg_retag "$(full_ref "$fam" "$suf")" "$(_dig "$(mkey "$fam" "$sel")")"
+        reg_retag "$(full_ref "$fam" "$suf")" "$(_dig "$(manifest_key "$fam" "$sel")")"
       done
     done )
 

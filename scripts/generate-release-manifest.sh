@@ -24,6 +24,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 # shellcheck source=lib/registry-aliases.sh
 . "$ROOT/scripts/lib/registry-aliases.sh"
+# shellcheck source=lib/release-manifest.sh
+. "$ROOT/scripts/lib/release-manifest.sh"
 
 _default_digest() { crane digest "$1" 2>/dev/null || \
   docker buildx imagetools inspect "$1" --format '{{.Manifest.Digest}}' 2>/dev/null; }
@@ -38,7 +40,7 @@ RESOLVE_PLATFORMS_FN="${RESOLVE_PLATFORMS_FN:-_default_platforms}"
 gather() {
   for t in $MATRIX_IMAGES; do
     local fam="${t%:*}" sel="${t#*:}" key repo imm ref dig plats
-    case "$sel" in prod) key="$fam" ;; *) key="$fam-$sel" ;; esac
+    key="$(manifest_key "$fam" "$sel")"   # shared key rule (SC-18)
     repo="$NS/$fam"
     imm="$(immutable_rc_suffix "$sel" "$VERSION" "$RC" "$REVISION")"
     dig="$("$RESOLVE_DIGEST_FN" "$repo:$imm" || true)"
