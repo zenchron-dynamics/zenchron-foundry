@@ -1,12 +1,22 @@
+# =============================================================================
+# ADVISORY ONLY — THIS FILE IS NOT LOADED BY ANY GATE OR SCRIPT.
+#
+# The enforcing gate is scan-images.yml's EXPLICIT Trivy flags:
+#   --severity CRITICAL,HIGH  --exit-code 1  --ignore-unfixed
+#   --ignorefile policies/.trivyignore
+# (scripts/scan-all.sh, the manual helper, also hard-codes its flags.)
+# Grype runs report-only in CI (anchore/scan-action `fail-build: false`).
+#
+# This file documents the intended Trivy policy for humans and for anyone
+# running Trivy by hand with `--config policies/trivy.yaml`; editing it changes
+# NOTHING in CI. Keep it aligned with the scan-images.yml flags so it never
+# contradicts the real gate.
+# =============================================================================
 # Trivy scan policy — https://aquasecurity.github.io/trivy
-# Used by scripts/scan-all.sh and scan-images.yml.
 severity:
   - CRITICAL
   - HIGH
-  - MEDIUM
 
-# CI gate: fail the build only on CRITICAL/HIGH (MEDIUM reported, not blocking).
-# scan-images.yml passes --exit-code 1 with --severity CRITICAL,HIGH explicitly.
 scan:
   scanners:
     - vuln
@@ -18,9 +28,11 @@ vulnerability:
     - os
     - library
 
-# Do not fail on unfixed vulns for LEGACY images (EOL has no fixes) — those are
-# scanned for awareness only; the gate is applied per-image in CI.
-ignore-unfixed: false
+# Matches the enforcing gate (--ignore-unfixed): unfixed distro CVEs never gate
+# (there is no actionable fix short of forking the distro). Every known-ignored
+# CVE is still recorded as an explicit, expiring entry in
+# policies/vulnerability-exceptions.yaml (validated in CI).
+ignore-unfixed: true
 
 misconfiguration:
   include-non-failures: false

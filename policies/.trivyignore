@@ -4,6 +4,11 @@
 #   - Every entry REQUIRES a justification + review date.
 #   - No entry may sit here past its review date without re-approval.
 #   - Legacy (7.4/8.0) EOL CVEs are handled per-image in CI, not blanket-ignored.
+#
+# All review-by dates below are 2026-08-31 — aligned to policy expires_at
+# (decoupled-seal model, PR #58). policies/vulnerability-exceptions.yaml is the
+# machine-enforced source of truth for expiry; the review-by comments here must
+# mirror its expires_at so the two files never disagree.
 
 # NOTE: the former Caddy go-jose/v3 exception was RESOLVED and removed — the
 # pinned caddy:2-alpine base (Caddy v2.11.4) already ships go-jose/v3 v3.0.5 (the
@@ -17,7 +22,7 @@
 # an essential package that cannot be removed; reachability is minimal. Re-review
 # every weekly scan and drop the entry the moment Debian ships a fix.
 # Affects: php-cli/fpm/worker/frankenphp (+ nginx perl-base, unfixed variants).
-# owner: platform/security · review-by 2026-07-20
+# owner: platform/security · review-by 2026-08-31
 
 # zlib1g — CVE-2023-45853 (MiniZip integer overflow). Debian: will_not_fix
 #   (Debian does not build/ship the affected MiniZip). zlib is essential.
@@ -41,7 +46,7 @@ CVE-2026-43185
 # caddy rebuild on a newer Go — we do not rebuild the caddy binary, and cannot
 # patch the embedded stdlib in our layer. Accepted so caddy can ENFORCE the gate
 # (state B); Dependabot watches the caddy digest — bump the base + drop these when
-# upstream ships a Go-bumped caddy. owner: platform/security · review-by 2026-08-03
+# upstream ships a Go-bumped caddy. owner: platform/security · review-by 2026-08-31
 CVE-2026-27145
 CVE-2026-42504
 
@@ -52,7 +57,7 @@ CVE-2026-42504
 # (verified: pinned == current upstream digest). Kerberos/GSSAPI is not used by
 # the nginx reverse-proxy/static runtime; these libs are transitive. Drop these
 # + bump the base the moment upstream nginx ships +deb12u5.
-# owner: platform/security · review-by 2026-07-23
+# owner: platform/security · review-by 2026-08-31
 CVE-2026-40355
 CVE-2026-40356
 
@@ -62,7 +67,7 @@ CVE-2026-40356
 # only by an UPSTREAM frankenphp rebuild on Go >=1.26.5 — we do not rebuild the
 # frankenphp binary and cannot patch the embedded stdlib in our layer. Same class
 # as the caddy go-stdlib entries. Drop + bump the base when upstream ships a
-# Go-bumped frankenphp. owner: platform/security · review-by 2026-07-25
+# Go-bumped frankenphp. owner: platform/security · review-by 2026-08-31
 CVE-2026-39822
 
 # -----------------------------------------------------------------------------
@@ -71,7 +76,7 @@ CVE-2026-39822
 # has not absorbed it. caddy is a Go binary using Go's own DNS resolver; c-ares is
 # a transitive base library not on the caddy runtime path. Drop + bump the base
 # the moment upstream caddy:2-alpine ships c-ares 1.34.8-r0.
-# owner: platform/security · review-by 2026-07-25
+# owner: platform/security · review-by 2026-08-31
 CVE-2026-33630
 
 # -----------------------------------------------------------------------------
@@ -80,7 +85,7 @@ CVE-2026-33630
 # (php-*, frankenphp, nginx) still ships +deb12u14 (verified: no upstream base
 # digest carries +deb12u15 yet). Runtime-RELEVANT (PHP curl ext links libcurl4) —
 # short TTL accepted-risk pending the base absorbing +deb12u15; drop + bump then.
-# owner: platform/security · review-by 2026-07-18
+# owner: platform/security · review-by 2026-08-31
 CVE-2026-5773
 
 # -----------------------------------------------------------------------------
@@ -89,5 +94,13 @@ CVE-2026-5773
 # digest) has not absorbed it. caddy is a Go binary using Go's HTTP stack; the
 # alpine curl is a transitive base tool not on the caddy runtime path. Drop + bump
 # the base when caddy:2-alpine ships curl 8.20.0-r0.
-# owner: platform/security · review-by 2026-07-20
+# owner: platform/security · review-by 2026-08-31
 CVE-2026-6276
+
+# -----------------------------------------------------------------------------
+# grpc-go xDS RBAC + HTTP/2 (no CVE assigned; trivy reports the GHSA id) —
+# compiled into the upstream caddy (grpc 1.81.0) and frankenphp (1.81.1)
+# binaries; fixed in grpc-go 1.82.1, upstream-rebuild-only. xDS unused; HTTP
+# serving is net/http. Drop + bump bases when upstream rebuilds.
+# owner: platform/security · review-by 2026-08-31 (aligned to policy expires_at)
+GHSA-hrxh-6v49-42gf

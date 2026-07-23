@@ -79,6 +79,9 @@ jobs:
       - name: Generate SBOM (Syft)
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
+          # WF-17: pin syft so SBOM output cannot drift between runs of the same
+          # pinned action SHA (v1.42.3 is the version that SHA ships by default).
+          syft-version: v1.42.3
           image: scan-target:${{ matrix.fam }}-${{ matrix.ver }}
           format: spdx-json
           artifact-name: ${{ matrix.fam }}-${{ matrix.ver }}.spdx.json

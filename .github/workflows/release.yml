@@ -209,6 +209,10 @@ jobs:
       - name: Ensure release tooling (gh + jq + yq present on runner)
         run: bash scripts/ci/ensure-release-tools.sh
       - uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          # WF-17: pin syft so the sealed release SBOMs cannot drift between
+          # runs of the same pinned action SHA (v1.42.3 is that SHA's default).
+          syft-version: v1.42.3
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
           cosign-release: v2.5.2   # scripts use v2 sign-blob semantics (.sig/.pem); cosign v3 defaults to the bundle format
