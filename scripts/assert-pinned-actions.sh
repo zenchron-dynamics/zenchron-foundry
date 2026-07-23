@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin wrapper; exercised by the "action pinning" gate in scripts/macro-validate.sh, the ci.yml static-gates job, and release-preflight.yml)
 # =============================================================================
 # assert-pinned-actions.sh
 # -----------------------------------------------------------------------------
@@ -32,10 +33,12 @@ done < <(
   } | sort -u
 )
 
+# SC-28: fail closed — this repo always has workflows, so an empty file list
+# means the discovery glob itself regressed and MUST NOT vacuous-pass the gate.
 if [[ "${#files[@]}" -eq 0 ]]; then
-  echo "WARN: no workflow or action files found under .github" >&2
-  echo "RESULT: PASS (nothing to check)"
-  exit 0
+  echo "ERROR: zero workflow or action files found under .github (glob/discovery regression; the repo always has workflows)" >&2
+  echo "RESULT: FAIL (nothing was checked)"
+  exit 1
 fi
 
 for file in "${files[@]}"; do
