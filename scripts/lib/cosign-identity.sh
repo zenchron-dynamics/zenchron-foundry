@@ -53,6 +53,14 @@ _ci_self_test() {
   _t "rc regexp REJECTS scheduled-rebuild"     '! printf "%s" "$SR_ID" | grep -Eq "$(_rcre)"'
   _t "rc regexp is not a bare wildcard"        '! _rcre | grep -q "/\\.\\*"'
   _t "scheduled-rebuild role resolves"         'identity_re_for_role scheduled-rebuild >/dev/null'
+  # release role: anchored to release.yml on a STRICT CalVer tag (PT-06)
+  # shellcheck disable=SC2034  # consumed inside the single-quoted eval assertions below
+  local REL_ID='https://github.com/zenchron-dynamics/zenchron-foundry/.github/workflows/release.yml@refs/tags/v2026.07.04'
+  _relre() { identity_re_for_role release; }
+  _t "release regexp matches CalVer tag identity" 'printf "%s" "$REL_ID" | grep -Eq "$(_relre)"'
+  _t "release regexp matches hotfix CalVer tag"   'printf "%s" "$REL_ID.1" | grep -Eq "$(_relre)"'
+  _t "release regexp REJECTS non-CalVer v-tag"    '! printf "%s" "${REL_ID%v2026.07.04}vNext" | grep -Eq "$(_relre)"'
+  _t "release regexp REJECTS master-ref identity" '! printf "%s" "$RC_ID" | grep -Eq "$(_relre)"'
   _t "unknown role rejected"                   '! ( identity_re_for_role no-such-role ) 2>/dev/null'
   _t "issuer is GitHub Actions"                '[ "$(issuer_from_policy)" = "https://token.actions.githubusercontent.com" ]'
   return $fail

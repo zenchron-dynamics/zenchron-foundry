@@ -54,6 +54,12 @@ reg_retag() { # <dst-ref> <digest>
       fi
       printf '%s' "$2" > "$(_mock_path "$1")" ;;
     *)
+      # SC-01: the real backend mutates production aliases (*-prod). That must
+      # only ever happen inside CI (promote-stable.yml / an operator-invoked
+      # workflow), never silently from a laptop. ALLOW_LOCAL_PROMOTE=1 is the
+      # explicit, deliberate operator override (documented in docs/rollback.md).
+      [ "${GITHUB_ACTIONS:-}" = "true" ] || [ "${ALLOW_LOCAL_PROMOTE:-}" = "1" ] \
+        || die "production alias mutation outside CI (set ALLOW_LOCAL_PROMOTE=1 to override deliberately)"
       local base="${1%:*}"; docker buildx imagetools create -t "$1" "${base}@${2}" ;;
   esac
 }
@@ -96,6 +102,31 @@ _ro_self_test() {
   else echo "FAIL - REG_WRITE_WRONG_AT retag still ACKs (exit 0)"; fail=1; fi
   _t "REG_WRITE_WRONG_AT stored digest differs" \
      '[ "$(reg_digest ghcr.io/x/c:1)" != "sha256:$(printf c | shasum -a256 | cut -c1-64)" ]'
+  # --- SC-01: real backend refuses to mutate *-prod outside CI ----------------
+  # docker is STUBBED (records invocation, exits 0) so no real registry call can
+  # happen either way; the refusal must fire BEFORE the backend is touched.
+  local stub="$d/bin"
+  mkdir -p "$stub"
+  printf '#!/usr/bin/env bash\ntouch "${DOCKER_CALLED:?}"\nexit 0\n' > "$stub/docker"
+  chmod +x "$stub/docker"
+  _sc01() { # <marker-file> [extra env...] -> runs one real-backend reg_retag
+    local marker="$1"; shift
+    ( env -u GITHUB_ACTIONS -u ALLOW_LOCAL_PROMOTE "$@" \
+        PATH="$stub:$PATH" DOCKER_CALLED="$marker" \
+        bash -c '. '"$_ro_dir"'/registry-ops.sh
+                 export REG_BACKEND=real
+                 reg_retag ghcr.io/x/php-cli:8.4-prod sha256:'"$(printf a | shasum -a256 | cut -c1-64)" \
+    ) >/dev/null 2>&1
+  }
+  _sc01 "$d/called1"; rc=$?
+  _t "real backend refuses outside CI (SC-01)"     '[ "$rc" -ne 0 ]'
+  _t "refused retag never reached docker"          '[ ! -e "$d/called1" ]'
+  _sc01 "$d/called2" ALLOW_LOCAL_PROMOTE=1; rc=$?
+  _t "ALLOW_LOCAL_PROMOTE=1 permits (stub docker)" '[ "$rc" -eq 0 ]'
+  _t "override retag reached the stub backend"     '[ -e "$d/called2" ]'
+  _sc01 "$d/called3" GITHUB_ACTIONS=true; rc=$?
+  _t "GITHUB_ACTIONS=true permits (stub docker)"   '[ "$rc" -eq 0 ]'
+  _t "CI retag reached the stub backend"           '[ -e "$d/called3" ]'
   rm -rf "$d"; return $fail
 }
 

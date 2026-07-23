@@ -1,6 +1,16 @@
+# =============================================================================
+# ADVISORY ONLY — NOT PART OF THE CI GATE.
+#
+# The enforcing gate is scan-images.yml's EXPLICIT Trivy flags:
+#   --severity CRITICAL,HIGH  --exit-code 1  --ignore-unfixed
+#   --ignorefile policies/.trivyignore
+# In CI, Grype runs REPORT-ONLY (anchore/scan-action `fail-build: false`,
+# severity-cutoff high) and does NOT read this file. This config is consumed
+# only by the manual helper scripts/scan-all.sh (`grype --config`); editing it
+# changes nothing in scan-images.yml.
+# =============================================================================
 # Grype scan policy — https://github.com/anchore/grype
 # Second-opinion scanner alongside Trivy (different DBs catch different CVEs).
-# CI fails at HIGH+ for supported images.
 fail-on-severity: "high"
 
 output:

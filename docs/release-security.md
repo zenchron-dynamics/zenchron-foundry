@@ -75,7 +75,7 @@ provenance, then decodes the provenance predicate to extract the source repo +
 revision and asserts `provenance revision == EXPECTED_REVISION`,
 `repo == EXPECTED_REPO`, `OCI org.opencontainers.image.revision == EXPECTED_REVISION`,
 and every expected platform. It handles SLSA provenance v1 and v0.2; its pure
-extraction/comparison logic has a 12-case self-test (`--self-test`), and it follows
+extraction/comparison logic has a 16-case self-test (`--self-test`), and it follows
 the `LOCAL=`/skip convention when cosign is absent.
 
 `verify-signatures.yml` (manual dispatch) now invokes this verifier per image with
@@ -85,9 +85,14 @@ sealing. Its cosign/registry path is exercised for the first time at the step-11
 live verification; the `docker buildx`/`crane` fallback resolves the image index +
 OCI config.
 
-Still open: `IDENTITY_RE` defaults to the broad repo regexp — pass a narrow
-`EXPECTED_IDENTITY` (exact publisher workflow) at verification time until the
-default is tightened.
+Closed (SC-17): the broad `IDENTITY_RE` repo-wildcard default was **removed**.
+The verifier now refuses unless the caller pins an identity — either an exact
+`EXPECTED_IDENTITY` or an `EXPECTED_ROLE` resolved to an anchored regexp from
+`policies/cosign-identities.yaml`. `verify-signatures.yml` passes
+`EXPECTED_ROLE: rc-publisher` (stable `*-prod` digests are the promoted RC
+digests, signed on master). The verifier also asserts the OCI revision label on
+**every** linux child manifest of the index (amd64 and arm64), not just the
+first (RA-05).
 
 ## Vulnerability gates
 
