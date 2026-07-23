@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin harness; the gates it runs are the coverage — each gated script self-tests via the tests/run-all.sh gate)
 # =============================================================================
 # scripts/macro-validate.sh
 # -----------------------------------------------------------------------------
@@ -7,7 +8,10 @@
 # network. Live image builds + published-digest checks run in CI (ci.yml,
 # verify-rc.yml); this is the gate a maintainer runs before pushing.
 # =============================================================================
-set -uo pipefail
+# -e is safe here: every gate command runs inside gate()'s `if`, so a failing
+# gate is counted rather than aborting the sweep; errexit only guards the
+# harness's own plumbing (cd, mktemp-style failures).
+set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 1
 

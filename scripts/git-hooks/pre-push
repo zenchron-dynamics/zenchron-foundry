@@ -14,7 +14,10 @@
 #   ZENCHRON_ALLOW_PROTECTED_PUSH=1 git push ...
 # Git passes refs on stdin: <local_ref> <local_sha> <remote_ref> <remote_sha>
 # =============================================================================
-set -u
+# -e is safe here: every fallible command (read, merge-base) already runs in a
+# conditional, so errexit only guards the hook's own plumbing; policy failures
+# still accumulate into $status so ALL offending refs are reported.
+set -eu
 
 err() { printf '%s\n' "$*" >&2; }
 
