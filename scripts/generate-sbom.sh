@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin wrapper; exercised by make sbom / sbom-local and the SBOM steps in publish-ghcr.yml)
 # Generate SBOMs (SPDX + CycloneDX) for an image using Syft.
 # Usage: IMAGE=ghcr.io/.../php-fpm:8.3-prod scripts/generate-sbom.sh
 set -euo pipefail

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin wrapper; exercised by make lint and the ci.yml hadolint job)
 # Lint every Dockerfile with Hadolint using the platform policy.
 set -euo pipefail
 

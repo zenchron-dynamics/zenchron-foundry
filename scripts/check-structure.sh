@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin wrapper; exercised by the "repo structure" gate in scripts/macro-validate.sh, the ci.yml static-gates job, and make check-structure)
 # Verify the required repository layout exists. Used by ci.yml and `make check-structure`.
 # Debian-first layout (ADR-0001): supported PHP lines are 8.3 and 8.4 only.
 set -euo pipefail

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin wrapper; exercised by make scan / scan-local and scan-images.yml)
 # Scan one or all images with Trivy + Grype. Fails on CRITICAL/HIGH (supported).
 # Usage: IMAGE=ghcr.io/.../php-fpm:8.3-prod scripts/scan-all.sh
 #        scripts/scan-all.sh   # scans the default supported set

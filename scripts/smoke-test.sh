@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin dispatcher; exercised per image by scripts/smoke-all.sh and the ci.yml smoke matrix)
 # =============================================================================
 # Zenchron Dynamics — smoke-test dispatcher.
 # Usage: scripts/smoke-test.sh <family> <version>

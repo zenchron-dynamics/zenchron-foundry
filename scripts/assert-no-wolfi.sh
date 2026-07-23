@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin wrapper; exercised by the "no wolfi/apk guard" gate in scripts/macro-validate.sh and the ci.yml static-gates job)
 # =============================================================================
 # Zenchron Dynamics — supply-chain guard: no Wolfi / Chainguard / apk.
 # Fails CI if ACTIVE (operational) files reintroduce a dependency we removed in
