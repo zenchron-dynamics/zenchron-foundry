@@ -118,6 +118,7 @@ jobs:
       # and surfaced (non-gating) in the SARIF above. A fixable finding means a
       # fresher base digest exists: bump it (docs/security/base-image-patching.md).
       - name: Trivy gate (fixable CRITICAL/HIGH)
+        id: trivy_gate
         if: ${{ matrix.gate == true }}
         run: |
           set -euo pipefail
@@ -173,6 +174,38 @@ jobs:
         with:
           sarif_file: ${{ steps.grype.outputs.sarif }}
           category: grype-${{ matrix.fam }}-${{ matrix.ver }}
+
+      # RA-07: consolidated per-leg scan result — REAL step outcomes (the
+      # enforcing Trivy gate and the non-gating Grype second opinion), stamped
+      # with the exact commit scanned. Recorded on failure too.
+      - name: Emit scan-results.json (real outcomes)
+        if: always()
+        env:
+          FAM: ${{ matrix.fam }}
+          VER: ${{ matrix.ver }}
+          SHA: ${{ github.sha }}
+          TRIVY_GATE_OUTCOME: ${{ steps.trivy_gate.outcome }}
+          GRYPE_OUTCOME: ${{ steps.grype.outcome }}
+        run: |
+          set -euo pipefail
+          jq -n --arg image "${FAM}-${VER}" --arg commit "$SHA" \
+            --arg trivy_gate "$TRIVY_GATE_OUTCOME" --arg grype "$GRYPE_OUTCOME" \
+            '{image: $image, commit: $commit,
+              trivy_gate: $trivy_gate, trivy_gate_passed: ($trivy_gate == "success"),
+              grype_completed: ($grype == "success")}' \
+            > scan-results.json
+          cat scan-results.json
+
+      # Commit in the artifact name: scan evidence is only meaningful for the
+      # exact commit it scanned (the release gate is exact-commit).
+      - name: Upload consolidated scan result (commit-stamped)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: scan-results-${{ matrix.fam }}-${{ matrix.ver }}-${{ github.sha }}
+          path: scan-results.json
+          if-no-files-found: error
+          retention-days: 30
 
       # --- Artifacts ---------------------------------------------------------
       - name: Upload scan artifacts

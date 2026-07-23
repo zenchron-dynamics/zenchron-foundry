@@ -281,6 +281,33 @@ jobs:
           done
           echo "cosign attest (provenance) failed after retries" >&2; exit 1
 
+      # RA-08: per-image publish results. Every step in this job runs only when
+      # all previous steps succeeded (nothing above uses `if: always()` or
+      # `continue-on-error`), so REACHING this step proves build+push, cosign
+      # sign, SBOM attest and provenance attest all succeeded — the booleans
+      # below are derived from that step-success chain, not asserted by hand.
+      - name: Emit publish-results.json (success-path derived)
+        env:
+          FAM: ${{ matrix.fam }}
+          VER: ${{ matrix.ver }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/common.sh
+          is_digest "$DIGEST" || die "build digest '$DIGEST' is not sha256:<64-hex>"
+          jq -n --arg image "${FAM}-${VER}" --arg digest "$DIGEST" \
+            '{image: $image, digest: $digest,
+              signed: true, sbom_attested: true, provenance_attested: true}' \
+            > publish-results.json
+          cat publish-results.json
+
+      - name: Upload publish-results.json
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: publish-results-${{ matrix.fam }}-${{ matrix.ver }}
+          path: publish-results.json
+          if-no-files-found: error
+
       - name: Summary
         run: |
           echo "Published & signed ${{ steps.meta.outputs.primary }} @ ${{ steps.build.outputs.digest }}" >> "$GITHUB_STEP_SUMMARY"
