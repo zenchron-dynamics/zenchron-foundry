@@ -35,6 +35,11 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     strategy:
       fail-fast: false
+      # WF-08: serialized, matching every other heavy matrix (ci.yml build-test,
+      # scan-images.yml, verify-rc.yml, publish-ghcr.yml). Single 2 vCPU / 4 GB
+      # self-hosted host: concurrent builds pin each other's buildkit cache on
+      # the small shared disk and contend for the two cores.
+      max-parallel: 1
       matrix:
         include:
           - { fam: php-fpm,        ver: "8.3", ctx: "images/php-fpm/8.3" }

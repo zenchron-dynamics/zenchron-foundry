@@ -65,6 +65,12 @@ jobs:
       # NOTE: NO `issues: write` here — issue reporting is a separate least-priv job.
     strategy:
       fail-fast: false
+      # WF-01: serialized, matching every other heavy matrix (ci.yml build-test,
+      # scan-images.yml, verify-rc.yml, publish-ghcr.yml). The host is a single
+      # 2 vCPU / 4 GB runner: concurrent multi-arch rebuilds (buildkit + QEMU
+      # arm64 emulation + Trivy resident) gain no throughput and risk OOM/disk
+      # exhaustion.
+      max-parallel: 1
       matrix:
         include:
           - { fam: php-fpm,        ver: "8.3", ctx: "images/php-fpm/8.3" }
