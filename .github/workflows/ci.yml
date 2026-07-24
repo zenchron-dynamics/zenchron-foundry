@@ -19,9 +19,18 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
           # prior container step blocks checkout even when $ws itself looks ours.
@@ -50,14 +59,26 @@ jobs:
       - name: Assert only approved release environments are referenced
         run: bash scripts/assert-environment-names.sh
 
+      - name: Assert every workflow reset block matches the canonical text (SC-02)
+        run: bash scripts/ci/assert-canonical-reset-block.sh
+
   lint:
     name: lint (shell / yaml / md / dockerfile)
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
           # prior container step blocks checkout even when $ws itself looks ours.
@@ -102,9 +123,18 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
           # prior container step blocks checkout even when $ws itself looks ours.
@@ -167,9 +197,18 @@ jobs:
           - { fam: caddy,          ver: "" }
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
           # prior container step blocks checkout even when $ws itself looks ours.
@@ -240,9 +279,18 @@ jobs:
     if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-download)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
           # prior container step blocks checkout even when $ws itself looks ours.
@@ -291,9 +339,18 @@ jobs:
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
           # prior container step blocks checkout even when $ws itself looks ours.

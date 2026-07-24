@@ -35,6 +35,12 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# WF-21: single source for the registry namespace (matches the other
+# workflows) — steps must reference these, never a hard-coded literal.
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: zenchron-dynamics
+
 jobs:
   # P0 stable-release gate. Nothing publishes until ALL of these hold:
   #   * the ref is a tag in the approved version format (vYYYY.MM.DD[.N]);
@@ -57,9 +63,18 @@ jobs:
       statuses: read          # check-exact-commit-ci.sh: GET /commits/{sha}/status
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
           # prior container step blocks checkout even when $ws itself looks ours.
@@ -186,6 +201,7 @@ jobs:
   # is dispatched. This workflow only *seals* the release: it verifies the
   # already-promoted images from the registry, then attaches the manifest + SBOMs.
   # If the images have not been promoted, verify-release-artifacts.sh fails loud.
+  # Environment binding lives on the gate job (guard); needs-chain enforced (WF-19 accepted).
   release:
     needs: guard
     runs-on: [self-hosted, linux, x64, zenchron]
@@ -196,9 +212,18 @@ jobs:
       id-token: write
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
           # prior container step blocks checkout even when $ws itself looks ours.
@@ -259,7 +284,7 @@ jobs:
       - name: Collect per-image SBOMs + checksums (strict — no image may be skipped)
         run: |
           set -euo pipefail
-          NS="ghcr.io/zenchron-dynamics"
+          NS="${REGISTRY}/${NAMESPACE}"   # WF-21: from the shared workflow env, not a literal
           for ref in php-fpm:8.4-prod php-cli:8.4-prod php-worker:8.4-prod php-frankenphp:8.4-prod \
                      php-fpm:8.3-prod php-cli:8.3-prod php-worker:8.3-prod php-frankenphp:8.3-prod \
                      caddy:prod nginx:prod; do
