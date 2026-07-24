@@ -41,6 +41,9 @@ required_checks:
   - build+smoke php-frankenphp 8.4
   - build+smoke nginx
   - build+smoke caddy
+  # WF-04: structured build/smoke evidence aggregation — gates on the full
+  # build-test matrix result, so it can never green a red matrix.
+  - aggregate build+smoke results
   # scan-images.yml — the vulnerability gate. It does NOT run on push to master
   # (dispatch / schedule / image-touching PRs only), so the release operator must
   # dispatch it on the release revision; a workflow_dispatch attaches its

@@ -3,6 +3,8 @@
 Companion to `docs/release-governance.md` (governance) and
 `docs/image-versioning.md` (tag scheme). This file describes the **phased
 rollout** of the Debian-first images and the steady-state release flow.
+The evidence files each stage emits are specified in
+[release-evidence.md](release-evidence.md) (the authoritative schema).
 
 ## Tagging
 

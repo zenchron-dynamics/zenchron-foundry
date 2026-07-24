@@ -64,6 +64,7 @@ jobs:
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Cold build (clean builder, load locally, no push)
+        id: build
         env:
           MATRIX_KEY: ${{ matrix.fam }}-${{ matrix.ver }}
         run: |
@@ -76,15 +77,47 @@ jobs:
             -t "zf-verify/${{ matrix.fam }}:${{ matrix.ver }}" "${{ matrix.ctx }}"
 
       - name: Runtime smoke test
+        id: smoke
         run: bash "scripts/smoke/${{ matrix.smoke }}" "zf-verify/${{ matrix.fam }}:${{ matrix.ver }}"
 
       - name: Contract check (config metadata vs contracts/images)
+        id: contract
         env:
           SKIP_OCI_LABEL: "1"   # revision label is stamped at publish, not on local cold build
         run: |
           set -euo pipefail
           c="contracts/images/${{ matrix.fam }}-${{ matrix.ver }}.yaml"
           bash scripts/verify-image-contract.sh "zf-verify/${{ matrix.fam }}:${{ matrix.ver }}" "$c"
+
+      # WF-03/RA-06: per-image result line with REAL step outcomes (recorded on
+      # failure too), assembled into verify-rc-results.json by `certified`.
+      - name: Record certification result (real outcomes)
+        if: always()
+        env:
+          FAM: ${{ matrix.fam }}
+          VER: ${{ matrix.ver }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          CONTRACT_OUTCOME: ${{ steps.contract.outcome }}
+        run: |
+          set -euo pipefail
+          # Cold builds are local-only, so the digest recorded here is the local
+          # image ID; published RC digests are certified by the platforms leg.
+          id="$(docker image inspect -f '{{.Id}}' "zf-verify/${FAM}:${VER}" 2>/dev/null || echo unavailable)"
+          mkdir -p verify-rc-results
+          jq -n --arg image "${FAM}-${VER}" --arg digest "$id" \
+            --arg build "$BUILD_OUTCOME" --arg smoke "$SMOKE_OUTCOME" --arg contract "$CONTRACT_OUTCOME" \
+            '{image: $image, digest: $digest, build: $build, smoke: $smoke, contract: $contract}' \
+            > "verify-rc-results/${FAM}-${VER}.json"
+          cat "verify-rc-results/${FAM}-${VER}.json"
+
+      - name: Upload certification result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: verify-rc-result-${{ matrix.fam }}-${{ matrix.ver }}
+          path: verify-rc-results/
+          if-no-files-found: error
 
       - name: Cleanup Docker (job-scoped)
         if: always()
@@ -145,6 +178,52 @@ jobs:
     if: always()
     runs-on: [self-hosted, linux, x64, zenchron]
     steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-download)
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      # No checkout in this job -> no `git clean` — scrub stale results left on
+      # the persistent self-hosted workspace by earlier runs before downloading.
+      - name: Scrub stale results (persistent workspace, no checkout here)
+        run: rm -rf verify-rc-results verify-rc-results.json
+      # Assembly runs BEFORE the gate step so the structured results exist even
+      # when a leg failed — the gate below is unchanged and still fails loud.
+      - name: Download per-image certification results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v4
+        with:
+          path: verify-rc-results
+          pattern: verify-rc-result-*
+          merge-multiple: true
+      - name: Assemble verify-rc-results.json (real per-image + platforms results)
+        env:
+          CERTIFY_RESULT: ${{ needs.certify.result }}
+          PLATFORMS_RESULT: ${{ needs.platforms.result }}
+          VERSION: ${{ inputs.version || github.event.inputs.version }}
+          RC: ${{ inputs.rc || github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          # Per-image entries are the REAL step outcomes each certify leg
+          # recorded (incl. failures); the leg results come from the needs
+          # context, not hand-written literals.
+          jq -s --arg certify "$CERTIFY_RESULT" --arg platforms "$PLATFORMS_RESULT" \
+                --arg version "$VERSION" --arg rc "$RC" \
+            '{version: $version, rc: $rc,
+              certify_result: $certify, platforms_result: $platforms,
+              image_count: length, images: sort_by(.image)}' \
+            verify-rc-results/*.json > verify-rc-results.json
+          cat verify-rc-results.json
+      - name: Upload verify-rc-results.json
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: verify-rc-results
+          path: verify-rc-results.json
+          if-no-files-found: error
       - name: Both certification legs must have succeeded
         env:
           CERTIFY_RESULT: ${{ needs.certify.result }}

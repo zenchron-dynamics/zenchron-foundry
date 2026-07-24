@@ -162,7 +162,47 @@ jobs:
           RC: ${{ github.event.inputs.rc }}
         run: bash scripts/promote-stable.sh "$VERSION" "$RC" --manifest release-artifacts/release-manifest.yaml
 
-      - name: Upload promotion evidence (rollback + journal + promotion manifest)
+      # WF-20: machine-readable promotion results, DERIVED from the promotion
+      # artifacts the run just wrote (promotion manifest, journal, rollback
+      # manifest) — never asserted by hand.
+      - name: Emit promotion-results.json (derived from the promotion artifacts)
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          RC: ${{ github.event.inputs.rc }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/registry-aliases.sh
+          art=release-artifacts
+          pm="$art/promotion-${VERSION}.yaml"
+          rb="$art/rollback-${VERSION}.yaml"
+          jr="$art/promotion-journal-${VERSION}.txt"
+          aliases="$(yq '.aliases | length' "$pm")"
+          verified="$(yq '[.aliases[] | select(.verified == true)] | length' "$pm")"
+          # Canonical-last proof: for every matrix image the LAST journal line
+          # touching that image must be its canonical prod alias — the two-phase
+          # promotion mutates the human-facing alias only after the rest hold.
+          order_ok=true
+          for t in $MATRIX_IMAGES; do
+            fam="${t%:*}"; sel="${t#*:}"
+            case "$sel" in
+              prod) canon="$NS/$fam:prod"; last="$(grep -E "/${fam}:prod(-|$)" "$jr" | tail -1)" ;;
+              *)    canon="$NS/$fam:${sel}-prod"; last="$(grep -F "$NS/$fam:$sel-" "$jr" | tail -1)" ;;
+            esac
+            [ "$last" = "$canon" ] || { echo "journal order violation for $t: last='$last' want='$canon'"; order_ok=false; }
+          done
+          [ "$order_ok" = true ] || { echo "REFUSE: canonical-last order not proven by the journal"; exit 1; }
+          rb_ck="$(sha256sum "$rb" | awk '{print $1}')"
+          jq -n --arg version "$VERSION" --arg rc "$RC" \
+            --argjson aliases "$aliases" --argjson verified "$verified" \
+            --argjson canonical_last "$order_ok" --arg rollback_ck "$rb_ck" \
+            '{version: $version, rc: $rc,
+              aliases_promoted: $aliases, aliases_verified: $verified,
+              canonical_last_proven: $canonical_last,
+              rollback_manifest_sha256: $rollback_ck}' \
+            > "$art/promotion-results.json"
+          cat "$art/promotion-results.json"
+
+      - name: Upload promotion evidence (rollback + journal + promotion manifest + results)
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -171,5 +211,8 @@ jobs:
             release-artifacts/rollback-*.yaml*
             release-artifacts/promotion-journal-*.txt
             release-artifacts/promotion-*.yaml*
+            release-artifacts/promotion-results.json
             release-artifacts/ROLLBACK-INCIDENT.txt
-          if-no-files-found: warn
+          # WF-10: fail loud if the evidence set is empty — a promotion run that
+          # produced no rollback/journal evidence must never look green.
+          if-no-files-found: error

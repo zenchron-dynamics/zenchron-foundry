@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# scripts/validate-release-evidence.sh <evidence.json>
+# scripts/validate-release-evidence.sh <evidence.json> [summary.json]
 # -----------------------------------------------------------------------------
 # Verifies an evidence package: checksum matches its sidecar, required keys are
 # present, release/candidate/revision are well-formed, and no required
 # verification result is "absent" (unless ALLOW_ABSENT=1 for a dry-run package).
 # Counted verification results (sig/sbom/prov/ocirev/arch/runtime) must be a
 # FULL count n/n with n>0 — a partial result like 9/10 REFUSES the seal.
+#
+# With the optional second argument, also validates the release evidence
+# summary (release-evidence-summary.json): it must parse as JSON and its
+# version/rc/revision must match evidence.json's release/candidate/revision.
 # =============================================================================
 set -euo pipefail
 _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,7 +18,7 @@ _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_d/lib/release-manifest.sh"
 
 validate_evidence() {
-  local E="$1"
+  local E="$1" S="${2:-}"
   [ -f "$E" ] || die "evidence not found: $E"
 
   if [ -f "$E.sha256" ]; then
@@ -23,7 +27,9 @@ validate_evidence() {
     [ "$want" = "$got" ] || die "evidence checksum mismatch: $got != $want"
   fi
 
-  ALLOW_ABSENT="${ALLOW_ABSENT:-0}" python3 - "$E" <<'PY'
+  # `|| return 1`: this function is often called inside an `if` condition
+  # (set -e suspended); the validation verdict must propagate explicitly.
+  ALLOW_ABSENT="${ALLOW_ABSENT:-0}" python3 - "$E" <<'PY' || return 1
 import json, sys, re, os
 e = json.load(open(sys.argv[1]))
 errs = []
@@ -64,6 +70,29 @@ if errs:
     sys.exit(1)
 print(f"EVIDENCE VALID: {e['release']} {e['candidate']} @ {e['revision'][:12]}")
 PY
+
+  # Optional: the release evidence summary must parse and agree with evidence.json.
+  if [ -n "$S" ]; then
+    [ -f "$S" ] || die "summary not found: $S"
+    python3 - "$E" "$S" <<'PY' || return 1
+import json, sys
+e = json.load(open(sys.argv[1]))
+try:
+    s = json.load(open(sys.argv[2]))
+except Exception as ex:
+    print(f"SUMMARY INVALID: does not parse as JSON: {ex}", file=sys.stderr)
+    sys.exit(1)
+errs = []
+for sk, ek in (("version", "release"), ("rc", "candidate"), ("revision", "revision")):
+    if s.get(sk) != e.get(ek):
+        errs.append(f"summary {sk} '{s.get(sk)}' != evidence {ek} '{e.get(ek)}'")
+if errs:
+    print("SUMMARY INVALID:", file=sys.stderr)
+    for x in errs: print("  - "+x, file=sys.stderr)
+    sys.exit(1)
+print(f"SUMMARY VALID: matches evidence {e['release']} @ {e['revision'][:12]}")
+PY
+  fi
 }
 
 # --- self-test ---------------------------------------------------------------
@@ -123,13 +152,29 @@ PY
   cp "$tmp/good.json" "$tmp/tamper.json"
   checksum_file "$tmp/good.json" > "$tmp/tamper.json.sha256"; printf '\n' >> "$tmp/tamper.json"
   _no "$tmp/tamper.json" "checksum tamper refused"
+
+  # --- release-evidence-summary.json cases -----------------------------------
+  _oks() { if ( validate_evidence "$1" "$2" ) >/dev/null 2>&1; then echo "ok   - $3"; else echo "FAIL - $3 (expected valid)"; fail=1; fi; }
+  _nos() { if ( validate_evidence "$1" "$2" ) >/dev/null 2>&1; then echo "FAIL - $3 (expected reject)"; fail=1; else echo "ok   - $3"; fi; }
+  cat > "$tmp/summary.json" <<EOF
+{"version": "v2026.07.03", "rc": "rc1", "revision": "$R",
+ "run_ids": {"release_run_id": "1"}, "verification": {}, "assets": []}
+EOF
+  _oks "$tmp/good.json" "$tmp/summary.json" "matching summary valid"
+  printf 'not json {' > "$tmp/badparse.json"
+  _nos "$tmp/good.json" "$tmp/badparse.json" "non-JSON summary refused"
+  cp "$tmp/summary.json" "$tmp/sv.json"; _mut "$tmp/sv.json" 'e["version"]="v2026.07.04"'
+  _nos "$tmp/good.json" "$tmp/sv.json" "summary version mismatch refused"
+  cp "$tmp/summary.json" "$tmp/sr.json"; _mut "$tmp/sr.json" 'e["revision"]="a"*40'
+  _nos "$tmp/good.json" "$tmp/sr.json" "summary revision mismatch refused"
+  _nos "$tmp/good.json" "$tmp/no-such-summary.json" "missing summary file refused"
   rm -rf "$tmp"; return $fail
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "${1:-}" in
     --self-test) _vre_self_test && echo "validate-release-evidence.sh: SELF-TEST OK" ;;
-    "") echo "usage: validate-release-evidence.sh <evidence.json> | --self-test" >&2; exit 2 ;;
-    *) validate_evidence "$1" ;;
+    "") echo "usage: validate-release-evidence.sh <evidence.json> [summary.json] | --self-test" >&2; exit 2 ;;
+    *) validate_evidence "$@" ;;
   esac
 fi

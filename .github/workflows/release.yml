@@ -231,6 +231,10 @@ jobs:
         env:
           EXPECTED_REVISION: ${{ github.sha }}
           EXPECTED_ROLE: rc-publisher
+          # SC-09: VERSION lets the verifier enumerate ALL stable aliases
+          # (canonical prod, prod-<rel>, -debian) and prove digest equality
+          # across them before the once-per-digest identity checks.
+          VERSION: ${{ github.ref_name }}
           # Machine-readable per-class results — the evidence step below derives
           # its verification fields from this file (RA-01/WF-02).
           RESULTS_JSON: release-verify-results.json
@@ -294,6 +298,44 @@ jobs:
           bash scripts/build-release-evidence.sh release-artifacts
           bash scripts/validate-release-evidence.sh release-artifacts/evidence.json
 
+      - name: Assemble + validate the release evidence summary (derived, never literals)
+        env:
+          VERSION: ${{ github.ref_name }}
+          REVISION: ${{ github.sha }}
+          RC_MANIFEST_RUN_ID: ${{ github.event.inputs.rc_manifest_run_id }}
+          VERIFY_RC_RUN_ID: ${{ github.event.inputs.verify_rc_run_id }}
+          RELEASE_RUN_ID: ${{ github.run_id }}
+          # Derived by the guard job from the verify-rc run's certify jobs (RA-02).
+          RUNTIME_RESULT: ${{ needs.guard.outputs.runtime_result }}
+        run: |
+          set -euo pipefail
+          RC="$(yq -r '.candidate' release-artifacts/release-manifest.yaml)"
+          # Asset list = the exact files attached to the GitHub Release below,
+          # read from disk (ls fails loud if any is missing), plus this summary.
+          {
+            ls release-artifacts/release-manifest.yaml release-artifacts/checksums.txt \
+               release-artifacts/evidence.json release-artifacts/EVIDENCE.md release-artifacts/VERIFY.md
+            ls release-artifacts/*.spdx.json
+            echo release-artifacts/release-evidence-summary.json
+          } | sed 's#^release-artifacts/##' | sort > assets.txt
+          # verification = the REAL per-class results verify-release-artifacts.sh
+          # wrote in this job, plus the guard-derived runtime result — no literals.
+          jq -n \
+            --arg version "$VERSION" --arg rc "$RC" --arg revision "$REVISION" \
+            --arg rcrun "$RC_MANIFEST_RUN_ID" --arg vrun "$VERIFY_RC_RUN_ID" --arg rrun "$RELEASE_RUN_ID" \
+            --arg runtime "$RUNTIME_RESULT" \
+            --slurpfile ver release-verify-results.json \
+            --rawfile assets assets.txt \
+            '{version: $version, rc: $rc, revision: $revision,
+              run_ids: {rc_manifest_run_id: $rcrun, verify_rc_run_id: $vrun, release_run_id: $rrun},
+              verification: ($ver[0] + {runtime_result: $runtime}),
+              assets: ($assets | split("\n") | map(select(length > 0)))}' \
+            > release-artifacts/release-evidence-summary.json
+          # Re-validate the package WITH the summary: it must parse and its
+          # version/rc/revision must equal evidence.json's.
+          bash scripts/validate-release-evidence.sh release-artifacts/evidence.json \
+            release-artifacts/release-evidence-summary.json
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
@@ -306,3 +348,4 @@ jobs:
             release-artifacts/evidence.json
             release-artifacts/EVIDENCE.md
             release-artifacts/VERIFY.md
+            release-artifacts/release-evidence-summary.json
