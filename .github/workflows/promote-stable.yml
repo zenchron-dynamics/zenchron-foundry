@@ -113,6 +113,7 @@ jobs:
           [ "$RISK" = "ACCEPT-RISK" ] || die "risk_acceptance_confirmation must be ACCEPT-RISK"
           echo "OK: promoting $RC -> $VERSION @ $EXPECTED_REVISION from $REF (confirmed)"
 
+  # Environment binding lives on the gate job; needs-chain enforced (WF-19 accepted).
   promote:
     needs: gate
     runs-on: [self-hosted, linux, x64, zenchron]

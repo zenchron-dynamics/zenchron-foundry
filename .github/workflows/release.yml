@@ -201,6 +201,7 @@ jobs:
   # is dispatched. This workflow only *seals* the release: it verifies the
   # already-promoted images from the registry, then attaches the manifest + SBOMs.
   # If the images have not been promoted, verify-release-artifacts.sh fails loud.
+  # Environment binding lives on the gate job (guard); needs-chain enforced (WF-19 accepted).
   release:
     needs: guard
     runs-on: [self-hosted, linux, x64, zenchron]

@@ -93,6 +93,7 @@ jobs:
 
   images:
     needs: gate
+    # Environment binding lives on the gate job; needs-chain enforced (WF-19 accepted).
     # Caps the reusable publish-ghcr workflow — grants exactly what it declares:
     # packages:write (push) + id-token:write (keyless cosign) + contents:read.
     # No security-events: nothing in the publish path uploads SARIF (WF-15).
@@ -110,6 +111,7 @@ jobs:
 
   # Post-publication: verify each immutable RC image's identity, then build the
   # authoritative signed RC manifest — the ONLY input stable promotion consumes.
+  # Environment binding lives on the gate job; needs-chain enforced (WF-19 accepted).
   manifest:
     needs: images
     runs-on: [self-hosted, linux, x64, zenchron]
