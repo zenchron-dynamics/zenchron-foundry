@@ -86,3 +86,17 @@ CVE-2026-6276
 # serving is net/http. Drop + bump bases when upstream rebuilds.
 # owner: platform/security · review-by 2026-08-31 (aligned to policy expires_at)
 GHSA-hrxh-6v49-42gf
+
+# -----------------------------------------------------------------------------
+# curl CVE-2026-5773 — REMAINS ONLY for the non-bumped nginx (deb12u12) and
+# caddy-alpine (8.19.0-r0) bases; the six Debian php bases absorbed deb12u15
+# and their blanket entry was dropped. NOTE the global-scope limitation: this
+# line suppresses the CVE on ALL images; the php images are clean of it, so
+# the suppression is a no-op there (policy scope: nginx, caddy).
+# owner: platform/security · review-by 2026-08-31
+CVE-2026-5773
+
+# Go stdlib CVE-2026-39822 — REMAINS ONLY for the upstream caddy binary
+# (Go 1.26.3); frankenphp's rebuilt base is clean (scope note as above).
+# owner: platform/security · review-by 2026-08-31
+CVE-2026-39822
