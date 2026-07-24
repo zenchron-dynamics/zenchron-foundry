@@ -25,6 +25,9 @@ on:
       verify_rc_run_id:
         description: "verify-rc run ID that certified THIS commit (10/10 runtime) — RUNTIME_RESULT is derived from it"
         required: true
+      confirmation:
+        description: "Typed confirmation: SEAL-<version>-<tag commit sha>"
+        required: true
 
 # Caller permissions cap the reusable publish workflow — must grant what it needs.
 permissions:
@@ -98,11 +101,17 @@ jobs:
           REF: ${{ github.ref }}
           VERSION: ${{ github.event.inputs.version }}
           RC: ${{ github.event.inputs.rc }}
+          SHA: ${{ github.sha }}
+          CONFIRMATION: ${{ github.event.inputs.confirmation }}
         run: |
           set -euo pipefail
           . scripts/lib/common.sh
           require_rc "$RC"
           bash scripts/check-promotion-ref.sh "$REF" "$VERSION"
+          # WF-09: the seal was the only outward stage without a typed
+          # confirmation (publish + promote both have one). SEAL-<version>-<sha>.
+          [ "$CONFIRMATION" = "SEAL-${VERSION}-${SHA}" ] \
+            || die "confirmation must be SEAL-<version>-<tag commit sha>"
       - name: Tag commit must be reachable from master
         env:
           SHA: ${{ github.sha }}
