@@ -226,13 +226,18 @@ jobs:
           elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
           else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
-      - name: Download all findings
+      # WF-11: NO continue-on-error here — a FAILED download must fail this job
+      # loudly instead of silently skipping issue creation. Zero findings is NOT
+      # a failure: with `pattern:`, download-artifact v4 succeeds when nothing
+      # matches (it just downloads nothing), and the reporting step below treats
+      # the missing/empty `all-findings` directory as the real "no findings"
+      # signal and exits green.
+      - name: Download all findings (zero matches OK; a failed download fails the job)
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v4
         with:
           path: all-findings
           pattern: rebuild-findings-*
           merge-multiple: true
-        continue-on-error: true
       - name: Open deduplicated issues on new fixable findings
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
