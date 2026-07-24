@@ -2,10 +2,11 @@
 # Prevents `COPY . .` from leaking secrets / bloat into the image.
 
 # --- secrets / credentials (NEVER in an image) ---
-.env
-.env.*
-!.env.prod          # committed non-secret prod defaults are OK; real secrets are injected
+# All .env* files stay out of the image: runtime config/secrets are injected as
+# real environment variables (compose `environment:`, orchestrator secrets).
+.env*
 *.pem
+*.p12
 *.key
 *.crt
 config/secrets/*/*.decrypt.private.php
@@ -16,6 +17,7 @@ auth.json
 .gitignore
 .gitattributes
 .github
+.gitlab-ci.yml
 
 # --- dependencies rebuilt in the builder stage ---
 node_modules

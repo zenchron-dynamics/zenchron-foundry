@@ -12,7 +12,7 @@ COPY composer.json composer.lock symfony.lock ./
 RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction --optimize-autoloader
 COPY . .
 RUN composer dump-autoload --optimize --classmap-authoritative \
- && php bin/console cache:warmup --env=prod || true
+ && php bin/console cache:warmup --env=prod
 
 # --- runtime: php-fpm (ships) -----------------------------------------------
 FROM ghcr.io/zenchron-dynamics/php-fpm:8.3-prod AS app

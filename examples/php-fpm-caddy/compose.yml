@@ -1,11 +1,15 @@
 services:
   php-fpm:
+    # production: pin by digest — image: ghcr.io/zenchron-dynamics/php-fpm@sha256:<digest>
+    # (see README verify section). The tag below is a dev convenience only.
     image: ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
     volumes:
       - ./app:/app:ro
     networks: [backend]
 
   caddy:
+    # production: pin by digest — image: ghcr.io/zenchron-dynamics/caddy@sha256:<digest>
+    # (see README verify section). The tag below is a dev convenience only.
     image: ghcr.io/zenchron-dynamics/caddy:prod
     depends_on:
       php-fpm:
