@@ -73,15 +73,19 @@ assert_required_checks() {
   prod="$(producible_names | sort -u)"
   req="$(yq -r '.required_checks[]' "$policy" | sort -u)"
 
+  # Herestrings, not `printf | grep -q`: grep -q exits at the first match
+  # without draining stdin, so printf can take SIGPIPE (141) and, under
+  # pipefail, flip a MATCHED name into a spurious mismatch → REFUSE. Hit
+  # intermittently on the runner (PR #76); a herestring has no pipe to break.
   while IFS= read -r n; do
     [ -n "$n" ] || continue
-    printf '%s\n' "$prod" | grep -Fxq "$n" || { echo "  unproducible: $n"; missing=1; }
+    grep -Fxq "$n" <<<"$prod" || { echo "  unproducible: $n"; missing=1; }
   done <<EOF
 $req
 EOF
   while IFS= read -r n; do
     [ -n "$n" ] || continue
-    printf '%s\n' "$req" | grep -Fxq "$n" || { echo "  not required: $n"; missing=1; }
+    grep -Fxq "$n" <<<"$req" || { echo "  not required: $n"; missing=1; }
   done <<EOF
 $prod
 EOF
