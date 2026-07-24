@@ -6,9 +6,13 @@ on:
     - cron: "0 3 * * 1"        # weekly rebuild-and-rescan, Monday 03:00 UTC
   pull_request:
     branches: [master]
+    # WF-05: also trigger on changes to the scan logic itself — this workflow
+    # and the scripts it (and its gates) run — not only on image/policy edits.
     paths:
       - "images/**"
       - "policies/**"
+      - ".github/workflows/scan-images.yml"
+      - "scripts/**"
 
 permissions:
   contents: read
@@ -27,28 +31,29 @@ jobs:
       # Serialized — small shared self-hosted disk; see ci.yml build-test note.
       max-parallel: 1
       matrix:
-        # gate=true -> enforcing Trivy gate (fixable CRITICAL/HIGH fail the build).
-        # All 10 images now enforce; there is no report-only image. Unfixable
-        # upstream lag is excluded by `--ignore-unfixed` and tracked as explicit,
-        # non-expired entries in policies/vulnerability-exceptions.yaml (validated
-        # in CI). See docs/vulnerability-management.md.
+        # WF-18: every image enforces the Trivy gate unconditionally (fixable
+        # CRITICAL/HIGH fail the build) — there is no report-only image, so the
+        # former per-entry `gate:` flag is gone. Unfixable upstream lag is
+        # excluded by `--ignore-unfixed` and tracked as explicit, non-expired
+        # entries in policies/vulnerability-exceptions.yaml (validated in CI).
+        # See docs/vulnerability-management.md.
         include:
-          - { fam: php-fpm,    ver: "8.3", ctx: "images/php-fpm/8.3",    gate: true }
-          - { fam: php-cli,    ver: "8.3", ctx: "images/php-cli/8.3",    gate: true }
-          - { fam: php-worker, ver: "8.3", ctx: "images/php-worker/8.3", gate: true }
-          - { fam: php-frankenphp, ver: "8.3", ctx: "images/php-frankenphp/8.3", gate: true }
-          - { fam: php-fpm,    ver: "8.4", ctx: "images/php-fpm/8.4",    gate: true }
-          - { fam: php-cli,    ver: "8.4", ctx: "images/php-cli/8.4",    gate: true }
-          - { fam: php-worker, ver: "8.4", ctx: "images/php-worker/8.4", gate: true }
-          - { fam: php-frankenphp, ver: "8.4", ctx: "images/php-frankenphp/8.4", gate: true }
-          - { fam: nginx,      ver: "prod", ctx: "images/nginx",         gate: true }
+          - { fam: php-fpm,    ver: "8.3", ctx: "images/php-fpm/8.3" }
+          - { fam: php-cli,    ver: "8.3", ctx: "images/php-cli/8.3" }
+          - { fam: php-worker, ver: "8.3", ctx: "images/php-worker/8.3" }
+          - { fam: php-frankenphp, ver: "8.3", ctx: "images/php-frankenphp/8.3" }
+          - { fam: php-fpm,    ver: "8.4", ctx: "images/php-fpm/8.4" }
+          - { fam: php-cli,    ver: "8.4", ctx: "images/php-cli/8.4" }
+          - { fam: php-worker, ver: "8.4", ctx: "images/php-worker/8.4" }
+          - { fam: php-frankenphp, ver: "8.4", ctx: "images/php-frankenphp/8.4" }
+          - { fam: nginx,      ver: "prod", ctx: "images/nginx" }
           # caddy: ENFORCING (state A). CVE-2026-34986 was RESOLVED in the pinned
           # caddy:2-alpine base (go-jose/v3 v3.0.5) — see docs/security/cve-2026-
           # 34986-review.md. The gate runs `--ignore-unfixed`, so it fails ONLY on
           # a FIXABLE CRITICAL/HIGH; any residual unfixable Alpine/Go-stdlib lag is
           # carried as an explicit, non-expired exception in
           # policies/vulnerability-exceptions.yaml — never as report-only.
-          - { fam: caddy,      ver: "prod", ctx: "images/caddy",         gate: true }
+          - { fam: caddy,      ver: "prod", ctx: "images/caddy" }
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
@@ -128,7 +133,6 @@ jobs:
       # fresher base digest exists: bump it (docs/security/base-image-patching.md).
       - name: Trivy gate (fixable CRITICAL/HIGH)
         id: trivy_gate
-        if: ${{ matrix.gate == true }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/trivy-cache
