@@ -51,9 +51,18 @@ jobs:
           - { fam: caddy,      ver: "prod", ctx: "images/caddy",         gate: true }
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
         run: |
           set -euo pipefail
           ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
           case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
           # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
           # prior container step blocks checkout even when $ws itself looks ours.
