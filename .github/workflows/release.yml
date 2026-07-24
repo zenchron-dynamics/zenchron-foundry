@@ -35,6 +35,12 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# WF-21: single source for the registry namespace (matches the other
+# workflows) — steps must reference these, never a hard-coded literal.
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: zenchron-dynamics
+
 jobs:
   # P0 stable-release gate. Nothing publishes until ALL of these hold:
   #   * the ref is a tag in the approved version format (vYYYY.MM.DD[.N]);
@@ -277,7 +283,7 @@ jobs:
       - name: Collect per-image SBOMs + checksums (strict — no image may be skipped)
         run: |
           set -euo pipefail
-          NS="ghcr.io/zenchron-dynamics"
+          NS="${REGISTRY}/${NAMESPACE}"   # WF-21: from the shared workflow env, not a literal
           for ref in php-fpm:8.4-prod php-cli:8.4-prod php-worker:8.4-prod php-frankenphp:8.4-prod \
                      php-fpm:8.3-prod php-cli:8.3-prod php-worker:8.3-prod php-frankenphp:8.3-prod \
                      caddy:prod nginx:prod; do
