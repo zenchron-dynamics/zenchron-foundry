@@ -2,8 +2,13 @@
 # =============================================================================
 # assert-image-matrix.sh
 # -----------------------------------------------------------------------------
-# Asserts the production image matrix is exactly the expected 10 images, each
-# backed by a Dockerfile on disk:
+# self-test: waived (thin wrapper; exercised by the "image matrix (10/10)" gate
+# in scripts/macro-validate.sh, ci.yml, and tests/lib/test_foundations.sh's
+# matrix drift-guard)
+#
+# Asserts the production image matrix — derived from MATRIX_IMAGES in
+# scripts/lib/common.sh, the ONE authoritative definition — is exactly the
+# expected images, each backed by a Dockerfile on disk:
 #
 #   php-cli/8.3        php-cli/8.4
 #   php-fpm/8.3        php-fpm/8.4
@@ -16,20 +21,30 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/common.sh
+. "$ROOT/scripts/lib/common.sh"
+
 IMAGES="${ROOT}/images"
 
-EXPECTED=(
-  "php-cli/8.3/Dockerfile"
-  "php-cli/8.4/Dockerfile"
-  "php-fpm/8.3/Dockerfile"
-  "php-fpm/8.4/Dockerfile"
-  "php-worker/8.3/Dockerfile"
-  "php-worker/8.4/Dockerfile"
-  "php-frankenphp/8.3/Dockerfile"
-  "php-frankenphp/8.4/Dockerfile"
-  "nginx/Dockerfile"
-  "caddy/Dockerfile"
-)
+# Expected Dockerfile list, derived from the authoritative matrix:
+# <family>:<selector> -> family/selector/Dockerfile (family/Dockerfile for the
+# versionless "prod" edge images). No local copy of the matrix (SC-07).
+EXPECTED=()
+while IFS= read -r token; do
+  [ -n "$token" ] || continue
+  fam="${token%:*}"; sel="${token#*:}"
+  case "$sel" in
+    prod) EXPECTED+=("${fam}/Dockerfile") ;;
+    *)    EXPECTED+=("${fam}/${sel}/Dockerfile") ;;
+  esac
+done < <(matrix_images)
+
+# INTENTIONAL independent count assertion: the literal 10 is NOT taken from
+# MATRIX_COUNT, so an accidental edit shrinking/growing MATRIX_IMAGES is caught
+# here instead of silently re-baselining the gate.
+if [[ "${#EXPECTED[@]}" -ne 10 ]]; then
+  die "matrix derived ${#EXPECTED[@]} images, expected exactly 10 — MATRIX_IMAGES drifted"
+fi
 
 missing=0
 found=0
@@ -60,11 +75,11 @@ fi
 
 echo
 echo "=== Summary ==="
-printf 'FOUND=%d/10 MISSING=%d FORBIDDEN=%d\n' "${found}" "${missing}" "${forbidden}"
+printf 'FOUND=%d/%d MISSING=%d FORBIDDEN=%d\n' "${found}" "${MATRIX_COUNT}" "${missing}" "${forbidden}"
 
 if [[ "${missing}" -gt 0 || "${forbidden}" -gt 0 ]]; then
   echo "RESULT: FAIL"
   exit 1
 fi
 
-echo "MATRIX OK: 10/10"
+echo "MATRIX OK: ${found}/${MATRIX_COUNT}"

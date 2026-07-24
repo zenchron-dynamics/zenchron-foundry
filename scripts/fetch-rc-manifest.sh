@@ -101,6 +101,10 @@ _frm_self_test() {
   local SRC="$tmp/src"; mkdir -p "$SRC"
 
   # A valid signed-shape RC manifest (sig/pem are placeholders; LOCAL=1 skips cosign).
+  # SC-20: this fixture's image list INTENTIONALLY duplicates MATRIX_IMAGES
+  # instead of deriving from it — an independent copy makes the self-test a
+  # drift tripwire for accidental edits to the authoritative matrix
+  # (owner-accepted duplication; do not centralize).
   REV="$REV" OUT="$SRC/release-manifest.yaml" python3 - <<'PY'
 import os, yaml, hashlib
 R = os.environ["REV"]

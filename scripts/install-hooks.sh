@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin wrapper; exercised by make init / make hooks on every dev bootstrap)
 # Install local git hooks for zenchron-foundry.
 # Installs the custom hooks in scripts/git-hooks/ into .git/hooks, and (if the
 # pre-commit framework is available) wires up pre-commit too.

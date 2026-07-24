@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin wrapper; exercised by the "container pinning" gate in scripts/macro-validate.sh and the ci.yml static-gates job)
 # Supply-chain guard: every container image referenced in CI must be immutable.
 # Fails on:
 #   * any ':latest' tag in a workflow;

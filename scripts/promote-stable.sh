@@ -27,8 +27,6 @@ _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/release-manifest.sh
 . "$_d/lib/release-manifest.sh"
 
-mkey() { case "$2" in prod) printf '%s' "$1" ;; *) printf '%s-%s' "$1" "$2" ;; esac; }
-
 promote_stable() {
   local VERSION="" RC="" MANIFEST=""
   while [ "$#" -gt 0 ]; do
@@ -72,7 +70,7 @@ promote_stable() {
   local nalias=0 t fam sel key rcdig suf ref prior
   for t in $MATRIX_IMAGES; do
     fam="${t%:*}"; sel="${t#*:}"
-    key="$(mkey "$fam" "$sel")"
+    key="$(manifest_key "$fam" "$sel")"
     rcdig="$(manifest_image_field "$MANIFEST" "$key" digest)"
     is_digest "$rcdig" || die "manifest digest for $key is not sha256: '$rcdig'"
     for suf in $(stable_aliases "$sel" "$REL"); do
@@ -135,6 +133,9 @@ _ps_self_test() {
   _t() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
   _mkfix() { # <dir> -> builds rc.yaml (+sha256), seeds mock priors
+    # SC-20: the fixture's image list INTENTIONALLY duplicates MATRIX_IMAGES —
+    # an independent copy is a drift tripwire for the authoritative matrix
+    # (owner-accepted duplication; do not centralize).
     local d="$1"; mkdir -p "$d/mock" "$d/art"
     R="$R" OUT="$d/art/rc.yaml" python3 - <<'PY'
 import os, yaml, hashlib
@@ -175,7 +176,7 @@ PY
       for suf in $(stable_aliases "$sel" 2026.07.03); do
         ref="$(full_ref "$fam" "$suf")"
         got="$(REG_BACKEND=mock REG_MOCK_DIR="$d/mock" reg_digest "$ref" 2>/dev/null || echo '')"
-        [ "$got" = "$(_rcdig "$(mkey "$fam" "$sel")")" ] || return 1
+        [ "$got" = "$(_rcdig "$(manifest_key "$fam" "$sel")")" ] || return 1
       done
     done
   }

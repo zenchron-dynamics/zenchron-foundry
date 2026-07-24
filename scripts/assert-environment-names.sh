@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# self-test: waived (thin wrapper; exercised by the "environment names" gate in scripts/macro-validate.sh and the ci.yml static-gates job)
 # =============================================================================
 # Zenchron Dynamics — release-environment name guard.
 # Fails CI if any workflow pins a deployment `environment:` that is not one of
@@ -24,7 +25,9 @@ cd "$ROOT"
 # Scan tracked workflow files. `git ls-files` keeps us to committed sources and
 # stays portable (no mapfile — macOS bash 3.2).
 files="$(git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml')"
-[ -n "$files" ] || { echo "==> assert-environment-names: no workflow files found."; exit 0; }
+# SC-28: fail closed — this repo always has workflows, so an empty glob means
+# the file discovery itself regressed and MUST NOT vacuous-pass the gate.
+[ -n "$files" ] || { echo "==> assert-environment-names: FAIL — zero workflow files found (glob/discovery regression; the repo always has workflows)." >&2; exit 1; }
 
 # All the real work is one awk pass per file: emit "file:line:VALUE" for every
 # deployment environment name it can resolve.

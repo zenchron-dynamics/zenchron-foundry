@@ -16,6 +16,9 @@
 # Env: GITHUB_WORKFLOW, GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT, MATRIX_KEY (optional),
 #      REGISTRY (default ghcr.io). DOCKER_FN injectable for tests.
 # =============================================================================
+# Deliberately `-e`-less: best-effort cleanup must attempt EVERY step (builder
+# rm, container rm, logout, temp-material wipe) even when an earlier one fails
+# — an errexit abort would leave later job debris behind on the shared runner.
 set -uo pipefail
 
 _slug() { printf '%s' "$1" | tr '[:upper:] /:@.' '[:lower:]______' | tr -cd 'a-z0-9_-'; }
