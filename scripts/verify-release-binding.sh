@@ -38,8 +38,7 @@ _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 REL="${REL:-}"  # placeholder to satisfy set -u in some shells
 
-# manifest key per matrix image
-mkey() { case "$2" in prod) printf '%s' "$1" ;; *) printf '%s-%s' "$1" "$2" ;; esac; }
+# manifest key per matrix image: shared helper (lib/release-manifest.sh)
 
 verify_binding() {
   local manifest="$1" tag="$2" commit="$3"
@@ -55,7 +54,7 @@ verify_binding() {
   local n=0 img_ok=0 na=0 na_ok=0
   for t in $MATRIX_IMAGES; do
     n=$((n+1)); local fam="${t%:*}" sel="${t#*:}" key mdig suf ref sdig this_ok=1
-    key="$(mkey "$fam" "$sel")"
+    key="$(manifest_key "$fam" "$sel")"
     mdig="$(manifest_image_field "$manifest" "$key" digest)"
     is_digest "$mdig" || die "manifest digest for $key is not sha256: '$mdig'"
     # SC-09: the FULL alias inventory, not just the canonical prod alias.
@@ -86,7 +85,7 @@ verify_binding() {
     export EXPECTED_REPO="${EXPECTED_REPO:-zenchron-dynamics/zenchron-foundry}"
     for t in $MATRIX_IMAGES; do
       local fam="${t%:*}" sel="${t#*:}" key mdig
-      key="$(mkey "$fam" "$sel")"
+      key="$(manifest_key "$fam" "$sel")"
       mdig="$(manifest_image_field "$manifest" "$key" digest)"
       bash "$_d/verify-image-release-identity.sh" "$NS/$fam@$mdig"
     done

@@ -58,6 +58,10 @@ jobs:
   gate:
     runs-on: [self-hosted, linux, x64, zenchron]
     environment: foundry-production
+    permissions:
+      contents: read
+      checks: read             # check-exact-commit-ci.sh: GET /commits/{sha}/check-runs
+      statuses: read           # check-exact-commit-ci.sh: GET /commits/{sha}/status
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
@@ -112,6 +116,15 @@ jobs:
             || die "confirmation must be PROMOTE-<version>-<expected_revision>"
           [ "$RISK" = "ACCEPT-RISK" ] || die "risk_acceptance_confirmation must be ACCEPT-RISK"
           echo "OK: promoting $RC -> $VERSION @ $EXPECTED_REVISION from $REF (confirmed)"
+      - name: Exact-commit CI gate (every required check green on the tag commit)
+        # WF-22: promotion used to trust the tag + signed manifest and leave the
+        # CI-green proof to the seal — a red-CI commit was only caught after the
+        # aliases had already moved. Same gate the seal runs, same fail-closed.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: bash scripts/check-exact-commit-ci.sh "$SHA"
 
   # Environment binding lives on the gate job; needs-chain enforced (WF-19 accepted).
   promote:
