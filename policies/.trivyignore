@@ -100,3 +100,9 @@ CVE-2026-5773
 # (Go 1.26.3); frankenphp's rebuilt base is clean (scope note as above).
 # owner: platform/security · review-by 2026-08-31
 CVE-2026-39822
+
+# kin-openapi ValidationHandler fail-open (CRITICAL, no CVE) in the upstream
+# FrankenPHP binary — upstream-rebuild-only; no OpenAPI validation handler is
+# configured in any shipped Caddyfile. Tracking: issue #79.
+# owner: platform/security · review-by 2026-08-31
+GHSA-r277-6w6q-xmqw
