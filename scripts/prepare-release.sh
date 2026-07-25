@@ -131,8 +131,10 @@ cat <<PLAN
     git tag -a $TAG -m "Platform release $TAG"
     ALLOW_RELEASE_TAG_PUSH=1 git push origin $TAG
 
-  Pushing the tag triggers release.yml -> publish-ghcr.yml (build, push, cosign
-  sign, SBOM attest) and creates the GitHub Release.
+  Pushing the tag triggers NOTHING by itself — release.yml is dispatch-only.
+  The tag makes foundry-production (stable tags only) reachable; the ceremony
+  continues with promote-stable, rollback-exercise, then the release.yml seal,
+  all dispatched FROM this tag (docs/release-checklist.md).
 PLAN
 
 if [ "$DRY_RUN" -eq 1 ]; then
@@ -149,11 +151,11 @@ read -r CONFIRM
 git tag -a "$TAG" -m "Platform release $TAG"
 ok "created local tag $TAG"
 
-printf 'Push %s to origin now (triggers publish + signing)? [yes/NO]: ' "$TAG"
+printf 'Push %s to origin now (enables tag-dispatched promotion/seal)? [yes/NO]: ' "$TAG"
 read -r PUSH
 if [ "$PUSH" = "yes" ]; then
     ALLOW_RELEASE_TAG_PUSH=1 git push origin "$TAG"
-    ok "pushed $TAG — watch release.yml in GitHub Actions"
+    ok "pushed $TAG — continue the ceremony per docs/release-checklist.md"
 else
     echo "  Tag created locally but NOT pushed. To push later:"
     echo "    ALLOW_RELEASE_TAG_PUSH=1 git push origin $TAG"
