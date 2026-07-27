@@ -14,7 +14,13 @@
 #   * Callers run with `set -euo pipefail`; because `check` evaluates its command
 #     inside an `if` condition, errexit is suppressed for the assertion itself, so
 #     a failing probe is recorded rather than killing the run.
+#   * `require_image` records the ref in SMOKE_IMAGE so `finish` can run the
+#     UNIVERSAL final-image assertions once, here, instead of in six scripts.
 # =============================================================================
+
+# Directory of this library — used to reach sibling scripts regardless of the
+# caller's cwd (CI invokes the family scripts from the repo root).
+_SMOKE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
 # Assertion counters (global, per-process).
 PASS=0
@@ -44,7 +50,28 @@ pass_count() { printf '%d\n' "$PASS"; }
 fail_count() { printf '%d\n' "$FAIL"; }
 
 # finish — print the summary and exit with the right status.
+#
+# Runs the UNIVERSAL final-image assertions first, so every smoke script gets
+# them without repetition and on both call paths (scripts/smoke-test.sh, and
+# ci.yml which invokes the family scripts directly). Today that is the
+# zero-file-capabilities contract (#100): under `cap_drop: ALL` +
+# `no-new-privileges`, a binary carrying a file capability cannot even be
+# exec'd, so a surviving capability is a broken image, not a nuance.
 finish() {
+    if [ -n "${SMOKE_IMAGE:-}" ]; then
+        # CAPABILITY_INVENTORY_DIR (set by CI) also captures the machine-readable
+        # inventory here, so the evidence artifact costs no extra image export.
+        if [ -n "${CAPABILITY_INVENTORY_DIR:-}" ]; then
+            mkdir -p "$CAPABILITY_INVENTORY_DIR"
+            _cap_json="${CAPABILITY_INVENTORY_DIR}/$(printf '%s' "$SMOKE_IMAGE" | tr '/:' '--').json"
+            check "no file capabilities in the final image (cap_drop: ALL contract)" \
+                bash "${_SMOKE_LIB_DIR}/../ci/capability-inventory.sh" "$SMOKE_IMAGE" --json "$_cap_json"
+        else
+            check "no file capabilities in the final image (cap_drop: ALL contract)" \
+                bash "${_SMOKE_LIB_DIR}/../ci/capability-inventory.sh" "$SMOKE_IMAGE"
+        fi
+    fi
+
     _total=$((PASS + FAIL))
     printf 'SMOKE SUMMARY: %d passed, %d failed, %d checks\n' "$PASS" "$FAIL" "$_total"
     if [ "$_total" -eq 0 ]; then
@@ -58,11 +85,13 @@ finish() {
 }
 
 # require_image <image-ref> — abort early (before any checks) when no ref given.
+# Also records the ref for the universal assertions in `finish`.
 require_image() {
     if [ -z "${1:-}" ]; then
         printf 'usage: %s <image-ref>\n' "$(basename "$0")" >&2
         exit 2
     fi
+    SMOKE_IMAGE="$1"
 }
 
 # -----------------------------------------------------------------------------

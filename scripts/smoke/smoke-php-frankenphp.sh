@@ -39,7 +39,13 @@ cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 docker rm -f "$NAME" >/dev/null 2>&1 || true
+# Run under the FULL production profile, not read-only rootfs alone:
+# `cap_drop: ALL` + `no-new-privileges` is where a leftover file capability
+# actually bites — with no-new-privileges the kernel refuses to exec a file
+# carrying capabilities, so this container failing to serve IS the capability
+# regression (#100), observed behaviourally rather than inferred.
 if docker run -d --name "$NAME" --read-only --tmpfs /tmp \
+        --cap-drop ALL --security-opt no-new-privileges \
         -p 127.0.0.1::8080 -p 127.0.0.1::8081 "$IMG" >/dev/null; then
     HTTP_PORT="$(docker port "$NAME" 8080/tcp 2>/dev/null | head -n1 | sed 's/.*://')"
     READY_PORT="$(docker port "$NAME" 8081/tcp 2>/dev/null | head -n1 | sed 's/.*://')"

@@ -39,11 +39,42 @@ COPY conf.d/     /etc/caddy/conf.d/
 # terminate TLS upstream, so the capability is unnecessary; removing it lets the
 # image run with ZERO Linux capabilities. (To bind :80/:443 directly, front it
 # with an LB or use the upstream caddy image instead.)
-RUN setcap -r /usr/bin/caddy 2>/dev/null || true \
-    && addgroup -g 10001 app 2>/dev/null || true \
-    && adduser -u 10001 -G app -h /app -s /sbin/nologin -D app 2>/dev/null || true \
-    && mkdir -p /app /data/caddy /config/caddy \
-    && chown -R 10001:10001 /app /data /config /etc/caddy
+#
+# Capability removal is FAIL-CLOSED (#100). This used to read
+# `setcap -r ... 2>/dev/null || true`, which turns a missing binary, an absent
+# setcap, or a failed removal into a green build shipping a capability the
+# runtime contract says cannot exist. Every step below is load-bearing, and the
+# removal is proven afterwards instead of assumed:
+#   1. the binary must exist and be executable;
+#   2. setcap/getcap must be present — this Alpine base ships libcap, and per
+#      ADR-0001 this image runs NO apk commands, so they cannot be installed
+#      here: their absence must fail the build, not be papered over;
+#   3. the removal itself must succeed;
+#   4. the binary must afterwards carry NO capability;
+#   5. NO file anywhere in the image may carry one.
+# Step 5 is the real guarantee: it catches a capability arriving by some other
+# path in a future base image, which a check scoped to /usr/bin/caddy would miss.
+# The identity/dir commands lose their `|| true` for the same reason — a failed
+# adduser must not yield an image whose USER does not exist.
+RUN set -eux; \
+    test -x /usr/bin/caddy; \
+    command -v setcap >/dev/null || { echo "REFUSE: setcap absent; cannot remove capabilities" >&2; exit 1; }; \
+    command -v getcap >/dev/null || { echo "REFUSE: getcap absent; cannot verify removal" >&2; exit 1; }; \
+    setcap -r /usr/bin/caddy; \
+    if [ -n "$(getcap /usr/bin/caddy)" ]; then \
+        echo "REFUSE: /usr/bin/caddy still carries: $(getcap /usr/bin/caddy)" >&2; \
+        exit 1; \
+    fi; \
+    remaining="$(getcap -r / 2>/dev/null)"; \
+    if [ -n "${remaining}" ]; then \
+        echo "REFUSE: file capabilities remain in the final image:" >&2; \
+        echo "${remaining}" >&2; \
+        exit 1; \
+    fi; \
+    addgroup -g 10001 app; \
+    adduser -u 10001 -G app -h /app -s /sbin/nologin -D app; \
+    mkdir -p /app /data/caddy /config/caddy; \
+    chown -R 10001:10001 /app /data /config /etc/caddy
 
 ENV XDG_DATA_HOME=/data XDG_CONFIG_HOME=/config
 
