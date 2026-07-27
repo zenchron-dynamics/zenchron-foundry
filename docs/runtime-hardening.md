@@ -26,6 +26,42 @@ platform images **strip at build** — otherwise the binary fails to exec under
 these images cannot bind :80/:443 directly; terminate TLS at an upstream
 LB/ingress and forward to the high ports (8080/8443) — the documented topology.
 
+### How the strip is enforced (#100)
+
+The removal used to be `setcap -r … 2>/dev/null || true`, so a missing binary, an
+absent `setcap`, or a failed removal produced a **green build shipping an image
+that cannot start** under the profile above. It is now fail-closed and proven at
+three levels:
+
+1. **In the build** — the binary must exist, `setcap`/`getcap` must be present,
+   the removal must succeed, the binary must afterwards carry no capability, and
+   `getcap -r /` must find **none anywhere** in the image. Any of these REFUSEs
+   the build. (Caddy runs no `apk` commands per ADR-0001, so a missing `setcap`
+   cannot be installed there — it must fail the build, not be skipped. For
+   FrankenPHP the whole-image scan runs *before* `libcap2-bin` is purged, or the
+   verifier would be gone before there was anything final to verify.)
+2. **On the assembled image** — `scripts/ci/capability-inventory.sh` reads file
+   capabilities from `docker export`'s PAX `SCHILY.xattr.security.capability`
+   records, needing **no tools inside the image**. That is what makes it work for
+   FrankenPHP (which purges `libcap2-bin`) and for any future distroless image
+   with no shell. It runs for **all 10 images** from `scripts/smoke/lib.sh`, and
+   CI publishes its JSON as a `capability-inventory-*` artifact — on failure too,
+   since that is when the offending paths are worth having.
+3. **At runtime** — the Caddy and FrankenPHP smoke tests start the container
+   with `--cap-drop ALL --security-opt no-new-privileges`, so a surviving
+   capability shows up as a container that cannot serve, not as a passing test.
+
+The same `|| true` shape was removed from the FrankenPHP static-archive deletion
+and the user/group creation: a failed `useradd` would otherwise yield an image
+whose `USER` does not exist.
+
+Verified 2026-07-28 on **both architectures** — `caddy` and `php-frankenphp:8.4`
+built for `linux/amd64` and `linux/arm64`: zero file capabilities, and the binary
+execs under `cap_drop: ALL` + `no-new-privileges`. The unmodified upstream
+`caddy:2-alpine` base, run the same way, fails with
+`exec /usr/bin/caddy: operation not permitted` — which is the regression this
+guards against.
+
 ## Writable-path exceptions (read-only rootfs)
 
 | Workload | Must be writable | Provided via |
