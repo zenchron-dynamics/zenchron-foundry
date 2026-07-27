@@ -4,6 +4,23 @@ Applies to the org-level self-hosted runners labelled
 `[self-hosted, linux, x64, zenchron]` (observed instances:
 `runner-prod-fsn1-org-zenchron-dynamics-1`, `...-2`).
 
+## Who may schedule work here — the trust boundary
+
+**Nothing on this page applies to fork pull requests: they never land on these
+runners.** Persistent + shared + Docker-capable + sudo-capable + workspaces
+reused by later trusted jobs is exactly the profile that must not execute
+attacker-authored code, and this repository is public.
+
+Every job selects its pool from the trigger's trust — `push`/tag/`schedule`/
+`workflow_dispatch` and same-repo PRs get `[self-hosted, linux, x64, zenchron]`;
+a **fork** PR gets an ephemeral GitHub-hosted `ubuntu-latest` VM. The rule, its
+exact predicate, and the consequences for fork contributors are specified in
+[repository-security.md § CI trust boundary](repository-security.md#ci-trust-boundary);
+`scripts/assert-runner-trust.sh` fails CI on any drift.
+
+Capacity planning therefore only has to account for **trusted** traffic: merges,
+same-repo PRs, releases, and the weekly scan/rebuild crons.
+
 ## Capacity ground truth (proved by the v2026.07.21 release ceremony)
 
 All runner instances live on **one host**: **2 vCPU / 4 GB RAM / 40 GB disk**.

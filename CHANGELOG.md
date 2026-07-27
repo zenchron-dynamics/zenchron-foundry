@@ -6,7 +6,24 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ## [Unreleased]
 
-Nothing yet.
+### Security — CI trust boundary (#96)
+
+- Fork pull requests can no longer schedule work on the persistent, shared,
+  sudo- and Docker-capable `[self-hosted, linux, x64, zenchron]` runners. Every
+  `ci.yml` job now derives `runs-on` from the trigger's trust: trusted events
+  (push/tag/schedule/dispatch, same-repo PRs) keep the self-hosted pool, fork PRs
+  get an ephemeral GitHub-hosted `ubuntu-latest` VM.
+- New fail-closed gate `scripts/assert-runner-trust.sh` (wired into
+  `make validate` and the `repo structure` job) enforces this across **every**
+  workflow: no `pull_request_target` anywhere, no unguarded PR-reachable job on a
+  privileged label, no unprovable workflow delegation from a PR job, and no
+  vacuous pass on empty discovery. Regression test:
+  `tests/runner/test_workflow_trust.sh`.
+- Docs truth-synced: new *CI trust boundary* section in `repository-security.md`
+  (plus a dated correction — the repo is verifiably **public**, reconciliation
+  tracked by #97), trust-boundary preface in `runner-capacity.md`, threat **T5a**
+  in the threat model, and a rewritten **AR-2** (its "runner is root without
+  sudo" text was already contradicted by the 2026-07-09 runner findings).
 
 ## [v2026.07.24] - 2026-07-25
 
