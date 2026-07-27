@@ -162,7 +162,8 @@ re-issue with only `read:packages`.
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
+  --certificate-identity-regexp \
+  '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 ```

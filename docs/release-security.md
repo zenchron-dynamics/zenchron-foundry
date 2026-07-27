@@ -45,18 +45,31 @@ Generic workflows cannot push production tags — only the protected
   refuses any counted result that is not a full `n/n` (so a real `9/10` — or a
   missing/absent value — blocks the seal).
 
-## Identity pinning — open hardening item
+## Identity pinning — CLOSED
 
-The current default identity regex is broad:
-`https://github.com/zenchron-dynamics/zenchron-foundry/.*`. Per the release
-policy this should be **narrowed** to the exact publisher workflow identities:
+This section used to read "the current default identity regex is broad" and
+listed narrowing it as an open item. That work is done: identities are anchored
+per signing role in
+[`../policies/cosign-identities.yaml`](../policies/cosign-identities.yaml), each
+pinned to an exact workflow **file** and **ref class**:
 
-- RC publisher (`publish-rc.yml` job identity),
-- stable promotion signer (where signing occurs),
-- scheduled candidate publisher.
+| Role | Accepts |
+|---|---|
+| `rc-publisher` | `publish-(ghcr\|rc).yml@refs/heads/master` |
+| `release` | `release.yml@refs/tags/v<CalVer>` |
+| `scheduled-rebuild` | `scheduled-rebuild.yml@refs/heads/master` |
 
-If reusable workflows change the certificate identity, document and test the exact
-identity. Track this before claiming a hardened production trust gate.
+A repository-wide `/.*` regex accepts **any** workflow in the repository —
+including `scheduled-rebuild.yml`, whose candidate images must never satisfy the
+production identity, and any workflow a future compromise adds. The anchored
+identities make both structurally impossible, and
+`scripts/assert-no-identity-wildcards.sh` fails CI if a wildcard example returns
+to the documentation (#99).
+
+Consumers should not hand-roll the check at all:
+`scripts/verify-image-release-identity.sh` applies the same policy the release
+gates use — signature, issuer, SBOM, provenance source repo/revision, OCI
+revision labels on every architecture, and required platforms.
 
 ## Revision / OCI-label equality
 

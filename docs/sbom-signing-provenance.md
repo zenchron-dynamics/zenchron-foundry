@@ -47,7 +47,8 @@ the RC manifest exactly as fetched from the `publish-rc` artifact.
 
 `verify-signatures.yml` (manual, or run after a release) pulls each published
 image and verifies its Cosign signature and SBOM attestation against the
-identity regexp `https://github.com/zenchron-dynamics/zenchron-foundry/.*` and
+anchored per-role identity from
+[`../policies/cosign-identities.yaml`](../policies/cosign-identities.yaml) and
 issuer `https://token.actions.githubusercontent.com`. Legacy 7.4/8.0 references
 were removed; it verifies the current 10-image set only.
 
@@ -55,12 +56,14 @@ Consumers verify before deploy:
 
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
+  --certificate-identity-regexp \
+  '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 
 cosign verify-attestation --type spdxjson \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
+  --certificate-identity-regexp \
+  '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 ```
