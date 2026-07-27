@@ -1,11 +1,39 @@
 name: ci
 
+# ---------------------------------------------------------------------------
+# CI TRUST BOUNDARY (see docs/repository-security.md#ci-trust-boundary)
+#
+# This repository is PUBLIC, so anyone can open a fork pull request whose head
+# commit contains arbitrary code: Dockerfiles, the `scripts/*.sh` these jobs
+# invoke, compose files, semgrep/yamllint configs. The `[self-hosted, linux,
+# x64, zenchron]` runners are PERSISTENT, shared, Docker-capable and sudo-
+# capable — executing fork-controlled code there is a runner-host and
+# release-supply-chain compromise path.
+#
+# Therefore EVERY job below selects its runner from the trust of the triggering
+# event, never from a static label list:
+#
+#   trusted   = push, or a pull_request whose head repo IS this repository
+#               -> [self-hosted, linux, x64, zenchron]
+#   untrusted = a pull_request from a FORK
+#               -> ubuntu-latest (ephemeral, GitHub-hosted, destroyed after use)
+#
+# `github.event.pull_request.head.repo.full_name` is set by GitHub from the head
+# ref, not by the submitter, so a PR branch cannot spoof it.
+#
+# scripts/assert-runner-trust.sh enforces this across every workflow and fails
+# CI on drift; tests/runner/test_workflow_trust.sh proves the gate rejects the
+# unguarded shape. Do not replace the expression below with a static label list.
+# ---------------------------------------------------------------------------
+
 on:
   push:
     branches: [master]
   pull_request:
     branches: [master]
 
+# No secrets are referenced by this workflow and the token stays read-only, so
+# an untrusted fork job on ubuntu-latest has nothing to exfiltrate.
 permissions:
   contents: read
 
@@ -16,7 +44,7 @@ concurrency:
 jobs:
   structure:
     name: repo structure
-    runs-on: [self-hosted, linux, x64, zenchron]
+    runs-on: ${{ fromJSON((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["self-hosted","linux","x64","zenchron"]' || '["ubuntu-latest"]') }}
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
@@ -47,6 +75,9 @@ jobs:
       - name: Assert all GitHub Actions are SHA-pinned
         run: bash scripts/assert-pinned-actions.sh
 
+      - name: Assert no fork PR can reach a privileged self-hosted runner
+        run: bash scripts/assert-runner-trust.sh
+
       - name: Assert required-release-checks match the real job names
         run: bash scripts/assert-required-checks.sh
 
@@ -64,7 +95,7 @@ jobs:
 
   lint:
     name: lint (shell / yaml / md / dockerfile)
-    runs-on: [self-hosted, linux, x64, zenchron]
+    runs-on: ${{ fromJSON((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["self-hosted","linux","x64","zenchron"]' || '["ubuntu-latest"]') }}
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
@@ -120,7 +151,7 @@ jobs:
 
   secrets:
     name: secret scan (gitleaks)
-    runs-on: [self-hosted, linux, x64, zenchron]
+    runs-on: ${{ fromJSON((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["self-hosted","linux","x64","zenchron"]' || '["ubuntu-latest"]') }}
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
@@ -154,7 +185,7 @@ jobs:
 
   sast:
     name: semgrep docker security
-    runs-on: [self-hosted, linux, x64, zenchron]
+    runs-on: ${{ fromJSON((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["self-hosted","linux","x64","zenchron"]' || '["ubuntu-latest"]') }}
     container: semgrep/semgrep:1.86.0@sha256:a9ea2d5621c29d815d90c2a3b2f9571da8972ef4ff855c9e4902681730240e35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -169,7 +200,7 @@ jobs:
 
   build-test:
     name: build+smoke ${{ matrix.target.fam }} ${{ matrix.target.ver }}
-    runs-on: [self-hosted, linux, x64, zenchron]
+    runs-on: ${{ fromJSON((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["self-hosted","linux","x64","zenchron"]' || '["ubuntu-latest"]') }}
     needs: [structure, lint]
     # Trust boundary: a fork PR builds its own Dockerfiles on the self-hosted
     # runner (arbitrary code). Only run for same-repo branches; fork PRs skip.
@@ -272,7 +303,7 @@ jobs:
   # gate on the matrix result so this required check cannot green a red matrix.
   build-results:
     name: aggregate build+smoke results
-    runs-on: [self-hosted, linux, x64, zenchron]
+    runs-on: ${{ fromJSON((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["self-hosted","linux","x64","zenchron"]' || '["ubuntu-latest"]') }}
     needs: build-test
     # always(): assemble evidence even when a leg failed. Same fork-PR trust
     # boundary as build-test (its legs skip there, so there is nothing to collect).
@@ -336,7 +367,7 @@ jobs:
 
   compose-validate:
     name: validate compose profiles
-    runs-on: [self-hosted, linux, x64, zenchron]
+    runs-on: ${{ fromJSON((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["self-hosted","linux","x64","zenchron"]' || '["ubuntu-latest"]') }}
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
