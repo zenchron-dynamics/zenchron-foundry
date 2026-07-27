@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# =============================================================================
+# tests/governance/test_repo_governance.sh — repository governance (issue #97).
+#
+# Offline only: the live half of the verification needs `gh` + network and runs
+# via `make verify-governance`. What is testable offline is the part that
+# actually rotted — the coupling between the declared policy, the single source
+# of required-check names, and the documents that make governance claims.
+#
+# The regression this locks: a document asserting a control that no file
+# declares and no check verifies (repository-security.md claimed protections
+# were impossible while the repo ran with zero protections).
+# =============================================================================
+set -uo pipefail
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT" || exit 1
+fail=0
+ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
+
+POLICY=policies/repository-governance.yaml
+EVIDENCE=docs/audits/governance-verification-2026-07-28.json
+
+ck "governance policy exists"          "test -f $POLICY"
+ck "verifier comparators self-test"    "bash scripts/verify-repo-governance.sh --self-test >/dev/null"
+ck "verifier is wired into the Makefile" \
+   "grep -q 'scripts/verify-repo-governance.sh' Makefile"
+
+# The policy must declare the enforced state, not an aspiration.
+ck "policy declares visibility public (verified 2026-07-28)" \
+   "python3 -c \"import yaml;assert yaml.safe_load(open('$POLICY'))['repository']['visibility']=='public'\""
+ck "branch ruleset declares active enforcement" \
+   "python3 -c \"import yaml;assert yaml.safe_load(open('$POLICY'))['branch_ruleset']['enforcement']=='active'\""
+ck "tag ruleset declares active enforcement" \
+   "python3 -c \"import yaml;assert yaml.safe_load(open('$POLICY'))['tag_ruleset']['enforcement']=='active'\""
+
+# No bypass actors anywhere: an escapable ruleset is not a control. The verifier
+# refuses a non-empty declaration, so this keeps the policy inside what it models.
+ck "no bypass actors declared for either ruleset" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$POLICY'))
+assert d['branch_ruleset']['bypass_actors']==[] and d['tag_ruleset']['bypass_actors']==[]\""
+
+# Release tags must be immutable, and tag CREATION must stay unrestricted or
+# scripts/prepare-release.sh can no longer cut a release.
+ck "tag ruleset makes v* immutable (deletion+non_fast_forward+update)" \
+   "python3 -c \"
+import yaml;r=set(yaml.safe_load(open('$POLICY'))['tag_ruleset']['required_rules'])
+assert {'deletion','non_fast_forward','update'} <= r, r\""
+ck "tag ruleset does NOT restrict tag creation (release path stays open)" \
+   "python3 -c \"
+import yaml;r=set(yaml.safe_load(open('$POLICY'))['tag_ruleset']['required_rules'])
+assert 'creation' not in r\""
+
+# Required checks have exactly ONE source of truth, shared with the release gate.
+ck "policy points required checks at required-release-checks.yaml" \
+   "python3 -c \"
+import yaml;s=yaml.safe_load(open('$POLICY'))['branch_ruleset']['required_status_checks']['source']
+assert s=='policies/required-release-checks.yaml', s\""
+ck "policy does not duplicate the check-name list" \
+   "! grep -q 'build+smoke' $POLICY"
+
+# Dated evidence must exist and must match the policy it evidences.
+ck "dated evidence snapshot is committed"  "test -f $EVIDENCE"
+ck "evidence records a PASS verdict"       "python3 -c \"import json;assert json.load(open('$EVIDENCE'))['verdict']=='PASS'\""
+ck "evidence shows both rulesets active"   "python3 -c \"
+import json;rs=json.load(open('$EVIDENCE'))['rulesets']
+names={r['name'] for r in rs}
+assert names=={'master-protection','release-tags-immutable'}, names
+assert all(r['enforcement']=='active' for r in rs)\""
+ck "evidence shows the rules LIVE on master" "python3 -c \"
+import json;t={r['type'] for r in json.load(open('$EVIDENCE'))['rules_applied_to_default_branch']}
+assert {'deletion','non_fast_forward','required_linear_history','pull_request','required_status_checks'} <= t, t\""
+ck "evidence records visibility public"    "python3 -c \"import json;assert json.load(open('$EVIDENCE'))['settings']['visibility']=='public'\""
+
+# --- truth-sync -------------------------------------------------------------
+# Scoped deliberately: a bare repo-wide grep cannot tell a live claim from
+# narrative that quotes the retired one ("previously asserted ... must remain
+# private"), and loosening the pattern until it passes would make the check
+# meaningless. So assert on the documents a reader treats as current, and on the
+# status line of each governance document.
+
+ck "README carries no private-repo claim" \
+   "! grep -qiE 'must remain private|stays \*\*private\*\*|private repo' README.md"
+ck "SECURITY.md carries no private-repo claim" \
+   "! grep -qiE 'must remain private|GitHub Free, private repo' SECURITY.md"
+ck "README states governance is enforced" \
+   "grep -qiE 'Governance \(enforced' README.md"
+ck "repository-security.md status banner says ENFORCED" \
+   "head -8 docs/repository-security.md | grep -q 'ENFORCED AND MACHINE-VERIFIED'"
+ck "the expired accepted-risk record is superseded in its title and banner" \
+   "head -3 docs/audits/free-tier-governance-accepted-risk.md | grep -qi 'SUPERSEDED'"
+ck "repository-security.md points at the machine-checked policy" \
+   "grep -q 'repository-governance.yaml' docs/repository-security.md"
+
+# The stale apply-payload is the specific thing that would wedge merges if a
+# maintainer followed it: dead check names, and an approval count no single
+# maintainer can satisfy. What matters is what someone would COPY — so these
+# assert on fenced code blocks, not on prose that explains why not to use them.
+codeblocks() { awk '/^```/{f=!f;next} f' "$1"; }
+
+ck "no runnable snippet prescribes the rotted check names" \
+   "! codeblocks docs/repository-security.md | grep -q 'build representative images'"
+ck "no runnable snippet prescribes an unsatisfiable approval count" \
+   "! codeblocks docs/repository-security.md | grep -q '\"required_approving_review_count\": 1'"
+ck "apply snippets use rulesets, not the classic branch-protection API" \
+   "! codeblocks docs/repository-security.md | grep -q 'branches/master/protection'"
+ck "apply snippets rebuild the payload from the policy files" \
+   "codeblocks docs/repository-security.md | grep -q 'repository-governance.yaml'"
+ck "policies/ carries no rotted check names" \
+   "! grep -rq 'build representative images' policies/"
+
+echo "----"; [ "$fail" -eq 0 ] && echo "test_repo_governance: PASS" || echo "test_repo_governance: FAIL"
+exit $fail
