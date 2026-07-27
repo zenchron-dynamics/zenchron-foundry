@@ -8,6 +8,51 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 Nothing yet.
 
+## [v2026.07.24] - 2026-07-25
+
+First release sealed by the fully automated ceremony: zero manual steps, zero
+failed gates, zero reruns. Full run ledger and digests:
+[docs/releases/v2026.07.24-war-room.md](docs/releases/v2026.07.24-war-room.md).
+
+### Fixed — images
+
+- Six Debian php-family bases bumped to Debian 12.15: curl/libcurl4
+  `7.88.1-10+deb12u15` (CVE-2026-5773) absorbed on php-cli/fpm/worker ×
+  8.3/8.4 and frankenphp × 8.3/8.4 (fixes #75). frankenphp's rebuilt base also
+  cleared Go-stdlib CVE-2026-39822. nginx/caddy bases unchanged upstream —
+  their findings remain governed exceptions.
+- frankenphp hardening: security headers aligned with the caddy canon,
+  `pcntl_exec` disabled, dead `EXPOSE 8443` dropped (batch 4a, #71).
+
+### Added — release automation (the audit batches, PRs #69–#78, #80)
+
+- `release-preflight.yml`: read-only rehearsal of every seal gate against a
+  candidate SHA, dispatched pre-build and again post-RC.
+- `rollback-exercise.yml`: automated live rollback round-trip with derived
+  `rollback-results.json` — first production run in this ceremony.
+- Derived evidence everywhere: verification values in `evidence.json` come
+  from verifier output (never literals), `RUNTIME_RESULT` from a bound
+  verify-rc run, `release-evidence-summary.json` assembled + validated at
+  seal; per-stage results artifacts across ci/scan/publish/verify-rc/promote.
+  Schema: [docs/release-evidence.md](docs/release-evidence.md).
+- Typed confirmations on all three outward stages (seal gained
+  `SEAL-<version>-<sha>`); promote-time exact-commit CI gate; binding
+  verification across all 28 aliases with per-arch OCI-label checks.
+- Supply-chain: production alias mutation refused outside CI; wildcard cosign
+  identity fallback removed; GHSA-only advisories now governable by the
+  exception validator; fail-closed environment preflight.
+- Runner safety: 26 canonical hardened workspace-reset blocks with a CI drift
+  gate; all heavy matrices serialized; SIGPIPE flake in the required-checks
+  gate fixed.
+
+### Accepted risk
+
+18 governed exceptions (ledger:
+[docs/vulnerability-exceptions.md](docs/vulnerability-exceptions.md)), all
+expiring 2026-08-31, incl. the interim kin-openapi CRITICAL in the upstream
+FrankenPHP binary (unreachable in shipped config; upstream bump requested,
+php/frankenphp#2559, tracked by #79).
+
 ## [v2026.07.21] - 2026-07-22
 
 First fully sealed production release: 10 images (php-{cli,fpm,worker,frankenphp}
@@ -273,5 +318,6 @@ review 2026-07-02). PHP/nginx images: **0 fixable CRITICAL/HIGH**.
   cap_drop ALL, no-new-privileges.
 - PHP 7.4 / 8.0 marked high-risk legacy (EOL); isolated and documented.
 
+[v2026.07.24]: https://github.com/zenchron-dynamics/zenchron-foundry/releases/tag/v2026.07.24
 [v2026.07.21]: https://github.com/zenchron-dynamics/zenchron-foundry/releases/tag/v2026.07.21
 [v2026.07.04]: https://github.com/zenchron-dynamics/zenchron-foundry/compare/2026.06.21...v2026.07.04
