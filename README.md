@@ -56,18 +56,34 @@ every one published multi-arch for **linux/amd64 + linux/arm64**.
 Full model: [docs/threat-model.md](docs/threat-model.md),
 [docs/runtime-hardening.md](docs/runtime-hardening.md).
 
-## Governance (Free plan — accepted risk)
+## Governance (enforced by GitHub, machine-verified)
 
-This repo runs on **GitHub Free** and stays **private**. On that plan, private
-repos **cannot** use branch protection, rulesets, or tag protection, so GitHub
-does not enforce PRs, reviews, status checks, or protected release tags. We
-compensate with local hooks (`scripts/install-hooks.sh`), a manual PR policy, a
-release safety script (`scripts/prepare-release.sh`), digest pinning, and Cosign
-signing. **These are compensating controls, not equivalent to enforced GitHub
-branch protection.** Details and accepted-risk record:
-[docs/audits/free-tier-governance-accepted-risk.md](docs/audits/free-tier-governance-accepted-risk.md),
+This repo is **public** on **GitHub Free**, where branch protection, rulesets and
+tag protection *are* available. As of **2026-07-28** they are applied and active,
+with **no bypass actors — administrators included**:
+
+- `master` — pull request required, no direct push, no force-push, no deletion,
+  linear history, conversation resolution, and all 26 required status checks.
+- `v*` tags — **immutable**: cannot be deleted, force-moved or repointed.
+
+Declared in [`policies/repository-governance.yaml`](policies/repository-governance.yaml)
+and checked against the live GitHub API by
+[`scripts/verify-repo-governance.sh`](scripts/verify-repo-governance.sh)
+(`make verify-governance`), which fails closed on divergence in **either**
+direction — a claimed-but-missing control *and* undocumented drift. Dated
+evidence: [`docs/audits/governance-verification-2026-07-28.json`](docs/audits/governance-verification-2026-07-28.json).
+
+Local hooks (`scripts/install-hooks.sh`), the manual PR policy and the release
+safety script (`scripts/prepare-release.sh`) remain as early, offline feedback —
+they are no longer the only thing between an accident and `master`.
+
+Still **not** enforced by GitHub, recorded as gaps rather than controls: a second
+reviewer (single-maintainer repo, issue #112) and environment approval gates. See
+[docs/repository-security.md](docs/repository-security.md),
 [docs/manual-pr-policy.md](docs/manual-pr-policy.md),
-[docs/ci-failure-policy.md](docs/ci-failure-policy.md).
+[docs/ci-failure-policy.md](docs/ci-failure-policy.md); the former Free-plan
+accepted risk is **superseded**:
+[docs/audits/free-tier-governance-accepted-risk.md](docs/audits/free-tier-governance-accepted-risk.md).
 
 ## Quick Start (consume an image)
 

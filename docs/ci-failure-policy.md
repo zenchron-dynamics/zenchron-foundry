@@ -1,11 +1,20 @@
-# CI Failure Policy (Free-Tier)
+# CI Failure Policy
 
-GitHub Free cannot block a merge on a private repo, so a red CI does not
-physically stop anything. This policy makes a failing CI a **hard release
-blocker by rule**, and the release script enforces it where it can.
+**Updated 2026-07-28 (issue #97).** A red CI now *does* physically stop a merge:
+`master` requires all 26 status checks through the `master-protection` ruleset,
+with no bypass actors — see [repository-security.md](repository-security.md).
+This file previously opened with "GitHub Free cannot block a merge on a private
+repo"; that premise was false, and these rules were standing in for enforcement
+that could have been switched on at any time.
 
-> This is a compensating control, not equivalent to enforced GitHub branch
-> protection.
+They still matter, because GitHub's merge gate covers less than this policy does:
+
+- GitHub counts a **skipped** check as satisfied. This policy does not, and
+  neither does the release gate (`scripts/check-exact-commit-ci.sh`).
+- GitHub gates the **merge**; this policy also gates the **release**, against the
+  exact tagged commit.
+- Dispatch-only runs (`scan-images` on a release revision, `verify-rc`) produce
+  no PR check at all, so nothing but this rule covers them.
 
 ## Rules
 

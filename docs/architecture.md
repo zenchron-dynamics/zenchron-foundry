@@ -72,9 +72,12 @@ production host ──► docker login ghcr.io (read-only token)
 
 The `foundry-rc` / `foundry-production` environments gate the publish and
 promote/seal dispatches via deployment branch (`master`) and tag (`v*.*.*`)
-policies. Environment *required reviewers* are billing-gated on the GitHub Free
-private plan — waived via `ALLOW_FREE_TIER_NO_REVIEWERS=1`, see
-[audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md).
+policies. Environment *required reviewers* are **not attached** — available since
+the repo is public, but unusable with a single maintainer, so waived via
+`ALLOW_FREE_TIER_NO_REVIEWERS=1`; see
+[repository-security.md](repository-security.md) and issue #112.
+`master` and `v*` themselves are protected by active rulesets with no bypass
+actors (`make verify-governance`).
 
 ## Runtime profile flow
 

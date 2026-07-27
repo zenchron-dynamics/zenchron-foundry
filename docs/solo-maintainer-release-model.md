@@ -1,8 +1,12 @@
 # Solo-maintainer release model
 
 Zenchron Foundry uses a **single-maintainer release model**. Independent human
-separation of duties is unavailable (GitHub Free private repo; environment
-required-reviewers are billing-gated). We do **not** fake a second reviewer.
+separation of duties is unavailable because there is only one maintainer: GitHub
+forbids self-approval, so a required reviewer would block every release instead
+of adding oversight. (Corrected 2026-07-28, issue #97 — this was previously
+blamed on billing; environment reviewers *are* available now that the repo is
+public. The blocker is people, not plan: issue #112.) We do **not** fake a second
+reviewer.
 Instead the risk is mitigated by technical and procedural controls that a lone
 maintainer cannot bypass by mistake:
 

@@ -47,11 +47,11 @@ Key invariants:
 ## Release controls (stable path)
 
 `release.yml`'s `guard` job runs in the `foundry-production` GitHub Environment
-(deployment tag policy `v*.*.*`; environment *required reviewers* are
-billing-gated on the GitHub Free private plan and explicitly waived via
-`ALLOW_FREE_TIER_NO_REVIEWERS=1` — see
-[audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md))
-and refuses to seal unless all hold:
+(deployment tag policy `v*.*.*`; environment *required reviewers* are **not
+attached** — available since the repo is public, but unusable with one
+maintainer, so explicitly waived via `ALLOW_FREE_TIER_NO_REVIEWERS=1` — see
+[repository-security.md](repository-security.md) and issue #112) and refuses to
+seal unless all hold:
 
 1. **Tag format** — `vYYYY.MM.DD[.N]`, and the dispatch ref **is** that tag.
 2. **Ancestry** — the tagged commit is an ancestor of `origin/master`
