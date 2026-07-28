@@ -427,12 +427,52 @@ scan cycle, and the AVIF one needs a compatibility decision.
 
 ---
 
+## Round 2 — nginx is NOT yet triaged
+
+The php family and caddy are complete. **`nginx` is not**, and its entries were
+deliberately not extended to cover it: nginx serves HTTP and never runs PHP, so
+its reachability profile is a different analysis, and reusing php-scoped
+reasoning would be exactly the unscoped acceptance #102 exists to prevent.
+
+The built nginx image could not be produced locally — `apt-get update` wedged on
+`Ign: …bookworm/main amd64 Packages` for 80+ minutes (the same network flakiness
+that killed the overnight `make build-test`). As a conservative stand-in, the
+**pinned base** `nginxinc/nginx-unprivileged:1.27-bookworm@sha256:f9dfa9c2…` was
+scanned: **87 CRITICAL/HIGH advisories**.
+
+`images/nginx/Dockerfile` upgrades 19 packages (`libssl3`, `openssl`,
+`libgnutls30`, `libxml2`, `libxslt1.1`, `libpng16-16`, `libtiff6`, `libpam*`,
+`libsystemd0`, `libudev1`, `gpgv`, `libcap2`, `libexpat1`, `libnghttp2-14`,
+`perl-base`, `zlib1g`), which clears **58** of them. The estimate for the built
+image is therefore **≈29 surviving advisories, 1 CRITICAL** (`CVE-2023-6879`,
+libaom3):
+
+| Package | Advisories |
+|---|---|
+| `curl` / `libcurl4` | 6 + 6 |
+| `libaom3` | 6 |
+| `libheif1` | 6 |
+| `libssh2-1` | 3 |
+| `libgssapi-krb5-2` / `libk5crypto3` / `libkrb5-3` / `libkrb5support0` | 2 each |
+| `gzip`, `libacl1`, `bsdutils` | 1 each |
+
+This is an **estimate from the base**, not evidence from the artifact we ship.
+Round 2 must scan the built image and answer, for nginx specifically:
+
+* is `libcurl` linked into `nginx` at all, or merely present as a base binary?
+* can `libaom3`/`libheif1` be reached — nginx serves image bytes, it does not
+  decode them;
+* are the krb5 libraries reachable without an auth module configured?
+
+Until that is done the gate will fail on nginx, which is the correct behaviour.
+
 ## Unresolved questions
 
-1. **4 images unscanned:** `php-fpm:8.4`, `php-worker:8.4`, `nginx:prod`, and
-   `caddy` on arm64. The php 8.4 pair is expected to match its 8.3 sibling
-   (identical Dockerfiles, same base line) but that is an assumption, not
-   evidence. `nginx` has separate governed entries already.
+1. **3 images unscanned:** `php-fpm:8.4`, `php-worker:8.4` (builds failed on the
+   same network fault) and `nginx:prod` (see Round 2). The php 8.4 pair shares
+   its Dockerfile and base line with the 8.3 sibling, and `php-cli:8.4` was
+   scanned and produced a finding set identical to `php-cli:8.3` — so the risk
+   is low, but it is an inference, not evidence.
 2. **arm64 not scanned at all.** Every classification above is from linux/amd64.
    Package versions should be identical, but this is unverified.
 3. **CVE-2026-13221 needs an upstream correction.** Until the Debian tracker or
