@@ -120,8 +120,30 @@ against `perl-base` even when the vulnerable *module* is not installed.
 | 24 | CVE-2023-39616 | HIGH | 7.5 | libaom3 | conditionally reachable (frankenphp/gd) | time-limited exception |
 
 **Totals:** 1 proven not affected outright · 4 not affected on 4 of 6 images ·
-9 conditionally reachable · 10 not reachable under intended use · **0 currently
-release-blocking**.
+9 conditionally reachable · 10 not reachable under intended use · **0
+release-blocking** — see the decision model below for why, which is *not*
+"upstream has no fix".
+
+## Release-blocking decision model
+
+**Patch availability does NOT determine whether a finding blocks a release.**
+An unfixed finding that is directly reachable from untrusted input blocks;
+a fixable finding that is unreachable does not. The earlier wording in this
+report equated "unfixed" with "non-blocking" and was wrong; it is corrected
+here and in `docs/vulnerability-exceptions.md`.
+
+| Class | Situation | Release-blocking? |
+|---|---|---|
+| **1** | Not affected, or the vulnerable component is not installed | **No** — nothing to accept; record as `not_affected` |
+| **2** | Vulnerable code present but demonstrably unreachable under the intended runtime | **No** — eligible for a scoped, expiring exception |
+| **3** | Conditionally reachable through optional consumer behaviour | **No, but only if** prerequisites are documented, consumer mitigation is documented, no practical removal/disablement exists, the expiry is short, and a customer advisory or usage restriction is issued |
+| **4** | Directly reachable from untrusted input in the shipped configuration | **YES — mitigate or block**, regardless of whether upstream has published a fix |
+
+Every finding in this report resolves to class 1, 2 or 3. None is class 4:
+no advisory here is reachable from untrusted input in the images' *own* shipped
+configuration — the reachable ones all require a consuming application to invoke
+the path (parse XML, call `curl_exec()`, decode AVIF), which is class 3 and
+carries the documented prerequisites, mitigations and advisories.
 
 ---
 
@@ -236,8 +258,12 @@ release-blocking**.
 * **Treatment:** time-limited exception, expiry **2026-08-31**, with a
   **consumer-facing advisory** stating plainly that applications parsing
   untrusted XML on these images are exposed to a DoS until the base is updated.
-  Not release-blocking: impact is DoS, not RCE, and no fixed bookworm package
-  exists to move to.
+  **Release-blocking decision:** not blocking — decided under **class 3**
+  (conditionally reachable through optional consumer behaviour): the
+  prerequisite is documented (the consumer parses untrusted XML), consumer
+  mitigation is documented, removal is not practical (libxml2 is required by
+  PHP core XML), the expiry is short, and a customer advisory is issued. The
+  absence of a Debian fix is **not** the reason.
 
 ### 4–6. CVE-2026-42497, CVE-2026-9538 (Archive::Tar), CVE-2026-48962 (IO::Compress)
 
@@ -298,9 +324,12 @@ release-blocking**.
 * **Classification:** **conditionally reachable** (8286, 8932, 8927);
   conditionally reachable, narrow precondition (12064).
 * **Treatment:** time-limited exceptions, expiry **2026-08-31**, plus a
-  consumer-facing advisory for the three TLS/proxy items. Not release-blocking:
-  no fixed package exists and the failure modes require specific consumer
-  configurations.
+  consumer-facing advisory for the three TLS/proxy items.
+  **Release-blocking decision:** not blocking under **class 3** — the failure
+  modes require specific consumer configuration (custom Host headers, client
+  certificates, an authenticated proxy), mitigation is documented, and libcurl
+  cannot be removed without removing the curl extension. The absence of a
+  Debian fix is **not** the reason.
 
 ### 12–14. libssh2-1 — CVE-2026-55200, CVE-2026-55199, CVE-2026-7598
 
