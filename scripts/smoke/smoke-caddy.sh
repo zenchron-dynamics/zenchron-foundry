@@ -57,4 +57,23 @@ fi
 check "read-only rootfs: readiness /healthz returns ok on :8081" \
     poll_http_body "http://127.0.0.1:${READY_PORT:-0}/healthz" "ok" 20
 
+# --- certified topology: NO TLS termination (CVE-2026-56852) ----------------
+# The vendored golang.org/x/text v0.37.0 has an infinite loop in norm.Iter on
+# invalid UTF-8. Caddy reaches it from attacker-controlled TLS SNI:
+#   ClientHelloInfo.ServerName -> certmagic getNameFromClientHello
+#   -> idna.Lookup.ToASCII -> norm.NFC.String/QuickSpan/Bytes
+# The certified configuration therefore terminates NO TLS. Prove it from the
+# adapted config rather than trusting the Caddyfile text.
+check "shipped config creates no TLS app (no TLS termination)" \
+    sh -c 'docker run --rm --entrypoint caddy "$0" adapt --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null \
+           | grep -q "\"tls\"" && exit 1 || exit 0' "$IMG"
+check "shipped config disables automatic HTTPS" \
+    sh -c 'docker run --rm --entrypoint caddy "$0" adapt --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null \
+           | grep -q "\"disable\":true" ' "$IMG"
+check "no listener on a TLS port (443/8443)" \
+    sh -c 'docker run --rm --entrypoint caddy "$0" adapt --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null \
+           | grep -qE "\":(443|8443)\"" && exit 1 || exit 0' "$IMG"
+check "image does not advertise a TLS port" \
+    sh -c '! docker image inspect --format "{{json .Config.ExposedPorts}}" "$0" | grep -q "8443"' "$IMG"
+
 finish

@@ -10,3 +10,8 @@ healthcheck: true
 config_test: "nginx -t -q"
 health_path: /healthz
 oci_revision_label: required
+# Dynamic modules deliberately NOT shipped (#102/#103). Removing them deleted
+# libxml2/libgd3/libheif1/libaom3/libxslt1.1 and the curl->libssh2->krb5 chain.
+# tests/vulnerability-policy/test_reconciliation_scope.sh fails if any returns.
+excluded_modules: [image_filter, xslt, njs, geoip]
+excluded_packages: [curl, libcurl4, libssh2-1, libaom3, libheif1, libgd3, libxml2, libxslt1.1, libtiff6, libexpat1]

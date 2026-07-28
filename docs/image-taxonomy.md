@@ -6,7 +6,7 @@
 | `php-cli` | Console/migrations/one-off jobs | `php` | — | — | n/a (short-lived) |
 | `php-worker` | Queue / Messenger long-running | `tini -- worker-entrypoint <cmd>` | — | tini (PID 1) | heartbeat freshness (`/tmp/worker-heartbeat`) |
 | `php-frankenphp` | App server (embedded Caddy) | `frankenphp run` | 8080/8443/8081 | frankenphp | HTTP `:8081/healthz` (readiness) |
-| `caddy` | Reverse proxy / static | `caddy run` | 8080/8443/8081 | caddy | HTTP `:8081/healthz` (readiness) |
+| `caddy` | Reverse proxy / static | `caddy run` | 8080/8081 (**no TLS**) | caddy | HTTP `:8081/healthz` (readiness) |
 | `nginx` | Reverse proxy / static / FPM front | `nginx -g daemon off` | 8080 | nginx master | `nginx -t` (config) |
 
 ## Versions
@@ -36,3 +36,11 @@ Every image carries `org.opencontainers.image.*` labels plus:
 - `com.zenchron.php` — PHP version (where applicable)
 - `com.zenchron.support` — `supported` | `legacy-eol`
 - `com.zenchron.risk` — `high` on legacy images
+
+> **Caddy terminates no TLS (2026-07-28).** The certified configuration sets
+> `auto_https off` and the image no longer exposes 8443. This removes the
+> TLS-SNI path to `CVE-2026-56852` (`x/text` `norm.Iter` infinite loop on invalid
+> UTF-8, remote unauthenticated DoS). **TLS must terminate at the upstream load
+> balancer** until Caddy ships `x/text >= 0.39.0`. Enabling TLS through a mounted
+> or derived config leaves the certified topology and re-opens the path — see
+> [security/triage-2026-07-28-ungoverned-findings.md](security/triage-2026-07-28-ungoverned-findings.md).

@@ -187,6 +187,14 @@ def covers(e, f):
             return False
     if e.get("arch") and arch and e["arch"] != arch:
         return False
+    # An exception authorises ONLY the architectures it was reconciled on.
+    # `arch_note: unverified` is not enough: if the record does not list the
+    # architecture being scanned it simply does not apply, the finding is
+    # ungoverned, and publication for that architecture fails. That is what
+    # stops amd64 evidence silently authorising an arm64 release.
+    verified = e.get("verified_architectures")
+    if verified and arch and arch not in verified:
+        return False
     return True
 
 # Findings determined NOT TO APPLY. Distinct from an exception: nothing is being
@@ -339,6 +347,31 @@ PY
   t "package binding rejects another package"  "! reconcile '$tmp/pkg.json' caddy >/dev/null 2>&1"
   _led "${BASE%\}}, installed_version: 9.9}"
   t "version binding rejects another version"  "! reconcile '$tmp/unfixed.json' caddy >/dev/null 2>&1"
+
+  # --- architecture evidence -------------------------------------------------
+  # An exception authorises only the architectures it was reconciled on; an
+  # arch_note saying "unverified" is not enough if the record still applies.
+  cat > "$tmp/led.yaml" <<'YAML'
+schema_version: 1
+exceptions:
+  - cve: CVE-2099-1
+    image: caddy
+    package: curl
+    fix_available: false
+    verified_architectures: [linux/amd64]
+    owner: o
+    approver: a
+    reason: r
+    created_at: 2026-01-01
+    expires_at: 2099-01-01
+    release_blocking: false
+    compensating_controls: [c]
+YAML
+  _scan "$tmp/arch.json" CVE-2099-1 curl 1.0 - HIGH
+  t "exception applies on the verified architecture" \
+    "ARCH=linux/amd64 reconcile '$tmp/arch.json' caddy >/dev/null 2>&1"
+  t "exception does NOT apply on an unverified architecture" \
+    "! ARCH=linux/arm64 reconcile '$tmp/arch.json' caddy >/dev/null 2>&1"
 
   # --- version binding on not_affected records (round-2 requirement) --------
   # A not_affected decision must self-invalidate when the package moves into the

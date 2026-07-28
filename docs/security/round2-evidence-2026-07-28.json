@@ -541,7 +541,7 @@
     {
       "image": "caddy",
       "local_ref": "ghcr.io/zenchron-dynamics/caddy:prod",
-      "image_digest": "sha256:f5078e774f137d3475168229e92f115f6e41930f09e9a16076171c9c80cb37d1",
+      "image_digest": "sha256:624ff96bcbe110597c0740deebca73411083eeed593008fd665a03d4ea9a684d",
       "base_name": "",
       "architecture": "amd64",
       "os": "linux",
@@ -567,7 +567,8 @@
         "google.golang.org/grpc": "v1.81.0",
         "libcurl": "8.19.0-r0",
         "stdlib": "v1.26.3"
-      }
+      },
+      "note": "rebuilt with auto_https off and 8443 unexposed (CVE-2026-56852 mitigation)"
     }
   ],
   "totals": {
@@ -576,5 +577,9 @@
     "determined_not_affected": 43,
     "ungoverned": 0
   },
-  "all_green": true
+  "all_green": true,
+  "verified_architectures": [
+    "linux/amd64"
+  ],
+  "arm64_status": "NOT VERIFIED \u2014 no arm64 reconciliation evidence exists. Exceptions do not authorise linux/arm64, so an arm64 publish fails until an evidence run is done."
 }

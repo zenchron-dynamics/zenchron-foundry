@@ -80,7 +80,10 @@ ENV XDG_DATA_HOME=/data XDG_CONFIG_HOME=/config
 
 USER 10001:10001
 WORKDIR /app
-EXPOSE 8080 8443 8081
+# 8443 is deliberately NOT exposed: the certified configuration sets
+# `auto_https off` and terminates no TLS (CVE-2026-56852). Advertising a TLS
+# port would invite a topology this image is not certified for.
+EXPOSE 8080 8081
 
 # Readiness probe: hit the always-on /healthz site (proves Caddy is serving HTTP,
 # not just that the binary exists). wget ships in the alpine base; no curl needed.

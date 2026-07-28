@@ -10,3 +10,10 @@ healthcheck: true
 config_test: "caddy validate"
 readiness: { path: /healthz, port: 8081, body: ok }
 oci_revision_label: required
+# CERTIFIED TOPOLOGY: this image terminates NO TLS. `auto_https off` is set in
+# the shipped Caddyfile and 8443 is not exposed, which removes the TLS-SNI path
+# to CVE-2026-56852 (x/text norm.Iter). TLS must terminate at the upstream load
+# balancer. Enabling TLS via a mounted or derived config leaves the certified
+# topology. Asserted by scripts/smoke/smoke-caddy.sh.
+tls_termination: forbidden
+tls_ports_exposed: []

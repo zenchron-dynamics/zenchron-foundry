@@ -169,9 +169,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p vuln-reconciliation
+          # --arch is load-bearing: an exception authorises only the
+          # architectures it was reconciled on, so scanning an architecture with
+          # no evidence leaves every finding ungoverned and fails the build.
+          # That is what blocks a multi-arch release on amd64-only evidence.
           bash scripts/reconcile-vulnerabilities.sh \
             "trivy-full-${{ matrix.fam }}-${{ matrix.ver }}.json" \
             "${{ matrix.fam }}" "${{ matrix.ver }}" \
+            --arch "linux/${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}" \
             --json "vuln-reconciliation/${{ matrix.fam }}-${{ matrix.ver }}.json"
 
       # Evidence on success AND failure: on a gate hit the JSON names every
