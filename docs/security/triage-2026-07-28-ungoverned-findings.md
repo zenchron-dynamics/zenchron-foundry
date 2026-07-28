@@ -133,7 +133,7 @@ release-blocking**.
   on frankenphp) `5.36.0-7+deb12u3`.
 * **Images:** all 6, linux/amd64.
 * **Genuinely affected?** **No.** The Debian tracker's own notes state:
-  *"Introduced with: https://github.com/Perl/perl5/commit/acababb42be12ff2986b73c1bfa963b70bb5d54e (v5.37.10)"* and
+  *"Introduced with: `…/Perl/perl5/commit/acababb42be12ff2986b73c1bfa963b70bb5d54e` (v5.37.10)"* and
   *"Fixed by: …03f74bbb… (v5.43.10)"*. Bookworm ships **5.36.0**, which
   **predates the commit that introduced the flaw**. The Debian row nonetheless
   reads `bookworm 5.36.0-7+deb12u3 vulnerable`, and NVD lists the range as
@@ -412,7 +412,7 @@ maintainer`, `external_review_trigger`, `reachability`, `reachability_evidence`,
 
 ---
 
-## Remediation backlog (preferred over acceptance)
+## Remediation backlog
 
 | Option | Removes | Risk | Status |
 |---|---|---|---|
