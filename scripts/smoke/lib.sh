@@ -118,6 +118,11 @@ assert_uid() {
     [ "$_uid" = "$2" ]
 }
 
+# module_absent <image> <perl-module> — succeeds when the module CANNOT be loaded.
+module_absent() {
+    ! docker run --rm --entrypoint perl "$1" -M"$2" -e1 >/dev/null 2>&1
+}
+
 # tool_absent <image-ref> <tool> — succeed when <tool> is NOT on PATH in the image.
 tool_absent() {
     ! docker run --rm --entrypoint sh "$1" -c "command -v $2 >/dev/null 2>&1"

@@ -62,4 +62,18 @@ fpm_up_and_listening() {
 
 check "read-only rootfs: master starts and listens on 9000" fpm_up_and_listening
 
+# --- component-absence guard (#102/#103) ------------------------------------
+# The ledger records CVE-2026-57433 (Storable), CVE-2026-42497 / CVE-2026-9538
+# (Archive::Tar) and CVE-2026-48962 (IO::Compress) as NOT AFFECTED on this image
+# family, on the evidence that the vulnerable MODULES are not installed — the
+# family carries perl-base only. A base change that pulls in perl-modules-5.36
+# would silently falsify that evidence and those advisories would start applying.
+# Fail here rather than let a not_affected record outlive its justification.
+check "perl module Storable absent (not_affected evidence)" \
+    module_absent "$IMG" Storable
+check "perl module Archive::Tar absent (not_affected evidence)" \
+    module_absent "$IMG" Archive::Tar
+check "perl module IO::Compress::Gzip absent (not_affected evidence)" \
+    module_absent "$IMG" IO::Compress::Gzip
+
 finish

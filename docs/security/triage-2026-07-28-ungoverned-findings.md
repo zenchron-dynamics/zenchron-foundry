@@ -456,44 +456,80 @@ scan cycle, and the AVIF one needs a compatibility decision.
 
 ---
 
-## Round 2 — nginx is NOT yet triaged
+## Round 2 — nginx: remediated, then triaged
 
-The php family and caddy are complete. **`nginx` is not**, and its entries were
-deliberately not extended to cover it: nginx serves HTTP and never runs PHP, so
-its reachability profile is a different analysis, and reusing php-scoped
-reasoning would be exactly the unscoped acceptance #102 exists to prevent.
+The base-image estimate in the earlier draft of this section has been replaced by
+evidence from the **built artifact**, and most of the exposure was **removed
+rather than accepted**.
 
-The built nginx image could not be produced locally — `apt-get update` wedged on
-`Ign: …bookworm/main amd64 Packages` for 80+ minutes (the same network flakiness
-that killed the overnight `make build-test`). As a conservative stand-in, the
-**pinned base** `nginxinc/nginx-unprivileged:1.27-bookworm@sha256:f9dfa9c2…` was
-scanned: **87 CRITICAL/HIGH advisories**.
+### Reachability evidence
 
-`images/nginx/Dockerfile` upgrades 19 packages (`libssl3`, `openssl`,
-`libgnutls30`, `libxml2`, `libxslt1.1`, `libpng16-16`, `libtiff6`, `libpam*`,
-`libsystemd0`, `libudev1`, `gpgv`, `libcap2`, `libexpat1`, `libnghttp2-14`,
-`perl-base`, `zlib1g`), which clears **58** of them. The estimate for the built
-image is therefore **≈29 surviving advisories, 1 CRITICAL** (`CVE-2023-6879`,
-libaom3):
+```console
+$ ldd "$(command -v nginx)"
+  libcrypt.so.1  libpcre2-8.so.0  libssl.so.3  libcrypto.so.3  libz.so.1  libc.so.6
+```
 
-| Package | Advisories |
-|---|---|
-| `curl` / `libcurl4` | 6 + 6 |
-| `libaom3` | 6 |
-| `libheif1` | 6 |
-| `libssh2-1` | 3 |
-| `libgssapi-krb5-2` / `libk5crypto3` / `libkrb5-3` / `libkrb5support0` | 2 each |
-| `gzip`, `libacl1`, `bsdutils` | 1 each |
+That is the whole list — **no** libcurl, libaom, libheif, libssh2, krb5, libxml2,
+libtinfo or libacl is linked into the nginx binary. The four dynamic modules the
+upstream base ships were present but **unloaded**: `grep -r load_module /etc/nginx/`
+returns nothing, and the healthcheck is `nginx -t -q`.
 
-This is an **estimate from the base**, not evidence from the artifact we ship.
-Round 2 must scan the built image and answer, for nginx specifically:
+Dependency origins (`apt-cache rdepends --installed`) showed why the vulnerable
+packages were there at all:
 
-* is `libcurl` linked into `nginx` at all, or merely present as a base binary?
-* can `libaom3`/`libheif1` be reached — nginx serves image bytes, it does not
-  decode them;
-* are the krb5 libraries reachable without an auth module configured?
+| Package | Pulled in by | Verdict |
+|---|---|---|
+| `curl` | **nothing** (manually installed by the base) | remove |
+| `libcurl4` | `curl` | removed with it |
+| `libssh2-1`, krb5 stack | `libcurl4` | removed transitively |
+| `libaom3` | `libavif15`, `libheif1` | removed with image-filter |
+| `libheif1` | `libgd3` ← `nginx-module-image-filter` | remove (module unloaded) |
+| `libxml2` | `nginx-module-njs`, `nginx-module-xslt`, `libxslt1.1` | remove (modules unloaded) |
+| `libtiff6`, `libexpat1`, `libpng16-16` | **nothing** | orphaned, removed |
+| `libacl1` | `coreutils`, `tar`, `sed` | **keep** — removal breaks the base |
+| `gzip` | Priority: required | **keep** |
+| `perl-base` | Priority: required (dpkg) | **keep** |
 
-Until that is done the gate will fail on nginx, which is the correct behaviour.
+### Remediation performed
+
+`images/nginx/Dockerfile` now purges `curl`, `nginx-module-image-filter`,
+`nginx-module-xslt`, `nginx-module-njs`, `nginx-module-geoip`, `libtiff6` and
+`libexpat1` with `--auto-remove`, **in the same layer as the package upgrade** (a
+purge in a later layer only adds whiteouts and reclaims nothing). The build then
+asserts each package is really gone and that `nginx -v` still runs, so a silent
+partial removal fails the build.
+
+| Metric | Before | After |
+|---|---|---|
+| Installed packages | 149 | **94** |
+| CRITICAL/HIGH advisories | 87 (base) → 23 (built) | **13** |
+| libxml2 `CVE-2026-6653` (CRITICAL) | present | **eliminated** |
+| curl / libssh2 / krb5 / libaom / libheif | present | **eliminated** |
+| `nginx -t`, non-root 101, read-only rootfs, healthz | pass | **pass (6/6 smoke)** |
+
+**CONSUMER-VISIBLE CHANGE:** a consumer that loaded `ngx_http_image_filter_module`,
+`ngx_http_xslt_filter_module`, `ngx_http_js_module` (njs) or the geoip modules
+must now use the upstream `nginxinc/nginx-unprivileged` image or install the
+module in a derived image. No Foundry config, contract
+(`contracts/images/nginx-prod.yaml`) or documentation referenced them.
+
+### What remains on nginx, and why
+
+All 13 survivors are base-OS packages that cannot be removed:
+
+* **perl** (`CVE-2026-13221`, `57433`, `42497`, `48962`, `9538`, `42496`, `8376`,
+  `57432`) — `perl-base` only, `Priority: required`. `CVE-2026-13221` is
+  **not affected** (5.36.0 predates v5.37.10) and Storable / Archive::Tar /
+  IO::Compress are **absent** (`perl -M… -e1` fails), so four more are
+  `not_affected`. The rest are *not reachable*: no perl process runs.
+* **zlib1g** (`CVE-2023-45853`) — linked into nginx, but the flaw is in MiniZip,
+  which Debian does not build.
+* **ncurses/libtinfo6** (`CVE-2025-69720`) — **not** linked into nginx.
+* **gzip** (`CVE-2026-41992`) — nginx compresses via libz, never the gzip binary.
+* **util-linux** (`CVE-2026-53615`) — libblkid partition parsing; no block-device
+  access, `cap_drop: ALL`.
+* **libacl1** (`CVE-2026-54369`) — required by coreutils/tar/sed; not linked into
+  nginx.
 
 ## Unresolved questions
 

@@ -44,12 +44,55 @@ USER root
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends --only-upgrade \
-        libssl3 openssl libgnutls30 libxml2 libxslt1.1 libpng16-16 libtiff6 \
+        libssl3 openssl libgnutls30 \
         libpam0g libpam-modules libpam-modules-bin libpam-runtime libsystemd0 \
-        libudev1 gpgv libcap2 libexpat1 libnghttp2-14 perl-base zlib1g; \
-    rm -rf /var/lib/apt/lists/*
+        libudev1 gpgv libcap2 libnghttp2-14 perl-base zlib1g; \
+    apt-get purge -y --auto-remove \
+        curl \
+        nginx-module-image-filter nginx-module-xslt nginx-module-njs nginx-module-geoip \
+        libtiff6 libexpat1; \
+    rm -rf /var/lib/apt/lists/*; \
+    if command -v curl >/dev/null 2>&1; then \
+        echo "REFUSE: curl survived removal" >&2; exit 1; \
+    fi; \
+    for pkg in curl libcurl4 libssh2-1 libaom3 libheif1 libgssapi-krb5-2 \
+               libxml2 libxslt1.1 libtiff6 libexpat1 libgd3; do \
+        st="$(dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null || true)"; \
+        case "$st" in *"install ok installed"*) \
+            echo "REFUSE: $pkg survived removal" >&2; exit 1 ;; \
+        esac; \
+    done; \
+    test -x /usr/sbin/nginx; \
+    nginx -v
 
 # Remove the default site / welcome page, install our hardened config.
+# Attack-surface removal (#102/#103) is folded into the upgrade layer above —
+# a purge in a LATER layer only adds whiteouts and cannot reclaim the bytes.
+#
+# `curl` is installed by the upstream base and has ZERO reverse dependencies
+# here (`apt-cache rdepends --installed curl` -> none); the healthcheck is
+# `nginx -t -q` and no shipped config or script invokes it. Purging it lets
+# autoremove take libcurl4 and transitively libssh2-1 and the krb5 stack — none
+# of which is linked into the nginx binary (`ldd $(command -v nginx)` shows only
+# libcrypt, libpcre2-8, libssl, libcrypto, libz, libc).
+#
+# The four dynamic modules the upstream base ships are ALL unloaded here — no
+# `load_module` directive exists in any shipped config — and each drags a
+# decoder/parser stack in with it:
+#   image-filter -> libgd3 -> libheif1 -> libaom3/libavif15  (AVIF/HEIF decoders)
+#   xslt         -> libxslt1.1 -> libxml2                    (XML parser)
+#   njs          -> libxml2
+#   geoip        -> libgeoip
+# Purging them removes those stacks outright, including libxml2 and its
+# CVE-2026-6653 use-after-free. libtiff6/libexpat1 are then orphaned (no reverse
+# dependencies) and go too.
+#
+# CONSUMER-VISIBLE: a consumer that needs image_filter, xslt, njs or geoip must
+# load it from a derived image or use the upstream nginx image — see
+# docs/security/triage-2026-07-28-ungoverned-findings.md.
+#
+# Deliberately KEPT: libacl1 (required by coreutils/tar/sed) and gzip
+# (Priority: required) — removing either breaks the base.
 RUN rm -f /etc/nginx/conf.d/default.conf /usr/share/nginx/html/index.html 2>/dev/null || true
 COPY nginx.conf       /etc/nginx/nginx.conf
 COPY conf.d/          /etc/nginx/conf.d/

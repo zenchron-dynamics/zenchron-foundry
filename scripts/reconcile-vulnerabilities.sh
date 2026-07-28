@@ -133,6 +133,45 @@ def in_scope(entry_image, fam):
         return fam in PHP_FAMILIES
     return entry_image == fam
 
+def _upstream(v):
+    """Upstream version from a Debian version: 5.36.0-7+deb12u3 -> (5,36,0).
+
+    Non-numeric components are dropped so an epoch or a packaging suffix cannot
+    make the comparison silently wrong.
+    """
+    core = str(v or "").split(":")[-1].split("-")[0]
+    out = []
+    for part in core.split("."):
+        digits = "".join(c for c in part if c.isdigit())
+        if not digits:
+            break
+        out.append(int(digits))
+    return tuple(out)
+
+
+def version_binding_holds(e, f):
+    """Version scope, kept OUT of covers() on purpose.
+
+    covers() answers "does this record address this finding at all" (advisory,
+    image, package, arch). This answers "is it still valid for the version in
+    front of us". Keeping them separate is what lets a not_affected record whose
+    binding has lapsed be reported as RE-EVALUATE instead of vanishing into the
+    generic "no exception" case.
+
+    `not_affected_below` pins the upstream version below which the finding does
+    not apply; `installed_version` pins an exact package build."""
+    want = e.get("installed_version")
+    if want and want != f["installed_version"]:
+        return False
+    below = e.get("not_affected_below")
+    if below:
+        if not _upstream(f["installed_version"]) or not _upstream(below):
+            return False                      # cannot compare -> fail closed
+        if _upstream(f["installed_version"]) >= _upstream(below):
+            return False                      # moved into the vulnerable range
+    return True
+
+
 def covers(e, f):
     if e.get("cve") != f["id"]:
         return False
@@ -146,8 +185,6 @@ def covers(e, f):
         allowed = pkg if isinstance(pkg, list) else [pkg]
         if f["package"] not in allowed:
             return False
-    if e.get("installed_version") and e["installed_version"] != f["installed_version"]:
-        return False
     if e.get("arch") and arch and e["arch"] != arch:
         return False
     return True
@@ -162,13 +199,22 @@ if not isinstance(not_affected, list):
 
 violations, governed, cleared, used = [], [], [], set()
 for f in findings:
-    na = [e for e in not_affected if covers(e, f)]
+    na = [e for e in not_affected if covers(e, f) and version_binding_holds(e, f)]
     if na:
         e = na[0]
         cleared.append({**f, "not_affected": {k: e.get(k) for k in
                         ("cve", "image", "package", "classification", "evidence")}})
         continue
-    matches = [e for e in entries if covers(e, f)]
+    stale_na = [e for e in not_affected if covers(e, f)]
+    if stale_na:
+        e = stale_na[0]
+        violations.append({**f, "why":
+            "not_affected record for %s no longer holds: installed %s is outside its "
+            "version binding (%s) — RE-EVALUATE, the finding may now apply"
+            % (e.get("cve"), f["installed_version"],
+               e.get("not_affected_below") or e.get("installed_version"))})
+        continue
+    matches = [e for e in entries if covers(e, f) and version_binding_holds(e, f)]
     if not matches:
         # The #103 case: unfixed findings used to vanish here before anyone
         # looked at them. Now they are as blocking as fixable ones.
@@ -294,6 +340,30 @@ PY
   _led "${BASE%\}}, installed_version: 9.9}"
   t "version binding rejects another version"  "! reconcile '$tmp/unfixed.json' caddy >/dev/null 2>&1"
 
+  # --- version binding on not_affected records (round-2 requirement) --------
+  # A not_affected decision must self-invalidate when the package moves into the
+  # vulnerable range, instead of silently suppressing a finding that now applies.
+  cat > "$tmp/led.yaml" <<'YAML'
+schema_version: 1
+exceptions: []
+not_affected:
+  - cve: CVE-2099-1
+    image: caddy
+    package: perl-base
+    installed_version: 5.36.0-7+deb12u3
+    not_affected_below: 5.37.10
+    classification: false-positive-disputed-range
+    evidence: fixture
+YAML
+  _scan "$tmp/v-old.json" CVE-2099-1 perl-base 5.36.0-7+deb12u3 - HIGH
+  t "not_affected holds below the introduction version" \
+    "reconcile '$tmp/v-old.json' caddy >/dev/null 2>&1"
+  _scan "$tmp/v-new.json" CVE-2099-1 perl-base 5.38.0-1 - HIGH
+  t "not_affected STOPS applying inside the vulnerable range" \
+    "! reconcile '$tmp/v-new.json' caddy >/dev/null 2>&1"
+  t "…and says RE-EVALUATE rather than 'no exception'" \
+    "out=\"\$(reconcile '$tmp/v-new.json' caddy 2>&1 || true)\"; grep -q 'RE-EVALUATE' <<<\"\$out\""
+
   # expiry + schema hygiene
   _led "${BASE/expires_at: 2099-01-01/expires_at: 2026-01-02}"
   t "expired exception is rejected"            "! TODAY=2026-07-28 reconcile '$tmp/unfixed.json' caddy >/dev/null 2>&1"
@@ -327,9 +397,16 @@ assert d['verdict']=='FAIL' and len(d['violations'])==1\""
 main() {
   [ "${1:-}" = "--self-test" ] && { self_test; return $?; }
   local scan="${1:?usage: reconcile-vulnerabilities.sh <trivy-json> <family> [version] [--json OUT]}"
-  local family="${2:?family required}" version="${3:-}"
-  case "$version" in --*) version="" ; set -- "$1" "$2" "${@:3}" ;; esac
-  shift 2; [ -n "$version" ] && shift || true
+  local family="${2:?family required}"
+  shift 2
+  # The version is optional and may legitimately be the EMPTY string (nginx and
+  # caddy are versionless "prod" edge images, and callers pass "" positionally).
+  # Consume it whenever the next argument is not a flag — including when empty —
+  # otherwise "" falls through to the flag parser as an unknown argument.
+  local version=""
+  if [ "$#" -gt 0 ]; then
+    case "$1" in --*) : ;; *) version="$1"; shift ;; esac
+  fi
   while [ $# -gt 0 ]; do
     case "$1" in
       --policy) POLICY="$2"; shift 2 ;;
