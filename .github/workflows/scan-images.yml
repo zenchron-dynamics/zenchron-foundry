@@ -27,12 +27,15 @@ jobs:
       # Serialized — small shared self-hosted disk; see ci.yml build-test note.
       max-parallel: 1
       matrix:
-        # WF-18: every image enforces the Trivy gate unconditionally (fixable
-        # CRITICAL/HIGH fail the build) — there is no report-only image, so the
-        # former per-entry `gate:` flag is gone. Unfixable upstream lag is
-        # excluded by `--ignore-unfixed` and tracked as explicit, non-expired
-        # entries in policies/vulnerability-exceptions.yaml (validated in CI).
-        # See docs/vulnerability-management.md.
+        # WF-18: every image is gated unconditionally — there is no report-only
+        # image, so the former per-entry `gate:` flag is gone.
+        #
+        # Since #102/#103 the gate is reconciliation, not suppression: the scan
+        # reports EVERY CRITICAL/HIGH (nothing dropped for being unfixed), and
+        # each finding must be matched by an in-scope, unexpired entry in
+        # policies/vulnerability-exceptions.yaml. Upstream lag is therefore an
+        # explicit, owned, expiring decision per image rather than a scanner
+        # flag. See docs/vulnerability-management.md.
         include:
           - { fam: php-fpm,    ver: "8.3", ctx: "images/php-fpm/8.3" }
           - { fam: php-cli,    ver: "8.3", ctx: "images/php-cli/8.3" }
@@ -43,12 +46,12 @@ jobs:
           - { fam: php-worker, ver: "8.4", ctx: "images/php-worker/8.4" }
           - { fam: php-frankenphp, ver: "8.4", ctx: "images/php-frankenphp/8.4" }
           - { fam: nginx,      ver: "prod", ctx: "images/nginx" }
-          # caddy: ENFORCING (state A). CVE-2026-34986 was RESOLVED in the pinned
+          # caddy: ENFORCING. CVE-2026-34986 was RESOLVED in the pinned
           # caddy:2-alpine base (go-jose/v3 v3.0.5) — see docs/security/cve-2026-
-          # 34986-review.md. The gate runs `--ignore-unfixed`, so it fails ONLY on
-          # a FIXABLE CRITICAL/HIGH; any residual unfixable Alpine/Go-stdlib lag is
-          # carried as an explicit, non-expired exception in
-          # policies/vulnerability-exceptions.yaml — never as report-only.
+          # 34986-review.md. Its remaining Alpine/Go-stdlib findings are all
+          # FIXABLE upstream-lag items, each carried as an explicit, non-expired,
+          # caddy-scoped exception — never as report-only, and never hidden by a
+          # scanner flag.
           - { fam: caddy,      ver: "prod", ctx: "images/caddy" }
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
@@ -121,19 +124,28 @@ jobs:
           done
           test -f "trivy-${{ matrix.fam }}-${{ matrix.ver }}.sarif"
 
-      # Enforcing gate: fail on FIXABLE CRITICAL/HIGH only (--ignore-unfixed).
-      # Debian carries many distro CVEs with NO fix available (perl-base, zlib1g,
-      # libsqlite3-0, ncurses, ...); failing on those is not actionable — we would
-      # have to fork Debian. They are triaged in docs/vulnerability-management.md
-      # and surfaced (non-gating) in the SARIF above. A fixable finding means a
-      # fresher base digest exists: bump it (docs/security/base-image-patching.md).
-      - name: Trivy gate (fixable CRITICAL/HIGH)
-        id: trivy_gate
+      # Enforcing gate: EVERY CRITICAL/HIGH must be governed (#102, #103).
+      #
+      # This used to run `--ignore-unfixed --ignorefile policies/.trivyignore`,
+      # which had two holes. `--ignore-unfixed` dropped not-yet-fixed findings
+      # BEFORE the exception ledger was consulted, so a new unfixed CRITICAL
+      # shipped with no owner, reachability decision, expiry or compensating
+      # control. And `.trivyignore` is global — Trivy takes one ignore file per
+      # scan — so a CVE accepted on caddy was suppressed on all 10 images.
+      #
+      # Now Trivy suppresses NOTHING: it reports the full CRITICAL/HIGH set as
+      # JSON (exit 0, so the scan itself is not the gate), and
+      # reconcile-vulnerabilities.sh decides per image whether each finding has
+      # an in-scope, unexpired ledger entry. Ungoverned finding = failed build,
+      # fixable or not.
+      - name: Trivy scan (full CRITICAL/HIGH set, nothing suppressed)
+        id: trivy_full
         run: |
           set -euo pipefail
           mkdir -p /tmp/trivy-cache
-          # Separate retry for transient DB/network errors WITHOUT masking a real
-          # gate hit: only retry on trivy's infra exit code (>1); exit 1 = findings.
+          # Retry transient DB/network errors only. With --exit-code 0 any
+          # non-zero rc is an infrastructure failure, never a finding, so this
+          # cannot mask a gate hit.
           n=0
           while :; do
             set +e
@@ -141,16 +153,36 @@ jobs:
               -v /var/run/docker.sock:/var/run/docker.sock \
               -v /tmp/trivy-cache:/root/.cache/trivy -v "$PWD:/work" -w /work \
               aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 image "scan-target:${{ matrix.fam }}-${{ matrix.ver }}" \
-              --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
-              --ignore-unfixed --ignorefile policies/.trivyignore
+              --scanners vuln --severity CRITICAL,HIGH --exit-code 0 \
+              --format json --output "trivy-full-${{ matrix.fam }}-${{ matrix.ver }}.json"
             rc=$?
             set -e
-            # 0 = clean, 1 = fixable findings (real gate failure) -> stop, propagate.
-            [ "$rc" -eq 0 ] && exit 0
-            [ "$rc" -eq 1 ] && { echo "Trivy gate: fixable CRITICAL/HIGH found"; exit 1; }
-            n=$((n+1)); [ "$n" -ge 3 ] && { echo "trivy gate infra error (rc=$rc) after retries"; exit "$rc"; }
-            echo "trivy gate infra error (rc=$rc); retry $n in 15s"; sleep 15
+            [ "$rc" -eq 0 ] && break
+            n=$((n+1)); [ "$n" -ge 3 ] && { echo "trivy scan infra error (rc=$rc) after retries"; exit "$rc"; }
+            echo "trivy scan infra error (rc=$rc); retry $n in 15s"; sleep 15
           done
+          # Fail closed: no JSON means no evidence, not a clean image.
+          test -s "trivy-full-${{ matrix.fam }}-${{ matrix.ver }}.json"
+
+      - name: Vulnerability gate (reconcile every finding against the ledger)
+        id: trivy_gate
+        run: |
+          set -euo pipefail
+          mkdir -p vuln-reconciliation
+          bash scripts/reconcile-vulnerabilities.sh \
+            "trivy-full-${{ matrix.fam }}-${{ matrix.ver }}.json" \
+            "${{ matrix.fam }}" "${{ matrix.ver }}" \
+            --json "vuln-reconciliation/${{ matrix.fam }}-${{ matrix.ver }}.json"
+
+      # Evidence on success AND failure: on a gate hit the JSON names every
+      # ungoverned finding, which is when it is worth having.
+      - name: Upload vulnerability reconciliation
+        if: always() && hashFiles('vuln-reconciliation/*.json') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vuln-reconciliation-${{ matrix.fam }}-${{ matrix.ver }}
+          path: vuln-reconciliation/
+          if-no-files-found: error
 
       # Code-scanning SARIF upload needs GitHub Advanced Security, which is not
       # available on Free-plan private repos — so this is best-effort. The SARIF
