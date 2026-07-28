@@ -12,13 +12,24 @@ OUT="${OUT:-artifacts/scan}"; mkdir -p "$OUT"
 scan_one() {
     local image="$1" name
     name="$(echo "$image" | tr '/:@' '___')"
+    # The global ignore file is retired (#102): it suppressed by advisory id
+    # across every image. Trivy therefore reports the FULL CRITICAL/HIGH set
+    # (--exit-code 0 so the scan is not the gate) and
+    # scripts/reconcile-vulnerabilities.sh decides per image whether each
+    # finding is governed — the same gate CI runs.
     echo "==> Trivy: $image"
     trivy image \
         --severity CRITICAL,HIGH \
-        --exit-code 1 \
-        --ignorefile policies/.trivyignore \
+        --exit-code 0 \
         --format json --output "${OUT}/${name}.trivy.json" \
-        "$image" || { echo "Trivy gate FAILED for $image"; return 1; }
+        "$image" || { echo "Trivy scan FAILED for $image"; return 1; }
+    if [ -n "${RECONCILE_FAMILY:-}" ]; then
+        bash "$(dirname "$0")/reconcile-vulnerabilities.sh" \
+            "${OUT}/${name}.trivy.json" "$RECONCILE_FAMILY" "${RECONCILE_VERSION:-}" \
+            || { echo "Vulnerability gate FAILED for $image"; return 1; }
+    else
+        echo "    (set RECONCILE_FAMILY=<image-family> [RECONCILE_VERSION=<ver>] to apply the gate)"
+    fi
 
     echo "==> Grype: $image"
     grype "$image" \
