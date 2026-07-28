@@ -138,16 +138,36 @@ def covers(e, f):
         return False
     if not in_scope(e.get("image", ""), family):
         return False
-    if e.get("package") and e["package"] != f["package"]:
-        return False
+    # `package` may be a single binary package or the SET of binary packages
+    # built from one source package (util-linux -> libblkid1, libmount1, …).
+    # A source-package advisory legitimately lands on several of them.
+    pkg = e.get("package")
+    if pkg:
+        allowed = pkg if isinstance(pkg, list) else [pkg]
+        if f["package"] not in allowed:
+            return False
     if e.get("installed_version") and e["installed_version"] != f["installed_version"]:
         return False
     if e.get("arch") and arch and e["arch"] != arch:
         return False
     return True
 
-violations, governed, used = [], [], set()
+# Findings determined NOT TO APPLY. Distinct from an exception: nothing is being
+# accepted, so these carry evidence rather than an owner/expiry, and they do not
+# expire. Recording a proven-not-affected finding as an "exception" would
+# misstate it as accepted risk.
+not_affected = led.get("not_affected") or []
+if not isinstance(not_affected, list):
+    die("ledger 'not_affected' must be a list when present")
+
+violations, governed, cleared, used = [], [], [], set()
 for f in findings:
+    na = [e for e in not_affected if covers(e, f)]
+    if na:
+        e = na[0]
+        cleared.append({**f, "not_affected": {k: e.get(k) for k in
+                        ("cve", "image", "package", "classification", "evidence")}})
+        continue
     matches = [e for e in entries if covers(e, f)]
     if not matches:
         # The #103 case: unfixed findings used to vanish here before anyone
@@ -178,6 +198,7 @@ report = {
     "arch": arch or "unspecified",
     "checked_at": today,
     "findings_total": len(findings),
+    "not_affected": cleared,
     "governed": governed,
     "violations": violations,
     "verdict": "PASS" if not violations else "FAIL",
@@ -202,8 +223,10 @@ if violations:
           file=sys.stderr)
     sys.exit(1)
 
-print("RECONCILE PASS: %s — %d CRITICAL/HIGH finding(s), all governed (%d exception(s) applied)"
-      % (image_label, len(findings), len(set(f["id"] for f in governed))))
+print("RECONCILE PASS: %s — %d CRITICAL/HIGH finding(s): %d accepted via %d exception(s), "
+      "%d determined not-affected"
+      % (image_label, len(findings), len(governed),
+         len(set(f["id"] for f in governed)), len(cleared)))
 PY
 }
 
