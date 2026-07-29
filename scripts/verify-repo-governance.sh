@@ -83,7 +83,39 @@ api() {
 pol() { # pol <yq-style dotted path> -> value via python (no yq dependency)
   PYPATH="$1" POLICY="$POLICY" python3 - <<'PY'
 import os, sys, yaml
-doc = yaml.safe_load(open(os.environ["POLICY"]))
+
+
+class StrictLoader(yaml.SafeLoader):
+    """Reject duplicate mapping keys.
+
+    PyYAML silently keeps the LAST duplicate, so a policy could declare a key
+    twice with different values and the verifier would enforce only one of them
+    — which is exactly how a duplicated `release_environments:` block survived
+    into this file. A policy that says two different things is not a policy.
+    """
+
+
+def _no_duplicates(loader, node, deep=False):
+    mapping = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in mapping:
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping", node.start_mark,
+                "duplicate key %r — the policy declares it twice" % (key,),
+                key_node.start_mark)
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+StrictLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicates)
+
+try:
+    doc = yaml.load(open(os.environ["POLICY"]), Loader=StrictLoader)
+except yaml.YAMLError as exc:
+    print("POLICY ERROR: %s" % exc, file=sys.stderr)
+    sys.exit(4)
 cur = doc
 for part in os.environ["PYPATH"].split("."):
     if isinstance(cur, dict) and part in cur:
@@ -260,12 +292,21 @@ print((td - rd).days)")"
 
   # The flag above is only safe because fork PRs cannot reach the privileged
   # pool. Verify that boundary EXISTS and is wired, not merely that it once did.
+  # EXECUTE the boundary gate rather than grepping for its filename. A
+  # file-exists + Makefile-grep check proves only that a string appears; it
+  # would pass for a gate that is present, wired, and broken.
   local boundary
   boundary="$(pol org_runner_group.requires_fork_pr_boundary)"
-  if [ -f "${ROOT}/${boundary}" ] && grep -q "$(basename "$boundary")" "${ROOT}/Makefile" 2>/dev/null; then
-    pass "fork-PR trust boundary present and wired (${boundary})"
+  if [ ! -x "${ROOT}/${boundary}" ] && [ ! -f "${ROOT}/${boundary}" ]; then
+    fail "fork-PR boundary '${boundary}' is missing — allows_public_repositories must NOT be true without it"
+  elif ! bash "${ROOT}/${boundary}" >/dev/null 2>&1; then
+    fail "fork-PR boundary '${boundary}' FAILS when executed — allows_public_repositories must NOT be true while it is red"
+  elif ! make -C "$ROOT" -n validate 2>/dev/null | grep -q "$(basename "$boundary")"; then
+    # `make -n validate` expands the REAL target, so this proves the gate is in
+    # the recipe rather than merely mentioned somewhere in the Makefile.
+    fail "fork-PR boundary '${boundary}' is not part of the real 'make validate' target"
   else
-    fail "fork-PR boundary '${boundary}' is missing or not wired into make validate — allows_public_repositories must NOT be true without it"
+    pass "fork-PR trust boundary executes clean and is in the validate target (${boundary})"
   fi
 
   RULESETS="$(api "repos/${REPO}/rulesets")"

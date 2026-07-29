@@ -145,5 +145,26 @@ ck "the flag is no longer claimed unverifiable" \
 import yaml;d=yaml.safe_load(open('$POLICY'))
 assert not any('allows_public_repositories' in x for x in d.get('not_api_verifiable',[]))\""
 
+# --- review findings ---------------------------------------------------------
+ck "policy has no duplicate top-level keys" \
+   "python3 -c \"
+import yaml, collections
+class L(yaml.SafeLoader): pass
+def nodup(loader, node, deep=False):
+    seen = collections.Counter(loader.construct_object(k, deep=deep) for k, _ in node.value)
+    dups = [k for k, n in seen.items() if n > 1]
+    assert not dups, dups
+    return {loader.construct_object(k, deep=deep): loader.construct_object(v, deep=deep) for k, v in node.value}
+L.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, nodup)
+yaml.load(open('$POLICY'), Loader=L)\""
+ck "verifier rejects duplicate policy keys" \
+   "grep -q 'duplicate key' scripts/verify-repo-governance.sh"
+ck "boundary gate is EXECUTED, not grepped" \
+   "grep -q 'FAILS when executed' scripts/verify-repo-governance.sh"
+ck "boundary membership proven via make -n validate" \
+   "grep -q 'make -C .* -n validate' scripts/verify-repo-governance.sh"
+ck "the boundary gate is really in the validate target" \
+   "make -C . -n validate 2>/dev/null | grep -q assert-runner-trust.sh"
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_repo_governance: PASS" || echo "test_repo_governance: FAIL"
 exit $fail
