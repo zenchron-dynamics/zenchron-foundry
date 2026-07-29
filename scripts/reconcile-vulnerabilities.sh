@@ -116,6 +116,38 @@ if require_arch:
                 "state the architectures it was reconciled on"
                 % (_e.get("cve"), _e.get("image")))
 
+
+def exc_id(e):
+    """Stable, unique identity for a ledger record.
+
+    The aggregate stale check pairs records across images by this string, so it
+    must distinguish everything the ledger treats as a distinct acceptance.
+    `cve@image` did not: two records for the same CVE and image scoped to
+    different packages or different installed versions collapsed to one key, so
+    one of them could never be reported stale.
+    """
+    def part(v):
+        if v is None:
+            return "*"
+        if isinstance(v, (list, tuple)):
+            return ",".join(sorted(str(x) for x in v))
+        return str(v)
+    return "|".join(part(e.get(k)) for k in
+                    ("cve", "image", "package", "installed_version"))
+
+
+# Two records with identical scope are indistinguishable: whichever is listed
+# first governs every finding and the other can never match, so it would be
+# reported stale forever and could never be cleared by any scan.
+_seen_ids = {}
+for _i, _e in enumerate(entries):
+    _id = exc_id(_e)
+    if _id in _seen_ids:
+        die("duplicate exception scope at entries[%d] and entries[%d]: %s — two "
+            "records with the same cve/image/package/installed_version cannot be "
+            "told apart" % (_seen_ids[_id], _i, _id))
+    _seen_ids[_id] = _i
+
 # PyYAML turns an unquoted 2099-01-01 into datetime.date. Normalise every value
 # to a string so date handling, comparison and JSON emission all agree.
 for _e in entries:
@@ -245,7 +277,7 @@ for _e in not_affected:
     if require_arch and not _e.get("verified_architectures"):
         die("not_affected %s has no verified_architectures" % _who)
 
-violations, governed, cleared, used = [], [], [], set()
+violations, governed, cleared, used, shadowed = [], [], [], set(), set()
 for f in findings:
     na = [e for e in not_affected if covers(e, f) and version_binding_holds(e, f)]
     if na:
@@ -269,7 +301,13 @@ for f in findings:
         violations.append({**f, "why": "no in-scope exception in the ledger"})
         continue
     e = matches[0]
-    used.add((e.get("cve"), e.get("image")))
+    used.add(exc_id(e))
+    # Records that also cover this finding but did not govern it. They are not
+    # stale — the finding they describe is real and present — they are merely
+    # shadowed. Reporting them as "matched no finding" would send someone to
+    # delete a correct record.
+    for _other in matches[1:]:
+        shadowed.add(exc_id(_other))
     exp = str(e.get("expires_at", ""))
     if exp <= today:
         violations.append({**f, "why": "exception expired (%s <= %s)" % (exp, today)})
@@ -306,9 +344,14 @@ report = {
     "violations": violations,
     "verdict": "PASS" if not violations else "FAIL",
     # Entries that matched here — the aggregate stale check across the whole
-    # matrix consumes this; a per-image view cannot tell "unused" from
-    # "belongs to another image".
-    "matched_exceptions": sorted("%s@%s" % (c, i) for c, i in used),
+    # matrix consumes these; a per-image view cannot tell "unused" from
+    # "belongs to another image". Keyed by exc_id(), which is unique per
+    # acceptance scope; the former "cve@image" key merged distinct records.
+    "matched_exception_ids": sorted(used),
+    # Covered the finding but did not govern it (an earlier record did). Not
+    # stale, just redundant — reported separately so nobody deletes a record
+    # that correctly describes a live finding.
+    "shadowed_exception_ids": sorted(shadowed - used),
 }
 if out:
     with open(out, "w") as fh:
@@ -578,7 +621,43 @@ YAML
     "OUT_JSON='$tmp/ev.json' reconcile '$tmp/unfixed.json' caddy >/dev/null && python3 -c \"
 import json;d=json.load(open('$tmp/ev.json'))
 assert d['verdict']=='PASS' and d['findings_total']==1
-assert d['matched_exceptions']==['CVE-2099-1@caddy'], d['matched_exceptions']\""
+assert d['matched_exception_ids']==['CVE-2099-1|caddy|*|*'], d['matched_exception_ids']
+assert d['shadowed_exception_ids']==[], d['shadowed_exception_ids']\""
+
+  # --- stable record IDs (the aggregate stale check pairs on these) ----------
+  # Two records differing ONLY by package. Under the previous 'cve@image' key
+  # they collapsed to one ID, so matching either marked both live and neither
+  # could ever be reported stale.
+  { echo "schema_version: 1"; echo "exceptions:";
+    echo "  - {cve: CVE-2099-1, image: caddy, package: curl, owner: o, approver: a, reason: r, created_at: 2026-01-01, expires_at: 2099-01-01, release_blocking: false, compensating_controls: [c], fix_available: false, verified_architectures: [linux/amd64]}";
+    echo "  - {cve: CVE-2099-1, image: caddy, package: openssl, owner: o, approver: a, reason: r, created_at: 2026-01-01, expires_at: 2099-01-01, release_blocking: false, compensating_controls: [c], fix_available: false, verified_architectures: [linux/amd64]}";
+  } > "$tmp/led.yaml"
+  t "same cve+image, different package -> distinct IDs" \
+    "OUT_JSON='$tmp/two.json' reconcile '$tmp/unfixed.json' caddy >/dev/null && python3 -c \"
+import json;d=json.load(open('$tmp/two.json'))
+assert d['matched_exception_ids']==['CVE-2099-1|caddy|curl|*'], d['matched_exception_ids']\""
+
+  # A record whose scope is identical to another can never match, so it would be
+  # reported stale forever and could never be cleared by any scan.
+  { echo "schema_version: 1"; echo "exceptions:";
+    printf '  - %s\n' "$BASE"; printf '  - %s\n' "$BASE"; } > "$tmp/led.yaml"
+  t "duplicate exception scope fails closed" \
+    "! reconcile '$tmp/unfixed.json' caddy >/dev/null 2>&1"
+  t "...and the duplicate is named with both indices" \
+    "out=\"\$(reconcile '$tmp/unfixed.json' caddy 2>&1 || true)\"; grep -q 'duplicate exception scope at entries\\[0\\] and entries\\[1\\]' <<<\"\$out\""
+
+  # Two DIFFERENT records that both cover the same finding: the first governs,
+  # the second is shadowed. Shadowed is not stale — the finding is real.
+  { echo "schema_version: 1"; echo "exceptions:";
+    echo "  - {cve: CVE-2099-1, image: caddy, owner: o, approver: a, reason: r, created_at: 2026-01-01, expires_at: 2099-01-01, release_blocking: false, compensating_controls: [c], fix_available: false, verified_architectures: [linux/amd64]}";
+    echo "  - {cve: CVE-2099-1, image: all, owner: o, approver: a, reason: r, created_at: 2026-01-01, expires_at: 2099-01-01, release_blocking: false, compensating_controls: [c], fix_available: false, verified_architectures: [linux/amd64]}";
+  } > "$tmp/led.yaml"
+  t "an overlapping record is recorded as shadowed, not dropped" \
+    "OUT_JSON='$tmp/shadow.json' reconcile '$tmp/unfixed.json' caddy >/dev/null && python3 -c \"
+import json;d=json.load(open('$tmp/shadow.json'))
+assert d['matched_exception_ids']==['CVE-2099-1|caddy|*|*'], d['matched_exception_ids']
+assert d['shadowed_exception_ids']==['CVE-2099-1|all|*|*'], d['shadowed_exception_ids']\""
+  _led "$BASE"
   t "evidence records violations too" \
     "! OUT_JSON='$tmp/bad.json' reconcile '$tmp/other.json' caddy >/dev/null 2>&1; python3 -c \"
 import json;d=json.load(open('$tmp/bad.json'))

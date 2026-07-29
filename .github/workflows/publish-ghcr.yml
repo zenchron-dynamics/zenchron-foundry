@@ -78,6 +78,16 @@ jobs:
       - run: bash scripts/assert-image-matrix.sh
       - name: Verify base-image digests (multi-arch resolves)
         run: bash scripts/verify-base-images.sh
+      - name: Every published platform must be reconciled
+        # reconcile-vulnerabilities.sh runs per architecture and takes a
+        # mandatory --arch, so every acceptance record names the architectures
+        # it was actually evidenced against. Nothing connected that to
+        # publication: a linux/amd64,linux/arm64 push would ship arm64 layers
+        # judged against a ledger that had only ever seen amd64. This refuses
+        # any platform no acceptance record covers, BEFORE the first push.
+        env:
+          PLAT: ${{ env.PLATFORMS }}
+        run: bash scripts/assert-publish-platforms-reconciled.sh "$PLAT"
       - name: Stable path requires a valid release tag
         if: ${{ inputs.rc == '' }}
         env:

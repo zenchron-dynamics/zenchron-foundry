@@ -271,9 +271,15 @@ jobs:
   # exceptions as stale.
   stale-exceptions:
     name: no stale vulnerability exceptions
-    runs-on: ${{ fromJSON((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["self-hosted","linux","x64","zenchron"]' || '["ubuntu-latest"]') }}
+    # Static, like every other job here. This workflow has no pull_request
+    # trigger, so the old `fromJSON(github.event_name != 'pull_request' ...)`
+    # expression always resolved to the self-hosted pool while reading as if it
+    # were a fork guard. Per #96 a workflow cannot gate its own runner anyway —
+    # the runner group does that at GitHub's control plane — so an expression
+    # that only ever has one value is removed rather than left to mislead.
+    runs-on: [self-hosted, linux, x64, zenchron]
     needs: scan
-    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ always() }}
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
