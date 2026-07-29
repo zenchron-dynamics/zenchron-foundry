@@ -76,7 +76,9 @@ in_fence = False
 for line in raw_lines:
     stripped = line.strip()
     if ext in (".md", ".markdown"):
-        if stripped.startswith("```"):
+        # CommonMark allows backtick AND tilde fences, of three or more chars.
+        # Only handling ``` let a ~~~ block hide a runnable example.
+        if stripped.startswith("```") or stripped.startswith("~~~"):
             in_fence = not in_fence
             keep.append("")
             continue
@@ -123,17 +125,36 @@ scan() {
     found=$((found + 1))
     while IFS=$'\t' read -r ln val; do
       [ -n "${val:-}" ] || continue
-      # Not literal identities, so nothing to allowlist against — these are
-      # INDIRECTION to the policy and are the shape we actually want:
-      #   $VAR / ${VAR} / $(cmd)  — resolved at runtime from cosign-identities.yaml
-      #   {{PLACEHOLDER}}         — substituted when a release template renders
-      #   <placeholder>           — documentation placeholder
-      # A literal wildcard cannot hide here: it would have to be spelled out.
+      # Documentation placeholders and template tokens are not runnable values.
       case "$val" in
-        *'<'*'>'*)     continue ;;
-        '$'*)          continue ;;
-        '{{'*)         continue ;;
-        *'{{'*'}}'*)   continue ;;
+        *'<'*'>'*)   continue ;;
+        '{{'*)       continue ;;
+        *'{{'*'}}'*) continue ;;
+      esac
+
+      # DYNAMIC arguments are the hole review found: skipping every `$VAR`
+      # proved nothing about the value, so
+      #     BAD='^https://github\.com/o/r/.*$'
+      #     cosign verify --certificate-identity-regexp "$BAD" IMAGE
+      # sailed through. A variable is accepted ONLY if it is one this repository
+      # populates from the strict policy parser; anything else is rejected,
+      # because the gate cannot prove where the value came from.
+      case "$val" in
+        '$'*|*'$('*)
+          _bare="${val#\$}"; _bare="${_bare#\{}"; _bare="${_bare%\}}"
+          case "$_bare" in
+            # Variables the policy-driven helpers populate…
+            EXPECTED_IDENTITY|IDENTITY_RE|COSIGN_ID|IDENTITY)
+              continue ;;
+            # …and the strict policy accessor itself, which reads
+            # cosign-identities.yaml and dies on an unknown role.
+            '(identity_re_for_role'*|'(identity_for_role'*)
+              continue ;;
+            *)
+              printf '%s:%s: dynamic cosign identity — cannot prove it comes from %s\n    %s\n' \
+                "${f#"$dir"/}" "$ln" "$(basename "$IDENTITIES")" "$val" >&2
+              hits=$((hits + 1)); continue ;;
+          esac ;;
       esac
       if ! grep -qxF -- "$val" <<<"$allowed"; then
         printf '%s:%s: cosign identity is not one declared in %s\n    %s\n' \
@@ -205,6 +226,27 @@ YAML
   t "non-regexp --certificate-identity checked too"  "! scan '$tmp/bad7' >/dev/null 2>&1"
 
   # --- fail-closed inputs ---------------------------------------------------
+  # --- dynamic-argument bypass found in review -----------------------------
+  # Skipping every $VAR proved nothing about the value behind it.
+  mk dyn1 "BAD_IDENTITY='^https://github\\.com/o/r/.*\$'\ncosign verify --certificate-identity-regexp \"\$BAD_IDENTITY\" IMAGE\n"
+  t "locally assigned wildcard variable rejected"    "! scan '$tmp/dyn1' >/dev/null 2>&1"
+  mk dyn2 "cosign verify --certificate-identity-regexp \"\${SOME_VAR}\" IMAGE\n"
+  t "unrecognised braced variable rejected"          "! scan '$tmp/dyn2' >/dev/null 2>&1"
+  mk dyn3 "cosign verify --certificate-identity-regexp \"\$(echo bad)\" IMAGE\n"
+  t "arbitrary command substitution rejected"        "! scan '$tmp/dyn3' >/dev/null 2>&1"
+  mk dyn4 "cosign verify --certificate-identity-regexp \"\$IDENTITY_RE\" IMAGE\n"
+  t "policy-populated variable accepted"             "scan '$tmp/dyn4' >/dev/null"
+  mk dyn5 "cosign verify --certificate-identity-regexp \"\$(identity_re_for_role \"\$ROLE\")\" IMAGE\n"
+  t "strict policy accessor accepted"                "scan '$tmp/dyn5' >/dev/null"
+
+  # --- alternate Markdown fence forms --------------------------------------
+  mkdir -p "$tmp/fence1"
+  { echo '~~~bash'; echo "cosign verify --certificate-identity-regexp 'https://github.com/o/r/.*' img"; echo '~~~'; } > "$tmp/fence1/doc.md"
+  t "tilde-fenced wildcard is rejected"              "! scan '$tmp/fence1' >/dev/null 2>&1"
+  mkdir -p "$tmp/fence2"
+  { echo '````bash'; echo "cosign verify --certificate-identity-regexp 'https://github.com/o/r/.*' img"; echo '````'; } > "$tmp/fence2/doc.md"
+  t "four-backtick fence is rejected"                "! scan '$tmp/fence2' >/dev/null 2>&1"
+
   mkdir -p "$tmp/empty"
   t "empty directory fails closed"                   "! scan '$tmp/empty' >/dev/null 2>&1"
   t "unreadable identity policy fails closed" \
