@@ -132,9 +132,20 @@ PY
 }
 
 required_check_names() {
+  # The BRANCH RULESET must require what a PULL REQUEST can actually produce.
+  # Since #96 the pull-request path and the release path emit different checks:
+  # build+smoke and the image scans now run on the restricted self-hosted pool,
+  # which no pull request can reach. Requiring the release set on the ruleset
+  # would block every merge for ever, so the ruleset is compared against
+  # pr_required_checks; release_required_checks gates the seal instead.
   CHECKS_POLICY="$CHECKS_POLICY" python3 - <<'PY'
-import os, yaml
-print("\n".join(yaml.safe_load(open(os.environ["CHECKS_POLICY"]))["required_checks"]))
+import os, sys, yaml
+doc = yaml.safe_load(open(os.environ["CHECKS_POLICY"])) or {}
+names = doc.get("pr_required_checks")
+if not names:
+    print("checks policy has no pr_required_checks list", file=sys.stderr)
+    sys.exit(2)
+print("\n".join(names))
 PY
 }
 
@@ -263,50 +274,104 @@ print((td - rd).days)")"
     fi
   fi
 
-  # --- organization runner group -------------------------------------------
-  # This is the control that silently broke CI for two days: with
-  # allows_public_repositories=false on a PUBLIC repo, GitHub creates jobs and
-  # never dispatches them. It needs admin:org, which is why it sat in
-  # not_api_verifiable — but "we cannot read it" is not the same as "it is
-  # fine", so it is now checked and a read failure is a FAILURE, not a skip.
-  local grp_name grp_id want_public org_json live_public
-  grp_name="$(pol org_runner_group.name)"
+  # --- organization runner group: THE fork-PR boundary ----------------------
+  # Every field is verified, because each one is load-bearing. Checking only
+  # allows_public_repositories left the questions that actually matter — WHICH
+  # repositories and WHICH workflows may use these runners — unasked.
+  local org grp_id grp_name org_json grp
+  org="${REPO%%/*}"
   grp_id="$(pol org_runner_group.id)"
-  want_public="$(pol org_runner_group.allows_public_repositories)"
+  grp_name="$(pol org_runner_group.name)"
 
-  if org_json="$(gh api "orgs/${REPO%%/*}/actions/runner-groups" 2>/dev/null)"; then
-    live_public="$(jq -r --arg n "$grp_name" \
-      '.runner_groups[]? | select(.name==$n) | .allows_public_repositories' <<<"$org_json")"
-    if [ -z "$live_public" ] || [ "$live_public" = "null" ]; then
-      fail "org runner group '${grp_name}' (id ${grp_id}) not found — the runners' group was renamed or removed"
-    elif [ "$live_public" = "$want_public" ]; then
-      pass "org runner group '${grp_name}' allows_public_repositories=${live_public} as declared"
-    else
-      fail "org runner group '${grp_name}' allows_public_repositories=${live_public}, declared ${want_public}"
-      [ "$live_public" = "false" ] && \
-        echo "      -> with a PUBLIC repo this silently stops job dispatch: jobs queue, no runner is assigned, and they are cancelled at the 24h timeout" >&2
-    fi
+  if ! org_json="$(gh api "orgs/${org}/actions/runner-groups" 2>/dev/null)"; then
+    fail "cannot read orgs/${org}/actions/runner-groups — needs the admin:org scope (gh auth refresh -h github.com -s admin:org). A control that cannot be read cannot be claimed."
   else
-    fail "cannot read orgs/${REPO%%/*}/actions/runner-groups — needs the admin:org scope (\`gh auth refresh -h github.com -s admin:org\`). A control that cannot be read cannot be claimed."
+    grp="$(jq -r --argjson id "$grp_id" '.runner_groups[]? | select(.id==$id)' <<<"$org_json")"
+    if [ -z "$grp" ]; then
+      fail "runner group id ${grp_id} does not exist — the boundary group was deleted or renumbered"
+    else
+      [ "$(jq -r '.name' <<<"$grp")" = "$grp_name" ] \
+        && pass "runner group ${grp_id} is '${grp_name}'" \
+        || fail "runner group ${grp_id} is named '$(jq -r '.name' <<<"$grp")', declared '${grp_name}'"
+
+      local f
+      for f in visibility allows_public_repositories restricted_to_workflows; do
+        local live want
+        live="$(jq -r --arg k "$f" '.[$k]' <<<"$grp")"
+        want="$(pol "org_runner_group.${f}")"
+        [ "$live" = "$want" ] \
+          && pass "runner group ${f}=${live}" \
+          || fail "runner group ${f}='${live}', declared '${want}'"
+      done
+
+      # Selected repositories, EXACTLY. A second repository here would let it
+      # reach these runners without carrying this repository's controls.
+      local live_repos want_repos
+      if live_repos="$(gh api "orgs/${org}/actions/runner-groups/${grp_id}/repositories" \
+                        --jq '[.repositories[].id] | sort | join(",")' 2>/dev/null)"; then
+        want_repos="$(pol org_runner_group.selected_repository_ids | tr -d '[]' | tr -d ' ' )"
+        [ "$live_repos" = "$want_repos" ] \
+          && pass "runner group repositories match exactly (${live_repos})" \
+          || fail "runner group repositories are [${live_repos}], declared [${want_repos}]"
+
+        # Explicitly answer "can another PUBLIC repo use this pool?"
+        local extra_public
+        extra_public="$(gh api "orgs/${org}/actions/runner-groups/${grp_id}/repositories" \
+                         --jq '[.repositories[] | select(.full_name != "'"$REPO"'") | select(.private==false) | .full_name] | join(", ")' 2>/dev/null)"
+        [ -z "$extra_public" ] \
+          && pass "no other public repository can use these runners" \
+          || fail "other PUBLIC repositories can use these runners: ${extra_public}"
+      else
+        fail "cannot read the runner group's selected repositories"
+      fi
+
+      # Allowed workflows, EXACTLY — paths AND refs. An extra entry, or the same
+      # path on a different ref, widens the boundary.
+      local live_wf want_wf missing_wf extra_wf
+      live_wf="$(jq -r '.selected_workflows[]?' <<<"$grp" | sort)"
+      want_wf="$(pol org_runner_group.selected_workflows | sort)"
+      missing_wf="$(set_missing "$want_wf" "$live_wf")"
+      extra_wf="$(set_missing "$live_wf" "$want_wf")"
+      if [ -z "$missing_wf" ] && [ -z "$extra_wf" ]; then
+        pass "runner group allowed workflows match exactly ($(grep -c . <<<"$live_wf") entries, all @refs/heads/master)"
+      else
+        [ -n "$missing_wf" ] && fail "declared workflow(s) not allowed live: $(tr '\n' ' ' <<<"$missing_wf")"
+        [ -n "$extra_wf" ] && fail "UNDECLARED workflow(s) allowed on the boundary group: $(tr '\n' ' ' <<<"$extra_wf")"
+      fi
+      # Every entry must be ref-pinned; an unpinned path would match any ref,
+      # including a pull request's merge ref.
+      if grep -qv '@refs/heads/master$' <<<"$live_wf"; then
+        fail "runner group has workflow entries not pinned to @refs/heads/master: $(grep -v '@refs/heads/master$' <<<"$live_wf" | tr '\n' ' ')"
+      else
+        pass "every allowed workflow is pinned to refs/heads/master"
+      fi
+    fi
+
+    # No runner may sit in an unrestricted org-wide group.
+    local forbidden fid fname n
+    forbidden="$(pol org_runner_group.forbid_runners_in_groups)"
+    while IFS= read -r fname; do
+      [ -n "$fname" ] || continue
+      fid="$(jq -r --arg n "$fname" '.runner_groups[]? | select(.name==$n) | .id' <<<"$org_json")"
+      [ -n "$fid" ] || continue
+      n="$(gh api "orgs/${org}/actions/runner-groups/${fid}/runners" --jq '.total_count' 2>/dev/null || echo unknown)"
+      [ "$n" = "0" ] \
+        && pass "group '${fname}' holds no runners" \
+        || fail "group '${fname}' holds ${n} runner(s) — it is not restricted to this repository"
+    done <<<"$forbidden"
   fi
 
-  # The flag above is only safe because fork PRs cannot reach the privileged
-  # pool. Verify that boundary EXISTS and is wired, not merely that it once did.
-  # EXECUTE the boundary gate rather than grepping for its filename. A
-  # file-exists + Makefile-grep check proves only that a string appears; it
-  # would pass for a gate that is present, wired, and broken.
+  # EXECUTE the repository-side drift check rather than grepping for its name.
   local boundary
   boundary="$(pol org_runner_group.requires_fork_pr_boundary)"
-  if [ ! -x "${ROOT}/${boundary}" ] && [ ! -f "${ROOT}/${boundary}" ]; then
-    fail "fork-PR boundary '${boundary}' is missing — allows_public_repositories must NOT be true without it"
+  if [ ! -f "${ROOT}/${boundary}" ]; then
+    fail "drift check '${boundary}' is missing"
   elif ! bash "${ROOT}/${boundary}" >/dev/null 2>&1; then
-    fail "fork-PR boundary '${boundary}' FAILS when executed — allows_public_repositories must NOT be true while it is red"
+    fail "drift check '${boundary}' FAILS when executed"
   elif ! make -C "$ROOT" -n validate 2>/dev/null | grep -q "$(basename "$boundary")"; then
-    # `make -n validate` expands the REAL target, so this proves the gate is in
-    # the recipe rather than merely mentioned somewhere in the Makefile.
-    fail "fork-PR boundary '${boundary}' is not part of the real 'make validate' target"
+    fail "drift check '${boundary}' is not part of the real 'make validate' target"
   else
-    pass "fork-PR trust boundary executes clean and is in the validate target (${boundary})"
+    pass "pull-request drift check executes clean and is in the validate target"
   fi
 
   RULESETS="$(api "repos/${REPO}/rulesets")"
@@ -513,15 +578,38 @@ print((datetime.date(2026,1,1) - datetime.date(2026,12,1)).days)")" -lt 0 ]'
   t "undeclared active rulesets are checked" \
     'grep -q "undeclared ACTIVE ruleset" "$0"'
 
+  # --- the boundary group's full contract ------------------------------------
+  t "policy pins the group by ID and name" \
+    '[ -n "$(pol org_runner_group.id)" ] && [ -n "$(pol org_runner_group.name)" ]'
+  t "policy declares visibility: selected" \
+    '[ "$(pol org_runner_group.visibility)" = "selected" ]'
+  t "policy declares restricted_to_workflows" \
+    '[ "$(pol org_runner_group.restricted_to_workflows)" = "true" ]'
+  t "policy pins exactly one repository" \
+    '[ "$(pol org_runner_group.selected_repository_ids | tr -d "[] " )" = "1254295268" ]'
+  t "every declared workflow is ref-pinned to master" \
+    '! pol org_runner_group.selected_workflows | grep -qv "@refs/heads/master$"'
+  t "no declared workflow is a bare path" \
+    '! pol org_runner_group.selected_workflows | grep -qv "@"'
+  t "Default is forbidden from holding runners" \
+    'pol org_runner_group.forbid_runners_in_groups | grep -qx Default'
+  t "the drift check is the renamed, honest one" \
+    '[ "$(pol org_runner_group.requires_fork_pr_boundary)" = "scripts/assert-pr-workflows-github-hosted.sh" ]'
+  t "an unreadable org API is a FAILURE, not a skip" \
+    'grep -q "cannot be read cannot be claimed" "$0"'
+  t "undeclared allowed workflows are rejected" \
+    'grep -q "UNDECLARED workflow" "$0"'
+  t "other public repositories are explicitly checked" \
+    'grep -q "other PUBLIC repositories can use these runners" "$0"'
+
   # --- org runner group: the control that silently broke CI ------------------
   t "policy declares the org runner group" \
     '[ -n "$(pol org_runner_group.name)" ] && [ -n "$(pol org_runner_group.allows_public_repositories)" ]'
-  t "policy ties the flag to the fork-PR boundary" \
-    '[ "$(pol org_runner_group.requires_fork_pr_boundary)" = "scripts/assert-runner-trust.sh" ]'
+
   t "a false flag on a public repo is a divergence" \
     '[ "$(pol org_runner_group.allows_public_repositories)" = "true" ] && [ "$(pol repository.visibility)" = "public" ]'
-  t "the boundary gate exists and is wired" \
-    'test -f "${ROOT}/scripts/assert-runner-trust.sh" && grep -q assert-runner-trust.sh "${ROOT}/Makefile"'
+  t "the drift check exists and is in validate" \
+    'test -f "${ROOT}/scripts/assert-pr-workflows-github-hosted.sh" && make -C "$ROOT" -n validate 2>/dev/null | grep -q assert-pr-workflows-github-hosted.sh'
   t "an unreadable runner-group endpoint is a FAILURE, not a skip" \
     'grep -q "cannot be read cannot be claimed" "$0"'
   # Precise: nothing may claim the FLAG itself is unverifiable now that it is
@@ -535,7 +623,13 @@ raise SystemExit(0 if any(\"allows_public_repositories\" in x for x in d.get(\"n
 
   t "policy file parses"                    '[ "$(pol repository.visibility)" = "public" ]'
   t "policy declares no bypass actors"      '[ -z "$(pol branch_ruleset.bypass_actors || true)" ]'
-  t "required check names load (26)"        '[ "$(required_check_names | grep -c .)" = "26" ]'
+  t "the ruleset check set is the PR-producible one" \
+    '[ "$(required_check_names | grep -c .)" = "5" ] && required_check_names | grep -qx "repo structure"'
+  t "the release set is larger than the PR set" \
+    '[ "$(python3 -c "
+import yaml
+d = yaml.safe_load(open(\"$CHECKS_POLICY\"))
+print(len(d[\"release_required_checks\"]) > len(d[\"pr_required_checks\"]))")" = "True" ]'
   echo "self-test: $ok ok, $bad failed"
   [ "$bad" -eq 0 ]
 }

@@ -133,13 +133,13 @@ ck "policy declares the org runner group flag" \
 import yaml;d=yaml.safe_load(open('$POLICY'))
 g=d['org_runner_group']
 assert g['allows_public_repositories'] is True, g
-assert g['requires_fork_pr_boundary']=='scripts/assert-runner-trust.sh'\""
+assert g['requires_fork_pr_boundary']=='scripts/assert-pr-workflows-github-hosted.sh'\""
 ck "verifier checks allows_public_repositories" \
    "grep -q 'allows_public_repositories' scripts/verify-repo-governance.sh"
 ck "an unreadable runner-group endpoint FAILS (not skipped)" \
    "grep -q 'cannot be read cannot be claimed' scripts/verify-repo-governance.sh"
-ck "the flag is tied to the fork-PR boundary being wired" \
-   "grep -q 'must NOT be true without it' scripts/verify-repo-governance.sh"
+ck "the drift check is executed by the verifier" \
+   "grep -q 'FAILS when executed' scripts/verify-repo-governance.sh"
 ck "the flag is no longer claimed unverifiable" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$POLICY'))
@@ -163,8 +163,37 @@ ck "boundary gate is EXECUTED, not grepped" \
    "grep -q 'FAILS when executed' scripts/verify-repo-governance.sh"
 ck "boundary membership proven via make -n validate" \
    "grep -q 'make -C .* -n validate' scripts/verify-repo-governance.sh"
-ck "the boundary gate is really in the validate target" \
-   "make -C . -n validate 2>/dev/null | grep -q assert-runner-trust.sh"
+ck "the drift check is really in the validate target" \
+   "make -C . -n validate 2>/dev/null | grep -q assert-pr-workflows-github-hosted.sh"
+
+# --- the runner group IS the fork-PR boundary -------------------------------
+ck "policy declares the full group contract" \
+   "python3 -c \"
+import yaml;g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+assert g['visibility']=='selected', g['visibility']
+assert g['restricted_to_workflows'] is True
+assert g['selected_repository_ids']==[1254295268], g['selected_repository_ids']
+assert g['allows_public_repositories'] is True
+assert all(w.endswith('@refs/heads/master') for w in g['selected_workflows'])
+assert g['forbid_runners_in_groups']==['Default']\""
+ck "verifier checks selected repositories exactly" \
+   "grep -q 'runner group repositories are' scripts/verify-repo-governance.sh"
+ck "verifier checks allowed workflows exactly" \
+   "grep -q 'UNDECLARED workflow' scripts/verify-repo-governance.sh"
+ck "verifier requires every workflow ref-pinned" \
+   "grep -q 'not pinned to @refs/heads/master' scripts/verify-repo-governance.sh"
+ck "verifier proves no other public repo has access" \
+   "grep -q 'other PUBLIC repositories' scripts/verify-repo-governance.sh"
+ck "verifier proves Default holds no runners" \
+   "grep -q 'holds no runners' scripts/verify-repo-governance.sh"
+ck "trusted-validation is tracked as pending until it reaches master" \
+   "python3 -c \"
+import yaml;g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+assert any('trusted-validation.yml' in w for w in g['pending_workflows'])\""
+ck "ruleset is compared against PR-producible checks" \
+   "grep -q 'pr_required_checks' scripts/verify-repo-governance.sh"
+ck "fork-boundary evidence is committed" \
+   "test -f docs/security/fork-boundary-test-2026-07-29.md"
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_repo_governance: PASS" || echo "test_repo_governance: FAIL"
 exit $fail
