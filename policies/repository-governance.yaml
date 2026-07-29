@@ -171,9 +171,9 @@ tag_ruleset:
     - deletion              # a published release tag cannot be deleted
     - non_fast_forward      # cannot be force-moved
     - update                # cannot be repointed
-  # NOTE: `creation` is intentionally NOT restricted. scripts/prepare-release.sh
-  # pushes new v* tags as the normal release path; blocking creation would break
-  # it and buy nothing, since a NEW tag mutates no existing release.
+    # NOTE: `creation` is intentionally NOT restricted. scripts/prepare-release.sh
+    # pushes new v* tags as the normal release path; blocking creation would
+    # break it and buy nothing, since a NEW tag mutates no existing release.
 
 # --- Declared-but-not-yet-enforced -----------------------------------------
 # The verifier requires each of these to be ABSENT live while it is `pending`.

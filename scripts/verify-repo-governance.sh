@@ -368,7 +368,11 @@ print((td - rd).days)")"
     fail "drift check '${boundary}' is missing"
   elif ! bash "${ROOT}/${boundary}" >/dev/null 2>&1; then
     fail "drift check '${boundary}' FAILS when executed"
-  elif ! make -C "$ROOT" -n validate 2>/dev/null | grep -q "$(basename "$boundary")"; then
+  # Capture first, then match. `make ... | grep -q` is a race: grep -q exits on
+  # the first match and SIGPIPEs make, and under `set -o pipefail` that makes
+  # the pipeline report make's death as a failure. It reported the boundary as
+  # unwired at random.
+  elif ! printf '%s' "$(make -C "$ROOT" -n validate 2>/dev/null)" | grep -q "$(basename "$boundary")"; then
     fail "drift check '${boundary}' is not part of the real 'make validate' target"
   else
     pass "pull-request drift check executes clean and is in the validate target"
@@ -609,7 +613,7 @@ print((datetime.date(2026,1,1) - datetime.date(2026,12,1)).days)")" -lt 0 ]'
   t "a false flag on a public repo is a divergence" \
     '[ "$(pol org_runner_group.allows_public_repositories)" = "true" ] && [ "$(pol repository.visibility)" = "public" ]'
   t "the drift check exists and is in validate" \
-    'test -f "${ROOT}/scripts/assert-pr-workflows-github-hosted.sh" && make -C "$ROOT" -n validate 2>/dev/null | grep -q assert-pr-workflows-github-hosted.sh'
+    'test -f "${ROOT}/scripts/assert-pr-workflows-github-hosted.sh" && _mk="$(make -C "$ROOT" -n validate 2>/dev/null)" && printf "%s" "$_mk" | grep -q assert-pr-workflows-github-hosted.sh'
   t "an unreadable runner-group endpoint is a FAILURE, not a skip" \
     'grep -q "cannot be read cannot be claimed" "$0"'
   # Precise: nothing may claim the FLAG itself is unverifiable now that it is

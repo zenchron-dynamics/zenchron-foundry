@@ -164,7 +164,7 @@ ck "boundary gate is EXECUTED, not grepped" \
 ck "boundary membership proven via make -n validate" \
    "grep -q 'make -C .* -n validate' scripts/verify-repo-governance.sh"
 ck "the drift check is really in the validate target" \
-   "make -C . -n validate 2>/dev/null | grep -q assert-pr-workflows-github-hosted.sh"
+   "mk=\"\$(make -C . -n validate 2>/dev/null)\"; printf '%s' \"\$mk\" | grep -q assert-pr-workflows-github-hosted.sh"
 
 # --- the runner group IS the fork-PR boundary -------------------------------
 ck "policy declares the full group contract" \
