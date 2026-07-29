@@ -231,6 +231,43 @@ print((td - rd).days)")"
     fi
   fi
 
+  # --- organization runner group -------------------------------------------
+  # This is the control that silently broke CI for two days: with
+  # allows_public_repositories=false on a PUBLIC repo, GitHub creates jobs and
+  # never dispatches them. It needs admin:org, which is why it sat in
+  # not_api_verifiable — but "we cannot read it" is not the same as "it is
+  # fine", so it is now checked and a read failure is a FAILURE, not a skip.
+  local grp_name grp_id want_public org_json live_public
+  grp_name="$(pol org_runner_group.name)"
+  grp_id="$(pol org_runner_group.id)"
+  want_public="$(pol org_runner_group.allows_public_repositories)"
+
+  if org_json="$(gh api "orgs/${REPO%%/*}/actions/runner-groups" 2>/dev/null)"; then
+    live_public="$(jq -r --arg n "$grp_name" \
+      '.runner_groups[]? | select(.name==$n) | .allows_public_repositories' <<<"$org_json")"
+    if [ -z "$live_public" ] || [ "$live_public" = "null" ]; then
+      fail "org runner group '${grp_name}' (id ${grp_id}) not found — the runners' group was renamed or removed"
+    elif [ "$live_public" = "$want_public" ]; then
+      pass "org runner group '${grp_name}' allows_public_repositories=${live_public} as declared"
+    else
+      fail "org runner group '${grp_name}' allows_public_repositories=${live_public}, declared ${want_public}"
+      [ "$live_public" = "false" ] && \
+        echo "      -> with a PUBLIC repo this silently stops job dispatch: jobs queue, no runner is assigned, and they are cancelled at the 24h timeout" >&2
+    fi
+  else
+    fail "cannot read orgs/${REPO%%/*}/actions/runner-groups — needs the admin:org scope (\`gh auth refresh -h github.com -s admin:org\`). A control that cannot be read cannot be claimed."
+  fi
+
+  # The flag above is only safe because fork PRs cannot reach the privileged
+  # pool. Verify that boundary EXISTS and is wired, not merely that it once did.
+  local boundary
+  boundary="$(pol org_runner_group.requires_fork_pr_boundary)"
+  if [ -f "${ROOT}/${boundary}" ] && grep -q "$(basename "$boundary")" "${ROOT}/Makefile" 2>/dev/null; then
+    pass "fork-PR trust boundary present and wired (${boundary})"
+  else
+    fail "fork-PR boundary '${boundary}' is missing or not wired into make validate — allows_public_repositories must NOT be true without it"
+  fi
+
   RULESETS="$(api "repos/${REPO}/rulesets")"
 
   # An extra ACTIVE ruleset touching a protected scope is undeclared
@@ -434,6 +471,26 @@ print((datetime.date(2026,1,1) - datetime.date(2026,12,1)).days)")" -lt 0 ]'
     'grep -q "does not evaluate it" "$0"'
   t "undeclared active rulesets are checked" \
     'grep -q "undeclared ACTIVE ruleset" "$0"'
+
+  # --- org runner group: the control that silently broke CI ------------------
+  t "policy declares the org runner group" \
+    '[ -n "$(pol org_runner_group.name)" ] && [ -n "$(pol org_runner_group.allows_public_repositories)" ]'
+  t "policy ties the flag to the fork-PR boundary" \
+    '[ "$(pol org_runner_group.requires_fork_pr_boundary)" = "scripts/assert-runner-trust.sh" ]'
+  t "a false flag on a public repo is a divergence" \
+    '[ "$(pol org_runner_group.allows_public_repositories)" = "true" ] && [ "$(pol repository.visibility)" = "public" ]'
+  t "the boundary gate exists and is wired" \
+    'test -f "${ROOT}/scripts/assert-runner-trust.sh" && grep -q assert-runner-trust.sh "${ROOT}/Makefile"'
+  t "an unreadable runner-group endpoint is a FAILURE, not a skip" \
+    'grep -q "cannot be read cannot be claimed" "$0"'
+  # Precise: nothing may claim the FLAG itself is unverifiable now that it is
+  # checked. Prose mentioning the runner group is fine — the first version of
+  # this assertion matched its own policy comment.
+  t "the public-repo flag is not claimed unverifiable" \
+    '! POLICY="$POLICY" python3 -c "
+import os, yaml
+d = yaml.safe_load(open(os.environ[\"POLICY\"]))
+raise SystemExit(0 if any(\"allows_public_repositories\" in x for x in d.get(\"not_api_verifiable\", [])) else 1)"'
 
   t "policy file parses"                    '[ "$(pol repository.visibility)" = "public" ]'
   t "policy declares no bypass actors"      '[ -z "$(pol branch_ruleset.bypass_actors || true)" ]'

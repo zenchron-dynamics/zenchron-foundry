@@ -102,6 +102,27 @@ mistaken for protection.
 - **Organization-level rulesets** — reading them needs the `admin:org` scope,
   which the maintainer's working token does not carry.
 
+## Organization runner group (ENFORCED)
+
+The self-hosted runners belong to the org-level **Default** group, and
+`allows_public_repositories` must be **true**. GitHub disables it by default and
+this repository is public, so the flag decides whether CI can run at all: with it
+false, jobs are created and then **never dispatched** — they queue until the
+24-hour timeout and are cancelled with no runner assigned. That is exactly what
+happened between 2026-07-27T07:40 and 2026-07-29, and diagnosing it from outside
+took hours because the endpoint requires `admin:org`.
+
+It is verified by `make verify-governance`, and an **unreadable** endpoint is a
+failure, not a skip — a control that cannot be read cannot be claimed.
+
+**This flag is only safe because of the [CI trust boundary](#ci-trust-boundary).**
+Allowing self-hosted runners on a public repository is precisely the exposure
+that fork-PR isolation contains: fork pull requests run on ephemeral
+GitHub-hosted runners, and the privileged pool only ever sees push and same-repo
+events. The verifier therefore checks both the flag *and* that
+`scripts/assert-runner-trust.sh` exists and is wired into `make validate`. Do not
+enable the flag in a repository that lacks that gate.
+
 ## Emergency bypass
 
 There is no bypass actor, so an emergency means **disabling the ruleset via the

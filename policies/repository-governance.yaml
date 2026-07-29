@@ -61,6 +61,29 @@ repository:
     default_workflow_permissions: read
     can_approve_pull_request_reviews: false
 
+# --- Organization runner group ----------------------------------------------
+# The self-hosted runners live in the org-level group below. GitHub disables
+# `allows_public_repositories` by default, and this repository is PUBLIC, so the
+# flag decides whether CI can run at all: with it false, jobs are created and
+# then never dispatched — they queue until the 24h timeout and are cancelled with
+# no runner ever assigned. That is exactly what happened between 2026-07-27T07:40
+# and 2026-07-29, and it cost hours to diagnose from the outside because the
+# endpoint needs admin:org.
+#
+# SAFETY: allowing self-hosted runners on a public repository is only acceptable
+# because the fork-PR trust boundary (#96) exists — fork pull requests run on
+# ephemeral GitHub-hosted runners and the privileged pool only ever sees push and
+# same-repo events, enforced by scripts/assert-runner-trust.sh. The verifier
+# therefore checks BOTH: the flag, and that the boundary gate is present and
+# wired. Turning this flag on WITHOUT that gate would expose the runner host to
+# arbitrary fork code.
+org_runner_group:
+  name: Default
+  id: 1
+  allows_public_repositories: true
+  # The code control that makes the above safe. Verified to exist and be wired.
+  requires_fork_pr_boundary: scripts/assert-runner-trust.sh
+
 # --- Branch ruleset ---------------------------------------------------------
 branch_ruleset:
   name: master-protection
@@ -149,6 +172,6 @@ not_api_verifiable:
      (GET /actions/permissions/fork-pr-workflows -> 404 on this repo/token).
      Defense in depth only: the CI trust boundary (issue #96) does not depend
      on it — see docs/repository-security.md#ci-trust-boundary."
-  - "Organization-level rulesets (GET /orgs/{org}/rulesets requires the
-     admin:org scope, which the maintainer's working token does not carry)."
+  - "Organization-level RULESETS (GET /orgs/{org}/rulesets). Still unverified —
+     distinct from the runner group above, which IS now checked."
   - "GitHub plan/billing tier."

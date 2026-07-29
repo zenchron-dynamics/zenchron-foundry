@@ -127,5 +127,23 @@ assert d['release_environments']==['foundry-rc','foundry-production'], d.get('re
 ck "verifier self-test covers the review findings" \
    "bash scripts/verify-repo-governance.sh --self-test >/dev/null"
 
+# --- org runner group: the control that silently broke CI for two days ------
+ck "policy declares the org runner group flag" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$POLICY'))
+g=d['org_runner_group']
+assert g['allows_public_repositories'] is True, g
+assert g['requires_fork_pr_boundary']=='scripts/assert-runner-trust.sh'\""
+ck "verifier checks allows_public_repositories" \
+   "grep -q 'allows_public_repositories' scripts/verify-repo-governance.sh"
+ck "an unreadable runner-group endpoint FAILS (not skipped)" \
+   "grep -q 'cannot be read cannot be claimed' scripts/verify-repo-governance.sh"
+ck "the flag is tied to the fork-PR boundary being wired" \
+   "grep -q 'must NOT be true without it' scripts/verify-repo-governance.sh"
+ck "the flag is no longer claimed unverifiable" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$POLICY'))
+assert not any('allows_public_repositories' in x for x in d.get('not_api_verifiable',[]))\""
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_repo_governance: PASS" || echo "test_repo_governance: FAIL"
 exit $fail
