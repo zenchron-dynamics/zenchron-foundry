@@ -232,6 +232,7 @@ jobs:
             primary="$immutable"
             tags="${immutable},${base}:${conv_suffix}"
             echo "immutable=${immutable}" >> "$GITHUB_OUTPUT"
+            version_label="${imm_suffix}"
           else
             rel="${GITHUB_REF_NAME}"   # e.g. v2026.05.30
             tags="${base}:${suffix},${base}:${suffix}-${rel#v},${base}:${suffix}-build.${{ github.run_number }}"
@@ -239,10 +240,16 @@ jobs:
             # e.g. php-cli:8.4-debian — lets consumers pin the Debian variant.
             case "${{ matrix.fam }}" in php-*) tags="${tags},${base}:${{ matrix.ver }}-debian" ;; esac
             primary="${base}:${suffix}"
+            version_label="${suffix}"
           fi
           {
             echo "tags=${tags}"
             echo "primary=${primary}"
+            # OCI version label, derived from the SAME canonical selector the tags
+            # use. It was hardcoded as "${{ matrix.ver }}-prod", which produced
+            # "prod-prod" for the edge images (nginx/caddy declare ver: prod) —
+            # metadata that contradicted their own Dockerfiles (#126).
+            echo "version_label=${version_label}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Immutability probe (RC only — never overwrite a bound tag)
@@ -280,7 +287,7 @@ jobs:
           labels: |
             org.opencontainers.image.created=${{ github.event.repository.updated_at }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ matrix.ver }}-prod
+            org.opencontainers.image.version=${{ steps.meta.outputs.version_label }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
       - name: Cosign keyless sign
