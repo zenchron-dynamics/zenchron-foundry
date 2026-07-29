@@ -46,115 +46,20 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Labels that identify a persistent privileged runner pool.
-PRIVILEGED_LABELS='self-hosted|zenchron'
+PRIVILEGED_LABELS="${PRIVILEGED_LABELS:-self-hosted,zenchron}"
 # The one accepted trust predicate. GitHub fills head.repo.full_name from the
 # head ref itself, so a PR branch cannot forge it.
 TRUST_EXPR='github.event.pull_request.head.repo.full_name == github.repository'
 
-# _strip_comments: drop `#` comments so prose cannot influence any match.
-# Approximate but safe here: workflow keys we inspect never contain a literal
-# '#' inside a quoted value.
-_strip_comments() { sed -E 's/[[:space:]]#.*$//; s/^[[:space:]]*#.*$//'; }
-
-# _on_block <file>: the top-level `on:` mapping (until the next column-0 key).
-_on_block() {
-  awk '
-    /^[[:space:]]*(on|"on"|'"'"'on'"'"'):/ && !seen { seen=1; print; next }
-    seen && /^[^[:space:]#]/ { seen=0 }
-    seen { print }
-  ' "$1" | _strip_comments
-}
-
-# _jobs_block <file>: everything from `jobs:` to EOF.
-_jobs_block() { awk '/^jobs:[[:space:]]*$/ {seen=1; next} seen {print}' "$1"; }
-
-# check_file <file> -> prints violations, returns count via global VIOLATIONS
-check_file() {
-  local file="$1" on_block jobs job_names job_id body pre_steps runs_on
-
-  on_block="$(_on_block "$file")"
-
-  # R1 — pull_request_target is banned outright, PR-triggered or not.
-  if grep -qE '(^|[^_a-z])pull_request_target[[:space:]]*:' <<<"$on_block"; then
-    echo "VIOLATION [R1] ${file}: uses the 'pull_request_target' trigger" >&2
-    VIOLATIONS=$((VIOLATIONS + 1))
-  fi
-
-  # Only pull_request-reachable workflows are subject to R2/R3.
-  grep -q 'pull_request' <<<"$on_block" || return 0
-
-  jobs="$(_jobs_block "$file" | _strip_comments)"
-  job_names="$(grep -oE '^  [A-Za-z0-9_-]+:' <<<"$jobs" | tr -d ' :' || true)"
-
-  if [ -z "$job_names" ]; then
-    echo "VIOLATION [R4] ${file}: pull_request-triggered but no jobs parsed" >&2
-    VIOLATIONS=$((VIOLATIONS + 1))
-    return 0
-  fi
-
-  while IFS= read -r job_id; do
-    [ -n "$job_id" ] || continue
-    # Job body: from this job's header to the next job header (or EOF).
-    body="$(awk -v id="$job_id" '
-      $0 ~ "^  " id ":[[:space:]]*$" { inside=1; next }
-      inside && /^  [A-Za-z0-9_-]+:[[:space:]]*$/ { inside=0 }
-      inside { print }
-    ' <<<"$jobs")"
-    # Job-level configuration only: `steps:` and everything after it is step
-    # scope, where a step-level `if:` must not be mistaken for a job guard.
-    pre_steps="$(awk '/^    steps:/ {exit} {print}' <<<"$body")"
-
-    # R3 — a job that delegates to another workflow cannot be proven safe here.
-    if grep -qE '^    uses:' <<<"$pre_steps"; then
-      echo "VIOLATION [R3] ${file}:${job_id}: pull_request-reachable job calls another workflow; runner trust is unprovable from this file" >&2
-      VIOLATIONS=$((VIOLATIONS + 1))
-      continue
-    fi
-
-    # runs-on value: inline scalar/flow-list plus any block-list continuation.
-    runs_on="$(awk '
-      /^    runs-on:/ { inside=1; print; next }
-      inside && /^[[:space:]]+- / { print; next }
-      inside { inside=0 }
-    ' <<<"$pre_steps")"
-
-    if [ -z "$runs_on" ]; then
-      echo "VIOLATION [R4] ${file}:${job_id}: no runs-on found; cannot prove runner trust" >&2
-      VIOLATIONS=$((VIOLATIONS + 1))
-      continue
-    fi
-
-    grep -qE "$PRIVILEGED_LABELS" <<<"$runs_on" || continue   # GitHub-hosted: fine
-
-    # R2 — privileged: the trust predicate must appear in job-level config
-    # (inside runs-on itself, or in a job-level `if:`).
-    if ! grep -qF "$TRUST_EXPR" <<<"$pre_steps"; then
-      echo "VIOLATION [R2] ${file}:${job_id}: privileged runner on a pull_request-reachable job without the same-repo trust guard" >&2
-      echo "               expected '${TRUST_EXPR}' in runs-on or a job-level if:" >&2
-      VIOLATIONS=$((VIOLATIONS + 1))
-    fi
-  done <<<"$job_names"
-}
-
+# The rules are enforced by a real YAML PARSER (scripts/lib/runner_trust.py),
+# not by matching text. Review proved the previous text-matching version had two
+# bypasses: `on: [push, pull_request_target]` slipped past R1 because only the
+# `pull_request_target:` mapping form was recognised, and R2 accepted the
+# predicate anywhere before `steps:` — including under `env:` — while `runs-on`
+# stayed unconditionally privileged. Both are security-boundary bypasses in the
+# guard meant to prevent workflow drift.
 assert_all() {
-  local dir="$1" f found=0
-  VIOLATIONS=0
-  for f in "$dir"/*.yml "$dir"/*.yaml; do
-    [ -f "$f" ] || continue
-    found=$((found + 1))
-    check_file "$f"
-  done
-
-  # R4 — never pass vacuously.
-  if [ "$found" -eq 0 ]; then
-    echo "FAIL: no workflow files found under '${dir}' — gate would be vacuous" >&2
-    return 1
-  fi
-  if [ "$VIOLATIONS" -gt 0 ]; then
-    printf 'RESULT: FAIL (%d runner-trust violation(s) across %d workflow(s))\n' "$VIOLATIONS" "$found" >&2
-    return 1
-  fi
-  printf 'RESULT: PASS (%d workflow(s); no fork PR can reach a privileged runner)\n' "$found"
+  python3 "${ROOT}/scripts/lib/runner_trust.py" "$1" --labels "$PRIVILEGED_LABELS"
 }
 
 # --- self-test ---------------------------------------------------------------
@@ -273,6 +178,68 @@ EOF
   # Empty discovery must fail, never pass vacuously.
   mkdir -p "$tmp/empty"
   chk "empty workflow directory fails closed" 1 "$tmp/empty"
+
+  # --- bypasses found in review -------------------------------------------
+  # R1: the inline trigger list is as reachable as the mapping form.
+  mkdir -p "$tmp/inline-trigger"
+  cat > "$tmp/inline-trigger/wf.yml" <<'EOF'
+name: risky
+on: [push, pull_request_target]
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo hi
+EOF
+  chk "inline 'on: [push, pull_request_target]' is rejected" 1 "$tmp/inline-trigger"
+
+  mkdir -p "$tmp/inline-pr"
+  cat > "$tmp/inline-pr/wf.yml" <<'EOF'
+name: ci
+on: [push, pull_request]
+jobs:
+  unsafe:
+    runs-on: [self-hosted, linux, x64, zenchron]
+    steps:
+      - run: ./attacker-controlled.sh
+EOF
+  chk "inline 'on: [push, pull_request]' still enforces R2" 1 "$tmp/inline-pr"
+
+  # R2: the predicate must gate the job, not merely appear somewhere in it.
+  for key in env name concurrency; do
+    mkdir -p "$tmp/pred-$key"
+    { echo "name: ci"
+      echo "on:"
+      echo "  pull_request:"
+      echo "    branches: [master]"
+      echo "jobs:"
+      echo "  unsafe:"
+      echo "    runs-on: [self-hosted, linux, x64, zenchron]"
+      case "$key" in
+        env)         printf '    env:\n      TRUST_NOTE: ${{ %s }}\n' "$TRUST_EXPR" ;;
+        name)        printf '    name: guarded ${{ %s }}\n' "$TRUST_EXPR" ;;
+        concurrency) printf '    concurrency: grp-${{ %s }}\n' "$TRUST_EXPR" ;;
+      esac
+      echo "    steps:"
+      echo "      - run: ./attacker-controlled.sh"
+    } > "$tmp/pred-$key/wf.yml"
+    chk "predicate under '$key:' does NOT satisfy the gate" 1 "$tmp/pred-$key"
+  done
+
+  # A job-level `if:` and a trust-conditional runs-on DO satisfy it.
+  mkdir -p "$tmp/real-if"
+  { echo "name: ci"; echo "on:"; echo "  pull_request:"; echo "    branches: [master]"
+    echo "jobs:"; echo "  guarded:"
+    echo "    runs-on: [self-hosted, linux, x64, zenchron]"
+    printf '    if: ${{ %s }}\n' "$TRUST_EXPR"
+    echo "    steps:"; echo "      - run: echo ok"
+  } > "$tmp/real-if/wf.yml"
+  chk "real job-level if: satisfies the gate" 0 "$tmp/real-if"
+
+  # Unparseable YAML must fail closed, not be skipped.
+  mkdir -p "$tmp/broken"
+  printf 'name: ci\non: [\n  pull_request\njobs: : :\n' > "$tmp/broken/wf.yml"
+  chk "unparseable workflow fails closed" 1 "$tmp/broken"
 
   echo "self-test: $ok ok, $bad failed"
   [ "$bad" -eq 0 ]

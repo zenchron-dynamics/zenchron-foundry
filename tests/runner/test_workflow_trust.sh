@@ -42,6 +42,15 @@ ck "ci.yml fork fallback is a GitHub-hosted runner" \
    "! grep -E '^    runs-on:' .github/workflows/ci.yml | grep -qv 'ubuntu-latest'"
 
 # pull_request_target is never acceptable in this repository.
+# Review found two bypasses in the first, text-matching implementation. Lock
+# both shut here as well as in the gate's own self-test.
+ck "gate parses YAML rather than matching text" \
+   "test -f scripts/lib/runner_trust.py && grep -q 'runner_trust.py' scripts/assert-runner-trust.sh"
+ck "inline trigger list is covered (R1 bypass)" \
+   "grep -q \"on: \[push, pull_request_target\]\" scripts/assert-runner-trust.sh"
+ck "predicate under an unrelated key is covered (R2 bypass)" \
+   "grep -q \"does NOT satisfy the gate\" scripts/assert-runner-trust.sh"
+
 ck "no workflow uses pull_request_target" \
    "! grep -rlE '^[[:space:]]+pull_request_target:' .github/workflows/ | grep -q ."
 
