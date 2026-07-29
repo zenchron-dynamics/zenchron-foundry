@@ -62,6 +62,9 @@ jobs:
       - name: Assert required-release-checks match the real job names
         run: bash scripts/assert-required-checks.sh
 
+      - name: Assert every Dependabot directory has its manifest
+        run: bash scripts/assert-dependabot-manifests.sh
+
       - name: Assert all CI container images are digest-pinned
         run: bash scripts/assert-pinned-containers.sh
 

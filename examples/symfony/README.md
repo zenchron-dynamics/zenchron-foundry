@@ -2,6 +2,12 @@
 
 Reference only. Copy into a real Symfony repo and adapt.
 
+> **Does not build as-is, by design.** The Dockerfile runs
+> `COPY composer.json composer.lock ./` and no app code ships here. Because
+> there is no manifest to watch, this directory is deliberately **not** in
+> `.github/dependabot.yml`; `make validate` fails if a Dependabot entry is ever
+> pointed at a directory without one (#119).
+
 ## Run (hardened)
 
 ```bash

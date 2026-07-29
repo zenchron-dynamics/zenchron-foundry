@@ -33,12 +33,10 @@ updates:
 
 
   # Composer — only active once example manifests exist
-  - package-ecosystem: "composer"
-    directories:
-      - "/examples/laravel"
-      - "/examples/symfony"
-    schedule:
-      interval: "weekly"
-    labels: ["dependencies", "composer", "examples"]
-    commit-message:
-      prefix: "chore(examples)"
+  # NO composer entry. examples/laravel and examples/symfony are TEMPLATES —
+  # their READMEs say "Reference only … No app code shipped here" — so they
+  # contain no composer.json/composer.lock for Dependabot to monitor. The
+  # previous entry pointed at both directories and silently updated nothing,
+  # which is worse than no entry: it implied example dependencies were being
+  # watched. scripts/assert-dependabot-manifests.sh now fails if any configured
+  # directory lacks its ecosystem's manifest (#119).
