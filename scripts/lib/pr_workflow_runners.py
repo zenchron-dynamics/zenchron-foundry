@@ -47,7 +47,12 @@ except ImportError:  # pragma: no cover - environment problem, must fail closed
     print("FAIL: PyYAML is required to parse workflows", file=sys.stderr)
     sys.exit(1)
 
-TRUST_EXPR = "github.event.pull_request.head.repo.full_name == github.repository"
+# Approved GitHub-hosted runners for the pull-request path. Deliberately a short
+# allowlist: an unrecognised label is refused rather than assumed hosted.
+ALLOWED_HOSTED = {
+    "ubuntu-latest", "ubuntu-24.04", "ubuntu-22.04",
+    "macos-latest", "windows-latest",
+}
 
 
 def trigger_names(on) -> set[str]:
@@ -157,23 +162,40 @@ def check_dir(directory: str, labels: set[str]) -> int:
                 violations += 1
                 continue
 
-            text, label_set = runs_on_parts(job.get("runs-on"))
-            if not (labels & label_set or any(l in text for l in labels)):
-                continue  # GitHub-hosted: nothing to guard
+            raw = job.get("runs-on")
+            text, label_set = runs_on_parts(raw)
 
-            # The predicate must be in the ACTUAL runs-on expression or the
-            # ACTUAL job-level `if:`. Anywhere else gates nothing — that was
-            # bypass R2.
-            job_if = job.get("if")
-            job_if = "" if job_if is None else str(job_if)
-            if TRUST_EXPR in text or TRUST_EXPR in job_if:
+            # R2 — the runner must be STATICALLY declared and GitHub-hosted.
+            #
+            # The previous rule ("the trust predicate appears in runs-on or the
+            # job-level if:") checked for a STRING, not a meaning: reversing the
+            # ternary arms, or writing `<predicate> || true`, satisfied it while
+            # routing forks to the privileged pool. Any expression at all is now
+            # refused here, which removes the whole class — there is nothing for
+            # a predicate to be wrong about.
+            if "${{" in text:
+                print("VIOLATION [R2] %s:%s: runs-on is an EXPRESSION (%s). A "
+                      "pull_request job must declare a GitHub-hosted runner "
+                      "statically; an expression cannot be trusted, because the "
+                      "workflow itself is attacker-controlled on a fork PR."
+                      % (name, job_id, text.strip()), file=sys.stderr)
+                violations += 1
                 continue
 
-            print("VIOLATION [R2] %s:%s: privileged runner on a pull_request-reachable job "
-                  "without the same-repo trust guard" % (name, job_id), file=sys.stderr)
-            print("               expected '%s' in runs-on or a job-level if:" % TRUST_EXPR,
-                  file=sys.stderr)
-            violations += 1
+            if labels & label_set or any(l in text for l in labels):
+                print("VIOLATION [R2] %s:%s: pull_request job names a privileged "
+                      "runner label (%s). Heavy validation belongs in the trusted "
+                      "workflow, not the pull-request path."
+                      % (name, job_id, text.strip()), file=sys.stderr)
+                violations += 1
+                continue
+
+            if not (label_set & ALLOWED_HOSTED):
+                print("VIOLATION [R2] %s:%s: runner '%s' is not an approved "
+                      "GitHub-hosted label %s"
+                      % (name, job_id, text.strip(), sorted(ALLOWED_HOSTED)),
+                      file=sys.stderr)
+                violations += 1
 
     if violations:
         print("RESULT: FAIL (%d runner-trust violation(s) across %d workflow(s))"

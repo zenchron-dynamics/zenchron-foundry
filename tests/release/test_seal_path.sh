@@ -55,7 +55,10 @@ tmp="$(mktemp -d)"
 yq '.required_checks += ["a-check-no-workflow-emits"]' policies/required-release-checks.yaml > "$tmp/drift.yaml"
 ck "unproducible required check is rejected" \
    '! POLICY="$tmp/drift.yaml" bash scripts/assert-required-checks.sh >/dev/null 2>&1'
-yq '.required_checks -= ["build+smoke caddy"]' policies/required-release-checks.yaml > "$tmp/drop.yaml"
+# build+smoke moved to trusted-validation.yml (#96 redesign) and its matrix legs
+# are covered by the seal job, so dropping one is no longer a gating change.
+# Use a check that IS still gating on the release commit.
+yq '.required_checks -= ["scan caddy prod"]' policies/required-release-checks.yaml > "$tmp/drop.yaml"
 ck "dropping a gating job is rejected" \
    '! POLICY="$tmp/drop.yaml" bash scripts/assert-required-checks.sh >/dev/null 2>&1'
 ck "release guard asserts the check names" \

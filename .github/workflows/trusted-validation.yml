@@ -1,0 +1,247 @@
+name: trusted-validation
+
+# ---------------------------------------------------------------------------
+# TRUSTED heavy validation on the restricted self-hosted pool.
+#
+# Why this workflow exists: a `pull_request` workflow runs the workflow file
+# from the merge ref, which includes the pull request's own edits to
+# `.github/workflows/`. A fork can therefore rewrite `runs-on`, delete any
+# assertion script, and GitHub picks the runner before repository code runs.
+# Repository code cannot govern runner assignment, so heavy validation was
+# moved OUT of the pull-request path (see ci.yml, which is statically
+# GitHub-hosted end to end).
+#
+# The properties that make THIS workflow trusted:
+#
+#   1. It is dispatch-only. Its definition therefore always comes from the
+#      DEFAULT BRANCH — never from a pull request's copy.
+#   2. It takes an explicit full 40-hex commit SHA, supplied by a maintainer
+#      who has read the diff.
+#   3. It PROVES that SHA belongs to the pull request it claims, via the API,
+#      before checking anything out.
+#   4. Only then does it check out that exact SHA — never a ref, never
+#      `refs/pull/N/merge`, which can move under it.
+#   5. The self-hosted runner group is restricted at GitHub's control plane to
+#      this repository AND to this workflow path on refs/heads/master, so a
+#      fork cannot invoke it even by name.
+#   6. Evidence is bound to the commit that was actually validated.
+#
+# The maintainer reviewing the diff is the trust decision. This workflow makes
+# that decision explicit, auditable and commit-bound instead of implicit.
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "Pull request number this SHA belongs to (required)"
+        required: true
+        type: string
+      sha:
+        description: "Full 40-hex commit SHA to validate — read the diff first (required)"
+        required: true
+        type: string
+      confirmation:
+        description: "Typed confirmation: VALIDATE-<pr>-<sha>"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: trusted-validation-${{ inputs.pr }}
+  cancel-in-progress: false
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Gate first, on a GITHUB-HOSTED runner, before any self-hosted job starts and
+  # before any pull-request content is fetched. Nothing here touches the SHA's
+  # contents — it only asks GitHub what that SHA is.
+  # -------------------------------------------------------------------------
+  authorize:
+    name: authorize trusted validation
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.check.outputs.sha }}
+      head_repo: ${{ steps.check.outputs.head_repo }}
+    steps:
+      - name: Validate inputs and bind the SHA to the pull request
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+          SHA: ${{ inputs.sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Shape first: a short SHA or a ref name must never reach checkout.
+          case "$PR" in ''|*[!0-9]*) echo "REFUSE: pr must be a number, got '$PR'" >&2; exit 1 ;; esac
+          case "$SHA" in
+            *[!0-9a-f]*|'') echo "REFUSE: sha must be lowercase 40-hex, got '$SHA'" >&2; exit 1 ;;
+          esac
+          [ "${#SHA}" -eq 40 ] || { echo "REFUSE: sha must be 40 hex chars, got ${#SHA}" >&2; exit 1; }
+
+          # Typed confirmation binds the operator to BOTH values, so dispatching
+          # with a stale SHA in muscle memory fails loudly.
+          expected="VALIDATE-${PR}-${SHA}"
+          [ "$CONFIRMATION" = "$expected" ] \
+            || { echo "REFUSE: confirmation must be exactly '${expected}'" >&2; exit 1; }
+
+          # The SHA must genuinely belong to this pull request. Without this, a
+          # maintainer could be socially engineered into validating an arbitrary
+          # commit, and the evidence would carry this repository's name.
+          commits="$(gh api --paginate "repos/${REPO}/pulls/${PR}/commits" --jq '.[].sha')" \
+            || { echo "REFUSE: cannot read commits for PR #${PR}" >&2; exit 1; }
+          if ! grep -qx "$SHA" <<<"$commits"; then
+            echo "REFUSE: ${SHA} is not a commit of PR #${PR}" >&2
+            echo "        PR head commits:" >&2
+            printf '          %s\n' $commits >&2
+            exit 1
+          fi
+
+          head_repo="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.repo.full_name')"
+          state="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.state')"
+          [ "$state" = "open" ] || { echo "REFUSE: PR #${PR} is '${state}', not open" >&2; exit 1; }
+
+          echo "sha=${SHA}"             >> "$GITHUB_OUTPUT"
+          echo "head_repo=${head_repo}" >> "$GITHUB_OUTPUT"
+          echo "AUTHORIZED: ${SHA} is a commit of PR #${PR} (head repo: ${head_repo})"
+          echo "NOTE: a fork head repo is expected and fine — the maintainer has read this diff."
+
+  # -------------------------------------------------------------------------
+  # Heavy validation on the RESTRICTED self-hosted group. Reachable only from
+  # this workflow path on refs/heads/master; the runner group enforces that at
+  # GitHub's control plane, not here.
+  # -------------------------------------------------------------------------
+  validate:
+    name: trusted build+smoke ${{ matrix.target.fam }} ${{ matrix.target.ver }}
+    needs: authorize
+    runs-on: [self-hosted, linux, x64, zenchron]
+    strategy:
+      fail-fast: false
+      # Serialized: the self-hosted host has a small (~38G) shared disk.
+      max-parallel: 1
+      matrix:
+        target:
+          - { fam: php-cli,        ver: "8.3" }
+          - { fam: php-cli,        ver: "8.4" }
+          - { fam: php-fpm,        ver: "8.3" }
+          - { fam: php-fpm,        ver: "8.4" }
+          - { fam: php-worker,     ver: "8.3" }
+          - { fam: php-worker,     ver: "8.4" }
+          - { fam: php-frankenphp, ver: "8.3" }
+          - { fam: php-frankenphp, ver: "8.4" }
+          - { fam: nginx,          ver: "" }
+          - { fam: caddy,          ver: "" }
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+
+      # Check out the EXACT authorized SHA — never a ref, which can move between
+      # authorization and checkout.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.authorize.outputs.sha }}
+          persist-credentials: false
+
+      - name: Confirm the checkout is the authorized commit
+        env:
+          WANT: ${{ needs.authorize.outputs.sha }}
+        run: |
+          set -euo pipefail
+          got="$(git rev-parse HEAD)"
+          [ "$got" = "$WANT" ] || { echo "REFUSE: checked out ${got}, authorized ${WANT}" >&2; exit 1; }
+          echo "OK: validating ${got}"
+
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Build (no push, amd64, loaded for smoke)
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: images/${{ matrix.target.fam }}${{ matrix.target.ver && format('/{0}', matrix.target.ver) || '' }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: zenchron-trusted/${{ matrix.target.fam }}:validate
+
+      - name: Smoke test the built image (runtime contract)
+        id: smoke
+        env:
+          CAPABILITY_INVENTORY_DIR: capability-inventory
+        run: |
+          set -euo pipefail
+          docker image inspect "zenchron-trusted/${{ matrix.target.fam }}:validate" >/dev/null
+          bash "scripts/smoke/smoke-${{ matrix.target.fam }}.sh" \
+            "zenchron-trusted/${{ matrix.target.fam }}:validate"
+
+      # Evidence is bound to the commit that was actually validated, so it cannot
+      # be quoted for a different one.
+      - name: Record commit-bound result
+        if: always()
+        env:
+          FAM: ${{ matrix.target.fam }}
+          VER: ${{ matrix.target.ver }}
+          SHA: ${{ needs.authorize.outputs.sha }}
+          PR: ${{ inputs.pr }}
+          HEAD_REPO: ${{ needs.authorize.outputs.head_repo }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          set -euo pipefail
+          name="${FAM}${VER:+-$VER}"
+          mkdir -p trusted-results
+          jq -n --arg name "$name" --arg sha "$SHA" --arg pr "$PR" \
+                --arg head_repo "$HEAD_REPO" \
+                --arg build "$BUILD_OUTCOME" --arg smoke "$SMOKE_OUTCOME" \
+            '{name: $name, validated_sha: $sha, pull_request: $pr,
+              head_repo: $head_repo, build: $build, smoke: $smoke}' \
+            > "trusted-results/${name}.json"
+          cat "trusted-results/${name}.json"
+
+      - name: Upload commit-bound evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trusted-validation-${{ needs.authorize.outputs.sha }}-${{ matrix.target.fam }}${{ matrix.target.ver && format('-{0}', matrix.target.ver) || '' }}
+          path: |
+            trusted-results/
+            capability-inventory/
+          if-no-files-found: error
+
+  seal:
+    name: trusted validation result
+    needs: [authorize, validate]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: The whole matrix must be green
+        env:
+          RESULT: ${{ needs.validate.result }}
+          SHA: ${{ needs.authorize.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [ "$RESULT" = "success" ] \
+            || { echo "REFUSE: trusted validation of ${SHA} is '${RESULT}', not success"; exit 1; }
+          echo "OK: ${SHA} passed trusted validation (10/10)"

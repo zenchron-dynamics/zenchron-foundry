@@ -4,15 +4,11 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 3 * * 1"        # weekly rebuild-and-rescan, Monday 03:00 UTC
-  pull_request:
-    branches: [master]
-    # WF-05: also trigger on changes to the scan logic itself — this workflow
-    # and the scripts it (and its gates) run — not only on image/policy edits.
-    paths:
-      - "images/**"
-      - "policies/**"
-      - ".github/workflows/scan-images.yml"
-      - "scripts/**"
+  # NO pull_request trigger. This workflow builds and scans images on the
+  # privileged self-hosted pool, and nothing a pull request can edit may reach
+  # that pool — a pull_request workflow runs the PR's own copy of this file.
+  # Per-PR scanning happens in trusted-validation.yml, which is defined on
+  # master and takes an explicitly reviewed commit SHA (#96).
 
 permissions:
   contents: read

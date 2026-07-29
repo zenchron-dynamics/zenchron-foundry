@@ -27,7 +27,7 @@ cd "$ROOT"
 # `scan` is required (it is the vulnerability gate); nothing else is exempt here.
 # WORKFLOWS (space-separated paths) is injectable for the self-test only.
 producible_names() {
-  WORKFLOWS="${WORKFLOWS:-.github/workflows/ci.yml .github/workflows/scan-images.yml}" \
+  WORKFLOWS="${WORKFLOWS:-.github/workflows/ci.yml .github/workflows/scan-images.yml .github/workflows/trusted-validation.yml}" \
   python3 - <<'PY'
 import os, re, yaml
 
@@ -83,8 +83,15 @@ assert_required_checks() {
   done <<EOF
 $req
 EOF
+  # Matrix legs of trusted-validation are NOT individually required: the
+  # workflow's own `seal` job ("trusted validation result") refuses unless the
+  # entire 10-image matrix succeeded, so requiring the seal covers them. Listing
+  # each leg would duplicate that gate and make the policy churn whenever the
+  # matrix changes shape.
+  local non_gating='^(trusted build\+smoke |authorize trusted validation$)'
   while IFS= read -r n; do
     [ -n "$n" ] || continue
+    if grep -qE "$non_gating" <<<"$n"; then continue; fi
     grep -Fxq "$n" <<<"$req" || { echo "  not required: $n"; missing=1; }
   done <<EOF
 $prod

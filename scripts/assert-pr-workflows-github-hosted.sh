@@ -1,45 +1,40 @@
 #!/usr/bin/env bash
 # =============================================================================
-# scripts/assert-runner-trust.sh
+# scripts/assert-pr-workflows-github-hosted.sh
 # -----------------------------------------------------------------------------
-# CI trust-boundary gate: fork pull requests must never schedule work on the
-# persistent, privileged self-hosted runners.
+# MAINTAINER-DRIFT CHECK — NOT A SECURITY BOUNDARY.
 #
-# This repository is PUBLIC. A fork PR's head commit is attacker-controlled code
-# (Dockerfiles, scripts/*.sh, compose files, linter configs). The runners
-# labelled `[self-hosted, linux, x64, zenchron]` are persistent, shared,
-# Docker-capable and sudo-capable, and later trusted jobs reuse that host and its
-# workspaces — so running fork code there is a release-supply-chain compromise.
+# Invariant:
+#   Every workflow reachable through `pull_request` uses a statically declared,
+#   approved GitHub-hosted runner, and cannot directly invoke a self-hosted or
+#   trusted reusable workflow.
 #
-# Enforced invariants (any violation fails the build):
+# What this CANNOT do, and no longer claims to: govern runner assignment. A
+# `pull_request` workflow runs the workflow file from the MERGE REF, which
+# includes the pull request's own edits to `.github/workflows/`. A fork can
+# rewrite `runs-on`, delete this script, and GitHub selects the runner before
+# any repository code executes. Its predecessor (assert-runner-trust.sh) was
+# named and documented as if it were the boundary; it was not.
 #
-#   R1  No workflow uses the `pull_request_target` trigger at all. It runs with
-#       the BASE repo's token/secrets in the context of PR-authored content and
-#       is the classic privilege-escalation trigger.
+# The real boundary is at GitHub's control plane: the self-hosted runners sit in
+# a dedicated runner group restricted to this repository and to an explicit list
+# of trusted workflow paths on refs/heads/master. See
+# docs/repository-security.md#ci-trust-boundary and
+# policies/repository-governance.yaml (org_runner_group), which
+# scripts/verify-repo-governance.sh verifies.
 #
-#   R2  In a workflow reachable from `pull_request`, every job whose `runs-on`
-#       names a privileged label MUST carry the same-repo trust decision in its
-#       job-level configuration — either
-#         * a trust-conditional `runs-on` that falls back to a GitHub-hosted
-#           runner for forks, or
-#         * a job-level `if:` that skips the job for forks
-#       both spelled with the exact, unspoofable comparison
-#           github.event.pull_request.head.repo.full_name == github.repository
+# What this DOES do is stop us from reintroducing a self-hosted `runs-on` into
+# the pull-request path by accident, and keep the static shape honest:
 #
-#   R3  A `pull_request`-triggered workflow must not delegate a job to another
-#       workflow (`uses:` at job level). The callee's runner labels are outside
-#       this file's view, so trust cannot be proven — fail closed and re-review
-#       instead of guessing.
-#
-#   R4  Discovery must not be silently empty: zero workflow files is a FAIL, not
-#       a vacuous PASS.
+#   R1  no workflow may use `pull_request_target`, in any trigger syntax;
+#   R2  every `pull_request`-reachable job declares a GitHub-hosted runner
+#       STATICALLY — no expression, no conditional, no privileged label;
+#   R3  a `pull_request`-reachable job may not delegate to another workflow;
+#   R4  discovery/parsing must never fail open.
 #
 # Usage:
-#   assert-runner-trust.sh [<workflows-dir>]   # default: <repo>/.github/workflows
-#   assert-runner-trust.sh --self-test         # fixture-driven self-check
-#
-# Comments are stripped before matching, so prose mentioning "self-hosted" or
-# the comparison string can neither trip nor satisfy the gate.
+#   assert-pr-workflows-github-hosted.sh [<workflows-dir>]
+#   assert-pr-workflows-github-hosted.sh --self-test
 # =============================================================================
 set -euo pipefail
 
@@ -59,7 +54,7 @@ TRUST_EXPR='github.event.pull_request.head.repo.full_name == github.repository'
 # stayed unconditionally privileged. Both are security-boundary bypasses in the
 # guard meant to prevent workflow drift.
 assert_all() {
-  python3 "${ROOT}/scripts/lib/runner_trust.py" "$1" --labels "$PRIVILEGED_LABELS"
+  python3 "${ROOT}/scripts/lib/pr_workflow_runners.py" "$1" --labels "$PRIVILEGED_LABELS"
 }
 
 # --- self-test ---------------------------------------------------------------
@@ -91,19 +86,19 @@ jobs:
     steps:
       - run: bash scripts/check-structure.sh
 EOF
-  chk "unguarded PR job on privileged runner fails (pre-fix shape)" 1 "$tmp/unguarded"
+  chk "PR job naming a privileged label fails" 1 "$tmp/unguarded"
 
   # Fixed shape: trust-conditional runs-on.
   mkdir -p "$tmp/runson"
   sed "s|    runs-on: \[self-hosted, linux, x64, zenchron\]|    runs-on: \${{ fromJSON((github.event_name != 'pull_request' \|\| ${TRUST_EXPR}) \&\& '[\"self-hosted\",\"linux\",\"x64\",\"zenchron\"]' \|\| '[\"ubuntu-latest\"]') }}|" \
     "$tmp/unguarded/ci.yml" > "$tmp/runson/ci.yml"
-  chk "trust-conditional runs-on passes" 0 "$tmp/runson"
+  chk "trust-conditional runs-on is now REFUSED (expression)" 1 "$tmp/runson"
 
   # Fixed shape: job-level if guard (scan-images.yml style).
   mkdir -p "$tmp/ifguard"
   sed "s|    steps:|    if: \${{ github.event_name != 'pull_request' \|\| ${TRUST_EXPR} }}\n    steps:|" \
     "$tmp/unguarded/ci.yml" > "$tmp/ifguard/ci.yml"
-  chk "job-level same-repo if guard passes" 0 "$tmp/ifguard"
+  chk "a job-level if: no longer excuses a privileged label" 1 "$tmp/ifguard"
 
   # A STEP-level if must not be mistaken for a job guard.
   mkdir -p "$tmp/stepif"
@@ -175,6 +170,31 @@ jobs:
 EOF
   chk "PR job delegating to another workflow fails closed" 1 "$tmp/reusable"
 
+  # The shape the redesign requires: a STATIC, approved GitHub-hosted runner.
+  mkdir -p "$tmp/static-hosted"
+  cat > "$tmp/static-hosted/wf.yml" <<'EOF'
+name: ci
+on:
+  pull_request:
+    branches: [master]
+jobs:
+  light:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ok
+EOF
+  chk "statically GitHub-hosted PR job passes" 0 "$tmp/static-hosted"
+
+  mkdir -p "$tmp/expr-hosted"
+  sed 's|    runs-on: ubuntu-latest|    runs-on: ${{ inputs.anything \|\| '"'"'ubuntu-latest'"'"' }}|' \
+    "$tmp/static-hosted/wf.yml" > "$tmp/expr-hosted/wf.yml"
+  chk "an EXPRESSION runs-on is refused even if it yields a hosted label" 1 "$tmp/expr-hosted"
+
+  mkdir -p "$tmp/unknown-label"
+  sed 's|    runs-on: ubuntu-latest|    runs-on: some-custom-pool|' \
+    "$tmp/static-hosted/wf.yml" > "$tmp/unknown-label/wf.yml"
+  chk "an unrecognised runner label is refused" 1 "$tmp/unknown-label"
+
   # Empty discovery must fail, never pass vacuously.
   mkdir -p "$tmp/empty"
   chk "empty workflow directory fails closed" 1 "$tmp/empty"
@@ -234,7 +254,9 @@ EOF
     printf '    if: ${{ %s }}\n' "$TRUST_EXPR"
     echo "    steps:"; echo "      - run: echo ok"
   } > "$tmp/real-if/wf.yml"
-  chk "real job-level if: satisfies the gate" 0 "$tmp/real-if"
+  # A job-level `if:` is no longer an excuse either: the boundary is the runner
+  # group, and the PR path must be GitHub-hosted regardless of any condition.
+  chk "job-level if: does NOT excuse a privileged label" 1 "$tmp/real-if"
 
   # Unparseable YAML must fail closed, not be skipped.
   mkdir -p "$tmp/broken"
