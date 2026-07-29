@@ -99,7 +99,7 @@ jobs:
           if ! grep -qx "$SHA" <<<"$commits"; then
             echo "REFUSE: ${SHA} is not a commit of PR #${PR}" >&2
             echo "        PR head commits:" >&2
-            printf '          %s\n' $commits >&2
+            while IFS= read -r c; do echo "          $c" >&2; done <<<"$commits"
             exit 1
           fi
 
