@@ -33,6 +33,18 @@ review:
   owner: "Bogdan Olteanu / Zenchron Dynamics"
   approver: "Bogdan Olteanu (repo + org admin)"
 
+# The release environments checked BY NAME. "any environment has reviewers"
+# proved nothing about whether these two are protected.
+release_environments:
+  - foundry-rc
+  - foundry-production
+
+# The release environments checked BY NAME. "any environment has reviewers"
+# proved nothing about whether these two specific environments are protected.
+release_environments:
+  - foundry-rc
+  - foundry-production
+
 repository:
   # Verified 2026-07-28: `gh repo view --json visibility` -> PUBLIC.
   #

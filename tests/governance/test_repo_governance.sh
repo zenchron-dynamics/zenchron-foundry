@@ -109,5 +109,23 @@ ck "apply snippets rebuild the payload from the policy files" \
 ck "policies/ carries no rotted check names" \
    "! grep -rq 'build representative images' policies/"
 
+# --- review findings: the verifier must enforce what the policy claims ------
+ck "rule types are compared BOTH ways" \
+   "grep -q 'UNDECLARED live rule' scripts/verify-repo-governance.sh"
+ck "undeclared active rulesets are rejected" \
+   "grep -q 'undeclared ACTIVE ruleset' scripts/verify-repo-governance.sh"
+ck "the review-date gate is implemented" \
+   "grep -q 'governance review is' scripts/verify-repo-governance.sh"
+ck "every pending key is evaluated (unknown ones fail)" \
+   "grep -q 'does not evaluate it' scripts/verify-repo-governance.sh"
+ck "restrict_release_creation is evaluated" \
+   "grep -q 'restrict_release_creation' scripts/verify-repo-governance.sh"
+ck "release environments are checked by NAME" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$POLICY'))
+assert d['release_environments']==['foundry-rc','foundry-production'], d.get('release_environments')\""
+ck "verifier self-test covers the review findings" \
+   "bash scripts/verify-repo-governance.sh --self-test >/dev/null"
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_repo_governance: PASS" || echo "test_repo_governance: FAIL"
 exit $fail

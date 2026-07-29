@@ -152,13 +152,20 @@ verify_ruleset() {
     pass "ruleset '${name}' has no bypass actors (admins included)"
   fi
 
-  # Every declared rule type must be live.
-  local missing
-  missing="$(set_missing "$(pol "${key}.required_rules")" "$(jq -r '.rules[].type' <<<"$rs")")"
-  if [ -z "$missing" ]; then
-    pass "ruleset '${name}' carries every declared rule"
+  # Rule types must match EXACTLY, both directions. Checking only that every
+  # declared rule is live let an undocumented rule appear unnoticed — an
+  # unexpected `creation` restriction on the tag ruleset would silently break the
+  # normal release path, and an added `required_signatures` would block merges.
+  local declared_rules live_rules missing extra
+  declared_rules="$(pol "${key}.required_rules")"
+  live_rules="$(jq -r '.rules[].type' <<<"$rs")"
+  missing="$(set_missing "$declared_rules" "$live_rules")"
+  extra="$(set_missing "$live_rules" "$declared_rules")"
+  if [ -z "$missing" ] && [ -z "$extra" ]; then
+    pass "ruleset '${name}' rule set matches the policy exactly"
   else
-    fail "ruleset '${name}' is missing rule(s): $(tr '\n' ' ' <<<"$missing")"
+    [ -n "$missing" ] && fail "ruleset '${name}' is missing rule(s): $(tr '\n' ' ' <<<"$missing")"
+    [ -n "$extra" ] && fail "ruleset '${name}' has UNDECLARED live rule(s): $(tr '\n' ' ' <<<"$extra") — declare them or remove them"
   fi
 
   RULESET_JSON="$rs"
@@ -198,7 +205,49 @@ verify_all() {
     && pass "Actions cannot approve pull requests" \
     || fail "can_approve_pull_request_reviews='$(jq -r '.can_approve_pull_request_reviews' <<<"$wf_json")' diverges from policy"
 
+  # The policy claims this verifier warns past review_interval_days and fails
+  # after a grace period. It did not evaluate the dates at all.
+  local rev_date review_date interval today grace
+  rev_date="$(pol review.decision_date)"; review_date="$(pol review.review_date)"
+  interval="$(pol review.review_interval_days)"; today="${TODAY:-$(date -u +%F)}"
+  if [ -z "$review_date" ] || [ -z "$rev_date" ] || [ -z "$interval" ]; then
+    fail "policy review block is incomplete (decision_date, review_date, review_interval_days all required)"
+  else
+    # Grace period: one quarter of the interval, minimum 7 days.
+    grace="$(( interval / 4 )); "; grace="$(( interval / 4 ))"; [ "$grace" -lt 7 ] && grace=7
+    local overdue_by
+    overdue_by="$(python3 -c "
+import datetime, sys
+rd = datetime.date.fromisoformat('${review_date}')
+td = datetime.date.fromisoformat('${today}')
+print((td - rd).days)")"
+    if [ "$overdue_by" -gt "$grace" ]; then
+      fail "governance review is ${overdue_by} days past ${review_date} (grace ${grace}d) — re-review and re-date the policy"
+    elif [ "$overdue_by" -gt 0 ]; then
+      echo "WARN: governance review is ${overdue_by} day(s) overdue (due ${review_date}, grace ${grace}d)" >&2
+      pass "governance review overdue but inside the grace period"
+    else
+      pass "governance review is current (due ${review_date})"
+    fi
+  fi
+
   RULESETS="$(api "repos/${REPO}/rulesets")"
+
+  # An extra ACTIVE ruleset touching a protected scope is undeclared
+  # configuration, which the stated invariant ("live but not declared -> FAIL")
+  # must catch. Looking up only the two named rulesets missed it entirely.
+  local declared_names undeclared
+  declared_names="$(printf '%s\n%s\n' "$(pol branch_ruleset.name)" "$(pol tag_ruleset.name)")"
+  undeclared="$(jq -r '.[] | select(.enforcement=="active") | .name' <<<"$RULESETS" \
+                | grep -vxF -f <(printf '%s\n' "$declared_names") || true)"
+  if [ -n "$undeclared" ]; then
+    while IFS= read -r extra_name; do
+      [ -n "$extra_name" ] || continue
+      fail "undeclared ACTIVE ruleset '${extra_name}' exists — declare it in $(basename "$POLICY") or remove it"
+    done <<<"$undeclared"
+  else
+    pass "no undeclared active rulesets"
+  fi
 
   # --- branch ruleset -------------------------------------------------------
   verify_ruleset branch_ruleset branch
@@ -261,18 +310,60 @@ verify_all() {
   # --- pending items must be ABSENT ----------------------------------------
   # A `pending` declaration is a promise that the control is NOT in place; if it
   # silently appears, the docs are stale in the other direction.
-  local env_json envs_with_reviewers
+  #
+  # EVERY declared pending key must be evaluated. Leaving one silently unused
+  # recreates the aspiration-as-control problem this file exists to solve, so an
+  # unrecognised key is a hard failure rather than a no-op.
+  local pending_keys key
+  pending_keys="$(POLICY="$POLICY" python3 -c "
+import os, yaml
+d = yaml.safe_load(open(os.environ['POLICY'])) or {}
+print('\n'.join((d.get('pending') or {}).keys()))")"
+
+  local env_json envs_with_reviewers required_envs missing_envs
   env_json="$(api "repos/${REPO}/environments")"
-  envs_with_reviewers="$(jq -r '[.environments[]? | select([.protection_rules[]?.type] | index("required_reviewers")) | .name] | join(",")' <<<"$env_json")"
-  if [ "$(pol pending.environment_required_reviewers)" = "pending" ]; then
-    [ -z "$envs_with_reviewers" ] \
-      && pass "environment required-reviewers absent, as declared pending (gap, not a control)" \
-      || fail "environments now HAVE required reviewers (${envs_with_reviewers}) but the policy still says 'pending' — promote it to 'required'"
-  else
-    [ -n "$envs_with_reviewers" ] \
-      && pass "environment required reviewers active on: ${envs_with_reviewers}" \
-      || fail "policy requires environment reviewers but none are configured"
-  fi
+  envs_with_reviewers="$(jq -r '[.environments[]? | select([.protection_rules[]?.type] | index("required_reviewers")) | .name] | sort | join(",")' <<<"$env_json")"
+  # The intended release environments, by NAME. "any environment has reviewers"
+  # proved nothing about whether the RELEASE environments are protected.
+  required_envs="$(pol release_environments 2>/dev/null || printf 'foundry-rc\nfoundry-production\n')"
+
+  while IFS= read -r key; do
+    [ -n "$key" ] || continue
+    case "$key" in
+      environment_required_reviewers)
+        if [ "$(pol pending.environment_required_reviewers)" = "pending" ]; then
+          [ -z "$envs_with_reviewers" ] \
+            && pass "environment required-reviewers absent on every environment, as declared pending (gap, not a control)" \
+            || fail "environments now HAVE required reviewers (${envs_with_reviewers}) but the policy still says 'pending' — promote it to 'required'"
+        else
+          # Named check: each required release environment must be protected.
+          missing_envs=""
+          while IFS= read -r want_env; do
+            [ -n "$want_env" ] || continue
+            case ",${envs_with_reviewers}," in
+              *",${want_env},"*) : ;;
+              *) missing_envs="${missing_envs}${want_env} " ;;
+            esac
+          done <<<"$required_envs"
+          [ -z "$missing_envs" ] \
+            && pass "every required release environment has reviewers: ${envs_with_reviewers}" \
+            || fail "release environment(s) without required reviewers: ${missing_envs}"
+        fi
+        ;;
+      restrict_release_creation)
+        # Not API-verifiable (a role/settings action with no ruleset equivalent),
+        # so the only honest states are `pending` or a move to not_api_verifiable.
+        if [ "$(pol pending.restrict_release_creation)" = "pending" ]; then
+          pass "restrict_release_creation declared pending (not API-verifiable; needs a dated manual check)"
+        else
+          fail "restrict_release_creation is declared '$(pol pending.restrict_release_creation)' but cannot be verified from the API — move it to not_api_verifiable or return it to pending"
+        fi
+        ;;
+      *)
+        fail "policy declares pending.${key} but this verifier does not evaluate it — implement it, or move it to not_api_verifiable"
+        ;;
+    esac
+  done <<<"$pending_keys"
 
   echo
   if [ "$fails" -gt 0 ]; then
@@ -309,6 +400,41 @@ self_test() {
   t "set_equal handles names with spaces"   'set_equal "$(printf "build+smoke nginx")" "$(printf "build+smoke nginx")"'
   t "set_missing reports what is absent"    '[ "$(set_missing "$(printf "a\nb")" "$(printf "a")")" = "b" ]'
   t "set_missing is empty when covered"     '[ -z "$(set_missing "$(printf "a")" "$(printf "a\nb")")" ]'
+  # --- comparators the review findings depend on ---------------------------
+  # Two-way rule comparison: an UNDECLARED live rule must be caught, not just a
+  # missing declared one.
+  t "set_missing detects an extra live rule" \
+    '[ "$(set_missing "$(printf "creation\ndeletion")" "$(printf "deletion")")" = "creation" ]'
+  # Each direction answers a different question: what is DECLARED but absent
+  # live (missing), and what is LIVE but undeclared (extra). Only checking the
+  # first was the defect.
+  t "declared-but-missing is detected" \
+    '[ "$(set_missing "$(printf "a\nb")" "$(printf "a")")" = "b" ]'
+  t "live-but-undeclared is detected" \
+    '[ "$(set_missing "$(printf "a\nc")" "$(printf "a")")" = "c" ]'
+
+  # Review-date arithmetic (the gate the policy claimed but never implemented).
+  t "an overdue review date is detected" \
+    '[ "$(python3 -c "
+import datetime
+print((datetime.date(2026,12,1) - datetime.date(2026,1,1)).days)")" -gt 92 ]'
+  t "a future review date is not overdue" \
+    '[ "$(python3 -c "
+import datetime
+print((datetime.date(2026,1,1) - datetime.date(2026,12,1)).days)")" -lt 0 ]'
+
+  # Per-environment naming: "any environment" is not "the release environments".
+  t "named-environment matching rejects a partial set" \
+    '! case ",foundry-rc," in *",foundry-production,"*) true ;; *) false ;; esac'
+  t "named-environment matching accepts the full set" \
+    'case ",foundry-rc,foundry-production," in *",foundry-production,"*) true ;; *) false ;; esac'
+
+  # An unhandled policy key must fail rather than be silently ignored.
+  t "unknown pending keys are rejected by the case arm" \
+    'grep -q "does not evaluate it" "$0"'
+  t "undeclared active rulesets are checked" \
+    'grep -q "undeclared ACTIVE ruleset" "$0"'
+
   t "policy file parses"                    '[ "$(pol repository.visibility)" = "public" ]'
   t "policy declares no bypass actors"      '[ -z "$(pol branch_ruleset.bypass_actors || true)" ]'
   t "required check names load (26)"        '[ "$(required_check_names | grep -c .)" = "26" ]'
