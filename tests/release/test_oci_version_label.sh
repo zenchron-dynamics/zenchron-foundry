@@ -35,8 +35,10 @@ for df in images/nginx/Dockerfile images/caddy/Dockerfile; do
   ck "$df declares version=prod (matches the published label)" \
      "grep -q 'org.opencontainers.image.version=\"prod\"' $df"
 done
+# php-frankenphp was missing from this loop — it is a PHP-family image with the
+# same label contract and must not be exempt from the check.
 for v in 8.3 8.4; do
-  for fam in php-cli php-fpm php-worker; do
+  for fam in php-cli php-fpm php-worker php-frankenphp; do
     ck "images/$fam/$v declares version=$v-prod" \
        "grep -q 'org.opencontainers.image.version=\"$v-prod\"' images/$fam/$v/Dockerfile"
   done
