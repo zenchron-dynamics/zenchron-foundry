@@ -78,10 +78,37 @@ ck "the assertion runs from finish(), so all 10 images get it" \
    "sed -n '/^finish()/,/^}/p' scripts/smoke/lib.sh | grep -q 'capability-inventory.sh'"
 ck "require_image records the ref the assertion needs" \
    "sed -n '/^require_image()/,/^}/p' scripts/smoke/lib.sh | grep -q 'SMOKE_IMAGE='"
-ck "CI publishes the machine-readable inventory" \
-   "grep -q 'capability-inventory-' .github/workflows/ci.yml"
+# The build+smoke matrix moved out of ci.yml in #96: a pull_request workflow
+# runs the PR's own copy of itself, so it cannot be trusted to build on the
+# self-hosted pool. It lives in trusted-validation.yml, which is dispatch-only
+# and therefore always defined by master. Assert against the workflow that
+# actually builds, and assert the STRUCTURE rather than grepping for a string
+# that could sit in a comment.
+CAPWF=.github/workflows/trusted-validation.yml
+ck "the trusted build workflow exists" "test -f $CAPWF"
 ck "CI captures the inventory during the smoke step" \
-   "grep -q 'CAPABILITY_INVENTORY_DIR' .github/workflows/ci.yml"
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$CAPWF'))
+steps=d['jobs']['validate']['steps']
+smoke=[s for s in steps if s.get('id')=='smoke']
+assert smoke, 'no smoke step'
+assert smoke[0].get('env',{}).get('CAPABILITY_INVENTORY_DIR')=='capability-inventory', smoke[0].get('env')\""
+ck "CI publishes the machine-readable inventory" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$CAPWF'))
+ups=[s for s in d['jobs']['validate']['steps']
+     if 'upload-artifact' in str(s.get('uses',''))]
+assert ups, 'no upload step'
+w=ups[0]['with']
+assert 'capability-inventory/' in w['path'], w['path']
+# Evidence must survive a FAILING run: a regression is exactly when the
+# offending paths are worth keeping.
+assert ups[0].get('if')=='always()', ups[0].get('if')
+assert w.get('if-no-files-found')=='error', w.get('if-no-files-found')\""
+ck "the inventory is NOT expected from the pull-request workflow" \
+   "! grep -q 'CAPABILITY_INVENTORY_DIR' .github/workflows/ci.yml"
 
 # --- the hardened runtime profile is actually exercised --------------------
 for s in scripts/smoke/smoke-caddy.sh scripts/smoke/smoke-php-frankenphp.sh; do
