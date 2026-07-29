@@ -54,10 +54,11 @@ release_required_checks:
   - scan php-frankenphp 8.4
   - scan nginx prod
   - scan caddy prod
-  # Matrix-wide aggregate: an exception that matched no finding anywhere is a
-  # documentation defect in the accepted-risk ledger, and a release must not
-  # quote a ledger with dead records. Produced by trusted-validation.yml in
-  # release mode (and by scan-images.yml on dispatch).
+  # Matrix-wide aggregate: fails when an active exception matched no finding on
+  # any shipping image. A stale record misstates what a release is knowingly
+  # accepting, so it gates the release like any other evidence defect
+  # (#102/#103). Produced by trusted-validation.yml in release mode, and by
+  # scan-images.yml on dispatch.
   - no stale vulnerability exceptions
   - trusted validation result
 

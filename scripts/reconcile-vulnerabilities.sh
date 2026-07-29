@@ -67,6 +67,7 @@ family = os.environ["FAMILY"]
 version= os.environ.get("VERSION") or ""
 policy = os.environ["POLICY"]
 arch   = os.environ.get("ARCH") or ""
+require_arch = (os.environ.get("REQUIRE_ARCH") or "1") != "0"
 out    = os.environ.get("OUT_JSON") or ""
 today  = os.environ["TODAY"]
 
@@ -91,11 +92,29 @@ try:
 except Exception as exc:
     die("cannot read exception ledger '%s': %s" % (policy, exc))
 
+# Architecture is mandatory when enforcing. Without it the verified_architectures
+# restriction was bypassable simply by omitting --arch, so amd64-only evidence
+# could authorise any architecture. REQUIRE_ARCH=0 exists only for the offline
+# self-test of arch-independent behaviour.
+if require_arch and not arch:
+    die("--arch is required: an exception authorises only the architectures it "
+        "was reconciled on, so reconciliation without an architecture proves nothing")
+
 if led.get("schema_version") != 1:
     die("ledger schema_version must be 1")
 entries = led.get("exceptions")
 if not isinstance(entries, list):
     die("ledger has no 'exceptions' list — an absent ledger is not an empty one")
+
+# Architecture evidence is REQUIRED on every record: a record with no
+# verified_architectures would otherwise apply everywhere, which is the very
+# claim ("evidence-backed for arm64") this must refuse to make.
+if require_arch:
+    for _e in entries:
+        if not _e.get("verified_architectures"):
+            die("exception %s (%s) has no verified_architectures — every record must "
+                "state the architectures it was reconciled on"
+                % (_e.get("cve"), _e.get("image")))
 
 # PyYAML turns an unquoted 2099-01-01 into datetime.date. Normalise every value
 # to a string so date handling, comparison and JSON emission all agree.
@@ -205,6 +224,27 @@ not_affected = led.get("not_affected") or []
 if not isinstance(not_affected, list):
     die("ledger 'not_affected' must be a list when present")
 
+# A not_affected record suppresses a finding permanently — it does not expire —
+# so it must be bounded on every axis. An unvalidated record with `image: all`,
+# no package and no version binding could silently suppress an advisory across
+# unrelated packages, images, versions and architectures for ever.
+_NA_REQUIRED = ("cve", "image", "package", "classification", "evidence",
+                "references", "verified_architectures")
+for _e in not_affected:
+    _who = "%s (%s)" % (_e.get("cve"), _e.get("image"))
+    for _k in _NA_REQUIRED:
+        if not _e.get(_k):
+            die("not_affected %s is missing required field '%s'" % (_who, _k))
+    if _e.get("image") == "all":
+        die("not_affected %s uses image: all — a not-affected determination must "
+            "name the image families it was established on" % _who)
+    if not (_e.get("installed_version") or _e.get("not_affected_below")):
+        die("not_affected %s has no version binding (installed_version and/or "
+            "not_affected_below) — it would keep applying after the package moves "
+            "into the vulnerable range" % _who)
+    if require_arch and not _e.get("verified_architectures"):
+        die("not_affected %s has no verified_architectures" % _who)
+
 violations, governed, cleared, used = [], [], [], set()
 for f in findings:
     na = [e for e in not_affected if covers(e, f) and version_binding_holds(e, f)]
@@ -236,6 +276,15 @@ for f in findings:
         continue
     if "fix_available" not in e:
         violations.append({**f, "why": "exception does not declare fix_available"})
+        continue
+    # release_blocking: true means exactly that. Previously the value was read
+    # and emitted but never used, so a record explicitly marked release-blocking
+    # still produced PASS — a class-4 finding could greenlight a release.
+    if e.get("release_blocking") is True:
+        violations.append({**f, "why":
+            "exception %s is marked release_blocking: true — the release is BLOCKED "
+            "until it is remediated or the record is downgraded with evidence"
+            % e.get("cve")})
         continue
     if bool(e["fix_available"]) != f["fix_available"]:
         violations.append({**f, "why":
@@ -293,6 +342,9 @@ self_test() {
   # Every case reads the FIXTURE ledger, never the real one — otherwise the
   # suite silently grades itself against production data.
   export POLICY="$tmp/led.yaml"
+  # --arch is mandatory in enforcing mode, so every case supplies one; the cases
+  # that test the architecture rule override or clear it explicitly.
+  export ARCH="linux/amd64"
   t() { if eval "$2"; then ok=$((ok+1)); echo "  ok   $1"; else bad=$((bad+1)); echo "  FAIL $1"; fi; }
 
   _scan() { # _scan <file> <id> <pkg> <version> <fixed|-> <severity>
@@ -308,7 +360,7 @@ PY
     { echo "schema_version: 1"; echo "exceptions:"; printf '  - %s\n' "$1"; } > "$tmp/led.yaml"
   }
 
-  local BASE='{cve: CVE-2099-1, image: caddy, owner: o, approver: a, reason: r, created_at: 2026-01-01, expires_at: 2099-01-01, release_blocking: false, compensating_controls: [c], fix_available: false}'
+  local BASE='{cve: CVE-2099-1, image: caddy, owner: o, approver: a, reason: r, created_at: 2026-01-01, expires_at: 2099-01-01, release_blocking: false, compensating_controls: [c], fix_available: false, verified_architectures: [linux/amd64]}'
   _scan "$tmp/unfixed.json" CVE-2099-1 curl 1.0 - HIGH
   _scan "$tmp/fixed.json"   CVE-2099-1 curl 1.0 2.0 HIGH
   _scan "$tmp/other.json"   CVE-2099-9 curl 1.0 -   HIGH
@@ -347,6 +399,113 @@ PY
   t "package binding rejects another package"  "! reconcile '$tmp/pkg.json' caddy >/dev/null 2>&1"
   _led "${BASE%\}}, installed_version: 9.9}"
   t "version binding rejects another version"  "! reconcile '$tmp/unfixed.json' caddy >/dev/null 2>&1"
+
+  # --- review findings: fail-open paths that must now block -----------------
+  cat > "$tmp/led.yaml" <<'YAML'
+schema_version: 1
+exceptions:
+  - cve: CVE-2099-1
+    image: caddy
+    package: curl
+    fix_available: false
+    verified_architectures: [linux/amd64]
+    owner: o
+    approver: a
+    reason: r
+    created_at: 2026-01-01
+    expires_at: 2099-01-01
+    release_blocking: true
+    compensating_controls: [c]
+YAML
+  _scan "$tmp/blocking.json" CVE-2099-1 curl 1.0 - CRITICAL
+  t "release_blocking: true BLOCKS the release" \
+    "! ARCH=linux/amd64 reconcile '$tmp/blocking.json' caddy >/dev/null 2>&1"
+  t "…and says why" \
+    "out=\"\$(ARCH=linux/amd64 reconcile '$tmp/blocking.json' caddy 2>&1 || true)\"; grep -q 'release_blocking' <<<\"\$out\""
+
+  # Omitting --arch used to bypass the architecture restriction entirely.
+  t "enforcing mode REFUSES a missing --arch" \
+    "! ARCH= reconcile '$tmp/blocking.json' caddy >/dev/null 2>&1"
+
+  # Every record must carry architecture evidence.
+  cat > "$tmp/led.yaml" <<'YAML'
+schema_version: 1
+exceptions:
+  - cve: CVE-2099-1
+    image: caddy
+    package: curl
+    fix_available: false
+    owner: o
+    approver: a
+    reason: r
+    created_at: 2026-01-01
+    expires_at: 2099-01-01
+    release_blocking: false
+    compensating_controls: [c]
+YAML
+  _scan "$tmp/noarch.json" CVE-2099-1 curl 1.0 - HIGH
+  t "an exception without verified_architectures is refused" \
+    "! ARCH=linux/amd64 reconcile '$tmp/noarch.json' caddy >/dev/null 2>&1"
+
+  # not_affected records must be bounded on every axis.
+  _na() { cat > "$tmp/led.yaml"; }
+  _na <<'YAML'
+schema_version: 1
+exceptions: []
+not_affected:
+  - cve: CVE-2099-1
+    image: all
+    package: curl
+    classification: c
+    evidence: e
+    references: [r]
+    verified_architectures: [linux/amd64]
+    installed_version: "1.0"
+YAML
+  t "not_affected with image: all is refused" \
+    "! ARCH=linux/amd64 reconcile '$tmp/noarch.json' caddy >/dev/null 2>&1"
+  _na <<'YAML'
+schema_version: 1
+exceptions: []
+not_affected:
+  - cve: CVE-2099-1
+    image: caddy
+    classification: c
+    evidence: e
+    references: [r]
+    verified_architectures: [linux/amd64]
+    installed_version: "1.0"
+YAML
+  t "not_affected without a package is refused" \
+    "! ARCH=linux/amd64 reconcile '$tmp/noarch.json' caddy >/dev/null 2>&1"
+  _na <<'YAML'
+schema_version: 1
+exceptions: []
+not_affected:
+  - cve: CVE-2099-1
+    image: caddy
+    package: curl
+    classification: c
+    evidence: e
+    references: [r]
+    verified_architectures: [linux/amd64]
+YAML
+  t "not_affected without a version binding is refused" \
+    "! ARCH=linux/amd64 reconcile '$tmp/noarch.json' caddy >/dev/null 2>&1"
+  _na <<'YAML'
+schema_version: 1
+exceptions: []
+not_affected:
+  - cve: CVE-2099-1
+    image: caddy
+    package: curl
+    classification: c
+    references: [r]
+    verified_architectures: [linux/amd64]
+    installed_version: "1.0"
+YAML
+  t "not_affected without evidence is refused" \
+    "! ARCH=linux/amd64 reconcile '$tmp/noarch.json' caddy >/dev/null 2>&1"
 
   # --- architecture evidence -------------------------------------------------
   # An exception authorises only the architectures it was reconciled on; an
@@ -387,6 +546,8 @@ not_affected:
     not_affected_below: 5.37.10
     classification: false-positive-disputed-range
     evidence: fixture
+    references: [fixture]
+    verified_architectures: [linux/amd64]
 YAML
   _scan "$tmp/v-old.json" CVE-2099-1 perl-base 5.36.0-7+deb12u3 - HIGH
   t "not_affected holds below the introduction version" \

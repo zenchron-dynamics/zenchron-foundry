@@ -264,3 +264,44 @@ jobs:
             *.spdx.json
           retention-days: 30
 
+  # Matrix-wide aggregate (#102/#103). Per-image reconciliation cannot tell an
+  # unused exception from one that belongs to a different image, so the stale
+  # check has to run once, after every leg, over all ten reconciliation files.
+  # It fails closed on a short matrix: a partial run would report live
+  # exceptions as stale.
+  stale-exceptions:
+    name: no stale vulnerability exceptions
+    runs-on: ${{ fromJSON((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && '["self-hosted","linux","x64","zenchron"]' || '["ubuntu-latest"]') }}
+    needs: scan
+    if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Scrub stale reconciliation results (persistent workspace)
+        run: rm -rf vuln-reconciliation
+      - name: Download every image's reconciliation
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v4
+        with:
+          path: vuln-reconciliation
+          pattern: vuln-reconciliation-*
+          merge-multiple: true
+      - name: Fail on exceptions that matched no shipping image
+        run: bash scripts/ci/assert-no-stale-exceptions.sh vuln-reconciliation

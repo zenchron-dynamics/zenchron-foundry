@@ -9,6 +9,29 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 OUT="${OUT:-artifacts/scan}"; mkdir -p "$OUT"
 
+# _family_of / _version_of — derive the image family and version from a
+# canonical reference, so every scanned image is reconciled against ITS OWN
+# scope. A single global RECONCILE_FAMILY cannot be correct for a mixed loop.
+_family_of() {
+    case "$1" in
+        *php-frankenphp*) printf 'php-frankenphp' ;;
+        *php-worker*)     printf 'php-worker' ;;
+        *php-fpm*)        printf 'php-fpm' ;;
+        *php-cli*)        printf 'php-cli' ;;
+        *nginx*)          printf 'nginx' ;;
+        *caddy*)          printf 'caddy' ;;
+        *)                printf '%s' "${RECONCILE_FAMILY:-}" ;;
+    esac
+}
+_version_of() {
+    case "$1" in
+        *:8.3-*|*:8.3)  printf '8.3' ;;
+        *:8.4-*|*:8.4)  printf '8.4' ;;
+        *nginx*|*caddy*) printf 'prod' ;;
+        *)              printf '%s' "${RECONCILE_VERSION:-}" ;;
+    esac
+}
+
 scan_one() {
     local image="$1" name
     name="$(echo "$image" | tr '/:@' '___')"
@@ -23,19 +46,31 @@ scan_one() {
         --exit-code 0 \
         --format json --output "${OUT}/${name}.trivy.json" \
         "$image" || { echo "Trivy scan FAILED for $image"; return 1; }
-    if [ -n "${RECONCILE_FAMILY:-}" ]; then
-        bash "$(dirname "$0")/reconcile-vulnerabilities.sh" \
-            "${OUT}/${name}.trivy.json" "$RECONCILE_FAMILY" "${RECONCILE_VERSION:-}" \
-            || { echo "Vulnerability gate FAILED for $image"; return 1; }
-    else
-        echo "    (set RECONCILE_FAMILY=<image-family> [RECONCILE_VERSION=<ver>] to apply the gate)"
+    # ALWAYS reconcile. Making this conditional turned `make scan`, `make
+    # scan-local` and `make ci-local STRICT=1` into report-only despite their
+    # names — the Trivy step no longer gated and the script still exited 0.
+    local fam ver
+    fam="$(_family_of "$image")"; ver="$(_version_of "$image")"
+    if [ -z "$fam" ]; then
+        echo "REFUSE: cannot derive the image family from '$image'." >&2
+        echo "        Pass IMAGE=<ref> with RECONCILE_FAMILY=<family> [RECONCILE_VERSION=<ver>]," >&2
+        echo "        or use a canonical ghcr.io/zenchron-dynamics/<family>:<ver>-prod reference." >&2
+        return 1
     fi
+    bash "$(dirname "$0")/reconcile-vulnerabilities.sh" \
+        "${OUT}/${name}.trivy.json" "$fam" "$ver" \
+        --arch "${SCAN_ARCH:-linux/amd64}" \
+        || { echo "Vulnerability gate FAILED for $image"; return 1; }
 
-    echo "==> Grype: $image"
-    grype "$image" \
-        --config policies/grype.yaml \
-        --fail-on high \
-        -o json --file "${OUT}/${name}.grype.json" || { echo "Grype gate FAILED for $image"; return 1; }
+    # Grype is REPORT-ONLY and carries NO suppressions (#102). policies/grype.yaml
+    # was an advisory-id-wide ignore list — the same global cross-image
+    # suppression class this work removed for Trivy — and the validator only
+    # proved an ignored id existed somewhere in the ledger, never that it was in
+    # scope for THIS image. Running it without --config means nothing is
+    # suppressed; Trivy plus per-image reconciliation is the sole enforcing gate.
+    echo "==> Grype (report-only, no suppressions): $image"
+    grype "$image" -o json --file "${OUT}/${name}.grype.json" \
+        || { echo "Grype scan FAILED for $image"; return 1; }
 }
 
 if [ -n "${IMAGE:-}" ]; then
