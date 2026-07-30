@@ -53,11 +53,22 @@ try:
 except Exception as exc:
     print("FAIL: cannot read %s: %s" % (cfg, exc), file=sys.stderr); sys.exit(1)
 
+# Dependabot only honours `version: 2`. A config with a missing or wrong
+# version is not applied AT ALL, so every entry below it would be inert while
+# reading as configured — the same false assurance this gate exists to prevent.
+version = doc.get("version")
+if version != 2:
+    print("FAIL: %s declares version %r; Dependabot only applies version 2, so "
+          "this configuration would be inert" % (cfg, version), file=sys.stderr)
+    sys.exit(1)
+
 updates = doc.get("updates")
 if not isinstance(updates, list) or not updates:
     print("FAIL: %s has no 'updates' list — a dependabot config that updates "
           "nothing is not a control" % cfg, file=sys.stderr)
     sys.exit(1)
+
+root_real = os.path.realpath(root)
 
 problems, checked = [], 0
 for entry in updates:
@@ -78,12 +89,32 @@ for entry in updates:
         continue
     for d in dirs:
         checked += 1
+        # A non-string directory (a list, a number, a null from an empty YAML
+        # value) would be coerced by str() into a path that cannot exist, and
+        # the "does not exist" message would send someone hunting for a missing
+        # directory instead of a malformed config.
+        if not isinstance(d, str):
+            problems.append("%s: directory entry %r is not a string" % (eco, d))
+            continue
+        if not d.strip():
+            problems.append("%s: empty directory entry" % eco)
+            continue
         rel = d.lstrip("/")
         base = os.path.join(root, rel) if rel else root
-        if not os.path.isdir(base):
+        # Normalise and confine. `/../../etc` or a symlinked directory pointing
+        # outside the checkout would otherwise be resolved against the host
+        # filesystem, and a manifest found out there would satisfy the gate for
+        # a path Dependabot can never update.
+        real = os.path.realpath(base)
+        if real != root_real and not real.startswith(root_real + os.sep):
+            problems.append("%s: directory '%s' resolves to '%s', outside the "
+                            "repository root — Dependabot paths are repo-relative"
+                            % (eco, d, real))
+            continue
+        if not os.path.isdir(real):
             problems.append("%s: directory '%s' does not exist" % (eco, d))
             continue
-        if not any(os.path.exists(os.path.join(base, n)) for n in names):
+        if not any(os.path.exists(os.path.join(real, n)) for n in names):
             problems.append("%s: '%s' contains none of %s — the entry updates nothing"
                             % (eco, d, "/".join(names)))
 
@@ -116,6 +147,73 @@ updates:
     directory: "/"
 YAML
   t "configured dirs with manifests pass"      "check '$tmp/good.yml' '$tmp/repo' >/dev/null"
+
+  # --- version gate ---------------------------------------------------------
+  # Dependabot applies ONLY version 2. Any other value makes the whole file
+  # inert while every entry still reads as configured.
+  for _v in 1 3 '"2"' null; do
+    { echo "version: $_v"; echo "updates:"; echo '  - package-ecosystem: "docker"';
+      echo '    directories: ["/images/nginx"]'; } > "$tmp/ver.yml"
+    t "version $_v is rejected"                "! check '$tmp/ver.yml' '$tmp/repo' >/dev/null 2>&1"
+  done
+  { echo "updates:"; echo '  - package-ecosystem: "docker"';
+    echo '    directories: ["/images/nginx"]'; } > "$tmp/nover.yml"
+  t "a missing version is rejected"            "! check '$tmp/nover.yml' '$tmp/repo' >/dev/null 2>&1"
+
+  # --- directory values -----------------------------------------------------
+  cat > "$tmp/nonstr.yml" <<'YAML'
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directories: [["/images/nginx"]]
+YAML
+  t "a non-string directory is rejected"       "! check '$tmp/nonstr.yml' '$tmp/repo' >/dev/null 2>&1"
+  t "...and it is named as malformed, not missing" \
+    "out=\"\$(check '$tmp/nonstr.yml' '$tmp/repo' 2>&1 || true)\"; grep -q 'is not a string' <<<\"\$out\""
+  cat > "$tmp/numdir.yml" <<'YAML'
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directories: [7]
+YAML
+  t "a numeric directory is rejected"          "! check '$tmp/numdir.yml' '$tmp/repo' >/dev/null 2>&1"
+  cat > "$tmp/emptydir.yml" <<'YAML'
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directories: ["   "]
+YAML
+  t "a blank directory is rejected"            "! check '$tmp/emptydir.yml' '$tmp/repo' >/dev/null 2>&1"
+
+  # --- path confinement -----------------------------------------------------
+  # A traversal or a symlink escape could satisfy the gate with a manifest that
+  # exists on the host but is not in the repository Dependabot updates.
+  cat > "$tmp/esc.yml" <<'YAML'
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directories: ["/../outside"]
+YAML
+  mkdir -p "$tmp/outside"; : > "$tmp/outside/Dockerfile"
+  t "a ../ traversal is rejected"              "! check '$tmp/esc.yml' '$tmp/repo' >/dev/null 2>&1"
+  t "...and the escape is reported as such" \
+    "out=\"\$(check '$tmp/esc.yml' '$tmp/repo' 2>&1 || true)\"; grep -q 'outside the' <<<\"\$out\""
+  ln -s "$tmp/outside" "$tmp/repo/linked"
+  cat > "$tmp/sym.yml" <<'YAML'
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directories: ["/linked"]
+YAML
+  t "a symlink escaping the repo is rejected"  "! check '$tmp/sym.yml' '$tmp/repo' >/dev/null 2>&1"
+  ln -s "$tmp/repo/images/nginx" "$tmp/repo/inside-link"
+  cat > "$tmp/insym.yml" <<'YAML'
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directories: ["/inside-link"]
+YAML
+  t "a symlink staying inside the repo passes" "check '$tmp/insym.yml' '$tmp/repo' >/dev/null"
 
   # The exact #119 defect: composer pointed at a directory with no composer.json.
   cat > "$tmp/phantom.yml" <<'YAML'
