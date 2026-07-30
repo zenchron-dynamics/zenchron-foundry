@@ -18,7 +18,7 @@ fail=0
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
 POLICY=policies/repository-governance.yaml
-EVIDENCE=docs/audits/governance-verification-2026-07-28.json
+EVIDENCE=docs/audits/governance-verification-2026-07-30.json
 
 ck "governance policy exists"          "test -f $POLICY"
 ck "verifier comparators self-test"    "bash scripts/verify-repo-governance.sh --self-test >/dev/null"
@@ -194,6 +194,47 @@ ck "ruleset is compared against PR-producible checks" \
    "grep -q 'pr_required_checks' scripts/verify-repo-governance.sh"
 ck "fork-boundary evidence is committed" \
    "test -f docs/security/fork-boundary-test-2026-07-29.md"
+
+# --- the evidence must cover the control that IS the boundary ---------------
+# The 2026-07-28 snapshot predated the org runner group, recorded a stale source
+# revision, and described a 26-check ruleset that never existed. Evidence that
+# omits the fork boundary cannot be used to argue the fork boundary holds.
+ck "evidence records the org runner group" \
+   "python3 -c \"
+import json;g=json.load(open('$EVIDENCE'))['org_runner_group']
+for k in ('id','name','visibility','allows_public_repositories',
+          'restricted_to_workflows','selected_repositories','selected_workflows',
+          'runners','default_group_runners'):
+    assert k in g, k\""
+ck "evidence shows the group restricted to this repository only" \
+   "python3 -c \"
+import json;g=json.load(open('$EVIDENCE'))['org_runner_group']
+assert g['visibility']=='selected', g['visibility']
+assert g['restricted_to_workflows'] is True
+names=[r['full_name'] for r in g['selected_repositories']]
+assert names==['zenchron-dynamics/zenchron-foundry'], names\""
+ck "evidence shows every allowed workflow ref-pinned to master" \
+   "python3 -c \"
+import json;g=json.load(open('$EVIDENCE'))['org_runner_group']
+wfs=g['selected_workflows']
+assert len(wfs)==10, len(wfs)
+assert all(w.endswith('@refs/heads/master') for w in wfs), wfs\""
+ck "evidence shows the Default group holds no runners" \
+   "python3 -c \"
+import json;g=json.load(open('$EVIDENCE'))['org_runner_group']
+assert g['default_group_runners']==[], g['default_group_runners']
+assert len(g['runners'])>=1\""
+ck "evidence records BOTH check sets, distinctly" \
+   "python3 -c \"
+import json;d=json.load(open('$EVIDENCE'))
+assert len(d['pr_required_checks'])==5, d['pr_required_checks']
+assert len(d['release_required_checks'])>len(d['pr_required_checks'])
+assert 'trusted validation result' in d['release_required_checks']
+assert 'trusted validation result' not in d['pr_required_checks']\""
+ck "evidence source_revision is a real commit in this repository" \
+   "git cat-file -e \"\$(python3 -c \"import json;print(json.load(open('$EVIDENCE'))['source_revision'])\")\""
+ck "no document still claims 26 required checks" \
+   "! grep -rn '26 required\|26 status\|all 26 check' --include='*.md' --include='*.yaml' . | grep -v originally"
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_repo_governance: PASS" || echo "test_repo_governance: FAIL"
 exit $fail

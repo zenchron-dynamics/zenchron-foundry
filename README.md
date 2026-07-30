@@ -63,7 +63,7 @@ tag protection *are* available. As of **2026-07-28** they are applied and active
 with **no bypass actors — administrators included**:
 
 - `master` — pull request required, no direct push, no force-push, no deletion,
-  linear history, conversation resolution, and all 26 required status checks.
+  linear history, conversation resolution, and the 5 PR-required status checks.
 - `v*` tags — **immutable**: cannot be deleted, force-moved or repointed.
 
 Declared in [`policies/repository-governance.yaml`](policies/repository-governance.yaml)

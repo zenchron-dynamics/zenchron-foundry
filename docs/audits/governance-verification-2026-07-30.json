@@ -1,7 +1,7 @@
 {
   "repository": "zenchron-dynamics/zenchron-foundry",
-  "checked_at": "2026-07-27T22:12:45Z",
-  "source_revision": "febd794fb2c1ec5f929a7db24da697c92f4442aa",
+  "checked_at": "2026-07-30T14:54:58Z",
+  "source_revision": "03dfc6ba1dde7cc3ab5b2b72e6e888286628bb67",
   "verdict": "PASS",
   "settings": {
     "visibility": "public",
@@ -28,7 +28,7 @@
         }
       },
       "created_at": "2026-07-28T01:06:42.947+03:00",
-      "updated_at": "2026-07-28T01:06:42.979+03:00"
+      "updated_at": "2026-07-29T16:31:30.051+03:00"
     },
     {
       "id": 19853433,
@@ -112,69 +112,6 @@
           },
           {
             "context": "validate compose profiles"
-          },
-          {
-            "context": "build+smoke php-cli 8.3"
-          },
-          {
-            "context": "build+smoke php-cli 8.4"
-          },
-          {
-            "context": "build+smoke php-fpm 8.3"
-          },
-          {
-            "context": "build+smoke php-fpm 8.4"
-          },
-          {
-            "context": "build+smoke php-worker 8.3"
-          },
-          {
-            "context": "build+smoke php-worker 8.4"
-          },
-          {
-            "context": "build+smoke php-frankenphp 8.3"
-          },
-          {
-            "context": "build+smoke php-frankenphp 8.4"
-          },
-          {
-            "context": "build+smoke nginx"
-          },
-          {
-            "context": "build+smoke caddy"
-          },
-          {
-            "context": "aggregate build+smoke results"
-          },
-          {
-            "context": "scan php-cli 8.3"
-          },
-          {
-            "context": "scan php-cli 8.4"
-          },
-          {
-            "context": "scan php-fpm 8.3"
-          },
-          {
-            "context": "scan php-fpm 8.4"
-          },
-          {
-            "context": "scan php-worker 8.3"
-          },
-          {
-            "context": "scan php-worker 8.4"
-          },
-          {
-            "context": "scan php-frankenphp 8.3"
-          },
-          {
-            "context": "scan php-frankenphp 8.4"
-          },
-          {
-            "context": "scan nginx prod"
-          },
-          {
-            "context": "scan caddy prod"
           }
         ]
       },
@@ -196,5 +133,83 @@
         "branch_policy"
       ]
     }
-  ]
+  ],
+  "pr_required_checks": [
+    "repo structure",
+    "lint (shell / yaml / md / dockerfile)",
+    "secret scan (gitleaks)",
+    "semgrep docker security",
+    "validate compose profiles"
+  ],
+  "release_required_checks": [
+    "repo structure",
+    "lint (shell / yaml / md / dockerfile)",
+    "secret scan (gitleaks)",
+    "semgrep docker security",
+    "validate compose profiles",
+    "scan php-cli 8.3",
+    "scan php-cli 8.4",
+    "scan php-fpm 8.3",
+    "scan php-fpm 8.4",
+    "scan php-worker 8.3",
+    "scan php-worker 8.4",
+    "scan php-frankenphp 8.3",
+    "scan php-frankenphp 8.4",
+    "scan nginx prod",
+    "scan caddy prod",
+    "trusted validation result"
+  ],
+  "org_runner_group": {
+    "id": 3,
+    "name": "zenchron-foundry-trusted",
+    "visibility": "selected",
+    "allows_public_repositories": true,
+    "restricted_to_workflows": true,
+    "selected_repositories": [
+      {
+        "id": 1254295268,
+        "full_name": "zenchron-dynamics/zenchron-foundry",
+        "visibility": null
+      }
+    ],
+    "selected_workflows": [
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/ci.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/promote-stable.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/publish-ghcr.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/publish-rc.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/release.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/scheduled-rebuild.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master"
+    ],
+    "runners": [
+      {
+        "id": 22,
+        "name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+        "status": "online",
+        "busy": false,
+        "labels": [
+          "self-hosted",
+          "Linux",
+          "X64",
+          "zenchron"
+        ]
+      },
+      {
+        "id": 23,
+        "name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+        "status": "online",
+        "busy": false,
+        "labels": [
+          "self-hosted",
+          "Linux",
+          "X64",
+          "zenchron"
+        ]
+      }
+    ],
+    "default_group_runners": []
+  }
 }

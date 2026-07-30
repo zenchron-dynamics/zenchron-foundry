@@ -1,7 +1,7 @@
 # CI Failure Policy
 
 **Updated 2026-07-28 (issue #97).** A red CI now *does* physically stop a merge:
-`master` requires all 26 status checks through the `master-protection` ruleset,
+`master` requires the 5 PR-required status checks through the `master-protection` ruleset,
 with no bypass actors — see [repository-security.md](repository-security.md).
 This file previously opened with "GitHub Free cannot block a merge on a private
 repo"; that premise was false, and these rules were standing in for enforcement

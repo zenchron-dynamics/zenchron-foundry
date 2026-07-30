@@ -25,12 +25,17 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   read-only; only `publish-status` may write. The job that checks out and
   executes the commit under validation on a privileged runner holds
   `contents: read` and nothing else.
+
 ### Security — repository governance now enforced and verified (#97)
 
 - **`master` and `v*` are protected for the first time.** Two rulesets are live
   with **no bypass actors, administrators included**: `master-protection` (pull
   request required, no direct push, no force-push, no deletion, linear history,
-  conversation resolution, all 26 required status checks) and
+  conversation resolution, the required status checks) and
+  <!-- Corrected 2026-07-30: this entry originally said "all 26 required
+  status checks". The ruleset gates PULL REQUESTS and requires the 5
+  PR-producible checks; the 17-entry release set is verified on the release
+  commit. The figure was wrong when written, not changed since. -->
   `release-tags-immutable` (`v*` cannot be deleted, force-moved or repointed).
   Tag *creation* stays open so `scripts/prepare-release.sh` still works.
 - **The premise everything rested on was false.** Four documents stated the repo

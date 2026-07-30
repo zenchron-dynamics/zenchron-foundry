@@ -41,7 +41,7 @@ exists. Signing is keyless (Fulcio/Rekor), so there is no private key to leak.
 - Only maintainers who can dispatch the release workflows and push a `v*`
   **tag** can cut a release.
 - **Enforced by GitHub since 2026-07-28 (issue #97):** direct pushes to `master`
-  are blocked by the `master-protection` ruleset (PR + 26 required checks +
+  are blocked by the `master-protection` ruleset (PR + the 5 PR-required checks +
   linear history, no bypass actors), and `v*` tags are **immutable** — no
   deletion, force-move or repoint, for anyone including the owner. Tag
   *creation* stays open so `scripts/prepare-release.sh` can still cut a release.

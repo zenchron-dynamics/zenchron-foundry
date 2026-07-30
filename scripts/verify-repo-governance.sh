@@ -257,10 +257,46 @@ verify_all() {
     fail "policy review block is incomplete (decision_date, review_date, review_interval_days all required)"
   else
     # Grace period: one quarter of the interval, minimum 7 days.
-    grace="$(( interval / 4 )); "; grace="$(( interval / 4 ))"; [ "$grace" -lt 7 ] && grace=7
+    grace="$(( interval / 4 ))"; [ "$grace" -lt 7 ] && grace=7
+    # COHERENCE first. Checking review_date against today alone let the policy
+    # declare a 92-day review interval and a review_date years out: the gate
+    # would report "current" forever while the stated cadence was fiction.
+    # The three fields must agree with each other before the date is used.
+    local coh
+    coh="$(REV="$rev_date" RD="$review_date" IV="$interval" TD="$today" python3 - <<'PY'
+import datetime, os, sys
+
+def parse(name, raw):
+    try:
+        return datetime.date.fromisoformat(raw)
+    except (ValueError, TypeError):
+        sys.exit("%s is not a valid ISO date: %r" % (name, raw))
+
+dec = parse("decision_date", os.environ["REV"])
+rev = parse("review_date", os.environ["RD"])
+today = parse("today", os.environ["TD"])
+try:
+    interval = int(os.environ["IV"])
+except ValueError:
+    sys.exit("review_interval_days is not an integer: %r" % os.environ["IV"])
+if interval < 1:
+    sys.exit("review_interval_days must be >= 1, got %d" % interval)
+if dec > today:
+    sys.exit("decision_date %s is in the FUTURE (today %s) — a decision cannot "
+             "have been taken tomorrow" % (dec, today))
+if rev < dec:
+    sys.exit("review_date %s precedes decision_date %s" % (rev, dec))
+span = (rev - dec).days
+if span > interval:
+    sys.exit("review_date is %d days after decision_date but the declared "
+             "review_interval_days is %d — the policy states a cadence it does "
+             "not keep" % (span, interval))
+PY
+)" || { fail "policy review block is incoherent: $coh"; coh=""; }
+
     local overdue_by
     overdue_by="$(python3 -c "
-import datetime, sys
+import datetime
 rd = datetime.date.fromisoformat('${review_date}')
 td = datetime.date.fromisoformat('${today}')
 print((td - rd).days)")"
@@ -520,6 +556,35 @@ print('\n'.join((d.get('pending') or {}).keys()))")"
   echo "RESULT: PASS (live configuration equals $(basename "$POLICY"))"
 }
 
+# The org runner group is the actual fork-PR boundary (#96): repository code
+# cannot govern runner assignment, so the evidence has to record the control
+# plane's own view of it, not just the repository's rulesets.
+runner_group_evidence() {
+  local gid; gid="$(pol org_runner_group.id)"
+  local org="${REPO%%/*}"
+  local grp runners repos wfs
+  grp="$(api "orgs/${org}/actions/runner-groups/${gid}" 2>/dev/null || echo '{}')"
+  repos="$(api "orgs/${org}/actions/runner-groups/${gid}/repositories" 2>/dev/null \
+            | jq '[.repositories[]? | {id, full_name, visibility}]' 2>/dev/null || echo '[]')"
+  # The workflow list lives on the GROUP object, same as the verifier reads at
+  # line ~367. The separate /selected-workflows endpoint returns nothing here,
+  # and silently recording an empty list would make the evidence understate the
+  # restriction rather than prove it.
+  wfs="$(jq '.selected_workflows // []' <<<"$grp" 2>/dev/null || echo '[]')"
+  runners="$(api "orgs/${org}/actions/runner-groups/${gid}/runners" 2>/dev/null \
+              | jq '[.runners[]? | {id, name, status, busy, labels: [.labels[].name]}]' 2>/dev/null || echo '[]')"
+  local default_runners
+  default_runners="$(api "orgs/${org}/actions/runner-groups/1/runners" 2>/dev/null \
+                      | jq '[.runners[]? | .name]' 2>/dev/null || echo '[]')"
+  jq -n --argjson g "$grp" --argjson repos "$repos" --argjson wfs "$wfs" \
+        --argjson runners "$runners" --argjson dflt "$default_runners" \
+    '{id: $g.id, name: $g.name, visibility: $g.visibility,
+      allows_public_repositories: $g.allows_public_repositories,
+      restricted_to_workflows: $g.restricted_to_workflows,
+      selected_repositories: $repos, selected_workflows: $wfs,
+      runners: $runners, default_group_runners: $dflt}'
+}
+
 write_evidence() { # write_evidence <path> <verdict>
   local out="$1" verdict="$2"
   jq -n \
@@ -531,9 +596,15 @@ write_evidence() { # write_evidence <path> <verdict>
     --argjson rulesets "$(api "repos/${REPO}/rulesets")" \
     --argjson applied_to_default "$(api "repos/${REPO}/rules/branches/$(pol repository.default_branch)")" \
     --argjson environments "$(api "repos/${REPO}/environments" | jq '[.environments[]? | {name, protection_rules: [.protection_rules[]?.type]}]')" \
+    --argjson pr_required_checks "$(required_check_names | jq -R . | jq -s .)" \
+    --argjson release_required_checks "$(yq -r '.release_required_checks[]' "$CHECKS_POLICY" | jq -R . | jq -s .)" \
+    --argjson runner_group "$(runner_group_evidence)" \
     '{repository:$repo, checked_at:$checked_at, source_revision:$revision, verdict:$verdict,
       settings:$repo_json, rulesets:$rulesets, rules_applied_to_default_branch:$applied_to_default,
-      environments:$environments}' > "$out"
+      environments:$environments,
+      pr_required_checks:$pr_required_checks,
+      release_required_checks:$release_required_checks,
+      org_runner_group:$runner_group}' > "$out"
   echo "evidence written: ${out}"
 }
 
@@ -629,6 +700,38 @@ raise SystemExit(0 if any(\"allows_public_repositories\" in x for x in d.get(\"n
   t "policy declares no bypass actors"      '[ -z "$(pol branch_ruleset.bypass_actors || true)" ]'
   t "the ruleset check set is the PR-producible one" \
     '[ "$(required_check_names | grep -c .)" = "5" ] && required_check_names | grep -qx "repo structure"'
+  # --- review-block coherence -----------------------------------------------
+  # A date compared only against today says nothing about the cadence claimed
+  # beside it. These drive the same python the gate runs.
+  _coh() { # _coh <decision> <review> <interval> <today>
+    REV="$1" RD="$2" IV="$3" TD="$4" python3 - <<'PY'
+import datetime, os, sys
+def parse(name, raw):
+    try: return datetime.date.fromisoformat(raw)
+    except (ValueError, TypeError): sys.exit("%s invalid: %r" % (name, raw))
+dec = parse("decision_date", os.environ["REV"])
+rev = parse("review_date", os.environ["RD"])
+today = parse("today", os.environ["TD"])
+try: interval = int(os.environ["IV"])
+except ValueError: sys.exit("interval not an integer")
+if interval < 1: sys.exit("interval < 1")
+if dec > today: sys.exit("decision_date in the future")
+if rev < dec: sys.exit("review_date precedes decision_date")
+if (rev - dec).days > interval: sys.exit("review_date beyond the declared interval")
+PY
+  }
+  t "a coherent review block passes"          '_coh 2026-07-28 2026-10-28 92 2026-07-30'
+  t "review_date beyond the interval FAILS"   '! _coh 2026-07-28 2099-01-01 92 2026-07-30 2>/dev/null'
+  t "review_date before decision_date FAILS"  '! _coh 2026-07-28 2026-07-01 92 2026-07-30 2>/dev/null'
+  t "a future decision_date FAILS"            '! _coh 2099-01-01 2099-02-01 92 2026-07-30 2>/dev/null'
+  t "a non-ISO decision_date FAILS"           '! _coh 28-07-2026 2026-10-28 92 2026-07-30 2>/dev/null'
+  t "a non-ISO review_date FAILS"             '! _coh 2026-07-28 not-a-date 92 2026-07-30 2>/dev/null'
+  t "a non-integer interval FAILS"            '! _coh 2026-07-28 2026-10-28 ninety 2026-07-30 2>/dev/null'
+  t "a zero interval FAILS"                   '! _coh 2026-07-28 2026-07-28 0 2026-07-30 2>/dev/null'
+  t "exactly the interval is allowed"         '_coh 2026-07-28 2026-10-28 92 2026-07-30'
+  t "the live policy review block is coherent" \
+    '_coh "$(pol review.decision_date)" "$(pol review.review_date)" "$(pol review.review_interval_days)" "$(date -u +%F)"'
+
   t "the release set is larger than the PR set" \
     '[ "$(python3 -c "
 import yaml

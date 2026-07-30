@@ -38,7 +38,8 @@ stated as gaps — not as controls-in-waiting.
 - [x] **All required status checks must pass.** The exact names are **not copied
       here**: they come from
       [`../policies/required-release-checks.yaml`](../policies/required-release-checks.yaml)
-      (26 checks), the same file the exact-commit release gate reads, and
+      (`pr_required_checks`, 5), the same file the exact-commit release gate
+      reads for its larger `release_required_checks` set, and
       `scripts/assert-required-checks.sh` keeps that file in lockstep with the
       real workflow job names. One list, three consumers, no drift. (The
       hand-copied list that used to sit here had rotted to job names — `build

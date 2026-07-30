@@ -17,7 +17,7 @@
 >
 > **What replaced it** (applied 2026-07-28, no bypass actors, administrators
 > included): `master-protection` — PR required, no direct push, no force-push, no
-> deletion, linear history, conversation resolution, 26 required status checks;
+> deletion, linear history, conversation resolution, 5 PR-required status checks;
 > `release-tags-immutable` — `v*` tags cannot be deleted, force-moved or
 > repointed. Evidence: [`governance-verification-2026-07-28.json`](governance-verification-2026-07-28.json).
 >

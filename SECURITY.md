@@ -47,7 +47,7 @@ legacy compatibility and carry accepted, documented risk.
 - Dependabot (GitHub Actions, Docker bases, Composer examples).
 - **Governance (enforced, verified 2026-07-28):** the repository is public, so
   branch and tag rulesets are available and **applied** — `master` requires a
-  pull request with all 26 status checks, linear history, conversation
+  pull request with the 5 PR-required status checks, linear history, conversation
   resolution, and blocks direct push, force-push and deletion; `v*` tags are
   immutable (no delete, force-move or repoint). **No bypass actors, including
   administrators.** Declared in `policies/repository-governance.yaml` and

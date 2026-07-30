@@ -146,7 +146,11 @@ branch_ruleset:
     require_last_push_approval: false
 
   required_status_checks:
-    # Names come from policies/required-release-checks.yaml (26 checks).
+    # Names come from policies/required-release-checks.yaml. This ruleset gates
+    # PULL REQUESTS, so it uses `pr_required_checks` (5) — the checks a pull
+    # request can actually produce. The larger `release_required_checks` set
+    # (17, including the per-image scans and the trusted validation result) is
+    # verified on the release commit, not here.
     source: policies/required-release-checks.yaml
     # "Require branches to be up to date before merging" = false, deliberately.
     # A full CI pass is measured in hours (docs/runner-capacity.md: the 10-image

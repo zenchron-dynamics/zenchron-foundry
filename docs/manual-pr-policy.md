@@ -1,7 +1,7 @@
 # PR Policy
 
 **Updated 2026-07-28 (issue #97).** The platform now enforces the core of this
-policy: `master` requires a pull request with all 26 checks green, linear
+policy: `master` requires a pull request with the 5 PR-required checks green, linear
 history, resolved conversations, and blocks direct push, force-push and deletion
 — with no bypass actors, administrators included
 ([repository-security.md](repository-security.md)). The previous version stated
