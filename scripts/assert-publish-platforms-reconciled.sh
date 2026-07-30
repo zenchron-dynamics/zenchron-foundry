@@ -20,8 +20,22 @@
 # architecture whether that record would have been needed there. Unverified is
 # therefore treated as unreconciled, never as "probably the same".
 #
-# This does NOT assert the scan passed — the Trivy gate does that per arch. It
-# asserts the ledger those scans are judged against covers the platform at all.
+# WHAT THIS DOES NOT PROVE. It is a ledger-coverage check, not scan evidence.
+# It asserts that every acceptance record claims the platform; it does NOT prove
+# that a scan of that architecture was ever run, nor that it passed. Today that
+# gap is not reachable — every record is linux/amd64 only, so arm64 is refused
+# outright — but it becomes load-bearing the moment anyone adds
+# `linux/arm64` to verified_architectures.
+#
+# BEFORE ARM64 PUBLICATION IS ENABLED, this check must be replaced by, or paired
+# with, one that consumes real reconciliation evidence bound to:
+#     child manifest digest, architecture, source revision,
+#     image family/version, and the Trivy database snapshot
+# so that "reconciled for arm64" means an arm64 scan of the exact digest being
+# published, not a line of YAML asserting it. Adding arm64 to the ledger without
+# that evidence would turn this gate from conservative into decorative.
+#
+# The per-architecture Trivy gate remains what proves a given scan passed.
 #
 # Env: LEDGER (default policies/vulnerability-exceptions.yaml)
 # Exit: 0 every requested platform is reconciled; 1 otherwise.

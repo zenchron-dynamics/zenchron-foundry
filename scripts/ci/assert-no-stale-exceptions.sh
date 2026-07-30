@@ -34,25 +34,25 @@ LEDGER_DEFAULT="${ROOT}/policies/vulnerability-exceptions.yaml"
 # shellcheck source=../lib/common.sh
 . "${ROOT}/scripts/lib/common.sh"
 
-# The canonical shipping matrix, derived from the SINGLE source of truth
-# (MATRIX_IMAGES in scripts/lib/common.sh) and rendered as the image labels
-# reconcile-vulnerabilities.sh actually emits: "family/version", or bare
-# "family" for the unversioned images. Counting files was not enough — eleven
-# files, or ten files that were all the same image, both passed.
-canonical_images() {
-  local t fam ver
-  while read -r t; do
-    fam="${t%:*}"; ver="${t##*:}"
-    case "$ver" in prod) printf '%s\n' "$fam" ;; *) printf '%s/%s\n' "$fam" "$ver" ;; esac
-  done < <(matrix_images)
-}
+# The canonical shipping matrix. image_label()/matrix_image_labels() in
+# scripts/lib/common.sh are the SINGLE definition, shared with
+# reconcile-vulnerabilities.sh — this file used to strip "prod" off the edge
+# images while the reconciler emitted "nginx/prod", so a run in which all ten
+# scans succeeded still reported nginx and caddy as both missing and
+# unexpected. Counting files was also not enough: eleven files, or ten files
+# that were all the same image, both passed.
+canonical_images() { matrix_image_labels; }
 
 check() {
   # ${VAR-} not ${VAR:-}: an explicitly EMPTY override must stay empty and fail
   # closed in the check below, not silently expand back to the full matrix.
   RECON_DIR="$1" LEDGER="${2:-$LEDGER_DEFAULT}" \
-  CANONICAL="${CANONICAL_IMAGES-$(canonical_images | paste -sd, -)}" python3 - <<'PY'
+  CANONICAL="${CANONICAL_IMAGES-$(canonical_images | paste -sd, -)}" ROOT_DIR="$ROOT" python3 - <<'PY'
 import glob, json, os, sys
+
+# THE shared record identity — see scripts/lib/exception_id.py.
+sys.path.insert(0, os.path.join(os.environ["ROOT_DIR"], "scripts", "lib"))
+from exception_id import exc_id
 
 try:
     import yaml
@@ -149,18 +149,6 @@ if not isinstance(entries, list):
     print("FAIL: ledger has no 'exceptions' list", file=sys.stderr); sys.exit(1)
 
 
-def exc_id(e):
-    """Must stay identical to exc_id() in scripts/reconcile-vulnerabilities.sh."""
-    def part(v):
-        if v is None:
-            return "*"
-        if isinstance(v, (list, tuple)):
-            return ",".join(sorted(str(x) for x in v))
-        return str(v)
-    return "|".join(part(e.get(k)) for k in
-                    ("cve", "image", "package", "installed_version"))
-
-
 stale, redundant = [], []
 for i, e in enumerate(entries):
     if not isinstance(e, dict):
@@ -203,6 +191,7 @@ self_test() {
 
   # Two records that BOTH name CVE-2099-3 on nginx and differ only by package —
   # the pair the old "cve@image" key collapsed into one.
+  printf 'schema_version: 1\nexceptions: []\nnot_affected: []\n' > "$tmp/led-empty.yaml"
   cat > "$tmp/led.yaml" <<'YAML'
 schema_version: 1
 exceptions:
@@ -319,7 +308,35 @@ PYD
     "! CANONICAL_IMAGES='' check '$tmp/full' '$tmp/led.yaml' >/dev/null 2>&1"
 
   t "the canonical matrix really is the 10 shipping images" \
-    "[ \"\$(canonical_images | grep -c .)\" = 10 ] && canonical_images | grep -qx nginx && canonical_images | grep -qx php-cli/8.3"
+    "[ \"\$(canonical_images | grep -c .)\" = 10 ] && canonical_images | grep -qx nginx/prod && canonical_images | grep -qx php-cli/8.3"
+
+  # INTEGRATION: the labels the reconciler ACTUALLY emits must equal the
+  # canonical set. The unit fixtures above generate their files FROM
+  # canonical_images, so both sides shared any mistake and a mismatch with the
+  # real reconciler was invisible. This drives the real script instead.
+  _labels_from_reconciler() {
+    local out="$1" spec fam ver n=0
+    mkdir -p "$out"; printf '{"Results":[]}' > "$out/empty-scan.json"
+    while read -r spec; do
+      fam="${spec%:*}"; ver="${spec##*:}"; n=$((n + 1))
+      ARCH=linux/amd64 OUT_JSON="$out/img${n}.json" \
+        bash "${ROOT}/scripts/reconcile-vulnerabilities.sh" \
+          "$out/empty-scan.json" "$fam" "$ver" >/dev/null 2>&1 || return 1
+    done < <(matrix_images)
+    rm -f "$out/empty-scan.json"
+  }
+  if _labels_from_reconciler "$tmp/real"; then
+    t "the real reconciler emits exactly the canonical labels" \
+      "diff <(python3 -c \"
+import json,glob
+print('\\n'.join(sorted(json.load(open(f))['image'] for f in glob.glob('$tmp/real/*.json'))))\") \
+            <(canonical_images | sort)"
+    t "a full, real matrix passes the aggregate" \
+      "check '$tmp/real' '$tmp/led-empty.yaml' >/dev/null"
+  else
+    t "the real reconciler emits exactly the canonical labels" "false"
+    t "a full, real matrix passes the aggregate"               "false"
+  fi
 
   echo "self-test: $ok ok, $bad failed"
   [ "$bad" -eq 0 ]

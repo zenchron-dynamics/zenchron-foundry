@@ -55,12 +55,23 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/common.sh
+[ -n "${_COMMON_SOURCED:-}" ] || . "$ROOT/scripts/lib/common.sh"
+_COMMON_SOURCED=1
 
 reconcile() {
+  # The canonical label comes from scripts/lib/common.sh, so this and the
+  # matrix-wide aggregate cannot disagree about what an image is called.
   SCAN="$1" FAMILY="$2" VERSION="${3:-}" POLICY="${POLICY:-$ROOT/policies/vulnerability-exceptions.yaml}" \
   ARCH="${ARCH:-}" OUT_JSON="${OUT_JSON:-}" TODAY="${TODAY:-$(date -u +%F)}" \
+  IMAGE_LABEL="$(image_label "$2" "${3:-}")" REPO_ROOT="$ROOT" \
   python3 - <<'PY'
 import json, os, sys, datetime
+
+# THE shared record identity — see scripts/lib/exception_id.py. Three tools pair
+# records by this string and must not compute it differently.
+sys.path.insert(0, os.path.join(os.environ["REPO_ROOT"], "scripts", "lib"))
+from exception_id import exc_id, duplicate_scopes
 
 scan   = os.environ["SCAN"]
 family = os.environ["FAMILY"]
@@ -117,36 +128,13 @@ if require_arch:
                 % (_e.get("cve"), _e.get("image")))
 
 
-def exc_id(e):
-    """Stable, unique identity for a ledger record.
-
-    The aggregate stale check pairs records across images by this string, so it
-    must distinguish everything the ledger treats as a distinct acceptance.
-    `cve@image` did not: two records for the same CVE and image scoped to
-    different packages or different installed versions collapsed to one key, so
-    one of them could never be reported stale.
-    """
-    def part(v):
-        if v is None:
-            return "*"
-        if isinstance(v, (list, tuple)):
-            return ",".join(sorted(str(x) for x in v))
-        return str(v)
-    return "|".join(part(e.get(k)) for k in
-                    ("cve", "image", "package", "installed_version"))
-
-
 # Two records with identical scope are indistinguishable: whichever is listed
 # first governs every finding and the other can never match, so it would be
 # reported stale forever and could never be cleared by any scan.
-_seen_ids = {}
-for _i, _e in enumerate(entries):
-    _id = exc_id(_e)
-    if _id in _seen_ids:
-        die("duplicate exception scope at entries[%d] and entries[%d]: %s — two "
-            "records with the same cve/image/package/installed_version cannot be "
-            "told apart" % (_seen_ids[_id], _i, _id))
-    _seen_ids[_id] = _i
+for _first, _dup, _id in duplicate_scopes(entries):
+    die("duplicate exception scope at entries[%d] and entries[%d]: %s — two "
+        "records with the same cve/image/package/installed_version cannot be "
+        "told apart" % (_first, _dup, _id))
 
 # PyYAML turns an unquoted 2099-01-01 into datetime.date. Normalise every value
 # to a string so date handling, comparison and JSON emission all agree.
@@ -333,7 +321,8 @@ for f in findings:
                      ("cve", "image", "owner", "approver", "expires_at",
                       "release_blocking", "fix_available")}})
 
-image_label = family + (("/" + version) if version else "")
+# Canonical label, computed by image_label() in scripts/lib/common.sh.
+image_label = os.environ["IMAGE_LABEL"]
 report = {
     "image": image_label,
     "arch": arch or "unspecified",

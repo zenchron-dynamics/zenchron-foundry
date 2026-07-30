@@ -57,9 +57,35 @@ scan_one() {
         echo "        or use a canonical ghcr.io/zenchron-dynamics/<family>:<ver>-prod reference." >&2
         return 1
     fi
+    # The architecture is DERIVED from the image, never assumed. Defaulting to
+    # linux/amd64 labelled an arm64 scan as amd64 whenever this ran on an arm64
+    # machine — the reconciliation would then be judged against, and recorded
+    # as, evidence for an architecture that was not scanned. An exception
+    # authorises only the architectures it was reconciled on, so a mislabelled
+    # scan is how amd64-only evidence silently comes to "cover" arm64.
+    local arch
+    if [ -n "${SCAN_ARCH:-}" ]; then
+        arch="$SCAN_ARCH"
+    else
+        local _os _a
+        _os="$(docker image inspect --format '{{.Os}}' "$image" 2>/dev/null || true)"
+        _a="$(docker image inspect --format '{{.Architecture}}' "$image" 2>/dev/null || true)"
+        [ -n "$_os" ] && [ -n "$_a" ] || {
+            echo "REFUSE: cannot read the architecture of '$image' from the local" >&2
+            echo "        daemon, and refusing to guess. Pull the image, or set" >&2
+            echo "        SCAN_ARCH=linux/<arch> explicitly." >&2
+            return 1
+        }
+        arch="${_os}/${_a}"
+    fi
+    case "$arch" in
+        */*) : ;;
+        *) echo "REFUSE: SCAN_ARCH must be os/arch, got '$arch'" >&2; return 1 ;;
+    esac
+    echo "reconciling $image as $arch"
     bash "$(dirname "$0")/reconcile-vulnerabilities.sh" \
         "${OUT}/${name}.trivy.json" "$fam" "$ver" \
-        --arch "${SCAN_ARCH:-linux/amd64}" \
+        --arch "$arch" \
         || { echo "Vulnerability gate FAILED for $image"; return 1; }
 
     # Grype is REPORT-ONLY and carries NO suppressions (#102). policies/grype.yaml
