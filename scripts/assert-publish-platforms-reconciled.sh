@@ -54,8 +54,14 @@ assert_platforms_reconciled() {
   [ -f "$ledger" ] || die "ledger not found: $ledger"
   command -v python3 >/dev/null || die "python3 required"
 
-  PLATFORMS_CSV="$csv" LEDGER_PATH="$ledger" python3 - <<'PY'
+  PLATFORMS_CSV="$csv" LEDGER_PATH="$ledger" REPO_ROOT="$_d/.." python3 - <<'PY'
 import os, sys, yaml
+
+# STRICT: this gate reads verified_architectures, which is exactly the field a
+# duplicated key would subvert — the second list wins, so a record could gain
+# linux/arm64 while the reviewed text shows amd64 only.
+sys.path.insert(0, os.path.join(os.environ["REPO_ROOT"], "scripts", "lib"))
+import strict_yaml
 
 csv = os.environ["PLATFORMS_CSV"]
 path = os.environ["LEDGER_PATH"]
@@ -72,7 +78,9 @@ if len(set(plats)) != len(plats):
     sys.exit("REFUSE: duplicate platform in %r" % csv)
 
 try:
-    doc = yaml.safe_load(open(path)) or {}
+    doc = strict_yaml.load(path) or {}
+except strict_yaml.DuplicateKeyError as e:
+    sys.exit("REFUSE: ledger has a %s" % e)
 except yaml.YAMLError as e:
     sys.exit("REFUSE: ledger is not valid YAML: %s" % e)
 if not isinstance(doc, dict):

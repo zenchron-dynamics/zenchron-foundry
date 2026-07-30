@@ -53,6 +53,7 @@ import glob, json, os, sys
 # THE shared record identity — see scripts/lib/exception_id.py.
 sys.path.insert(0, os.path.join(os.environ["ROOT_DIR"], "scripts", "lib"))
 from exception_id import exc_id
+import strict_yaml
 
 try:
     import yaml
@@ -140,7 +141,9 @@ for path in seen.values():
 
 # --- ledger ------------------------------------------------------------------
 try:
-    led = yaml.safe_load(open(ledger)) or {}
+    led = strict_yaml.load(ledger) or {}
+except strict_yaml.DuplicateKeyError as exc:
+    print("FAIL: ledger %s has a %s" % (ledger, exc), file=sys.stderr); sys.exit(1)
 except Exception as exc:
     print("FAIL: cannot read ledger %s: %s" % (ledger, exc), file=sys.stderr); sys.exit(1)
 

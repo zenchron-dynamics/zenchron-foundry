@@ -72,6 +72,7 @@ import json, os, sys, datetime
 # records by this string and must not compute it differently.
 sys.path.insert(0, os.path.join(os.environ["REPO_ROOT"], "scripts", "lib"))
 from exception_id import exc_id, duplicate_scopes
+import strict_yaml
 
 scan   = os.environ["SCAN"]
 family = os.environ["FAMILY"]
@@ -98,8 +99,12 @@ try:
 except Exception as exc:
     die("cannot read scanner JSON '%s': %s" % (scan, exc))
 try:
-    with open(policy) as fh:
-        led = yaml.safe_load(fh) or {}
+    # STRICT: yaml.safe_load keeps the LAST of a duplicated key, so a record
+    # could show release_blocking twice — or two verified_architectures lists —
+    # and enforce the value a reviewer did not read.
+    led = strict_yaml.load(policy) or {}
+except strict_yaml.DuplicateKeyError as exc:
+    die("exception ledger '%s' has a %s" % (policy, exc))
 except Exception as exc:
     die("cannot read exception ledger '%s': %s" % (policy, exc))
 
