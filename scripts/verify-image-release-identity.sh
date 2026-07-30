@@ -61,6 +61,25 @@ if [ -n "${EXPECTED_ROLE:-}" ] && [ -z "${EXPECTED_IDENTITY:-}" ]; then
   ISSUER="$(issuer_from_policy)"
 fi
 
+# Whatever the identity's SOURCE — resolved from EXPECTED_ROLE above, or handed
+# in directly through EXPECTED_IDENTITY / IDENTITY_RE — it must be one this
+# repository declares. Resolving from policy only in the EXPECTED_ROLE branch
+# left the direct-input path unconstrained, so exporting a single variable
+# pointed the strict verifier at an arbitrary signer:
+#
+#   IDENTITY_RE='^https://github\.com/zenchron-dynamics/zenchron-foundry/.*$'
+#
+# is a repo-wide wildcard, exactly what pinning per-role identities removed.
+# Membership is checked here, once, before any cosign invocation.
+# shellcheck source=lib/cosign-identity.sh
+[ -n "${_COSIGN_IDENTITY_SOURCED:-}" ] || . "$_virid_dir/lib/cosign-identity.sh"
+_COSIGN_IDENTITY_SOURCED=1
+if [ -n "${EXPECTED_IDENTITY:-}" ]; then
+  assert_identity_literal_in_policy "$EXPECTED_IDENTITY"
+elif [ -n "${IDENTITY_RE:-}" ]; then
+  assert_identity_re_in_policy "$IDENTITY_RE"
+fi
+
 fail() { echo "IDENTITY FAIL [${IMG:-}]: $*" >&2; exit 1; }
 
 # ---- Pure extraction/comparison logic (unit-tested; no network) -------------

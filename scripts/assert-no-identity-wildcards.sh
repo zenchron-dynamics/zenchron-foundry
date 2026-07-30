@@ -114,6 +114,33 @@ for text, ln in zip(joined, lineno_of):
 PY
 }
 
+# Files explicitly approved to hold a DYNAMIC cosign identity argument. Each
+# must also assert policy membership at runtime (checked below), so approval
+# alone is never sufficient. Paths are relative to the scanned directory.
+DYNAMIC_IDENTITY_FILES="${DYNAMIC_IDENTITY_FILES:-scripts/verify-image-release-identity.sh}"
+
+# Only this file may DEFINE the policy accessors. A second definition anywhere
+# else shadows the real one — `identity_re_for_role() { printf .*; }` would make
+# every call site resolve to a wildcard while still reading as policy-driven.
+IDENTITY_ACCESSOR_HOME="${IDENTITY_ACCESSOR_HOME:-scripts/lib/cosign-identity.sh}"
+
+# assert_no_accessor_shadowing <dir> -> 0 clean, 1 shadowed
+assert_no_accessor_shadowing() {
+  local dir="$1" hits=0 f rel
+  while IFS= read -r f; do
+    rel="${f#"$dir"/}"
+    [ "$rel" = "$IDENTITY_ACCESSOR_HOME" ] && continue
+    if grep -qE '^[[:space:]]*(function[[:space:]]+)?identity_(re_)?for_role[[:space:]]*\(\)' "$f"; then
+      printf '%s: redefines the policy accessor identity_*_for_role — only %s may\n' \
+        "$rel" "$IDENTITY_ACCESSOR_HOME" >&2
+      printf '    define it; a shadow makes every call site resolve to whatever it returns\n' >&2
+      hits=$((hits + 1))
+    fi
+  done < <(find "$dir" -name '*.sh' -not -path '*/.git/*' \
+             -not -name 'assert-no-identity-wildcards.sh' | sort)
+  [ "$hits" -eq 0 ]
+}
+
 scan() {
   local dir="$1" allowed hits=0 found=0 f
   if ! allowed="$(allowed_identities "$IDENTITIES")"; then
@@ -132,29 +159,51 @@ scan() {
         *'{{'*'}}'*) continue ;;
       esac
 
-      # DYNAMIC arguments are the hole review found: skipping every `$VAR`
-      # proved nothing about the value, so
-      #     BAD='^https://github\.com/o/r/.*$'
-      #     cosign verify --certificate-identity-regexp "$BAD" IMAGE
-      # sailed through. A variable is accepted ONLY if it is one this repository
-      # populates from the strict policy parser; anything else is rejected,
-      # because the gate cannot prove where the value came from.
+      # DYNAMIC arguments. Allow-listing variable NAMES (EXPECTED_IDENTITY,
+      # IDENTITY_RE, COSIGN_ID, IDENTITY) recognised the name but proved nothing
+      # about the VALUE, so a local reassignment still sailed through:
+      #     IDENTITY_RE='^https://github\.com/o/r/.*$'
+      #     cosign verify --certificate-identity-regexp "$IDENTITY_RE" IMAGE
+      # and so did shadowing the accessor:
+      #     identity_re_for_role() { printf '%s' '.*'; }
+      #
+      # Now: documentation may not use a dynamic identity at all, and a script
+      # may only do so if it demonstrably resolves the value from the policy.
       case "$val" in
         '$'*|*'$('*)
+          _rel="${f#"$dir"/}"
+          case "$_rel" in
+            *.md)
+              printf '%s:%s: dynamic cosign identity in DOCUMENTATION — a reader cannot\n' \
+                "$_rel" "$ln" >&2
+              printf '    see where the value comes from. Show a literal identity from %s,\n' \
+                "$(basename "$IDENTITIES")" >&2
+              printf '    or the strict verifier command.\n        %s\n' "$val" >&2
+              hits=$((hits + 1)); continue ;;
+          esac
+
+          # A direct call to the strict accessor carries its own provenance: it
+          # reads the policy and dies on an unknown role.
           _bare="${val#\$}"; _bare="${_bare#\{}"; _bare="${_bare%\}}"
           case "$_bare" in
-            # Variables the policy-driven helpers populate…
-            EXPECTED_IDENTITY|IDENTITY_RE|COSIGN_ID|IDENTITY)
-              continue ;;
-            # …and the strict policy accessor itself, which reads
-            # cosign-identities.yaml and dies on an unknown role.
-            '(identity_re_for_role'*|'(identity_for_role'*)
-              continue ;;
-            *)
-              printf '%s:%s: dynamic cosign identity — cannot prove it comes from %s\n    %s\n' \
-                "${f#"$dir"/}" "$ln" "$(basename "$IDENTITIES")" "$val" >&2
-              hits=$((hits + 1)); continue ;;
-          esac ;;
+            '(identity_re_for_role'*|'(identity_for_role'*) continue ;;
+          esac
+
+          # Otherwise the file must be explicitly approved to hold a dynamic
+          # identity AND must assert policy membership itself.
+          if ! grep -qxF -- "$_rel" <<<"$DYNAMIC_IDENTITY_FILES"; then
+            printf '%s:%s: dynamic cosign identity in a file not approved to hold one\n        %s\n' \
+              "$_rel" "$ln" "$val" >&2
+            hits=$((hits + 1)); continue
+          fi
+          if ! grep -qE 'assert_identity_(re|literal)_in_policy' "$f"; then
+            printf '%s:%s: dynamic cosign identity, but the file never asserts the value is\n' \
+              "$_rel" "$ln" >&2
+            printf '    declared in %s (assert_identity_re_in_policy /\n' "$(basename "$IDENTITIES")" >&2
+            printf '    assert_identity_literal_in_policy)\n        %s\n' "$val" >&2
+            hits=$((hits + 1)); continue
+          fi
+          continue ;;
       esac
       if ! grep -qxF -- "$val" <<<"$allowed"; then
         printf '%s:%s: cosign identity is not one declared in %s\n    %s\n' \
@@ -165,6 +214,8 @@ scan() {
   done < <(find "$dir" \( -name '*.md' -o -name '*.yaml' -o -name '*.yml' -o -name '*.sh' \) \
              -not -path '*/.git/*' -not -path '*/node_modules/*' \
              -not -name 'assert-no-identity-wildcards.sh' | sort)
+
+  assert_no_accessor_shadowing "$dir" || hits=$((hits + 1))
 
   # Fail closed: scanning nothing must never look like success.
   if [ "$found" -eq 0 ]; then
@@ -234,10 +285,58 @@ YAML
   t "unrecognised braced variable rejected"          "! scan '$tmp/dyn2' >/dev/null 2>&1"
   mk dyn3 "cosign verify --certificate-identity-regexp \"\$(echo bad)\" IMAGE\n"
   t "arbitrary command substitution rejected"        "! scan '$tmp/dyn3' >/dev/null 2>&1"
+  # Name-based acceptance was the remaining hole: recognising IDENTITY_RE said
+  # nothing about the value bound to it.
   mk dyn4 "cosign verify --certificate-identity-regexp \"\$IDENTITY_RE\" IMAGE\n"
-  t "policy-populated variable accepted"             "scan '$tmp/dyn4' >/dev/null"
+  t "DOC: \$IDENTITY_RE rejected (name proves nothing)"  "! scan '$tmp/dyn4' >/dev/null 2>&1"
   mk dyn5 "cosign verify --certificate-identity-regexp \"\$(identity_re_for_role \"\$ROLE\")\" IMAGE\n"
-  t "strict policy accessor accepted"                "scan '$tmp/dyn5' >/dev/null"
+  t "DOC: even the accessor call is rejected in prose"  "! scan '$tmp/dyn5' >/dev/null 2>&1"
+  mk dyn6 "IDENTITY_RE='^https://github\\.com/o/r/.*\$'\ncosign verify --certificate-identity-regexp \"\$IDENTITY_RE\" IMAGE\n"
+  t "DOC: locally reassigned IDENTITY_RE rejected"     "! scan '$tmp/dyn6' >/dev/null 2>&1"
+
+  # --- scripts: dynamic allowed only with demonstrable provenance -----------
+  mksh() { mkdir -p "$tmp/$1/$(dirname "$2")"; printf '%b' "$3" > "$tmp/$1/$2"; }
+
+  # Approved file that asserts policy membership -> accepted.
+  mksh sh_ok scripts/verify-image-release-identity.sh \
+    "#!/usr/bin/env bash\nassert_identity_re_in_policy \"\$IDENTITY_RE\"\ncosign verify --certificate-identity-regexp \"\$IDENTITY_RE\" IMAGE\n"
+  t "SCRIPT: approved file that asserts policy passes" \
+    "DYNAMIC_IDENTITY_FILES='scripts/verify-image-release-identity.sh' scan '$tmp/sh_ok' >/dev/null"
+
+  # Same file, assertion removed -> rejected. This is the local-reassignment
+  # case: nothing proves the value came from the policy.
+  mksh sh_noassert scripts/verify-image-release-identity.sh \
+    "#!/usr/bin/env bash\nIDENTITY_RE='^https://github\\.com/o/r/.*\$'\ncosign verify --certificate-identity-regexp \"\$IDENTITY_RE\" IMAGE\n"
+  t "SCRIPT: approved file WITHOUT the policy assertion is rejected" \
+    "! DYNAMIC_IDENTITY_FILES='scripts/verify-image-release-identity.sh' scan '$tmp/sh_noassert' >/dev/null 2>&1"
+
+  # Unapproved file -> rejected even with an assertion present.
+  mksh sh_unapproved scripts/somewhere-else.sh \
+    "#!/usr/bin/env bash\nassert_identity_re_in_policy \"\$IDENTITY_RE\"\ncosign verify --certificate-identity-regexp \"\$IDENTITY_RE\" IMAGE\n"
+  t "SCRIPT: unapproved file is rejected" \
+    "! DYNAMIC_IDENTITY_FILES='scripts/verify-image-release-identity.sh' scan '$tmp/sh_unapproved' >/dev/null 2>&1"
+
+  # A direct accessor call carries its own provenance.
+  mksh sh_accessor scripts/whatever.sh \
+    "#!/usr/bin/env bash\ncosign verify --certificate-identity-regexp \"\$(identity_re_for_role rc-publisher)\" IMAGE\n"
+  t "SCRIPT: direct accessor call passes anywhere" \
+    "DYNAMIC_IDENTITY_FILES='' scan '$tmp/sh_accessor' >/dev/null"
+
+  # …but not if the accessor itself is shadowed.
+  mksh sh_shadow scripts/whatever.sh \
+    "#!/usr/bin/env bash\nidentity_re_for_role() { printf '%s' '.*'; }\ncosign verify --certificate-identity-regexp \"\$(identity_re_for_role rc-publisher)\" IMAGE\n"
+  t "SCRIPT: shadowing the policy accessor is rejected" \
+    "! DYNAMIC_IDENTITY_FILES='' scan '$tmp/sh_shadow' >/dev/null 2>&1"
+  mksh sh_shadow_fn scripts/whatever.sh \
+    "#!/usr/bin/env bash\nfunction identity_for_role() { printf '%s' 'x'; }\ncosign verify --certificate-identity 'https://github.com/o/r/\\.github/workflows/publish-ghcr\\.yml@refs/heads/master' IMAGE\n"
+  t "SCRIPT: 'function' keyword shadowing is rejected too" \
+    "! DYNAMIC_IDENTITY_FILES='' scan '$tmp/sh_shadow_fn' >/dev/null 2>&1"
+
+  # The real library must be allowed to define the accessor.
+  mksh sh_home scripts/lib/cosign-identity.sh \
+    "#!/usr/bin/env bash\nidentity_re_for_role() { yq -r .x policy; }\n"
+  t "SCRIPT: the accessor's own home may define it" \
+    "scan '$tmp/sh_home' >/dev/null"
 
   # --- alternate Markdown fence forms --------------------------------------
   mkdir -p "$tmp/fence1"
