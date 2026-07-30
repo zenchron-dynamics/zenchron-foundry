@@ -62,14 +62,93 @@ ck "the workflow declares pr and release modes" \
 import yaml;d=yaml.safe_load(open('$TV'))
 o=d[True]['workflow_dispatch']['inputs']['mode']
 assert o['type']=='choice' and o['options']==['pr','release'], o\""
-ck "release mode requires sha == the dispatched commit" \
-   "grep -q 'release mode requires sha == the dispatched' $TV"
+# The runner group allows this workflow ONLY as
+# trusted-validation.yml@refs/heads/master, so a tag dispatch has a different
+# workflow identity and the self-hosted matrix can never be scheduled.
+ck "release mode refuses a dispatch from anything but master" \
+   "[ \"\$(grep -c 'refs/heads/master) : ;;' $TV)\" = 1 ] && \
+    ! grep -qE 'refs/(heads|tags)/[*]\)' $TV && \
+    grep -q 'dispatch this workflow from master' $TV"
+ck "release mode no longer demands sha == github.sha" \
+   "! grep -q 'sha == the dispatched' $TV"
+ck "the runner-group pin that forces this is documented" \
+   "grep -q 'trusted-validation.yml@refs/heads/master' $TV"
+# The runner-group contract itself is declared in #97's policy file; assert it
+# only where that file exists, so this branch does not depend on that one.
+ck "where declared, the runner group pins only master refs" \
+   "python3 -c \"
+import os, yaml
+p='policies/repository-governance.yaml'
+if os.path.exists(p):
+    g=yaml.safe_load(open(p)).get('org_runner_group')
+    if g:
+        wfs=list(g.get('selected_workflows') or [])+list(g.get('pending_workflows') or [])
+        assert wfs and all(w.endswith('@refs/heads/master') for w in wfs), wfs\""
+ck "release mode proves the SHA is a real commit" \
+   "grep -q 'is not a commit of' $TV"
+
+# A check run attaches to the DISPATCHED ref, never to inputs.sha. So no job in
+# this workflow may be named after a release-required check: a pr-mode run
+# dispatched on master would paint it green on a master commit.
+ck "no job is named after a release-required check" \
+   "python3 -c \"
+import yaml
+req=set(yaml.safe_load(open('policies/required-release-checks.yaml'))['release_required_checks'])
+d=yaml.safe_load(open('$TV'))
+names={j.get('name','') for j in d['jobs'].values()}
+clash=names & req
+assert not clash, clash\""
+ck "the release-required results are published as commit statuses" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+j=d['jobs']['publish-status']
+run=str(j['steps'][0]['run'])
+assert '/statuses/' in run, run[:200]
+assert 'trusted validation result' in run
+assert 'no stale vulnerability exceptions' in run
+assert j['permissions']['statuses']=='write'\""
+ck "statuses are published ONLY in release mode" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+cond=d['jobs']['publish-status']['if']
+assert 'outputs.mode' in cond and 'release' in cond, cond\""
+ck "a skipped or cancelled job publishes FAILURE, not success" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+run=str(d['jobs']['publish-status']['steps'][0]['run'])
+assert 'state=failure' in run and 'state=success' in run, run[:300]\""
+ck "the exact-commit consumer reads commit statuses too" \
+   "grep -q 'commits/\$sha/status' scripts/check-exact-commit-ci.sh"
+ck "the required-checks gate knows these are statuses, not jobs" \
+   "grep -q 'published_statuses' scripts/assert-required-checks.sh && \
+    bash scripts/assert-required-checks.sh >/dev/null"
+
+# Release-mode provenance must be PROVEN, not quoted.
+ck "release mode requires the PR to be merged" \
+   "grep -q 'is not merged; it cannot be the provenance' $TV"
+ck "release mode ties the SHA to that PR" \
+   "grep -q 'is not the merge commit of PR' $TV"
 ck "release mode does NOT require an open PR" \
-   "grep -q 'closed — pull request, so open-ness must not be required' $TV"
+   "grep -q 'A merged (closed)' $TV && grep -q 'is not merged; it cannot be the provenance' $TV"
 ck "pr mode requires the EXACT current head" \
    "grep -q 'head_sha=\"\$(gh api .repos/\${REPO}/pulls/\${PR}. --jq ..head.sha.)\"' $TV"
+# PR mode must bind to .head.sha. Release mode legitimately consults the commit
+# list to recognise a squash/rebase merge, so the assertion is scoped to the
+# pr-mode branch rather than the whole file.
 ck "pr mode no longer accepts any historical commit of the PR" \
-   "! grep -q 'pulls/\${PR}/commits' $TV"
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+run=[s for s in d['jobs']['authorize']['steps'] if s.get('id')=='check'][0]['run']
+pr_branch=run.split('else',1)[1]
+# Strip comments: the branch EXPLAINS why the commit list is not used, so a
+# bare substring match would fail on the explanation itself.
+code='\\n'.join(l for l in pr_branch.split('\\n') if not l.strip().startswith('#'))
+assert 'head.sha' in code, code[:200]
+assert '/commits' not in code, 'pr mode still consults the commit list'\""
 ck "the pr head is re-checked AFTER the matrix, in the seal" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$TV'))

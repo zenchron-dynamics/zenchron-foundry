@@ -35,17 +35,33 @@ name: trusted-validation
 #                  check run lands on the dispatched ref's commit, not on the
 #                  PR head.
 #
-#   mode: release  Produces `trusted validation result` on the commit being
-#                  released. Dispatch this ON THE RELEASE REF (the tag, or
-#                  master), so the check run attaches to the right commit. It
-#                  requires inputs.sha == github.sha, which is what makes that
-#                  attachment correct rather than incidental. A merged (closed)
-#                  pull request is fine here — by definition a release commit
-#                  belongs to one.
+#   mode: release  Validates the release commit and PUBLISHES the
+#                  release-required results as COMMIT STATUSES on that commit.
+#                  A merged (closed) pull request is fine here — by definition a
+#                  release commit belongs to one.
 #
-# `trusted validation result` is in release_required_checks, NOT in the five
-# pr_required_checks, precisely because only release mode can produce it. See
-# policies/required-release-checks.yaml.
+# ALWAYS DISPATCH FROM master. The org runner group allows this workflow only as
+#   .github/workflows/trusted-validation.yml@refs/heads/master
+# so a run dispatched from a tag has a different workflow identity and the
+# self-hosted matrix can never be scheduled. Requiring `inputs.sha ==
+# github.sha` would therefore have forced a tag dispatch that cannot run at all.
+# Instead the workflow runs from master and takes the commit to validate as an
+# input.
+#
+# That raises the problem the check-run model cannot solve: a check run attaches
+# to the commit of the DISPATCHED ref, never to `inputs.sha`. So this workflow's
+# own jobs are named so that they can NEVER be mistaken for a release-required
+# check — a pr-mode run dispatched on master would otherwise paint
+# `trusted validation result` green on a master commit while validating some
+# other SHA entirely.
+#
+# The release-required results are instead published as COMMIT STATUSES against
+# the validated SHA, by the `publish-status` job, in release mode only.
+# scripts/check-exact-commit-ci.sh already merges check-runs and commit statuses
+# for a SHA, so nothing downstream changes.
+#
+# `trusted validation result` and `no stale vulnerability exceptions` are in
+# release_required_checks; neither is a job name in this file.
 #
 # In pr mode the head is checked TWICE: once before any build, and again in the
 # seal job. A maintainer could otherwise validate a commit, have a new push land
@@ -77,6 +93,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  statuses: write        # release mode publishes the release-required results
 
 concurrency:
   # Keyed on the SHA, not the PR: in release mode there may be no PR, and two
@@ -132,27 +149,56 @@ jobs:
           head_repo="$REPO"
 
           if [ "$MODE" = "release" ]; then
-            # The check run produced by this workflow attaches to the commit of
-            # the dispatched ref. Requiring equality is what makes
-            # `trusted validation result` land on the commit actually released
-            # instead of on some unrelated commit named in an input.
-            [ "$SHA" = "$DISPATCH_SHA" ] || {
-              echo "REFUSE: release mode requires sha == the dispatched ref's commit." >&2
-              echo "        sha=${SHA}" >&2
-              echo "        ${DISPATCH_REF} is at ${DISPATCH_SHA}" >&2
-              echo "        Dispatch this workflow ON the release ref, so the" >&2
-              echo "        resulting check run attaches to that commit." >&2
-              exit 1
-            }
-            echo "AUTHORIZED (release): ${SHA} is the commit of ${DISPATCH_REF}"
+            # This workflow MUST run from master: the org runner group allows it
+            # only as trusted-validation.yml@refs/heads/master, so a dispatch
+            # from a tag has a different workflow identity and the self-hosted
+            # matrix would never be scheduled. The commit to validate is an
+            # input; the results are published as commit statuses against it.
+            case "$DISPATCH_REF" in
+              refs/heads/master) : ;;
+              *) echo "REFUSE: dispatch this workflow from master, not ${DISPATCH_REF}." >&2
+                 echo "        The runner group pins it to @refs/heads/master; from any" >&2
+                 echo "        other ref the self-hosted matrix cannot be scheduled." >&2
+                 echo "        The commit under validation is the 'sha' input." >&2
+                 exit 1 ;;
+            esac
+
+            # The SHA must be a real commit of this repository, not merely
+            # well-shaped: a 40-hex string that does not exist would otherwise
+            # reach checkout, and a status would later be published against it.
+            gh api "repos/${REPO}/commits/${SHA}" --jq '.sha' >/dev/null 2>&1 \
+              || { echo "REFUSE: ${SHA} is not a commit of ${REPO}" >&2; exit 1; }
+            echo "AUTHORIZED (release): ${SHA} is a commit of ${REPO}"
+            echo "NOTE: results will be published as COMMIT STATUSES on ${SHA};"
+            echo "      this run's own check runs attach to ${DISPATCH_REF}."
+
             if [ -n "$PR" ]; then
               case "$PR" in *[!0-9]*) echo "REFUSE: pr must be a number, got '$PR'" >&2; exit 1 ;; esac
-              # Provenance only. A release commit belongs to a MERGED — and so
-              # closed — pull request, so open-ness must not be required here.
-              state="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.state')" \
+              # Provenance must be PROVEN, not merely quoted. Reading a PR's
+              # state and printing it established no relationship between that
+              # pull request and the commit being released, so the evidence
+              # could name a PR that had nothing to do with it.
+              pr_json="$(gh api "repos/${REPO}/pulls/${PR}")" \
                 || { echo "REFUSE: cannot read PR #${PR}" >&2; exit 1; }
-              merge_sha="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.merge_commit_sha // ""')"
-              echo "NOTE: PR #${PR} is '${state}' (merge commit ${merge_sha:-none})"
+              merged="$(jq -r '.merged // false' <<<"$pr_json")"
+              merge_sha="$(jq -r '.merge_commit_sha // ""' <<<"$pr_json")"
+              [ "$merged" = "true" ] \
+                || { echo "REFUSE: PR #${PR} is not merged; it cannot be the provenance of a release commit" >&2; exit 1; }
+              related=0
+              [ -n "$merge_sha" ] && [ "$merge_sha" = "$SHA" ] && related=1
+              if [ "$related" -eq 0 ]; then
+                # Squash/rebase merges produce a commit that is not the merge
+                # commit, so also accept the SHA appearing in the PR's commits.
+                if gh api --paginate "repos/${REPO}/pulls/${PR}/commits" --jq '.[].sha' \
+                     | grep -qx "$SHA"; then related=1; fi
+              fi
+              [ "$related" -eq 1 ] || {
+                echo "REFUSE: ${SHA} is not the merge commit of PR #${PR} (${merge_sha:-none})" >&2
+                echo "        and is not one of its commits. Do not record a pull" >&2
+                echo "        request in the evidence unless it is provably related." >&2
+                exit 1
+              }
+              echo "PROVENANCE: ${SHA} belongs to merged PR #${PR}"
             fi
           else
             case "$PR" in
@@ -194,7 +240,7 @@ jobs:
   # GitHub's control plane, not here.
   # -------------------------------------------------------------------------
   validate:
-    name: trusted build+scan ${{ matrix.target.fam }} ${{ matrix.target.ver }}
+    name: trusted dispatch build+scan ${{ matrix.target.fam }} ${{ matrix.target.ver }}
     needs: authorize
     runs-on: [self-hosted, linux, x64, zenchron]
     strategy:
@@ -383,7 +429,9 @@ jobs:
   # GitHub-hosted: it reads JSON and needs no privileged access.
   # -------------------------------------------------------------------------
   stale-exceptions:
-    name: no stale vulnerability exceptions
+    # NOT "no stale vulnerability exceptions": that is a release-required check
+    # name, and this job's check run attaches to the dispatched ref (master).
+    name: trusted dispatch stale-exception check
     needs: [authorize, validate]
     runs-on: ubuntu-latest
     if: ${{ needs.validate.result == 'success' }}
@@ -402,7 +450,9 @@ jobs:
         run: bash scripts/ci/assert-no-stale-exceptions.sh vuln-reconciliation
 
   seal:
-    name: trusted validation result
+    # NOT "trusted validation result" — see above. The release-required status is
+    # published by publish-status, against the SHA that was actually validated.
+    name: trusted dispatch validation result
     needs: [authorize, validate, stale-exceptions]
     runs-on: ubuntu-latest
     if: always()
@@ -459,3 +509,64 @@ jobs:
             echo "satisfy release_required_checks — that check must be produced"
             echo "in release mode, on the commit being released."
           fi
+
+  # -------------------------------------------------------------------------
+  # RELEASE MODE ONLY. Publishes the release-required results as COMMIT STATUSES
+  # against the SHA that was actually validated.
+  #
+  # This exists because a check run attaches to the commit of the dispatched ref
+  # — here always master — and never to `inputs.sha`. Naming a job after a
+  # release-required check would therefore paint that check green on a master
+  # commit while some other SHA was validated. A commit status is the one
+  # mechanism that can be bound to an arbitrary commit, and
+  # scripts/check-exact-commit-ci.sh already merges statuses with check runs.
+  #
+  # Runs even when validation failed, so the status reflects reality rather than
+  # being silently absent; `if: always()` plus an explicit state.
+  # -------------------------------------------------------------------------
+  publish-status:
+    name: publish release statuses
+    needs: [authorize, validate, stale-exceptions, seal]
+    if: ${{ always() && needs.authorize.result == 'success' && needs.authorize.outputs.mode == 'release' }}
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish the release-required statuses on the validated commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ needs.authorize.outputs.sha }}
+          MATRIX: ${{ needs.validate.result }}
+          AGG: ${{ needs.stale-exceptions.result }}
+          SEAL: ${{ needs.seal.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Only an unambiguous success is success. A skipped or cancelled job
+          # means no judgement was made, which is a failure to certify — never a
+          # pass.
+          if [ "$MATRIX" = "success" ] && [ "$AGG" = "success" ] && [ "$SEAL" = "success" ]; then
+            state=success
+            vdesc="10/10 images built, smoke-tested, scanned and reconciled"
+            adesc="every active exception matched a real finding"
+          else
+            state=failure
+            vdesc="matrix=${MATRIX} aggregate=${AGG} seal=${SEAL}"
+            adesc="not established (matrix=${MATRIX} aggregate=${AGG})"
+          fi
+
+          post() { # post <context> <description>
+            gh api -X POST "repos/${REPO}/statuses/${SHA}" \
+              -f state="$state" -f context="$1" -f description="$2" \
+              -f target_url="$RUN_URL" >/dev/null \
+              || { echo "REFUSE: could not publish status '$1' on ${SHA}" >&2; return 1; }
+            echo "published ${state}: '$1' on ${SHA}"
+          }
+          post "trusted validation result"        "$vdesc"
+          post "no stale vulnerability exceptions" "$adesc"
+
+          [ "$state" = "success" ] || {
+            echo "trusted validation of ${SHA} FAILED; statuses published as failure" >&2
+            exit 1
+          }

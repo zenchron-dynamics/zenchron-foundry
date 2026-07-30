@@ -26,6 +26,36 @@ cd "$ROOT"
 # Non-gating jobs: real check names that must NOT be required on a release commit.
 # `scan` is required (it is the vulnerability gate); nothing else is exempt here.
 # WORKFLOWS (space-separated paths) is injectable for the self-test only.
+# Commit statuses a workflow publishes via POST /repos/{repo}/statuses/{sha}.
+# These are as real as check runs to every consumer — scripts/check-exact-commit-ci.sh
+# merges both — but they carry a `context`, not a job name.
+published_statuses() {
+  WORKFLOWS="${WORKFLOWS:-.github/workflows/ci.yml .github/workflows/scan-images.yml .github/workflows/trusted-validation.yml}" \
+  python3 - <<'PY'
+import os, re, sys, yaml
+
+out = []
+for path in os.environ["WORKFLOWS"].split():
+    try:
+        doc = yaml.safe_load(open(path)) or {}
+    except Exception:
+        continue
+    for job in (doc.get("jobs") or {}).values():
+        for step in (job.get("steps") or []):
+            run = step.get("run") or ""
+            if "/statuses/" not in run:
+                continue
+            # Contexts posted as literal `post "<name>" ...` or -f context=<name>
+            out += re.findall(r'^\s*post\s+"([^"]+)"', run, re.M)
+            out += re.findall(r'-f\s+context="?([^"\s]+)"?', run)
+for name in sorted(set(out)):
+    # Skip the shell variable form; only literal contexts are verifiable here.
+    if name.startswith("$"):
+        continue
+    print(name)
+PY
+}
+
 producible_names() {
   WORKFLOWS="${WORKFLOWS:-.github/workflows/ci.yml .github/workflows/scan-images.yml .github/workflows/trusted-validation.yml}" \
   python3 - <<'PY'
@@ -87,9 +117,17 @@ $(diff <(printf '%s\n' "$rel") <(printf '%s\n' "$req") || true)"
   # without draining stdin, so printf can take SIGPIPE (141) and, under
   # pipefail, flip a MATCHED name into a spurious mismatch → REFUSE. Hit
   # intermittently on the runner (PR #76); a herestring has no pipe to break.
+  # A required name is producible if some workflow JOB is named that, or if a
+  # workflow publishes it as a COMMIT STATUS. trusted-validation.yml publishes
+  # the release-required results as statuses against the validated SHA, because
+  # a check run attaches to the dispatched ref and never to the commit under
+  # validation — so those two names are deliberately NOT job names.
+  local statuses; statuses="$(published_statuses)"
   while IFS= read -r n; do
     [ -n "$n" ] || continue
-    grep -Fxq "$n" <<<"$prod" || { echo "  unproducible: $n"; missing=1; }
+    grep -Fxq "$n" <<<"$prod" && continue
+    grep -Fxq "$n" <<<"$statuses" && continue
+    echo "  unproducible: $n"; missing=1
   done <<EOF
 $req
 EOF
@@ -102,7 +140,10 @@ EOF
   # seal, which IS required and refuses unless every leg AND the stale-exception
   # aggregate are green. Requiring each leg by name as well would make the
   # release gate brittle to a matrix rename without adding a guarantee.
-  local non_gating='^(trusted build\+scan |authorize trusted validation$)'
+  # Every job in trusted-validation.yml is non-gating BY NAME: none of them is a
+  # release-required check any more. The release-required results are the commit
+  # statuses that workflow publishes, which are required and are verified above.
+  local non_gating='^(trusted dispatch |authorize trusted validation$|publish release statuses$)'
   while IFS= read -r n; do
     [ -n "$n" ] || continue
     if grep -qE "$non_gating" <<<"$n"; then continue; fi
