@@ -54,10 +54,18 @@ release_required_checks:
   - scan php-frankenphp 8.4
   - scan nginx prod
   - scan caddy prod
+  # Matrix-wide aggregate: an exception that matched no finding anywhere is a
+  # documentation defect in the accepted-risk ledger, and a release must not
+  # quote a ledger with dead records. Produced by trusted-validation.yml in
+  # release mode (and by scan-images.yml on dispatch).
+  - no stale vulnerability exceptions
   - trusted validation result
 
-# Backwards-compatible alias: existing consumers read `required_checks` as the
-# release set.
+# Backwards-compatible mirror: existing consumers read `required_checks` as the
+# release set. This is a literal copy, NOT a YAML anchor: `yq` and most YAML
+# tooling cannot write through an alias, so an anchor turned any targeted edit
+# of this key into a silent no-op. assert-required-checks.sh asserts the two
+# lists are identical, so they cannot drift.
 required_checks:
   - repo structure
   - lint (shell / yaml / md / dockerfile)
@@ -74,4 +82,5 @@ required_checks:
   - scan php-frankenphp 8.4
   - scan nginx prod
   - scan caddy prod
+  - no stale vulnerability exceptions
   - trusted validation result

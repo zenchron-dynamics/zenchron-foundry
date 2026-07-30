@@ -64,5 +64,18 @@ while IFS= read -r -d '' df; do
     done < <(grep -E '^ARG[[:space:]]+[A-Z_]*BASE=' "$df" || true)
 done < <(find images -name Dockerfile -print0)
 
+# Guardrail: no generated Python bytecode may be TRACKED. A stale .pyc can
+# shadow a module that was deleted or renamed — scripts/lib/runner_trust.py was
+# renamed to pr_workflow_runners.py in #96 and its .pyc was still committed, so
+# `import runner_trust` kept resolving to code no longer in the repository.
+if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    tracked_pyc="$(git -C "$ROOT" ls-files -- '*.pyc' '*.pyo' '**/__pycache__/**' 2>/dev/null || true)"
+    if [ -n "$tracked_pyc" ]; then
+        echo "TRACKED Python bytecode (delete it; it is gitignored):"
+        printf '  %s\n' $tracked_pyc
+        rc=1
+    fi
+fi
+
 [ "$rc" -eq 0 ] && echo "==> Structure OK." || echo "==> Structure check FAILED."
 exit "$rc"

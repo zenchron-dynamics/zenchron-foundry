@@ -33,3 +33,8 @@ Thumbs.db
 
 # Docker
 **/.docker/
+
+# Python bytecode — never useful in a repo, and a stale .pyc can shadow a
+# deleted module (runner_trust.py was renamed in #96 but its .pyc lingered).
+__pycache__/
+*.py[cod]

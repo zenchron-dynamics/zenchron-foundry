@@ -52,7 +52,83 @@ assert list(t)==['workflow_dispatch'], list(t)\""
 ck "trusted workflow takes an explicit SHA"      "grep -q 'sha:' $TV"
 ck "trusted workflow requires a typed confirmation" "grep -q 'VALIDATE-' $TV"
 ck "trusted workflow proves the SHA belongs to the PR" \
-   "grep -q 'is not a commit of PR' $TV"
+   "grep -q 'is not the CURRENT head of PR' $TV"
+
+# --- two modes, because a check run attaches to the DISPATCHED ref -----------
+# `trusted validation result` is release-required, and a release commit belongs
+# to a MERGED (closed) PR. A single PR-only mode could never produce it.
+ck "the workflow declares pr and release modes" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$TV'))
+o=d[True]['workflow_dispatch']['inputs']['mode']
+assert o['type']=='choice' and o['options']==['pr','release'], o\""
+ck "release mode requires sha == the dispatched commit" \
+   "grep -q 'release mode requires sha == the dispatched' $TV"
+ck "release mode does NOT require an open PR" \
+   "grep -q 'closed — pull request, so open-ness must not be required' $TV"
+ck "pr mode requires the EXACT current head" \
+   "grep -q 'head_sha=\"\$(gh api .repos/\${REPO}/pulls/\${PR}. --jq ..head.sha.)\"' $TV"
+ck "pr mode no longer accepts any historical commit of the PR" \
+   "! grep -q 'pulls/\${PR}/commits' $TV"
+ck "the pr head is re-checked AFTER the matrix, in the seal" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$TV'))
+seal=d['jobs']['seal']['steps']
+recheck=[s for s in seal if 'Re-confirm' in s.get('name','')]
+assert recheck, [s.get('name') for s in seal]
+cond=recheck[0]['if']
+assert 'outputs.mode' in cond and 'pr' in cond, cond
+assert 'advanced to' in recheck[0]['run']\""
+ck "release_required_checks holds the trusted check, pr_required_checks does not" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('policies/required-release-checks.yaml'))
+assert 'trusted validation result' in d['release_required_checks']
+assert 'trusted validation result' not in d['pr_required_checks']\""
+
+# --- the trusted matrix must actually do what the docs claim ----------------
+# #96 removed the pull_request trigger from scan-images.yml, so if trusted
+# validation only builds and smoke-tests, nothing scans a reviewed commit.
+ck "the trusted matrix runs a Trivy scan" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$TV'))
+ids=[s.get('id') for s in d['jobs']['validate']['steps']]
+for need in ('build','smoke','trivy_full','trivy_gate'):
+    assert need in ids, (need, ids)\""
+ck "the scan suppresses nothing and fails closed on missing JSON" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$TV'))
+s=[x for x in d['jobs']['validate']['steps'] if x.get('id')=='trivy_full'][0]['run']
+assert '--severity CRITICAL,HIGH' in s and '--exit-code 0' in s
+assert 'test -s' in s
+assert '--ignore-unfixed' not in s and 'ignorefile' not in s\""
+ck "reconciliation is bound to an explicit architecture" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$TV'))
+s=[x for x in d['jobs']['validate']['steps'] if x.get('id')=='trivy_gate'][0]['run']
+assert '--arch' in s and 'reconcile-vulnerabilities.sh' in s\""
+ck "reconciliation evidence is uploaded under the aggregate's pattern" \
+   "grep -q 'name: vuln-reconciliation-' $TV"
+ck "the matrix-wide stale-exception aggregate runs" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$TV'))
+j=d['jobs']['stale-exceptions']
+assert 'assert-no-stale-exceptions.sh' in str(j['steps'])
+# It fails closed on a short matrix, so it must not run on a broken matrix and
+# report a vacuous pass.
+assert 'validate.result' in j['if'] and 'success' in j['if'], j['if']\""
+ck "the seal refuses a SKIPPED aggregate as well as a failed one" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$TV'))
+r=str(d['jobs']['seal']['steps'][0]['run'])
+assert 'AGG' in r and 'not success' in r\""
+ck "the trusted matrix labels images exactly like scan-images.yml" \
+   "python3 -c \"
+import yaml
+a=yaml.safe_load(open('$TV'))['jobs']['validate']['strategy']['matrix']['target']
+b=yaml.safe_load(open('.github/workflows/scan-images.yml'))['jobs']['scan']['strategy']['matrix']['include']
+ka=sorted((t['fam'],str(t['ver'])) for t in a)
+kb=sorted((t['fam'],str(t['ver'])) for t in b)
+assert ka==kb, (ka,kb)\""
 ck "authorization runs on a GitHub-hosted runner (before any self-hosted job)" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$TV'))
