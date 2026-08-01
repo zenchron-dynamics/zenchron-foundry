@@ -53,7 +53,10 @@ fail_count() { printf '%d\n' "$FAIL"; }
 #
 # Runs the UNIVERSAL final-image assertions first, so every smoke script gets
 # them without repetition and on both call paths (scripts/smoke-test.sh, and
-# ci.yml which invokes the family scripts directly). Today that is the
+# trusted-validation.yml, which invokes the family scripts directly — #96 moved
+# the build+smoke matrix out of ci.yml, because a pull_request workflow runs the
+# PR's own copy of itself and cannot be trusted on a privileged runner).
+# Today that is the
 # zero-file-capabilities contract (#100): under `cap_drop: ALL` +
 # `no-new-privileges`, a binary carrying a file capability cannot even be
 # exec'd, so a surviving capability is a broken image, not a nuance.

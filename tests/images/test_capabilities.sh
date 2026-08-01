@@ -110,6 +110,33 @@ assert w.get('if-no-files-found')=='error', w.get('if-no-files-found')\""
 ck "the inventory is NOT expected from the pull-request workflow" \
    "! grep -q 'CAPABILITY_INVENTORY_DIR' .github/workflows/ci.yml"
 
+# --- two-architecture evidence (#100) ---------------------------------------
+# #100 asks for Caddy and FrankenPHP on both versions AND both architectures.
+# php-frankenphp:8.3 on arm64 was the last untested combination.
+archrow() { sed -n '/Two-architecture verification/,/^###/p' docs/runtime-hardening.md \
+            | grep '^|' | sed 's/[`*]//g'; }
+ck "caddy is recorded on both architectures with 0 capabilities" \
+   "archrow | grep -qE '^\| *caddy *\| *amd64, arm64 *\| *0 *\|'"
+ck "php-frankenphp:8.4 is recorded on both architectures" \
+   "archrow | grep -qE '^\| *php-frankenphp:8\.4 *\| *amd64, arm64 *\| *0 *\|'"
+ck "php-frankenphp:8.3 amd64 is recorded" \
+   "archrow | grep -qE '^\| *php-frankenphp:8\.3 *\| *amd64 *\| *0 *\|'"
+ck "php-frankenphp:8.3 ARM64 is recorded (the last untested combination)" \
+   "archrow | grep -qE '^\| *php-frankenphp:8\.3 *\| *arm64 *\| *0 *\|'"
+ck "the arm64 8.3 run names its base digest and repository revision" \
+   "grep -q 'sha256:6383ab28a5f5dff524085a58fa9a3073150680abf7173a744dd847e7bdd2b7d2' docs/runtime-hardening.md && \
+    grep -qE 'revision .[0-9a-f]{40}.' docs/runtime-hardening.md"
+ck "a negative control is recorded, not just the pass" \
+   "grep -q 'Negative control' docs/runtime-hardening.md && \
+    grep -q 'Operation not permitted' docs/runtime-hardening.md && \
+    grep -q 'net_bind_service' docs/runtime-hardening.md"
+ck "the inventory publisher is named correctly (not ci.yml)" \
+   "grep -q 'trusted-validation.yml' docs/runtime-hardening.md && \
+    ! grep -q 'CI publishes its JSON' docs/runtime-hardening.md"
+ck "smoke lib no longer claims ci.yml invokes the family scripts" \
+   "! grep -q 'ci.yml which invokes the family scripts' scripts/smoke/lib.sh && \
+    grep -q 'trusted-validation.yml, which invokes the family scripts' scripts/smoke/lib.sh"
+
 # --- the hardened runtime profile is actually exercised --------------------
 for s in scripts/smoke/smoke-caddy.sh scripts/smoke/smoke-php-frankenphp.sh; do
   ck "$s: runtime container drops ALL capabilities" \
