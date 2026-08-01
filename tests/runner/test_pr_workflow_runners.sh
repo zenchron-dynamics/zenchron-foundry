@@ -162,6 +162,14 @@ d=yaml.safe_load(open('$TV'))
 steps=d['jobs']['publish-status']['steps']
 assert not any('checkout' in str(s.get('uses','')) for s in steps), steps\""
 
+ck "the seal does not claim its check run lands on the validated SHA" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+runs=' '.join(str(s.get('run','')) for s in d['jobs']['seal']['steps'])
+assert 'attaches to the DISPATCHED' in runs, 'seal still misstates where its check run lands'
+assert 'check run attaches to ' + chr(36) + '{SHA}' not in runs, 'seal still claims it attaches to the validated SHA'\""
+
 ck "statuses are published ONLY in release mode" \
    "python3 -c \"
 import yaml

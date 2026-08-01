@@ -520,9 +520,11 @@ jobs:
         run: |
           set -euo pipefail
           if [ "$MODE" = "release" ]; then
-            echo "This check run attaches to ${SHA}, the dispatched ref's commit,"
-            echo "and is the 'trusted validation result' entry in"
-            echo "release_required_checks."
+            echo "THIS check run attaches to the DISPATCHED ref's commit (master),"
+            echo "not to ${SHA}. The release-required results for ${SHA} are"
+            echo "published separately as COMMIT STATUSES by the publish-status"
+            echo "job: 'trusted validation result' and"
+            echo "'no stale vulnerability exceptions'."
           else
             echo "pr mode: this is a review aid bound to ${SHA}. It does NOT"
             echo "satisfy release_required_checks — that check must be produced"
