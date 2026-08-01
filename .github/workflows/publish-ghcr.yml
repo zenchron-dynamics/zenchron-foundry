@@ -94,15 +94,20 @@ jobs:
           EXPECTED_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # NOTE ON PLACEMENT: this runs in preflight, so the child manifest
-          # digests do not exist yet and EXPECTED_DIGESTS_JSON is not supplied
-          # here. This step therefore proves revision, repository, scanner,
-          # provenance and per-image reconciliation — not that the evidence
-          # matches the digests this run is about to produce. Binding evidence
-          # to the built digests requires capturing them after the build and
-          # re-checking before the manifest is exposed; that is tracked in #139
-          # together with the arm64 evidence run. Nothing is publishable today
-          # regardless, because no evidence file exists at all.
+          # THIS STEP INTENTIONALLY REFUSES EVERY PUBLISH TODAY.
+          #
+          # The gate requires the child manifest digests and the Trivy database
+          # this publish scanned with. Preflight runs BEFORE the build, so
+          # neither exists yet and neither can be supplied here.
+          #
+          # Making those comparisons optional when the caller omits them was the
+          # earlier design, and it was fail-open: the binding disappeared exactly
+          # when nobody wired it. Refusing is the correct interim state.
+          #
+          # The fix is to move final authorisation AFTER the builds — capture the
+          # real child digests and DB metadata, then call this gate before the
+          # manifest is exposed — and to consume the RC manifest on the promotion
+          # path. Tracked in #139 with the arm64 evidence run.
           bash scripts/assert-publish-platforms-reconciled.sh "$PLAT"
       - name: Stable path requires a valid release tag
         if: ${{ inputs.rc == '' }}

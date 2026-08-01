@@ -61,7 +61,7 @@ assert_platforms_reconciled() {
   EVIDENCE_DIR="$PLATFORM_EVIDENCE_DIR" \
   CANONICAL_IMAGES="$(matrix_image_labels | paste -sd, -)" \
   python3 - <<'PY'
-import json, os, re, sys, yaml
+import json, os, re, subprocess, sys, yaml
 
 # STRICT: this gate reads verified_architectures, which is exactly the field a
 # duplicated key would subvert — the second list wins, so a record could gain
@@ -136,21 +136,80 @@ ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 EXPECTED_REVISION = (os.environ.get("EXPECTED_REVISION") or "").strip()
 EXPECTED_REPOSITORY = (os.environ.get("EXPECTED_REPOSITORY") or "").strip()
 EXPECTED_TRIVY_DB = (os.environ.get("EXPECTED_TRIVY_DB") or "").strip()
+if not EXPECTED_TRIVY_DB:
+    sys.exit(
+        "REFUSE: EXPECTED_TRIVY_DB was not supplied.\n"
+        "  Evidence must name the SAME vulnerability database this publish\n"
+        "  scanned with. Accepting any non-empty string means the field records\n"
+        "  a value nobody checked. Tracked in #139.")
 
 # {image-label: sha256:...} of the child manifests actually being published.
-# None means "not supplied"; an empty mapping means "supplied and empty", which
-# matches nothing and therefore refuses.
-_digests_raw = os.environ.get("EXPECTED_DIGESTS_JSON")
-if _digests_raw is None or not _digests_raw.strip():
-    EXPECTED_DIGESTS = None
-else:
+# MANDATORY. Treating an absent map as "skip the comparison" is the fail-open
+# shape this whole gate exists to remove: the check silently disappears exactly
+# when the caller forgets to wire it, which is when it is most needed.
+_digests_raw = os.environ.get("EXPECTED_DIGESTS_JSON") or ""
+if not _digests_raw.strip():
+    sys.exit(
+        "REFUSE: EXPECTED_DIGESTS_JSON was not supplied.\n"
+        "  Evidence must be compared against the child manifest digests actually\n"
+        "  being published. Without them this gate would confirm only that the\n"
+        "  evidence PARSES, which is not a binding.\n"
+        "  The publish-ghcr preflight cannot supply them: it runs before the\n"
+        "  build, so the digests do not exist yet. Final authorisation has to\n"
+        "  move after the builds — capture the child digests and the Trivy DB\n"
+        "  metadata, then call this gate before the manifest is exposed.\n"
+        "  Tracked in #139. Until then every publish is refused here, which is\n"
+        "  the intended fail-closed state.")
+try:
+    EXPECTED_DIGESTS = json.loads(_digests_raw)
+except Exception as exc:
+    sys.exit("REFUSE: EXPECTED_DIGESTS_JSON is not valid JSON: %s" % exc)
+if not isinstance(EXPECTED_DIGESTS, dict):
+    sys.exit("REFUSE: EXPECTED_DIGESTS_JSON must be an object of "
+             "{image-label: sha256:...}")
+_missing_expect = [i for i in CANONICAL_IMAGES if i not in EXPECTED_DIGESTS]
+if _missing_expect:
+    sys.exit("REFUSE: EXPECTED_DIGESTS_JSON omits %d shipping image(s): %s"
+             % (len(_missing_expect), ", ".join(_missing_expect)))
+
+
+# Only these workflows may produce evidence. A run of some other workflow — or a
+# workflow added on a branch — is not an evidence producer even if it succeeded.
+TRUSTED_EVIDENCE_WORKFLOWS = {
+    ".github/workflows/scan-images.yml",
+    ".github/workflows/trusted-validation.yml",
+}
+
+# RUN_FIXTURE_DIR makes the run lookup injectable for offline tests. In a real
+# publish the lookup goes to the API; an unreadable API is a REFUSAL, never an
+# assumed-good run.
+RUN_FIXTURE_DIR = os.environ.get("RUN_FIXTURE_DIR") or ""
+
+
+def fetch_run(run_id, repo):
+    """Return (run_json, why_not). None means the run could not be established."""
+    if RUN_FIXTURE_DIR:
+        path = os.path.join(RUN_FIXTURE_DIR, "%s.json" % run_id)
+        if not os.path.exists(path):
+            return None, "workflow run %s does not exist" % run_id
+        try:
+            with open(path) as fh:
+                return json.load(fh), ""
+        except Exception as exc:
+            return None, "workflow run %s is unreadable: %s" % (run_id, exc)
     try:
-        EXPECTED_DIGESTS = json.loads(_digests_raw)
+        out = subprocess.run(
+            ["gh", "api", "repos/%s/actions/runs/%s" % (repo, run_id)],
+            capture_output=True, text=True, timeout=30)
     except Exception as exc:
-        sys.exit("REFUSE: EXPECTED_DIGESTS_JSON is not valid JSON: %s" % exc)
-    if not isinstance(EXPECTED_DIGESTS, dict):
-        sys.exit("REFUSE: EXPECTED_DIGESTS_JSON must be an object of "
-                 "{image-label: sha256:...}")
+        return None, "cannot query workflow run %s: %s" % (run_id, exc)
+    if out.returncode != 0:
+        return None, ("cannot read workflow run %s (%s) — an unreadable run is "
+                      "not a passing one" % (run_id, out.stderr.strip()[:120]))
+    try:
+        return json.loads(out.stdout), ""
+    except Exception as exc:
+        return None, "workflow run %s returned unparseable JSON: %s" % (run_id, exc)
 
 
 def platform_evidence_ok(plat, evidence_dir):
@@ -202,7 +261,7 @@ def platform_evidence_ok(plat, evidence_dir):
     if not isinstance(snap, str) or not snap.strip():
         return False, ("%s: trivy_db_snapshot is required — without it the scan "
                        "cannot be tied to a known vulnerability database" % name)
-    if EXPECTED_TRIVY_DB and snap != EXPECTED_TRIVY_DB:
+    if snap != EXPECTED_TRIVY_DB:
         return False, ("%s: trivy_db_snapshot %r is not the database this "
                        "publish scanned with (%r)" % (name, snap, EXPECTED_TRIVY_DB))
 
@@ -215,17 +274,38 @@ def platform_evidence_ok(plat, evidence_dir):
     if not isinstance(gen, str) or not ISO_DATE.match(gen):
         return False, "%s: generated_at must be an ISO date (YYYY-MM-DD)" % name
 
-    # PROVENANCE. Without these the document is indistinguishable from one
-    # hand-authored to say PASS.
+    # PROVENANCE. A run id on its own is only an audit pointer — it does not
+    # show the run exists, belongs here, ran the trusted workflow, succeeded, or
+    # covered this revision. So the run is FETCHED and those properties checked.
     run_id = doc.get("workflow_run_id")
     if not isinstance(run_id, (str, int)) or not str(run_id).strip().isdigit():
         return False, ("%s: workflow_run_id is required — evidence must name the "
-                       "run that produced it, or it cannot be audited" % name)
+                       "run that produced it" % name)
     repo = doc.get("repository")
     if EXPECTED_REPOSITORY and repo != EXPECTED_REPOSITORY:
         return False, ("%s: repository %r is not %r" % (name, repo, EXPECTED_REPOSITORY))
     if not isinstance(repo, str) or "/" not in repo:
         return False, "%s: repository must be <owner>/<name>" % name
+
+    run, why = fetch_run(str(run_id).strip(), repo)
+    if run is None:
+        return False, "%s: %s" % (name, why)
+    if run.get("conclusion") != "success":
+        return False, ("%s: workflow run %s concluded %r, not success — evidence "
+                       "from a run that did not pass certifies nothing"
+                       % (name, run_id, run.get("conclusion")))
+    if run.get("head_sha") != rev:
+        return False, ("%s: workflow run %s ran on %s, not the recorded "
+                       "source_revision %s" % (name, run_id, run.get("head_sha"), rev))
+    run_repo = (run.get("repository") or {}).get("full_name")
+    if run_repo != repo:
+        return False, ("%s: workflow run %s belongs to %r, not %r"
+                       % (name, run_id, run_repo, repo))
+    path = run.get("path") or ""
+    if path not in TRUSTED_EVIDENCE_WORKFLOWS:
+        return False, ("%s: workflow run %s ran %r, which is not a workflow "
+                       "trusted to produce evidence (%s)"
+                       % (name, run_id, path, ", ".join(sorted(TRUSTED_EVIDENCE_WORKFLOWS))))
 
     images = doc.get("images")
     if not isinstance(images, list) or not images:
@@ -250,14 +330,13 @@ def platform_evidence_ok(plat, evidence_dir):
         # COMPARED against the digests actually being published, when they are
         # known. A well-formed digest for some other image passes a shape check
         # and proves nothing.
-        if EXPECTED_DIGESTS is not None:
-            want = EXPECTED_DIGESTS.get(label)
-            if want is None:
-                return False, ("%s: %s is not among the images being published"
-                               % (name, label))
-            if want != dig:
-                return False, ("%s: %s evidence is for %s but the digest being "
-                               "published is %s" % (name, label, dig, want))
+        want = EXPECTED_DIGESTS.get(label)
+        if want is None:
+            return False, ("%s: %s is not among the images being published"
+                           % (name, label))
+        if want != dig:
+            return False, ("%s: %s evidence is for %s but the digest being "
+                           "published is %s" % (name, label, dig, want))
         if rec.get("reconciliation") != "PASS":
             return False, ("%s: %s reconciliation is %r, not PASS"
                            % (name, label, rec.get("reconciliation")))
@@ -419,13 +498,40 @@ Y
   # complete evidence set for both platforms. Platform eligibility itself is
   # exercised separately, further down, with the `e` helper.
   local tev="$tmp/ledger-cases-evidence"
+  # Workflow-run fixtures. The gate FETCHES the run named by the evidence and
+  # checks it exists, succeeded, ran a trusted workflow, belongs to this
+  # repository, and covered the recorded revision.
+  mkdir -p "$tmp/runs"
+  _mkrun() { # _mkrun <id> <conclusion> <head_sha> <repo> <path>
+    jq -n --arg c "$2" --arg h "$3" --arg r "$4" --arg p "$5" \
+      '{conclusion:$c, head_sha:$h, repository:{full_name:$r}, path:$p}' > "$tmp/runs/$1.json"
+  }
+  _mkrun 30692919846 success 1111111111111111111111111111111111111111 \
+         zenchron-dynamics/zenchron-foundry .github/workflows/trusted-validation.yml
+  _mkrun 700000001 failure 1111111111111111111111111111111111111111 \
+         zenchron-dynamics/zenchron-foundry .github/workflows/trusted-validation.yml
+  _mkrun 700000002 success 3333333333333333333333333333333333333333 \
+         zenchron-dynamics/zenchron-foundry .github/workflows/trusted-validation.yml
+  _mkrun 700000003 success 1111111111111111111111111111111111111111 \
+         attacker/zenchron-foundry .github/workflows/trusted-validation.yml
+  _mkrun 700000004 success 1111111111111111111111111111111111111111 \
+         zenchron-dynamics/zenchron-foundry .github/workflows/ci.yml
+
+  _digest_map_t() {
+    ( . "$_d/lib/common.sh"; matrix_image_labels ) | jq -R . \
+      | jq -s --arg d "sha256:$(printf '%064d' 1)" 'map({key:., value:$d}) | from_entries' -c
+  }
 
   # t <expect-rc> <name> <platforms> <ledger>
   t() {
     local want="$1" name="$2" plats="$3" led="$4" rc=0
     # Subshell: die() exits, and an exit here would kill the whole self-test
     # rather than register a single case.
-    ( PLATFORM_EVIDENCE_DIR="$tev" assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
+    ( PLATFORM_EVIDENCE_DIR="$tev" \
+      EXPECTED_DIGESTS_JSON="$(_digest_map_t)" \
+      EXPECTED_TRIVY_DB="2026-08-01T00:00:00Z/abcdef" \
+      RUN_FIXTURE_DIR="$tmp/runs" \
+      assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
     if [ "$rc" -eq "$want" ]; then echo "  ok   $name"; ok_n=$((ok_n + 1)); else
       echo "  FAIL $name (rc=$rc want=$want)"; fail=$((fail + 1)); fi
   }
@@ -530,17 +636,23 @@ Y
   e() {
     local want="$1" name="$2" plats="$3" dir="$4" led="${5:-}" scen="${6:-}" rc=0
     [ -n "$led" ] || led="$tmp/zero.yaml"
-    local rev="$EXPECTED_REVISION" dj="" db=""
+    local rev="$EXPECTED_REVISION" runs="$tmp/runs"
     local good_digest; good_digest="sha256:$(printf '%064d' 1)"
+    # Both expectations are MANDATORY, so the default scenario supplies them.
+    local dj; dj="$(_digest_map "$good_digest")"
+    local db="2026-08-01T00:00:00Z/abcdef"
     case "$scen" in
       norev)       rev="" ;;
       wrongdigest) dj="$(_digest_map "sha256:$(printf '%064d' 2)")" ;;
-      rightdigest) dj="$(_digest_map "$good_digest")" ;;
+      rightdigest) : ;;
       emptydigest) dj='{}' ;;
+      nodigest)    dj="" ;;
+      nodb)        db="" ;;
       otherdb)     db="2099-01-01T00:00:00Z/ffffff" ;;
     esac
     ( PLATFORM_EVIDENCE_DIR="$dir" EXPECTED_REVISION="$rev" \
       EXPECTED_DIGESTS_JSON="$dj" EXPECTED_TRIVY_DB="$db" \
+      RUN_FIXTURE_DIR="$runs" \
       assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
     if [ "$rc" -eq "$want" ]; then echo "  ok   $name"; ok_n=$((ok_n + 1)); else
       echo "  FAIL $name (rc=$rc want=$want)"; fail=$((fail + 1)); fi
@@ -638,6 +750,31 @@ Y
   _mkev "$ev/wrong.json" linux/arm64
   e 1 "evidence from a DIFFERENT Trivy DB snapshot is refused" "linux/arm64" "$ev" "" otherdb
   rm -f "$ev/wrong.json"
+
+  # --- the expectations are MANDATORY, not optional ---------------------------
+  # A comparison that disappears when its environment variable is omitted is
+  # fail-open: it vanishes precisely when the caller forgets to wire it.
+  _mkev "$ev/mand.json" linux/arm64
+  e 1 "complete evidence + NO expected digest map is refused" "linux/arm64" "$ev" "" nodigest
+  e 1 "complete evidence + NO expected Trivy DB is refused"   "linux/arm64" "$ev" "" nodb
+  rm -f "$ev/mand.json"
+
+  # --- the workflow run is PROVEN, not just pointed at -------------------------
+  _mkev "$ev/run.json" linux/arm64 '.workflow_run_id = "999999999"'
+  e 1 "a run id that does not exist is refused"        "linux/arm64" "$ev"
+  rm -f "$ev/run.json"
+  _mkev "$ev/run.json" linux/arm64 '.workflow_run_id = "700000001"'
+  e 1 "a run with a NON-SUCCESS conclusion is refused" "linux/arm64" "$ev"
+  rm -f "$ev/run.json"
+  _mkev "$ev/run.json" linux/arm64 '.workflow_run_id = "700000002"'
+  e 1 "a run whose head SHA is not the recorded revision is refused" "linux/arm64" "$ev"
+  rm -f "$ev/run.json"
+  _mkev "$ev/run.json" linux/arm64 '.workflow_run_id = "700000003"'
+  e 1 "a run belonging to another repository is refused" "linux/arm64" "$ev"
+  rm -f "$ev/run.json"
+  _mkev "$ev/run.json" linux/arm64 '.workflow_run_id = "700000004"'
+  e 1 "a run of a workflow not trusted to produce evidence is refused" "linux/arm64" "$ev"
+  rm -f "$ev/run.json"
 
   # The reason this whole mechanism exists.
   _mkev "$ev/arm.json" linux/arm64

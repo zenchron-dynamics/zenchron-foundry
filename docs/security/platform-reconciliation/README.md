@@ -56,17 +56,36 @@ shape check — evidence not tied to the published commit proves nothing.
 hand-authored to say `PASS` without naming the run that produced it, and
 `scanner` must be digest-pinned so the scan is reproducible.
 
-### Known gap
+Both `EXPECTED_DIGESTS_JSON` and `EXPECTED_TRIVY_DB` are **mandatory**. Omitting
+either is refused, not skipped: a comparison that disappears when its variable is
+unset is fail-open, and it disappears precisely when nobody wired it. The digest
+map must also cover every shipping image.
 
-`EXPECTED_DIGESTS_JSON` is **not** supplied by the `publish-ghcr` preflight,
-because that step runs before the build and the child digests do not exist yet.
-The preflight therefore proves revision, repository, scanner, provenance and
-per-image reconciliation — not that the evidence matches the digests this run is
-about to produce. Binding to built digests requires capturing them after the
-build and re-checking before the manifest is exposed, and consuming the RC
-manifest on the promotion path. That work is tracked with the arm64 evidence run
-in **#139**. The comparison itself is implemented and tested; only the publish-
-time wiring is outstanding.
+### The workflow run is proven, not pointed at
+
+`workflow_run_id` alone is an audit pointer. The named run is fetched and must:
+
+- exist (an unreadable run is a refusal, never an assumed-good one);
+- have concluded `success`;
+- have `head_sha` equal to the recorded `source_revision`;
+- belong to this repository;
+- be a run of a workflow trusted to produce evidence (`scan-images.yml` or
+  `trusted-validation.yml`).
+
+`RUN_FIXTURE_DIR` makes the lookup injectable for offline tests.
+
+### Known gap — the preflight refuses every publish
+
+The `publish-ghcr` preflight runs **before** the build, so the child digests and
+the Trivy DB metadata do not exist and cannot be supplied. Because both are
+mandatory, that step now **refuses every publication**. That is deliberate: it is
+safer than letting the binding vanish when a variable is omitted.
+
+Final authorisation has to move after the builds — capture the real child digests
+and DB metadata, call this gate before the manifest is exposed — and consume the
+RC manifest on the promotion path. Tracked with the arm64 evidence run in
+**#139**. The comparisons are implemented and tested; the pipeline wiring is
+what remains.
 
 The six bindings the gate enforces:
 
