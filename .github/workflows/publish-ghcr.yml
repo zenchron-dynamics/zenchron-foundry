@@ -87,7 +87,23 @@ jobs:
         # any platform no acceptance record covers, BEFORE the first push.
         env:
           PLAT: ${{ env.PLATFORMS }}
-        run: bash scripts/assert-publish-platforms-reconciled.sh "$PLAT"
+          # The facts THIS publish supplies. The evidence's own claims are
+          # compared against them; a document that merely parses is not evidence
+          # about this publish.
+          EXPECTED_REVISION: ${{ inputs.expected_revision || github.sha }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # NOTE ON PLACEMENT: this runs in preflight, so the child manifest
+          # digests do not exist yet and EXPECTED_DIGESTS_JSON is not supplied
+          # here. This step therefore proves revision, repository, scanner,
+          # provenance and per-image reconciliation — not that the evidence
+          # matches the digests this run is about to produce. Binding evidence
+          # to the built digests requires capturing them after the build and
+          # re-checking before the manifest is exposed; that is tracked in #139
+          # together with the arm64 evidence run. Nothing is publishable today
+          # regardless, because no evidence file exists at all.
+          bash scripts/assert-publish-platforms-reconciled.sh "$PLAT"
       - name: Stable path requires a valid release tag
         if: ${{ inputs.rc == '' }}
         env:

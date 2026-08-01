@@ -37,6 +37,37 @@ incomplete is treated as **not proven**, never as fine.
 }
 ```
 
+### Schema validation is not binding
+
+A document that parses is not evidence about a publish. Every field below that
+*can* be compared against what the publish actually knows **is** compared:
+
+| Evidence claim | Compared against | Supplied by |
+|---|---|---|
+| `source_revision` | the commit being published | `EXPECTED_REVISION` |
+| `repository` | this repository | `EXPECTED_REPOSITORY` |
+| `trivy_db_snapshot` | the DB this publish scanned with | `EXPECTED_TRIVY_DB` |
+| `images[].manifest_digest` | the child digests being published | `EXPECTED_DIGESTS_JSON` |
+
+If no commit is supplied, the gate **refuses** rather than falling back to a
+shape check — evidence not tied to the published commit proves nothing.
+
+`workflow_run_id` and `repository` are required so a document cannot be
+hand-authored to say `PASS` without naming the run that produced it, and
+`scanner` must be digest-pinned so the scan is reproducible.
+
+### Known gap
+
+`EXPECTED_DIGESTS_JSON` is **not** supplied by the `publish-ghcr` preflight,
+because that step runs before the build and the child digests do not exist yet.
+The preflight therefore proves revision, repository, scanner, provenance and
+per-image reconciliation — not that the evidence matches the digests this run is
+about to produce. Binding to built digests requires capturing them after the
+build and re-checking before the manifest is exposed, and consuming the RC
+manifest on the promotion path. That work is tracked with the arm64 evidence run
+in **#139**. The comparison itself is implemented and tested; only the publish-
+time wiring is outstanding.
+
 The six bindings the gate enforces:
 
 | Binding | Field | Why |
@@ -47,6 +78,9 @@ The six bindings the gate enforces:
 | source revision | `source_revision` | ties the result to the code that produced it |
 | Trivy DB snapshot | `trivy_db_snapshot` | a scan is only as current as its database |
 | reconciliation result | `images[].reconciliation` | must be `PASS` |
+
+Plus provenance: `workflow_run_id` (numeric), `repository`, `scanner`
+(digest-pinned), `generated_at` (ISO date).
 
 Additional rules:
 

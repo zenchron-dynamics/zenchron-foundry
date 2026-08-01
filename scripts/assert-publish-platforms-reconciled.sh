@@ -128,6 +128,29 @@ if not CANONICAL_IMAGES:
 
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# The facts the PUBLISH supplies, against which the evidence's own claims are
+# checked. Schema validation alone only proves a document is well formed; these
+# are what make it evidence ABOUT this publish.
+EXPECTED_REVISION = (os.environ.get("EXPECTED_REVISION") or "").strip()
+EXPECTED_REPOSITORY = (os.environ.get("EXPECTED_REPOSITORY") or "").strip()
+EXPECTED_TRIVY_DB = (os.environ.get("EXPECTED_TRIVY_DB") or "").strip()
+
+# {image-label: sha256:...} of the child manifests actually being published.
+# None means "not supplied"; an empty mapping means "supplied and empty", which
+# matches nothing and therefore refuses.
+_digests_raw = os.environ.get("EXPECTED_DIGESTS_JSON")
+if _digests_raw is None or not _digests_raw.strip():
+    EXPECTED_DIGESTS = None
+else:
+    try:
+        EXPECTED_DIGESTS = json.loads(_digests_raw)
+    except Exception as exc:
+        sys.exit("REFUSE: EXPECTED_DIGESTS_JSON is not valid JSON: %s" % exc)
+    if not isinstance(EXPECTED_DIGESTS, dict):
+        sys.exit("REFUSE: EXPECTED_DIGESTS_JSON must be an object of "
+                 "{image-label: sha256:...}")
 
 
 def platform_evidence_ok(plat, evidence_dir):
@@ -163,10 +186,46 @@ def platform_evidence_ok(plat, evidence_dir):
     rev = doc.get("source_revision")
     if not isinstance(rev, str) or not HEX40.match(rev):
         return False, "%s: source_revision must be a 40-hex commit" % name
+    # COMPARED, not merely shaped. A well-formed SHA for an unrelated or older
+    # commit is exactly the evidence this gate must refuse: it would let a
+    # publish quote a reconciliation of code that is not being published.
+    if EXPECTED_REVISION:
+        if rev != EXPECTED_REVISION:
+            return False, ("%s: source_revision %s is not the commit being "
+                           "published (%s)" % (name, rev, EXPECTED_REVISION))
+    else:
+        return False, ("%s: no commit was supplied to compare source_revision "
+                       "against. Set EXPECTED_REVISION; evidence that is not "
+                       "tied to the published commit proves nothing." % name)
+
     snap = doc.get("trivy_db_snapshot")
     if not isinstance(snap, str) or not snap.strip():
         return False, ("%s: trivy_db_snapshot is required — without it the scan "
                        "cannot be tied to a known vulnerability database" % name)
+    if EXPECTED_TRIVY_DB and snap != EXPECTED_TRIVY_DB:
+        return False, ("%s: trivy_db_snapshot %r is not the database this "
+                       "publish scanned with (%r)" % (name, snap, EXPECTED_TRIVY_DB))
+
+    # Documented as required, and previously unvalidated.
+    scanner = doc.get("scanner")
+    if not isinstance(scanner, str) or "@sha256:" not in scanner:
+        return False, ("%s: scanner must be a digest-pinned image reference — an "
+                       "unpinned scanner cannot be reproduced" % name)
+    gen = doc.get("generated_at")
+    if not isinstance(gen, str) or not ISO_DATE.match(gen):
+        return False, "%s: generated_at must be an ISO date (YYYY-MM-DD)" % name
+
+    # PROVENANCE. Without these the document is indistinguishable from one
+    # hand-authored to say PASS.
+    run_id = doc.get("workflow_run_id")
+    if not isinstance(run_id, (str, int)) or not str(run_id).strip().isdigit():
+        return False, ("%s: workflow_run_id is required — evidence must name the "
+                       "run that produced it, or it cannot be audited" % name)
+    repo = doc.get("repository")
+    if EXPECTED_REPOSITORY and repo != EXPECTED_REPOSITORY:
+        return False, ("%s: repository %r is not %r" % (name, repo, EXPECTED_REPOSITORY))
+    if not isinstance(repo, str) or "/" not in repo:
+        return False, "%s: repository must be <owner>/<name>" % name
 
     images = doc.get("images")
     if not isinstance(images, list) or not images:
@@ -188,6 +247,17 @@ def platform_evidence_ok(plat, evidence_dir):
             return False, ("%s: %s has no sha256 child manifest digest — the "
                            "evidence is not bound to a specific image"
                            % (name, label))
+        # COMPARED against the digests actually being published, when they are
+        # known. A well-formed digest for some other image passes a shape check
+        # and proves nothing.
+        if EXPECTED_DIGESTS is not None:
+            want = EXPECTED_DIGESTS.get(label)
+            if want is None:
+                return False, ("%s: %s is not among the images being published"
+                               % (name, label))
+            if want != dig:
+                return False, ("%s: %s evidence is for %s but the digest being "
+                               "published is %s" % (name, label, dig, want))
         if rec.get("reconciliation") != "PASS":
             return False, ("%s: %s reconciliation is %r, not PASS"
                            % (name, label, rec.get("reconciliation")))
@@ -265,7 +335,7 @@ PY
 
 # --------------------------------------------------------------------------
 _apr_self_test() {
-  local TOTAL=41   # keep in step with the case count below
+  local ok_n=0     # counted, never hardcoded: a stale total misreports coverage
   command -v python3 >/dev/null || { echo "SKIP - python3 absent"; return 0; }
   python3 -c 'import yaml' 2>/dev/null || { echo "SKIP - PyYAML absent"; return 0; }
   local fail=0 tmp; tmp="$(mktemp -d)"
@@ -356,7 +426,7 @@ Y
     # Subshell: die() exits, and an exit here would kill the whole self-test
     # rather than register a single case.
     ( PLATFORM_EVIDENCE_DIR="$tev" assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
-    if [ "$rc" -eq "$want" ]; then echo "  ok   $name"; else
+    if [ "$rc" -eq "$want" ]; then echo "  ok   $name"; ok_n=$((ok_n + 1)); else
       echo "  FAIL $name (rc=$rc want=$want)"; fail=$((fail + 1)); fi
   }
 
@@ -367,6 +437,10 @@ Y
     { echo '{'; echo '  "schema_version": 1,'; echo "  \"platform\": \"$plat\","
       echo '  "source_revision": "1111111111111111111111111111111111111111",'
       echo '  "trivy_db_snapshot": "2026-08-01T00:00:00Z/abcdef",'
+      echo '  "scanner": "aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500",'
+      echo '  "generated_at": "2026-08-01",'
+      echo '  "workflow_run_id": "30692919846",'
+      echo '  "repository": "zenchron-dynamics/zenchron-foundry",'
       echo '  "images": ['
       local first=1 lbl
       while read -r lbl; do
@@ -378,6 +452,8 @@ Y
       echo; echo '  ]'; echo '}'
     } > "$1"
   }
+  export EXPECTED_REVISION=1111111111111111111111111111111111111111
+  export EXPECTED_REPOSITORY=zenchron-dynamics/zenchron-foundry
   _mkev0 "$tev/amd64.json" linux/amd64
   _mkev0 "$tev/arm64.json" linux/arm64
 
@@ -398,7 +474,7 @@ Y
     local rc=0
     ( PLATFORM_EVIDENCE_DIR="$tmp/no-evidence" \
       assert_platforms_reconciled "$2" "$tmp/zero.yaml" ) >/dev/null 2>&1 || rc=$?
-    if [ "$rc" -ne 0 ]; then echo "  ok   $1"; else
+    if [ "$rc" -ne 0 ]; then echo "  ok   $1"; ok_n=$((ok_n + 1)); else
       echo "  FAIL $1 (a zero ledger authorised an unscanned platform)"; fail=$((fail + 1)); fi
   }
   z "a zero-exception ledger authorises NOTHING" "linux/amd64,linux/arm64"
@@ -424,7 +500,11 @@ Y
     { echo '{'; echo '  "schema_version": 1,'; echo "  \"platform\": \"$plat\","
       echo '  "source_revision": "1111111111111111111111111111111111111111",'
       echo '  "trivy_db_snapshot": "2026-08-01T00:00:00Z/abcdef",'
-      echo '  "generated_at": "2026-08-01",'; echo '  "images": ['
+      echo '  "scanner": "aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500",'
+      echo '  "generated_at": "2026-08-01",'
+      echo '  "workflow_run_id": "30692919846",'
+      echo '  "repository": "zenchron-dynamics/zenchron-foundry",'
+      echo '  "images": ['
       local first=1 lbl
       while read -r lbl; do
         [ "$first" = 1 ] || echo ","
@@ -435,11 +515,34 @@ Y
       echo; echo '  ]'; echo '}'
     } | jq "${3:-.}" > "$1"
   }
+  # The facts a real publish supplies. Without them the gate refuses outright.
+  export EXPECTED_REVISION=1111111111111111111111111111111111111111
+  export EXPECTED_REPOSITORY=zenchron-dynamics/zenchron-foundry
   # e <expect-rc> <name> <platforms> <evidence-dir> [ledger]
+  _digest_map() { # _digest_map <digest> -> {"label": "<digest>", ...}
+    local d="$1"
+    _labels | jq -R . | jq -s --arg d "$d" 'map({key:., value:$d}) | from_entries' -c
+  }
+
+  # e <expect-rc> <name> <platforms> <evidence-dir> [ledger] [scenario]
+  # <scenario> varies the facts the PUBLISH supplies, which is what turns schema
+  # validation into a real comparison.
   e() {
-    local want="$1" name="$2" plats="$3" dir="$4" led="${5:-$tmp/zero.yaml}" rc=0
-    ( PLATFORM_EVIDENCE_DIR="$dir" assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
-    if [ "$rc" -eq "$want" ]; then echo "  ok   $name"; else
+    local want="$1" name="$2" plats="$3" dir="$4" led="${5:-}" scen="${6:-}" rc=0
+    [ -n "$led" ] || led="$tmp/zero.yaml"
+    local rev="$EXPECTED_REVISION" dj="" db=""
+    local good_digest; good_digest="sha256:$(printf '%064d' 1)"
+    case "$scen" in
+      norev)       rev="" ;;
+      wrongdigest) dj="$(_digest_map "sha256:$(printf '%064d' 2)")" ;;
+      rightdigest) dj="$(_digest_map "$good_digest")" ;;
+      emptydigest) dj='{}' ;;
+      otherdb)     db="2099-01-01T00:00:00Z/ffffff" ;;
+    esac
+    ( PLATFORM_EVIDENCE_DIR="$dir" EXPECTED_REVISION="$rev" \
+      EXPECTED_DIGESTS_JSON="$dj" EXPECTED_TRIVY_DB="$db" \
+      assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
+    if [ "$rc" -eq "$want" ]; then echo "  ok   $name"; ok_n=$((ok_n + 1)); else
       echo "  FAIL $name (rc=$rc want=$want)"; fail=$((fail + 1)); fi
   }
 
@@ -486,6 +589,56 @@ Y
   rm -f "$ev/broken.json"
   e 1 "a missing evidence directory refuses"           "linux/amd64" "$tmp/nope"
 
+  # --- WELL FORMED BUT WRONG -------------------------------------------------
+  # Every field below is valid in shape. Schema validation alone accepts all of
+  # them; only comparison against what is actually being published rejects them.
+  # This is the difference between "the document parses" and "the document is
+  # evidence about THIS publish".
+  _mkev "$ev/wrong.json" linux/arm64 '.source_revision = "2222222222222222222222222222222222222222"'
+  e 1 "a valid but WRONG source revision is refused"   "linux/arm64" "$ev"
+  rm -f "$ev/wrong.json"
+
+  _mkev "$ev/wrong.json" linux/arm64
+  e 1 "evidence with NO commit to compare against is refused" "linux/arm64" "$ev" "" norev
+  rm -f "$ev/wrong.json"
+
+  _mkev "$ev/wrong.json" linux/arm64 '.repository = "attacker/zenchron-foundry"'
+  e 1 "evidence from another repository is refused"    "linux/arm64" "$ev"
+  rm -f "$ev/wrong.json"
+
+  _mkev "$ev/wrong.json" linux/arm64 'del(.workflow_run_id)'
+  e 1 "evidence naming no workflow run is refused"     "linux/arm64" "$ev"
+  rm -f "$ev/wrong.json"
+  _mkev "$ev/wrong.json" linux/arm64 '.workflow_run_id = "hand-authored"'
+  e 1 "a non-numeric workflow run id is refused"       "linux/arm64" "$ev"
+  rm -f "$ev/wrong.json"
+
+  _mkev "$ev/wrong.json" linux/arm64 'del(.scanner)'
+  e 1 "evidence with no scanner is refused"            "linux/arm64" "$ev"
+  rm -f "$ev/wrong.json"
+  _mkev "$ev/wrong.json" linux/arm64 '.scanner = "aquasec/trivy:0.71.0"'
+  e 1 "an UNPINNED scanner is refused"                 "linux/arm64" "$ev"
+  rm -f "$ev/wrong.json"
+
+  _mkev "$ev/wrong.json" linux/arm64 'del(.generated_at)'
+  e 1 "evidence with no generated_at is refused"       "linux/arm64" "$ev"
+  rm -f "$ev/wrong.json"
+  _mkev "$ev/wrong.json" linux/arm64 '.generated_at = "01/08/2026"'
+  e 1 "a non-ISO generated_at is refused"              "linux/arm64" "$ev"
+  rm -f "$ev/wrong.json"
+
+  # Digests: shape-valid, but not the images being published.
+  _mkev "$ev/wrong.json" linux/arm64
+  e 1 "a valid but WRONG child digest is refused"      "linux/arm64" "$ev" "" wrongdigest
+  e 0 "...and the RIGHT digest is accepted"            "linux/arm64" "$ev" "" rightdigest
+  e 1 "a digest map missing this image is refused"     "linux/arm64" "$ev" "" emptydigest
+  rm -f "$ev/wrong.json"
+
+  # A different Trivy DB than the one this publish scanned with.
+  _mkev "$ev/wrong.json" linux/arm64
+  e 1 "evidence from a DIFFERENT Trivy DB snapshot is refused" "linux/arm64" "$ev" "" otherdb
+  rm -f "$ev/wrong.json"
+
   # The reason this whole mechanism exists.
   _mkev "$ev/arm.json" linux/arm64
   e 0 "with real arm64 evidence, arm64 becomes publishable" "linux/arm64" "$ev"
@@ -496,7 +649,7 @@ Y
   t 1 "the real repository publishes NO platform today" "linux/amd64,linux/arm64" \
     "$_d/../policies/vulnerability-exceptions.yaml"
 
-  echo "self-test: $(( TOTAL - fail )) ok, $fail failed"
+  echo "self-test: $ok_n ok, $fail failed"
   [ "$fail" -eq 0 ]
 }
 
