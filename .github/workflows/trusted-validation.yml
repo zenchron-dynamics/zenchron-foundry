@@ -72,17 +72,17 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "pr = validate a PR's current head | release = produce the release-required check on github.sha"
+        description: "pr = validate a PR's current head (review aid only) | release = validate the 'sha' input and publish the release-required COMMIT STATUSES on it. Always dispatch from master."
         required: true
         type: choice
         options: [pr, release]
         default: pr
       pr:
-        description: "Pull request number (required in pr mode; optional provenance in release mode)"
+        description: "Pull request number (required in pr mode; in release mode optional, and the sha must provably belong to it)"
         required: false
         type: string
       sha:
-        description: "Full 40-hex commit SHA to validate — read the diff first (required)"
+        description: "Full 40-hex commit SHA to validate — read the diff first. In release mode this is the commit the statuses are published on; it need NOT equal the dispatched ref."
         required: true
         type: string
       confirmation:
@@ -90,10 +90,15 @@ on:
         required: true
         type: string
 
+# Workflow-level default is READ-ONLY. `statuses: write` is granted to the
+# publish-status job alone — a workflow-level grant would hand a status-writing
+# token to every job, including the one that checks out and BUILDS the commit
+# under validation. That job runs the target commit's Dockerfiles and scripts on
+# a self-hosted runner; it must never hold a credential that can mark a commit
+# green.
 permissions:
   contents: read
   pull-requests: read
-  statuses: write        # release mode publishes the release-required results
 
 concurrency:
   # Keyed on the SHA, not the PR: in release mode there may be no PR, and two
@@ -110,6 +115,9 @@ jobs:
   authorize:
     name: authorize trusted validation
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       sha: ${{ steps.check.outputs.sha }}
       head_repo: ${{ steps.check.outputs.head_repo }}
@@ -243,6 +251,12 @@ jobs:
     name: trusted dispatch build+scan ${{ matrix.target.fam }} ${{ matrix.target.ver }}
     needs: authorize
     runs-on: [self-hosted, linux, x64, zenchron]
+    # READ-ONLY, stated explicitly rather than inherited. This job checks out and
+    # EXECUTES the commit under validation — its Dockerfiles, its smoke scripts —
+    # on a privileged runner. It must not be able to write a commit status,
+    # create a check run, or read a pull request.
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       # Serialized: the self-hosted host has a small (~38G) shared disk.
@@ -434,6 +448,8 @@ jobs:
     name: trusted dispatch stale-exception check
     needs: [authorize, validate]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: ${{ needs.validate.result == 'success' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -455,6 +471,9 @@ jobs:
     name: trusted dispatch validation result
     needs: [authorize, validate, stale-exceptions]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     if: always()
     steps:
       - name: The whole matrix and the aggregate must be green

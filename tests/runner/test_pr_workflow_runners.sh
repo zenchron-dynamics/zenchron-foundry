@@ -108,6 +108,60 @@ assert '/statuses/' in run, run[:200]
 assert 'trusted validation result' in run
 assert 'no stale vulnerability exceptions' in run
 assert j['permissions']['statuses']=='write'\""
+# --- least privilege: only publish-status may write a commit status ---------
+# A workflow-level `statuses: write` hands a status-writing token to EVERY job,
+# including the one that checks out and executes the commit under validation on
+# a privileged runner. That job could then mark any commit green.
+ck "the workflow-level default grants no write scope" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+top=d.get('permissions') or {}
+bad=[k for k,v in top.items() if v!='read']
+assert not bad, ('workflow-level write scope: %r' % {k:top[k] for k in bad})\""
+ck "only publish-status can write commit statuses" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+top=d.get('permissions') or {}
+writers=[]
+for name,j in d['jobs'].items():
+    perms=j.get('permissions')
+    eff=top if perms is None else perms
+    if eff.get('statuses')=='write': writers.append(name)
+assert writers==['publish-status'], writers\""
+ck "authorize/validate/stale-exceptions/seal cannot write statuses" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+top=d.get('permissions') or {}
+for name in ('authorize','validate','stale-exceptions','seal'):
+    perms=d['jobs'][name].get('permissions')
+    assert perms is not None, ('%s inherits workflow permissions' % name)
+    assert 'statuses' not in perms, (name, perms)
+    bad=[k for k,v in perms.items() if v!='read']
+    assert not bad, (name, perms)\""
+ck "the job that executes the validated commit is read-only" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+v=d['jobs']['validate']
+# it is the job that checks out inputs.sha and runs its Dockerfiles
+assert any('checkout' in str(s.get('uses','')) for s in v['steps'])
+assert v['permissions']=={'contents':'read'}, v['permissions']\""
+ck "publish-status holds no scope beyond statuses" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+p=d['jobs']['publish-status']['permissions']
+assert p=={'statuses':'write'}, p\""
+ck "publish-status never checks out the validated commit" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$TV'))
+steps=d['jobs']['publish-status']['steps']
+assert not any('checkout' in str(s.get('uses','')) for s in steps), steps\""
+
 ck "statuses are published ONLY in release mode" \
    "python3 -c \"
 import yaml
