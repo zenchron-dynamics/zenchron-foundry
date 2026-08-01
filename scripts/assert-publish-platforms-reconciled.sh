@@ -46,6 +46,9 @@ _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$_d/lib/common.sh"
 
 LEDGER="${LEDGER:-$_d/../policies/vulnerability-exceptions.yaml}"
+# Per-platform reconciliation evidence. A platform is publishable only if this
+# directory holds a complete, digest-bound record for every shipping image.
+PLATFORM_EVIDENCE_DIR="${PLATFORM_EVIDENCE_DIR:-$_d/../docs/security/platform-reconciliation}"
 
 # assert_platforms_reconciled <platforms-csv> <ledger>
 assert_platforms_reconciled() {
@@ -54,8 +57,11 @@ assert_platforms_reconciled() {
   [ -f "$ledger" ] || die "ledger not found: $ledger"
   command -v python3 >/dev/null || die "python3 required"
 
-  PLATFORMS_CSV="$csv" LEDGER_PATH="$ledger" REPO_ROOT="$_d/.." python3 - <<'PY'
-import os, sys, yaml
+  PLATFORMS_CSV="$csv" LEDGER_PATH="$ledger" REPO_ROOT="$_d/.." \
+  EVIDENCE_DIR="$PLATFORM_EVIDENCE_DIR" \
+  CANONICAL_IMAGES="$(matrix_image_labels | paste -sd, -)" \
+  python3 - <<'PY'
+import json, os, re, sys, yaml
 
 # STRICT: this gate reads verified_architectures, which is exactly the field a
 # duplicated key would subvert — the second list wins, so a record could gain
@@ -65,6 +71,7 @@ import strict_yaml
 
 csv = os.environ["PLATFORMS_CSV"]
 path = os.environ["LEDGER_PATH"]
+evidence_dir = os.environ["EVIDENCE_DIR"]
 
 plats = [p.strip() for p in csv.split(",")]
 if any(p == "" for p in plats):
@@ -98,12 +105,102 @@ for section in ("exceptions", "not_affected"):
             sys.exit("REFUSE: %s[%d] is not a mapping" % (section, i))
         records.append((section, i, r))
 
-# An empty ledger means nothing has been accepted. That is a legitimate,
-# fully-remediated state (#122) and every platform is trivially reconciled.
+# An empty ledger means nothing has been ACCEPTED. It does NOT mean an
+# architecture was scanned. Treating it as universal authorisation was the
+# inverse of this gate's purpose: with a fully remediated ledger (#122), an
+# unscanned linux/arm64 would have published freely — the exact state #139
+# exists to close. "Nothing accepted" and "this architecture was reconciled" are
+# different claims, and only the second one authorises a publish.
+#
+# Eligibility therefore comes from INDEPENDENT evidence, never from the ledger's
+# emptiness. The ledger check below still runs on top of it: a platform must
+# have evidence AND be covered by every acceptance record.
 if not records:
-    print("PUBLISH-PLATFORMS OK: ledger holds no acceptance records; "
-          "nothing is accepted on any platform (%s)" % ", ".join(plats))
-    sys.exit(0)
+    print("NOTE: the ledger holds no acceptance records. That is a valid "
+          "fully-remediated state, and it authorises nothing on its own — "
+          "each platform still needs its own reconciliation evidence.")
+
+# Every canonical image label, passed in from scripts/lib/common.sh so this and
+# the reconciler cannot disagree about what an image is called.
+CANONICAL_IMAGES = [i for i in os.environ["CANONICAL_IMAGES"].split(",") if i]
+if not CANONICAL_IMAGES:
+    sys.exit("REFUSE: the canonical image matrix is empty; the check would be vacuous")
+
+HEX40 = re.compile(r"^[0-9a-f]{40}$")
+DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+
+def platform_evidence_ok(plat, evidence_dir):
+    """Is there complete, per-image reconciliation evidence for this platform?
+
+    Returns (ok, why_not). Every failure path returns False: absent, unreadable,
+    malformed and incomplete evidence are all "not proven", never "fine".
+    """
+    if not os.path.isdir(evidence_dir):
+        return False, "no evidence directory at %s" % evidence_dir
+    docs = []
+    for name in sorted(os.listdir(evidence_dir)):
+        if not name.endswith(".json"):
+            continue
+        path = os.path.join(evidence_dir, name)
+        try:
+            with open(path) as fh:
+                doc = json.load(fh)
+        except Exception as exc:
+            return False, "%s is unreadable: %s" % (name, exc)
+        if isinstance(doc, dict) and doc.get("platform") == plat:
+            docs.append((name, doc))
+    if not docs:
+        return False, "no evidence file declares platform %s" % plat
+    if len(docs) > 1:
+        return False, ("%d evidence files declare %s (%s) — ambiguous"
+                       % (len(docs), plat, ", ".join(n for n, _ in docs)))
+
+    name, doc = docs[0]
+    if doc.get("schema_version") != 1:
+        return False, "%s: schema_version must be 1" % name
+
+    rev = doc.get("source_revision")
+    if not isinstance(rev, str) or not HEX40.match(rev):
+        return False, "%s: source_revision must be a 40-hex commit" % name
+    snap = doc.get("trivy_db_snapshot")
+    if not isinstance(snap, str) or not snap.strip():
+        return False, ("%s: trivy_db_snapshot is required — without it the scan "
+                       "cannot be tied to a known vulnerability database" % name)
+
+    images = doc.get("images")
+    if not isinstance(images, list) or not images:
+        return False, "%s: 'images' must be a non-empty list" % name
+
+    seen = {}
+    for i, rec in enumerate(images):
+        if not isinstance(rec, dict):
+            return False, "%s: images[%d] is not an object" % (name, i)
+        label = rec.get("image")
+        if label in seen:
+            return False, "%s: image %r appears twice" % (name, label)
+        seen[label] = rec
+        if rec.get("architecture") != plat:
+            return False, ("%s: %s records architecture %r, not %s"
+                           % (name, label, rec.get("architecture"), plat))
+        dig = rec.get("manifest_digest")
+        if not isinstance(dig, str) or not DIGEST.match(dig):
+            return False, ("%s: %s has no sha256 child manifest digest — the "
+                           "evidence is not bound to a specific image"
+                           % (name, label))
+        if rec.get("reconciliation") != "PASS":
+            return False, ("%s: %s reconciliation is %r, not PASS"
+                           % (name, label, rec.get("reconciliation")))
+
+    missing = [i for i in CANONICAL_IMAGES if i not in seen]
+    if missing:
+        return False, ("%s covers %d of %d images; missing: %s"
+                       % (name, len(seen), len(CANONICAL_IMAGES), ", ".join(missing)))
+    extra = [i for i in seen if i not in CANONICAL_IMAGES]
+    if extra:
+        return False, "%s covers images outside the matrix: %s" % (name, ", ".join(extra))
+    return True, ""
+
 
 def rid(section, i, r):
     # Identify a record the way the ledger does. `package` is optional (a
@@ -120,6 +217,19 @@ def rid(section, i, r):
 
 failed = False
 for plat in plats:
+    # --- independent evidence, first and unconditionally --------------------
+    ok, why = platform_evidence_ok(plat, evidence_dir)
+    if not ok:
+        failed = True
+        print("REFUSE: %s has no usable reconciliation evidence — %s" % (plat, why))
+        print("  A platform is publishable only with evidence bound to the image")
+        print("  family/version, the child manifest digest, the architecture, the")
+        print("  source revision, the Trivy database snapshot, and the")
+        print("  reconciliation result, for every one of the %d shipping images."
+              % len(CANONICAL_IMAGES))
+        print("  See #139 for the outstanding linux/arm64 evidence run.")
+        continue
+
     missing = []
     for section, i, r in records:
         va = r.get("verified_architectures")
@@ -155,6 +265,7 @@ PY
 
 # --------------------------------------------------------------------------
 _apr_self_test() {
+  local TOTAL=41   # keep in step with the case count below
   command -v python3 >/dev/null || { echo "SKIP - python3 absent"; return 0; }
   python3 -c 'import yaml' 2>/dev/null || { echo "SKIP - PyYAML absent"; return 0; }
   local fail=0 tmp; tmp="$(mktemp -d)"
@@ -234,15 +345,41 @@ exceptions:
 Y
   printf 'exceptions: [\n' >"$tmp/broken.yaml"
 
+  # The LEDGER cases below isolate ledger coverage, so they run against a
+  # complete evidence set for both platforms. Platform eligibility itself is
+  # exercised separately, further down, with the `e` helper.
+  local tev="$tmp/ledger-cases-evidence"
+
   # t <expect-rc> <name> <platforms> <ledger>
   t() {
     local want="$1" name="$2" plats="$3" led="$4" rc=0
     # Subshell: die() exits, and an exit here would kill the whole self-test
     # rather than register a single case.
-    ( assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
+    ( PLATFORM_EVIDENCE_DIR="$tev" assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
     if [ "$rc" -eq "$want" ]; then echo "  ok   $name"; else
       echo "  FAIL $name (rc=$rc want=$want)"; fail=$((fail + 1)); fi
   }
+
+  mkdir -p "$tev"
+  _labels0() { ( . "$_d/lib/common.sh"; matrix_image_labels ); }
+  _mkev0() { # _mkev0 <file> <platform>
+    local plat="$2"
+    { echo '{'; echo '  "schema_version": 1,'; echo "  \"platform\": \"$plat\","
+      echo '  "source_revision": "1111111111111111111111111111111111111111",'
+      echo '  "trivy_db_snapshot": "2026-08-01T00:00:00Z/abcdef",'
+      echo '  "images": ['
+      local first=1 lbl
+      while read -r lbl; do
+        [ "$first" = 1 ] || echo ","
+        first=0
+        printf '    {"image": "%s", "architecture": "%s", "manifest_digest": "sha256:%064d", "reconciliation": "PASS"}' \
+          "$lbl" "$plat" 1
+      done < <(_labels0)
+      echo; echo '  ]'; echo '}'
+    } > "$1"
+  }
+  _mkev0 "$tev/amd64.json" linux/amd64
+  _mkev0 "$tev/arm64.json" linux/arm64
 
   t 0 "amd64 passes on an amd64-only ledger"          "linux/amd64"              "$tmp/amd64-only.yaml"
   t 1 "arm64 REFUSED on an amd64-only ledger"         "linux/arm64"              "$tmp/amd64-only.yaml"
@@ -254,7 +391,19 @@ Y
   t 1 "a record with no verified_architectures blocks" "linux/amd64"             "$tmp/missing-field.yaml"
   t 1 "an empty verified_architectures blocks"        "linux/amd64"              "$tmp/empty-list.yaml"
   t 1 "a non-string architecture blocks"              "linux/arm64"              "$tmp/non-string.yaml"
-  t 0 "a zero-exception ledger publishes anywhere"    "linux/amd64,linux/arm64"  "$tmp/zero.yaml"
+  # INVERTED, and deliberately run with NO evidence present. A zero-exception
+  # ledger used to authorise every platform, so a fully remediated ledger
+  # published an UNSCANNED arm64 freely. Emptiness must now authorise nothing.
+  z() { # z <name> <platforms>
+    local rc=0
+    ( PLATFORM_EVIDENCE_DIR="$tmp/no-evidence" \
+      assert_platforms_reconciled "$2" "$tmp/zero.yaml" ) >/dev/null 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then echo "  ok   $1"; else
+      echo "  FAIL $1 (a zero ledger authorised an unscanned platform)"; fail=$((fail + 1)); fi
+  }
+  z "a zero-exception ledger authorises NOTHING" "linux/amd64,linux/arm64"
+  z "...not even arm64 alone"                    "linux/arm64"
+  z "...nor amd64 alone"                         "linux/amd64"
   t 1 "a malformed ledger REFUSES (never passes)"     "linux/amd64"              "$tmp/broken.yaml"
   t 1 "a non-list section REFUSES"                    "linux/amd64"              "$tmp/not-a-list.yaml"
   t 1 "an empty platform list REFUSES"                ""                         "$tmp/both.yaml"
@@ -264,9 +413,90 @@ Y
   t 1 "an over-deep platform REFUSES"                 "linux/arm64/v8"           "$tmp/both.yaml"
   t 1 "a missing ledger REFUSES"                      "linux/amd64"              "$tmp/nope.yaml"
   t 1 "the real ledger does not authorize arm64"      "linux/arm64"              "$_d/../policies/vulnerability-exceptions.yaml"
-  t 0 "the real ledger does authorize amd64"          "linux/amd64"              "$_d/../policies/vulnerability-exceptions.yaml"
+  t 0 "the real ledger covers amd64 (given evidence)" "linux/amd64"              "$_d/../policies/vulnerability-exceptions.yaml"
 
-  echo "self-test: $((21 - fail)) ok, $fail failed"
+  # --- independent platform evidence ---------------------------------------
+  # Eligibility comes from evidence bound to six things, never from the ledger.
+  local ev="$tmp/ev"; mkdir -p "$ev"
+  _labels() { ( . "$_d/lib/common.sh"; matrix_image_labels ); }
+  _mkev() { # _mkev <file> <platform> <jq-mutator>
+    local plat="$2"
+    { echo '{'; echo '  "schema_version": 1,'; echo "  \"platform\": \"$plat\","
+      echo '  "source_revision": "1111111111111111111111111111111111111111",'
+      echo '  "trivy_db_snapshot": "2026-08-01T00:00:00Z/abcdef",'
+      echo '  "generated_at": "2026-08-01",'; echo '  "images": ['
+      local first=1 lbl
+      while read -r lbl; do
+        [ "$first" = 1 ] || echo ","
+        first=0
+        printf '    {"image": "%s", "architecture": "%s", "manifest_digest": "sha256:%064d", "reconciliation": "PASS"}' \
+          "$lbl" "$plat" 1
+      done < <(_labels)
+      echo; echo '  ]'; echo '}'
+    } | jq "${3:-.}" > "$1"
+  }
+  # e <expect-rc> <name> <platforms> <evidence-dir> [ledger]
+  e() {
+    local want="$1" name="$2" plats="$3" dir="$4" led="${5:-$tmp/zero.yaml}" rc=0
+    ( PLATFORM_EVIDENCE_DIR="$dir" assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
+    if [ "$rc" -eq "$want" ]; then echo "  ok   $name"; else
+      echo "  FAIL $name (rc=$rc want=$want)"; fail=$((fail + 1)); fi
+  }
+
+  _mkev "$ev/amd64.json" linux/amd64
+  e 0 "complete evidence publishes that platform"      "linux/amd64" "$ev"
+  e 1 "...but not a platform with no evidence"         "linux/arm64" "$ev"
+  e 1 "...and not the pair"                            "linux/amd64,linux/arm64" "$ev"
+
+  _mkev "$ev/bad.json" linux/arm64 'del(.source_revision)'
+  e 1 "evidence without source_revision is refused"    "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/bad.json" linux/arm64 '.source_revision = "not-a-sha"'
+  e 1 "a malformed source_revision is refused"         "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/bad.json" linux/arm64 'del(.trivy_db_snapshot)'
+  e 1 "evidence without a Trivy DB snapshot is refused" "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/bad.json" linux/arm64 '.images[0] |= del(.manifest_digest)'
+  e 1 "an image without a child manifest digest is refused" "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/bad.json" linux/arm64 '.images[0].manifest_digest = "sha256:short"'
+  e 1 "a malformed digest is refused"                  "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/bad.json" linux/arm64 '.images[0].reconciliation = "FAIL"'
+  e 1 "a FAILED reconciliation is refused"             "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/bad.json" linux/arm64 '.images |= .[1:]'
+  e 1 "a partial matrix is refused"                    "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/bad.json" linux/arm64 '.images[0].architecture = "linux/amd64"'
+  e 1 "an image recording another architecture is refused" "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/bad.json" linux/arm64 '.images += [.images[0]]'
+  e 1 "a duplicated image label is refused"            "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/bad.json" linux/arm64 '.schema_version = 2'
+  e 1 "an unknown schema_version is refused"           "linux/arm64" "$ev"
+  rm -f "$ev/bad.json"
+  _mkev "$ev/a.json" linux/arm64; _mkev "$ev/b.json" linux/arm64
+  e 1 "two files claiming one platform are ambiguous"  "linux/arm64" "$ev"
+  rm -f "$ev/a.json" "$ev/b.json"
+  printf 'not json' > "$ev/broken.json"
+  e 1 "unreadable evidence is refused"                 "linux/amd64" "$ev"
+  rm -f "$ev/broken.json"
+  e 1 "a missing evidence directory refuses"           "linux/amd64" "$tmp/nope"
+
+  # The reason this whole mechanism exists.
+  _mkev "$ev/arm.json" linux/arm64
+  e 0 "with real arm64 evidence, arm64 becomes publishable" "linux/arm64" "$ev"
+  e 1 "...but the ledger still has the final say"      "linux/arm64" "$ev" "$_d/../policies/vulnerability-exceptions.yaml"
+  rm -f "$ev/arm.json"
+
+  # The shipped tree, as it actually stands.
+  t 1 "the real repository publishes NO platform today" "linux/amd64,linux/arm64" \
+    "$_d/../policies/vulnerability-exceptions.yaml"
+
+  echo "self-test: $(( TOTAL - fail )) ok, $fail failed"
   [ "$fail" -eq 0 ]
 }
 
