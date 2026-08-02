@@ -1,0 +1,218 @@
+name: package-acl-probe
+
+# ---------------------------------------------------------------------------
+# Prove the GHCR package boundary BEHAVIOURALLY, because it cannot be read.
+#
+# The documented public GitHub API does not expose the two settings that define
+# this boundary — the organization's "inherit access from source repository"
+# default, and each package's "Manage Actions access" repository role. Probing
+# confirmed it: `GET /orgs/{org}/settings/packages` returns 404, and no
+# per-package access endpoint exists. Both are UI procedures, in read as well as
+# in write.
+#
+# So a claim like "the repository token cannot write production packages" cannot
+# be verified by reading configuration. This workflow verifies it by ATTEMPTING
+# the write and requiring an explicit denial — which is stronger evidence than a
+# settings page, because it tests the property rather than its description.
+#
+# WHAT THIS IS NOT. It does not configure anything. The package ACL is installed
+# by an organization owner through the UI; this only measures the result. If the
+# ACL is wrong, this fails and says so.
+#
+# SAFETY PROPERTIES, all deliberate:
+#   * dispatch-only, and refuses to run from anything but the default branch;
+#   * NO checkout — it never executes repository or pull-request code, so the
+#     logic is inline and self-contained;
+#   * no id-token, no environment, no production credential;
+#   * package names are FIXED literals, never expressions;
+#   * evidence is uploaded even when the run fails, because a failed boundary is
+#     exactly when the record matters.
+#
+# An unexpected production write is a FAILED BOUNDARY. The canary is left in
+# place: deleting it would need broader permissions than this workflow should
+# ever hold, and removing the evidence of a failure is the wrong instinct. Fix
+# the ACL, then remove the canary through an independently authorized path.
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: package-acl-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: package ACL boundary probe
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Refuse to run from anything but the default branch
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          # A branch could otherwise carry a modified copy of this workflow.
+          [ "$REF" = "refs/heads/master" ] \
+            || { echo "REFUSE: dispatch from master only, got '${REF}'" >&2; exit 1; }
+          echo "OK: running from ${REF}"
+
+      - name: Probe the boundary
+        id: probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Optional read-only audit credential for package METADATA. The
+          # repository token often cannot read org package metadata; without a
+          # readable visibility the result is INDETERMINATE, never assumed.
+          AUDIT_TOKEN: ${{ secrets.PACKAGES_AUDIT_TOKEN }}
+          ORG: zenchron-dynamics
+          STAGING: foundry-staging
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail   # NOT -e: a denied push is an expected outcome here.
+          mkdir -p evidence
+          short="${SHA:0:7}"
+          tag_suffix="r${RUN_ID}-a${RUN_ATTEMPT}-s${short}"
+          canary="ghcr.io/${ORG}/${STAGING}:acl-probe-${tag_suffix}"
+
+          echo "::group::authenticate"
+          echo "${GH_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin \
+            || { echo "REFUSE: cannot authenticate to ghcr.io" >&2; exit 1; }
+          echo "::endgroup::"
+
+          # --- visibility, per package -------------------------------------
+          # Fixed literals. `read_visibility` echoes the visibility or the
+          # sentinel `unreadable`; an unreadable package is INDETERMINATE.
+          read_visibility() {
+            local name="$1" tok="${AUDIT_TOKEN:-$GH_TOKEN}" out
+            out="$(GH_TOKEN="$tok" gh api "orgs/${ORG}/packages/container/${name}" \
+                    --jq '.visibility' 2>/dev/null)" || { echo unreadable; return; }
+            [ -n "$out" ] && echo "$out" || echo unreadable
+          }
+
+          # --- build a tiny, unique canary image ---------------------------
+          echo "::group::build canary"
+          ctx="$(mktemp -d)"
+          printf 'acl probe %s %s %s\n' "$RUN_ID" "$RUN_ATTEMPT" "$SHA" > "${ctx}/probe.txt"
+          printf 'FROM scratch\nCOPY probe.txt /probe.txt\n' > "${ctx}/Dockerfile"
+          docker build -t "$canary" "$ctx" \
+            || { echo "REFUSE: cannot build the canary image" >&2; exit 1; }
+          echo "::endgroup::"
+
+          results="[]"
+          add() { # add <name> <visibility> <expected> <result> <extra-json>
+            results="$(jq -c --arg n "$1" --arg v "$2" --arg e "$3" --arg r "$4" \
+                         --argjson x "${5:-{\}}" \
+                         '. + [ ({name:$n, visibility:$v, expected_access:$e,
+                                  operation:"push", result:$r} + $x) ]' <<<"$results")"
+          }
+
+          # --- 1. staging MUST be writable ---------------------------------
+          echo "::group::staging write (expect allowed)"
+          svis="$(read_visibility "$STAGING")"
+          push_out="$(docker push "$canary" 2>&1)"; push_rc=$?
+          echo "$push_out"
+          digest=""
+          if [ "$push_rc" -eq 0 ]; then
+            digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$canary" 2>/dev/null | sed 's/.*@//')"
+            case "$digest" in
+              sha256:*) staging_result=allowed ;;
+              *)        staging_result=indeterminate; digest="" ;;
+            esac
+          else
+            # A denied staging write means the ACL is wrong in the other
+            # direction: the build cannot stage at all.
+            staging_result=denied
+          fi
+          add "$STAGING" "$svis" "write" "$staging_result" \
+              "$(jq -nc --arg d "$digest" --arg t "$canary" '{digest:$d, reference:$t}')"
+          echo "::endgroup::"
+
+          # --- 2. every production package MUST refuse ---------------------
+          # Classification is strict. A non-zero exit is NOT proof of denial: a
+          # timeout or a 5xx proves nothing, and treating it as "denied" would
+          # manufacture a passing boundary out of a network failure.
+          classify() { # classify <output>
+            local o; o="$(tr '[:upper:]' '[:lower:]' <<<"$1")"
+            case "$o" in
+              *denied*|*unauthorized*|*"insufficient_scope"*|*forbidden*|*"403"*|*"permission"*)
+                echo denied ;;
+              *timeout*|*"timed out"*|*"5"[0-9][0-9]*|*"connection"*|*"no such host"*|*"i/o"*|*eof*)
+                echo indeterminate ;;
+              *) echo indeterminate ;;
+            esac
+          }
+
+          for pkg in php-fpm php-cli php-worker php-frankenphp caddy nginx; do
+            echo "::group::production write: ${pkg} (expect denied)"
+            pvis="$(read_visibility "$pkg")"
+            target="ghcr.io/${ORG}/${pkg}:acl-probe-deny-r${RUN_ID}-a${RUN_ATTEMPT}"
+            docker tag "$canary" "$target"
+            out="$(docker push "$target" 2>&1)"; rc=$?
+            echo "$out"
+            if [ "$rc" -eq 0 ]; then
+              # THE BOUNDARY FAILED. Record precisely; do not delete.
+              d="$(docker inspect --format '{{index .RepoDigests 0}}' "$target" 2>/dev/null | sed 's/.*@//')"
+              echo "::error::BOUNDARY FAILURE: wrote ${target} (${d})"
+              add "$pkg" "$pvis" "read-only" "allowed" \
+                  "$(jq -nc --arg t "$target" --arg d "$d" \
+                     '{unexpected_write:{reference:$t, digest:$d},
+                       note:"left in place deliberately; remove via an independently authorized admin path"}')"
+            else
+              verdict="$(classify "$out")"
+              add "$pkg" "$pvis" "read-only" "$verdict" \
+                  "$(jq -nc --arg e "$(head -c 300 <<<"$out" | tr -d '\r')" '{registry_error:$e}')"
+            fi
+            echo "::endgroup::"
+          done
+
+          # --- verdict ------------------------------------------------------
+          jq -n --arg repo "$REPO" --arg sha "$SHA" \
+                --argjson run "$RUN_ID" --argjson attempt "$RUN_ATTEMPT" \
+                --arg gen "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                --arg tok "$([ -n "${AUDIT_TOKEN:-}" ] && echo 'GITHUB_TOKEN + PACKAGES_AUDIT_TOKEN(metadata)' || echo 'GITHUB_TOKEN')" \
+                --argjson pkgs "$results" '
+            {schema_version:1, repository:$repo, source_revision:$sha,
+             workflow_run_id:$run, workflow_run_attempt:$attempt,
+             generated_at:$gen, token_type:$tok, packages:$pkgs}
+            | . + {verdict:
+                (if ([.packages[] | select(.visibility != "private")] | length) > 0 then "FAIL"
+                 elif ([.packages[] | select(.expected_access=="write" and .result=="allowed")] | length) != 1 then "FAIL"
+                 elif ([.packages[] | select(.expected_access=="read-only" and .result=="denied")] | length) != 6 then "FAIL"
+                 elif ([.packages[] | select(.result=="indeterminate")] | length) > 0 then "FAIL"
+                 else "PASS" end)}' > evidence/package-acl-probe.json
+
+          echo "::group::evidence"
+          jq . evidence/package-acl-probe.json
+          echo "::endgroup::"
+
+          jq -r '
+            "  visibility private   : \([.packages[]|select(.visibility=="private")]|length)/\(.packages|length)",
+            "  staging write allowed: \([.packages[]|select(.expected_access=="write" and .result=="allowed")]|length)/1",
+            "  production denied    : \([.packages[]|select(.expected_access=="read-only" and .result=="denied")]|length)/6",
+            "  indeterminate        : \([.packages[]|select(.result=="indeterminate")]|length)",
+            "  VERDICT              : \(.verdict)"' evidence/package-acl-probe.json
+
+          [ "$(jq -r '.verdict' evidence/package-acl-probe.json)" = "PASS" ] || {
+            echo "::error::package ACL boundary is NOT as required — see the evidence artifact"
+            exit 1
+          }
+
+      - name: Upload evidence
+        # Uploaded on failure too: a failed boundary is exactly when the record
+        # matters most.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: package-acl-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/
+          if-no-files-found: error
