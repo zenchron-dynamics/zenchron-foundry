@@ -99,6 +99,44 @@ c "EOF"                 "unexpected EOF"                                     ind
 c "unknown text"        "something nobody predicted"                         indeterminate
 c "empty output"        ""                                                   indeterminate
 
+# --- a staging push is not trusted on the daemon's word alone --------------
+# `docker inspect .RepoDigests` is the local daemon's record of what it believes
+# it sent. Proving the write LANDED means resolving the tag through the registry
+# and getting the same digest back.
+ck "the staging tag is resolved independently through the registry" \
+   "grep -q 'buildx imagetools inspect' $WF"
+ck "a pushed tag that does not resolve to the digest is indeterminate" \
+   "python3 -c \"
+h=open('$WF').read()
+i=h.index('docker buildx imagetools inspect')
+seg=h[i:i+900]
+assert '\\\"\\\$resolved\\\" = \\\"\\\$digest\\\"' in seg, 'no digest equality check'
+assert 'staging_result=indeterminate' in seg, 'no indeterminate branch'\""
+ck "staging visibility is read AFTER the push, not before" \
+   "python3 -c \"
+h=open('$WF').read()
+push=h.index('docker push \\\"\\\$canary\\\"')
+vis=h.index('svis=')
+assert vis > push, 'visibility is read before the push (a write could change it)'\""
+ck "a failed staging push is classified, never assumed denied" \
+   "python3 -c \"
+h=open('$WF').read()
+i=h.index('if [ \\\"\\\$push_rc\\\" -ne 0 ]')
+seg=h[i:i+700]
+assert 'staging_result=\\\"\\\$(classify \\\"\\\$push_out\\\")\\\"' in seg, seg[:200]
+assert 'staging_result=denied' not in seg, 'a non-zero push exit is hard-coded as denied'\""
+ck "classify is defined before the first push that uses it" \
+   "python3 -c \"
+h=open('$WF').read()
+assert h.index('classify() {') < h.index('docker push'), 'classify defined after first use'
+assert h.count('classify() {')==1, 'classify defined more than once'\""
+
+# NOTE: the header's API claim was narrowed in the same change ("no DOCUMENTED
+# per-package access endpoint", not "no such endpoint exists"). That is prose,
+# and a grep for prose is not a test — it asserts nothing about behaviour and
+# would pass on any wording that happened to avoid the pattern. Left uncovered
+# on purpose.
+
 # --- the verdict is fail-closed -------------------------------------------
 ck "an indeterminate result fails the verdict" \
    "grep -q 'select(.result==\"indeterminate\")] | length) > 0 then \"FAIL\"' $WF"
