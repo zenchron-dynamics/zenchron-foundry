@@ -276,8 +276,37 @@ if named!=current:
              'the evidence was generated from a tree that is not %s'
              % (rev[:8],rev[:8]))\""
 
-ck "evidence source_revision is a real commit in this repository" \
-   "git cat-file -e \"\$(python3 -c \"import json;print(json.load(open('$EVIDENCE'))['source_revision'])\")\""
+# Syntax only, deliberately. Requiring the object to EXIST contradicted the
+# skip in the check above: once the merged branch is deleted or the intermediate
+# commit is no longer fetched, `git cat-file -e` fails and master goes red again
+# — the exact durability problem this pair is meant to remove. Reachability is
+# the semantic check's business, and it skips when the object is gone.
+ck "evidence source_revision has full SHA syntax" \
+   "python3 -c \"
+import json,re,sys
+rev=json.load(open('$EVIDENCE'))['source_revision']
+sys.exit(0 if isinstance(rev,str) and re.fullmatch(r'[0-9a-f]{40}',rev) else 1)\""
+# THE DURABILITY REGRESSION. A valid 40-hex SHA that does not exist locally is
+# what every one of these files looks like after the branch is deleted and the
+# object is pruned. The WHOLE suite must still pass, emitting the documented
+# skip — not just the semantic fragment in isolation, since it was the
+# neighbouring reachability assertion that broke this before.
+#
+# GOV_SUITE_NESTED guards the recursion: without it this case re-invokes the
+# suite, which re-runs this case, forever.
+if [ -z "${GOV_SUITE_NESTED:-}" ]; then
+  ck "an unreachable source_revision skips, and the whole suite still passes" \
+     "_bak=\"\$(mktemp)\"; cp '$EVIDENCE' \"\$_bak\";
+      python3 -c \"
+import json
+p='$EVIDENCE'; d=json.load(open(p))
+d['source_revision']='deadbeef'*5
+json.dump(d,open(p,'w'),indent=2)\";
+      out=\"\$(GOV_SUITE_NESTED=1 bash '$0' 2>&1)\"; rc=\$?;
+      cp \"\$_bak\" '$EVIDENCE'; rm -f \"\$_bak\";
+      printf '%s' \"\$out\" | grep -q 'SKIP: deadbeef' && [ \"\$rc\" -eq 0 ]"
+fi
+
 ck "no document still claims 26 required checks" \
    "! grep -rn '26 required\|26 status\|all 26 check' --include='*.md' --include='*.yaml' . | grep -v originally"
 
