@@ -232,6 +232,15 @@ jobs:
             primary="$immutable"
             tags="${immutable},${base}:${conv_suffix}"
             echo "immutable=${immutable}" >> "$GITHUB_OUTPUT"
+            # The CANONICAL selector, not the immutable RC suffix. Promotion does
+            # ZERO builds (promote-stable.yml retags the exact RC digest), so
+            # whatever is baked in here is what the *stable* image ships with
+            # forever. Labelling the RC build with its rc-sha suffix meant
+            # php-cli:8.4-prod advertised version "8.4-<version>-rc1-sha-<short>"
+            # — an RC identity on a stable image, contradicting its Dockerfile.
+            version_label="${suffix}"
+            # The immutable RC tag is still recorded, as the ref it was built as.
+            ref_name_label="${imm_suffix}"
           else
             rel="${GITHUB_REF_NAME}"   # e.g. v2026.05.30
             tags="${base}:${suffix},${base}:${suffix}-${rel#v},${base}:${suffix}-build.${{ github.run_number }}"
@@ -239,10 +248,18 @@ jobs:
             # e.g. php-cli:8.4-debian — lets consumers pin the Debian variant.
             case "${{ matrix.fam }}" in php-*) tags="${tags},${base}:${{ matrix.ver }}-debian" ;; esac
             primary="${base}:${suffix}"
+            version_label="${suffix}"
+            ref_name_label="${suffix}-${rel#v}"
           fi
           {
             echo "tags=${tags}"
             echo "primary=${primary}"
+            # OCI version label, derived from the SAME canonical selector the tags
+            # use. It was hardcoded as "${{ matrix.ver }}-prod", which produced
+            # "prod-prod" for the edge images (nginx/caddy declare ver: prod) —
+            # metadata that contradicted their own Dockerfiles (#126).
+            echo "version_label=${version_label}"
+            echo "ref_name_label=${ref_name_label}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Immutability probe (RC only — never overwrite a bound tag)
@@ -280,7 +297,8 @@ jobs:
           labels: |
             org.opencontainers.image.created=${{ github.event.repository.updated_at }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ matrix.ver }}-prod
+            org.opencontainers.image.version=${{ steps.meta.outputs.version_label }}
+            org.opencontainers.image.ref.name=${{ steps.meta.outputs.ref_name_label }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
       - name: Cosign keyless sign
