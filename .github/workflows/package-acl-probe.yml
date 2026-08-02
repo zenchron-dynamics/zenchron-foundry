@@ -88,7 +88,19 @@ jobs:
           SHA: ${{ github.sha }}
           REPO: ${{ github.repository }}
         run: |
-          set -uo pipefail   # NOT -e: a denied push is an expected outcome here.
+          set -uo pipefail
+          # `set +e` is LOAD-BEARING and must stay. GitHub runs this block as
+          # `bash -e {0}`, so errexit is already ON before the first line; a
+          # `set -uo pipefail` that merely omits `-e` does NOT disable it.
+          #
+          # A denied push is the EXPECTED outcome here, not an error. With
+          # errexit live, the first production denial killed the step before it
+          # could be recorded — no evidence file, and a PASS verdict was
+          # unreachable by construction. The probe could only complete in the
+          # world where the boundary was broken. Every failure path below is
+          # explicit: guarded commands `exit 1` themselves, and the final verdict
+          # decides the step's exit status.
+          set +e
           mkdir -p evidence
           short="${SHA:0:7}"
           tag_suffix="r${RUN_ID}-a${RUN_ATTEMPT}-s${short}"
