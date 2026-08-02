@@ -4,7 +4,8 @@
 # Usage: smoke-caddy.sh <image-ref>   (image must already be built)
 #
 # Ground truth (images/caddy/Dockerfile + Caddyfile):
-#   Base caddy:2-alpine; USER 10001:10001; EXPOSE 8080 8443 8081.
+#   Base caddy:2-alpine; USER 10001:10001; EXPOSE 8080 8081 — 8443 was REMOVED
+#   with TLS termination (CVE-2026-56852); the checks below prove it is gone.
 #   ENTRYPOINT ["caddy"]; CMD ["run","--config","/etc/caddy/Caddyfile","--adapter","caddyfile"].
 #   Always-on readiness site :8081 responds /healthz "ok" 200. XDG_DATA_HOME=/data,
 #   XDG_CONFIG_HOME=/config, storage /data/caddy -> needs writable /data and /config.
