@@ -23,14 +23,26 @@ controls. Re-review when the org moves to Team or the repo goes public.
 - **Removal condition:** move to a plan with environment reviewers, then drop the
   `ALLOW_FREE_TIER_NO_REVIEWERS` waiver and require reviewers.
 
-## AR-2 — Self-hosted runner is root, single-concurrency
+## AR-2 — Self-hosted runners are persistent, shared, sudo-capable
 
-- **Gap:** the shared runner executes as root without sudo and runs one job at a
-  time (serial matrix).
+- **Gap:** the runner instances are **non-root but sudo-capable**, live on one
+  2 vCPU / 4 GB / 40 GB host, share a single `$HOME`, and keep their workspaces
+  between jobs (corrected 2026-07-09 from the earlier "root, no sudo, strictly
+  serial" note — see [runner-capacity.md](runner-capacity.md)). Heavy matrices
+  still run `max-parallel: 1`, for disk, not isolation.
 - **Why accepted:** it is the available capacity.
-- **Compensating controls:** centralized strict workspace reset
+- **Compensating controls:** **untrusted code never runs there** — every job
+  picks its pool from the trigger's trust, so fork PRs land on ephemeral
+  GitHub-hosted VMs and the privileged pool is reserved for push/tag/schedule/
+  dispatch and same-repo PRs (`scripts/assert-runner-trust.sh` fails CI on drift;
+  `pull_request_target` is banned repo-wide; see
+  [repository-security.md § CI trust boundary](repository-security.md#ci-trust-boundary)).
+  Plus: centralized strict workspace reset
   (`scripts/ci/reset-workspace-ownership.sh`, realpath + strict-descendant, no
   `|| true`), job-scoped Docker cleanup (`scripts/ci/cleanup-docker-job.sh`, no
-  global prune), fork-PR guards on build jobs, publish/OIDC permissions only in
-  dispatch/tag-triggered jobs, and a runner job-started hook template for a
-  future non-root runner (`scripts/ci/install-runner-hook.sh`).
+  global prune), publish/OIDC permissions only in dispatch/tag-triggered jobs,
+  and a runner job-started hook template (`scripts/ci/install-runner-hook.sh`).
+- **Residual:** host-level hardening of the runner user (sudoers scope, Docker
+  group membership, per-job isolation) requires **runner-admin access** and
+  cannot be enforced from repository code. A maintainer-authored PR is still
+  trusted-by-construction on this host.

@@ -19,35 +19,31 @@ poll:
 # Conclusions that count as a pass. Anything else (or absent) fails the gate.
 accept_conclusions: [success]
 
-required_checks:
-  # EXACT check-run names, as GitHub renders them. scripts/assert-required-checks.sh
-  # keeps this list in sync with the workflow job names (matrices expanded) — the
-  # exact-commit gate matches names verbatim, so any drift here silently rejects
-  # every release commit with "missing: <name>".
-  #
-  # ci.yml — runs on every push to master.
+# TWO distinct sets, because the pull-request path and the release path no
+# longer produce the same checks (#96 redesign).
+#
+# pr_required_checks — what a PULL REQUEST can actually produce, and therefore
+# what the master branch ruleset may require. Every job here runs on a
+# statically declared GitHub-hosted runner in ci.yml. Requiring anything a PR
+# cannot produce would block every merge for ever.
+#
+# release_required_checks — what must be GREEN on the tagged commit before a
+# stable release is sealed. This is a superset: it adds the dispatched image
+# scans and the trusted validation result, neither of which is a PR check
+# because both run on the restricted self-hosted pool.
+pr_required_checks:
   - repo structure
   - lint (shell / yaml / md / dockerfile)
   - secret scan (gitleaks)
   - semgrep docker security
   - validate compose profiles
-  - build+smoke php-cli 8.3
-  - build+smoke php-cli 8.4
-  - build+smoke php-fpm 8.3
-  - build+smoke php-fpm 8.4
-  - build+smoke php-worker 8.3
-  - build+smoke php-worker 8.4
-  - build+smoke php-frankenphp 8.3
-  - build+smoke php-frankenphp 8.4
-  - build+smoke nginx
-  - build+smoke caddy
-  # WF-04: structured build/smoke evidence aggregation — gates on the full
-  # build-test matrix result, so it can never green a red matrix.
-  - aggregate build+smoke results
-  # scan-images.yml — the vulnerability gate. It does NOT run on push to master
-  # (dispatch / schedule / image-touching PRs only), so the release operator must
-  # dispatch it on the release revision; a workflow_dispatch attaches its
-  # check-runs to that commit, which is what this gate then reads.
+
+release_required_checks:
+  - repo structure
+  - lint (shell / yaml / md / dockerfile)
+  - secret scan (gitleaks)
+  - semgrep docker security
+  - validate compose profiles
   - scan php-cli 8.3
   - scan php-cli 8.4
   - scan php-fpm 8.3
@@ -58,3 +54,33 @@ required_checks:
   - scan php-frankenphp 8.4
   - scan nginx prod
   - scan caddy prod
+  # Matrix-wide aggregate: an exception that matched no finding anywhere is a
+  # documentation defect in the accepted-risk ledger, and a release must not
+  # quote a ledger with dead records. Produced by trusted-validation.yml in
+  # release mode (and by scan-images.yml on dispatch).
+  - no stale vulnerability exceptions
+  - trusted validation result
+
+# Backwards-compatible mirror: existing consumers read `required_checks` as the
+# release set. This is a literal copy, NOT a YAML anchor: `yq` and most YAML
+# tooling cannot write through an alias, so an anchor turned any targeted edit
+# of this key into a silent no-op. assert-required-checks.sh asserts the two
+# lists are identical, so they cannot drift.
+required_checks:
+  - repo structure
+  - lint (shell / yaml / md / dockerfile)
+  - secret scan (gitleaks)
+  - semgrep docker security
+  - validate compose profiles
+  - scan php-cli 8.3
+  - scan php-cli 8.4
+  - scan php-fpm 8.3
+  - scan php-fpm 8.4
+  - scan php-worker 8.3
+  - scan php-worker 8.4
+  - scan php-frankenphp 8.3
+  - scan php-frankenphp 8.4
+  - scan nginx prod
+  - scan caddy prod
+  - no stale vulnerability exceptions
+  - trusted validation result

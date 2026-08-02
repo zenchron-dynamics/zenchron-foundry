@@ -43,7 +43,11 @@ Binding + formalization layer on top of the existing platform:
 - **Runner + Docker + trust hardening** — one strict workspace-reset helper
   wired into every workflow (11 files under `.github/workflows/` as of
   v2026.07.21); job-scoped Docker cleanup (no global prune);
-  fork-PR guards; publish/OIDC scoped to non-PR jobs.
+  publish/OIDC scoped to non-PR jobs; and a **CI trust boundary enforced in
+  code** — fork PRs run on ephemeral GitHub-hosted runners, the persistent
+  privileged pool is reserved for trusted events, `pull_request_target` is banned
+  repo-wide, gated by `scripts/assert-runner-trust.sh` and regression-tested by
+  `tests/runner/test_workflow_trust.sh` (issue #96).
 - **Vulnerability enforcement** — validator now requires approver /
   compensating_controls / created_at format / explicit release_blocking /
   expiry-today; Caddy enforcing; scheduled-rebuild isolated (immutable candidate

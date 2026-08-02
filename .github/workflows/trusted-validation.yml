@@ -1,0 +1,593 @@
+name: trusted-validation
+
+# ---------------------------------------------------------------------------
+# TRUSTED heavy validation on the restricted self-hosted pool.
+#
+# Why this workflow exists: a `pull_request` workflow runs the workflow file
+# from the merge ref, which includes the pull request's own edits to
+# `.github/workflows/`. A fork can therefore rewrite `runs-on`, delete any
+# assertion script, and GitHub picks the runner before repository code runs.
+# Repository code cannot govern runner assignment, so heavy validation was
+# moved OUT of the pull-request path (see ci.yml, which is statically
+# GitHub-hosted end to end).
+#
+# The properties that make THIS workflow trusted:
+#
+#   1. It is dispatch-only. Its definition therefore always comes from the
+#      DEFAULT BRANCH — never from a pull request's copy.
+#   2. It takes an explicit full 40-hex commit SHA, supplied by a maintainer
+#      who has read the diff.
+#   3. It PROVES what that SHA is before checking anything out (see modes).
+#   4. Only then does it check out that exact SHA — never a ref, never
+#      `refs/pull/N/merge`, which can move under it.
+#   5. The self-hosted runner group is restricted at GitHub's control plane to
+#      this repository AND to this workflow path on refs/heads/master, so a
+#      fork cannot invoke it even by name.
+#   6. Evidence is bound to the commit that was actually validated.
+#
+# ---------------------------------------------------------------------------
+# TWO MODES, because a check run attaches to the commit of the DISPATCHED REF —
+# not to an arbitrary `inputs.sha`. One mode cannot serve both purposes.
+#
+#   mode: pr       Pre-merge review aid. Validates a pull request's CURRENT
+#                  head. Produces an evidence artifact for the maintainer. It
+#                  does NOT produce the release-required check, because the
+#                  check run lands on the dispatched ref's commit, not on the
+#                  PR head.
+#
+#   mode: release  Validates the release commit and PUBLISHES the
+#                  release-required results as COMMIT STATUSES on that commit.
+#                  A merged (closed) pull request is fine here — by definition a
+#                  release commit belongs to one.
+#
+# ALWAYS DISPATCH FROM master. The org runner group allows this workflow only as
+#   .github/workflows/trusted-validation.yml@refs/heads/master
+# so a run dispatched from a tag has a different workflow identity and the
+# self-hosted matrix can never be scheduled. Requiring `inputs.sha ==
+# github.sha` would therefore have forced a tag dispatch that cannot run at all.
+# Instead the workflow runs from master and takes the commit to validate as an
+# input.
+#
+# That raises the problem the check-run model cannot solve: a check run attaches
+# to the commit of the DISPATCHED ref, never to `inputs.sha`. So this workflow's
+# own jobs are named so that they can NEVER be mistaken for a release-required
+# check — a pr-mode run dispatched on master would otherwise paint
+# `trusted validation result` green on a master commit while validating some
+# other SHA entirely.
+#
+# The release-required results are instead published as COMMIT STATUSES against
+# the validated SHA, by the `publish-status` job, in release mode only.
+# scripts/check-exact-commit-ci.sh already merges check-runs and commit statuses
+# for a SHA, so nothing downstream changes.
+#
+# `trusted validation result` and `no stale vulnerability exceptions` are in
+# release_required_checks; neither is a job name in this file.
+#
+# In pr mode the head is checked TWICE: once before any build, and again in the
+# seal job. A maintainer could otherwise validate a commit, have a new push land
+# while the ten builds ran, and seal evidence for a head nobody reviewed.
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "pr = validate a PR's current head (review aid only) | release = validate the 'sha' input and publish the release-required COMMIT STATUSES on it. Always dispatch from master."
+        required: true
+        type: choice
+        options: [pr, release]
+        default: pr
+      pr:
+        description: "Pull request number (required in pr mode; in release mode optional, and the sha must provably belong to it)"
+        required: false
+        type: string
+      sha:
+        description: "Full 40-hex commit SHA to validate — read the diff first. In release mode this is the commit the statuses are published on; it need NOT equal the dispatched ref."
+        required: true
+        type: string
+      confirmation:
+        description: "Typed confirmation: VALIDATE-<mode>-<sha>"
+        required: true
+        type: string
+
+# Workflow-level default is READ-ONLY. `statuses: write` is granted to the
+# publish-status job alone — a workflow-level grant would hand a status-writing
+# token to every job, including the one that checks out and BUILDS the commit
+# under validation. That job runs the target commit's Dockerfiles and scripts on
+# a self-hosted runner; it must never hold a credential that can mark a commit
+# green.
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  # Keyed on the SHA, not the PR: in release mode there may be no PR, and two
+  # dispatches for the same commit must not run the matrix twice on one host.
+  group: trusted-validation-${{ inputs.sha }}
+  cancel-in-progress: false
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Gate first, on a GITHUB-HOSTED runner, before any self-hosted job starts and
+  # before any pull-request content is fetched. Nothing here touches the SHA's
+  # contents — it only asks GitHub what that SHA is.
+  # -------------------------------------------------------------------------
+  authorize:
+    name: authorize trusted validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      sha: ${{ steps.check.outputs.sha }}
+      head_repo: ${{ steps.check.outputs.head_repo }}
+      mode: ${{ steps.check.outputs.mode }}
+    steps:
+      - name: Validate inputs and bind the SHA
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode }}
+          PR: ${{ inputs.pr }}
+          SHA: ${{ inputs.sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          REPO: ${{ github.repository }}
+          DISPATCH_SHA: ${{ github.sha }}
+          DISPATCH_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+
+          case "$MODE" in
+            pr|release) : ;;
+            *) echo "REFUSE: mode must be 'pr' or 'release', got '$MODE'" >&2; exit 1 ;;
+          esac
+
+          # Shape first: a short SHA or a ref name must never reach checkout.
+          case "$SHA" in
+            *[!0-9a-f]*|'') echo "REFUSE: sha must be lowercase 40-hex, got '$SHA'" >&2; exit 1 ;;
+          esac
+          [ "${#SHA}" -eq 40 ] || { echo "REFUSE: sha must be 40 hex chars, got ${#SHA}" >&2; exit 1; }
+
+          # Typed confirmation binds the operator to the mode AND the commit, so
+          # dispatching with a stale SHA in muscle memory fails loudly.
+          expected="VALIDATE-${MODE}-${SHA}"
+          [ "$CONFIRMATION" = "$expected" ] \
+            || { echo "REFUSE: confirmation must be exactly '${expected}'" >&2; exit 1; }
+
+          head_repo="$REPO"
+
+          if [ "$MODE" = "release" ]; then
+            # This workflow MUST run from master: the org runner group allows it
+            # only as trusted-validation.yml@refs/heads/master, so a dispatch
+            # from a tag has a different workflow identity and the self-hosted
+            # matrix would never be scheduled. The commit to validate is an
+            # input; the results are published as commit statuses against it.
+            case "$DISPATCH_REF" in
+              refs/heads/master) : ;;
+              *) echo "REFUSE: dispatch this workflow from master, not ${DISPATCH_REF}." >&2
+                 echo "        The runner group pins it to @refs/heads/master; from any" >&2
+                 echo "        other ref the self-hosted matrix cannot be scheduled." >&2
+                 echo "        The commit under validation is the 'sha' input." >&2
+                 exit 1 ;;
+            esac
+
+            # The SHA must be a real commit of this repository, not merely
+            # well-shaped: a 40-hex string that does not exist would otherwise
+            # reach checkout, and a status would later be published against it.
+            gh api "repos/${REPO}/commits/${SHA}" --jq '.sha' >/dev/null 2>&1 \
+              || { echo "REFUSE: ${SHA} is not a commit of ${REPO}" >&2; exit 1; }
+            echo "AUTHORIZED (release): ${SHA} is a commit of ${REPO}"
+            echo "NOTE: results will be published as COMMIT STATUSES on ${SHA};"
+            echo "      this run's own check runs attach to ${DISPATCH_REF}."
+
+            if [ -n "$PR" ]; then
+              case "$PR" in *[!0-9]*) echo "REFUSE: pr must be a number, got '$PR'" >&2; exit 1 ;; esac
+              # Provenance must be PROVEN, not merely quoted. Reading a PR's
+              # state and printing it established no relationship between that
+              # pull request and the commit being released, so the evidence
+              # could name a PR that had nothing to do with it.
+              pr_json="$(gh api "repos/${REPO}/pulls/${PR}")" \
+                || { echo "REFUSE: cannot read PR #${PR}" >&2; exit 1; }
+              merged="$(jq -r '.merged // false' <<<"$pr_json")"
+              merge_sha="$(jq -r '.merge_commit_sha // ""' <<<"$pr_json")"
+              [ "$merged" = "true" ] \
+                || { echo "REFUSE: PR #${PR} is not merged; it cannot be the provenance of a release commit" >&2; exit 1; }
+              related=0
+              [ -n "$merge_sha" ] && [ "$merge_sha" = "$SHA" ] && related=1
+              if [ "$related" -eq 0 ]; then
+                # Squash/rebase merges produce a commit that is not the merge
+                # commit, so also accept the SHA appearing in the PR's commits.
+                if gh api --paginate "repos/${REPO}/pulls/${PR}/commits" --jq '.[].sha' \
+                     | grep -qx "$SHA"; then related=1; fi
+              fi
+              [ "$related" -eq 1 ] || {
+                echo "REFUSE: ${SHA} is not the merge commit of PR #${PR} (${merge_sha:-none})" >&2
+                echo "        and is not one of its commits. Do not record a pull" >&2
+                echo "        request in the evidence unless it is provably related." >&2
+                exit 1
+              }
+              echo "PROVENANCE: ${SHA} belongs to merged PR #${PR}"
+            fi
+          else
+            case "$PR" in
+              ''|*[!0-9]*) echo "REFUSE: pr mode requires a numeric pr, got '$PR'" >&2; exit 1 ;;
+            esac
+
+            # The PR must still be open: validating a closed PR's head produces
+            # evidence for something nobody is going to merge.
+            state="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.state')" \
+              || { echo "REFUSE: cannot read PR #${PR}" >&2; exit 1; }
+            [ "$state" = "open" ] || { echo "REFUSE: PR #${PR} is '${state}', not open" >&2; exit 1; }
+
+            # EXACT CURRENT HEAD — not merely "some commit in this PR".
+            # /pulls/N/commits lists history, so accepting any of them let a
+            # maintainer validate an early commit and then merge a later,
+            # unvalidated head. Equality with .head.sha closes that.
+            head_sha="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha')"
+            [ "$SHA" = "$head_sha" ] || {
+              echo "REFUSE: ${SHA} is not the CURRENT head of PR #${PR}." >&2
+              echo "        current head: ${head_sha}" >&2
+              echo "        Validate the head you intend to merge — an older" >&2
+              echo "        commit of the same pull request is not equivalent." >&2
+              exit 1
+            }
+            head_repo="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.repo.full_name')"
+            echo "AUTHORIZED (pr): ${SHA} is the current head of PR #${PR} (head repo: ${head_repo})"
+            echo "NOTE: a fork head repo is expected and fine — the maintainer has read this diff."
+          fi
+
+          {
+            echo "sha=${SHA}"
+            echo "head_repo=${head_repo}"
+            echo "mode=${MODE}"
+          } >> "$GITHUB_OUTPUT"
+
+  # -------------------------------------------------------------------------
+  # Heavy validation on the RESTRICTED self-hosted group. Reachable only from
+  # this workflow path on refs/heads/master; the runner group enforces that at
+  # GitHub's control plane, not here.
+  # -------------------------------------------------------------------------
+  validate:
+    name: trusted dispatch build+scan ${{ matrix.target.fam }} ${{ matrix.target.ver }}
+    needs: authorize
+    runs-on: [self-hosted, linux, x64, zenchron]
+    # READ-ONLY, stated explicitly rather than inherited. This job checks out and
+    # EXECUTES the commit under validation — its Dockerfiles, its smoke scripts —
+    # on a privileged runner. It must not be able to write a commit status,
+    # create a check run, or read a pull request.
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      # Serialized: the self-hosted host has a small (~38G) shared disk.
+      max-parallel: 1
+      matrix:
+        # fam/ver/ctx mirror scan-images.yml exactly, so one image carries the
+        # SAME reconciliation label in both paths. `ver: prod` for the edge
+        # images is the canonical MATRIX_IMAGES spelling; ctx is explicit
+        # because the build context path does not contain "prod".
+        target:
+          - { fam: php-cli,        ver: "8.3",  ctx: "images/php-cli/8.3" }
+          - { fam: php-cli,        ver: "8.4",  ctx: "images/php-cli/8.4" }
+          - { fam: php-fpm,        ver: "8.3",  ctx: "images/php-fpm/8.3" }
+          - { fam: php-fpm,        ver: "8.4",  ctx: "images/php-fpm/8.4" }
+          - { fam: php-worker,     ver: "8.3",  ctx: "images/php-worker/8.3" }
+          - { fam: php-worker,     ver: "8.4",  ctx: "images/php-worker/8.4" }
+          - { fam: php-frankenphp, ver: "8.3",  ctx: "images/php-frankenphp/8.3" }
+          - { fam: php-frankenphp, ver: "8.4",  ctx: "images/php-frankenphp/8.4" }
+          - { fam: nginx,          ver: "prod", ctx: "images/nginx" }
+          - { fam: caddy,          ver: "prod", ctx: "images/caddy" }
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+
+      # Check out the EXACT authorized SHA — never a ref, which can move between
+      # authorization and checkout.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.authorize.outputs.sha }}
+          persist-credentials: false
+
+      - name: Confirm the checkout is the authorized commit
+        env:
+          WANT: ${{ needs.authorize.outputs.sha }}
+        run: |
+          set -euo pipefail
+          got="$(git rev-parse HEAD)"
+          [ "$got" = "$WANT" ] || { echo "REFUSE: checked out ${got}, authorized ${WANT}" >&2; exit 1; }
+          echo "OK: validating ${got}"
+
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Build (no push, amd64, loaded for smoke and scan)
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: ${{ matrix.target.ctx }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: zenchron-trusted/${{ matrix.target.fam }}:${{ matrix.target.ver }}
+
+      - name: Smoke test the built image (runtime contract)
+        id: smoke
+        env:
+          CAPABILITY_INVENTORY_DIR: capability-inventory
+          IMG: zenchron-trusted/${{ matrix.target.fam }}:${{ matrix.target.ver }}
+        run: |
+          set -euo pipefail
+          docker image inspect "$IMG" >/dev/null
+          rm -rf capability-inventory
+          bash "scripts/smoke/smoke-${{ matrix.target.fam }}.sh" "$IMG"
+
+      # Trivy suppresses NOTHING: it reports the full CRITICAL/HIGH set as JSON
+      # (exit 0, so the scan itself is not the gate), and
+      # reconcile-vulnerabilities.sh decides per image whether each finding has
+      # an in-scope, unexpired ledger entry. Ungoverned finding = failure,
+      # fixable or not.
+      - name: Trivy scan (full CRITICAL/HIGH set, nothing suppressed)
+        id: trivy_full
+        env:
+          IMG: zenchron-trusted/${{ matrix.target.fam }}:${{ matrix.target.ver }}
+          OUT: trivy-full-${{ matrix.target.fam }}-${{ matrix.target.ver }}.json
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/trivy-cache
+          # Retry transient DB/network errors only. With --exit-code 0 any
+          # non-zero rc is an infrastructure failure, never a finding, so this
+          # cannot mask a gate hit.
+          n=0
+          while :; do
+            set +e
+            docker run --rm -e TRIVY_NO_PROGRESS=true \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v /tmp/trivy-cache:/root/.cache/trivy -v "$PWD:/work" -w /work \
+              aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 image "$IMG" \
+              --scanners vuln --severity CRITICAL,HIGH --exit-code 0 \
+              --format json --output "$OUT"
+            rc=$?
+            set -e
+            [ "$rc" -eq 0 ] && break
+            n=$((n+1)); [ "$n" -ge 3 ] && { echo "trivy scan infra error (rc=$rc) after retries"; exit "$rc"; }
+            echo "trivy scan infra error (rc=$rc); retry $n in 15s"; sleep 15
+          done
+          # Fail closed: no JSON means no evidence, not a clean image.
+          test -s "$OUT"
+
+      - name: Vulnerability gate (reconcile every finding against the ledger)
+        id: trivy_gate
+        env:
+          SCAN: trivy-full-${{ matrix.target.fam }}-${{ matrix.target.ver }}.json
+        run: |
+          set -euo pipefail
+          mkdir -p vuln-reconciliation
+          # --arch is load-bearing: an exception authorises only the
+          # architectures it was reconciled on, so scanning an architecture with
+          # no evidence leaves every finding ungoverned and fails the build.
+          bash scripts/reconcile-vulnerabilities.sh \
+            "$SCAN" "${{ matrix.target.fam }}" "${{ matrix.target.ver }}" \
+            --arch "linux/${{ runner.arch == 'ARM64' && 'arm64' || 'amd64' }}" \
+            --json "vuln-reconciliation/${{ matrix.target.fam }}-${{ matrix.target.ver }}.json"
+
+      # Evidence is bound to the commit that was actually validated, so it cannot
+      # be quoted for a different one.
+      - name: Record commit-bound result
+        if: always()
+        env:
+          FAM: ${{ matrix.target.fam }}
+          VER: ${{ matrix.target.ver }}
+          SHA: ${{ needs.authorize.outputs.sha }}
+          MODE: ${{ needs.authorize.outputs.mode }}
+          PR: ${{ inputs.pr }}
+          HEAD_REPO: ${{ needs.authorize.outputs.head_repo }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          SCAN_OUTCOME: ${{ steps.trivy_full.outcome }}
+          GATE_OUTCOME: ${{ steps.trivy_gate.outcome }}
+        run: |
+          set -euo pipefail
+          name="${FAM}-${VER}"
+          mkdir -p trusted-results
+          jq -n --arg name "$name" --arg sha "$SHA" --arg mode "$MODE" \
+                --arg pr "$PR" --arg head_repo "$HEAD_REPO" \
+                --arg build "$BUILD_OUTCOME" --arg smoke "$SMOKE_OUTCOME" \
+                --arg scan "$SCAN_OUTCOME" --arg gate "$GATE_OUTCOME" \
+            '{name: $name, validated_sha: $sha, mode: $mode, pull_request: $pr,
+              head_repo: $head_repo, build: $build, smoke: $smoke,
+              trivy_scan: $scan, reconciliation: $gate}' \
+            > "trusted-results/${name}.json"
+          cat "trusted-results/${name}.json"
+
+      - name: Upload commit-bound evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trusted-validation-${{ needs.authorize.outputs.sha }}-${{ matrix.target.fam }}-${{ matrix.target.ver }}
+          path: |
+            trusted-results/
+            capability-inventory/
+          if-no-files-found: error
+
+      # Separate artifact using scan-images.yml's name pattern, because the
+      # matrix-wide stale-exception aggregate downloads by that pattern.
+      - name: Upload vulnerability reconciliation
+        if: always() && hashFiles('vuln-reconciliation/*.json') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: vuln-reconciliation-${{ matrix.target.fam }}-${{ matrix.target.ver }}
+          path: vuln-reconciliation/
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
+  # Matrix-wide aggregate. Per-image reconciliation cannot tell an unused
+  # exception from one that belongs to a different image, so the stale check
+  # runs once, after every leg, over all ten reconciliation files. It fails
+  # closed on a short matrix, so it must only run when the matrix was complete.
+  # GitHub-hosted: it reads JSON and needs no privileged access.
+  # -------------------------------------------------------------------------
+  stale-exceptions:
+    # NOT "no stale vulnerability exceptions": that is a release-required check
+    # name, and this job's check run attaches to the dispatched ref (master).
+    name: trusted dispatch stale-exception check
+    needs: [authorize, validate]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: ${{ needs.validate.result == 'success' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.authorize.outputs.sha }}
+          persist-credentials: false
+      - name: Download every image's reconciliation
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v4
+        with:
+          path: vuln-reconciliation
+          pattern: vuln-reconciliation-*
+          merge-multiple: true
+      - name: Fail on exceptions that matched no shipping image
+        run: bash scripts/ci/assert-no-stale-exceptions.sh vuln-reconciliation
+
+  seal:
+    # NOT "trusted validation result" — see above. The release-required status is
+    # published by publish-status, against the SHA that was actually validated.
+    name: trusted dispatch validation result
+    needs: [authorize, validate, stale-exceptions]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    if: always()
+    steps:
+      - name: The whole matrix and the aggregate must be green
+        env:
+          MATRIX: ${{ needs.validate.result }}
+          AGG: ${{ needs.stale-exceptions.result }}
+          SHA: ${{ needs.authorize.outputs.sha }}
+        run: |
+          set -euo pipefail
+          [ "$MATRIX" = "success" ] \
+            || { echo "REFUSE: trusted validation of ${SHA} is '${MATRIX}', not success"; exit 1; }
+          # A skipped aggregate is NOT a pass: it means the matrix never
+          # completed, so no stale-exception judgement was ever made.
+          [ "$AGG" = "success" ] \
+            || { echo "REFUSE: stale-exception aggregate is '${AGG}', not success"; exit 1; }
+          echo "OK: ${SHA} built, smoke-tested, scanned and reconciled (10/10)"
+
+      # pr mode only: re-read the head AFTER the matrix. A push that landed while
+      # the ten builds ran would otherwise be sealed as validated.
+      - name: Re-confirm the PR head has not moved
+        if: ${{ needs.authorize.outputs.mode == 'pr' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ inputs.pr }}
+          SHA: ${{ needs.authorize.outputs.sha }}
+        run: |
+          set -euo pipefail
+          head_sha="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha')"
+          [ "$head_sha" = "$SHA" ] || {
+            echo "REFUSE: PR #${PR} advanced to ${head_sha} while validation ran." >&2
+            echo "        ${SHA} was validated; that is no longer the head." >&2
+            echo "        Re-dispatch against the new head." >&2
+            exit 1
+          }
+          state="$(gh api "repos/${REPO}/pulls/${PR}" --jq '.state')"
+          [ "$state" = "open" ] || { echo "REFUSE: PR #${PR} became '${state}' mid-run" >&2; exit 1; }
+          echo "OK: PR #${PR} head is still ${SHA}"
+
+      - name: Restate what this result does and does not certify
+        env:
+          MODE: ${{ needs.authorize.outputs.mode }}
+          SHA: ${{ needs.authorize.outputs.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = "release" ]; then
+            echo "THIS check run attaches to the DISPATCHED ref's commit (master),"
+            echo "not to ${SHA}. The release-required results for ${SHA} are"
+            echo "published separately as COMMIT STATUSES by the publish-status"
+            echo "job: 'trusted validation result' and"
+            echo "'no stale vulnerability exceptions'."
+          else
+            echo "pr mode: this is a review aid bound to ${SHA}. It does NOT"
+            echo "satisfy release_required_checks — that check must be produced"
+            echo "in release mode, on the commit being released."
+          fi
+
+  # -------------------------------------------------------------------------
+  # RELEASE MODE ONLY. Publishes the release-required results as COMMIT STATUSES
+  # against the SHA that was actually validated.
+  #
+  # This exists because a check run attaches to the commit of the dispatched ref
+  # — here always master — and never to `inputs.sha`. Naming a job after a
+  # release-required check would therefore paint that check green on a master
+  # commit while some other SHA was validated. A commit status is the one
+  # mechanism that can be bound to an arbitrary commit, and
+  # scripts/check-exact-commit-ci.sh already merges statuses with check runs.
+  #
+  # Runs even when validation failed, so the status reflects reality rather than
+  # being silently absent; `if: always()` plus an explicit state.
+  # -------------------------------------------------------------------------
+  publish-status:
+    name: publish release statuses
+    needs: [authorize, validate, stale-exceptions, seal]
+    if: ${{ always() && needs.authorize.result == 'success' && needs.authorize.outputs.mode == 'release' }}
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Publish the release-required statuses on the validated commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ needs.authorize.outputs.sha }}
+          MATRIX: ${{ needs.validate.result }}
+          AGG: ${{ needs.stale-exceptions.result }}
+          SEAL: ${{ needs.seal.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Only an unambiguous success is success. A skipped or cancelled job
+          # means no judgement was made, which is a failure to certify — never a
+          # pass.
+          if [ "$MATRIX" = "success" ] && [ "$AGG" = "success" ] && [ "$SEAL" = "success" ]; then
+            state=success
+            vdesc="10/10 images built, smoke-tested, scanned and reconciled"
+            adesc="every active exception matched a real finding"
+          else
+            state=failure
+            vdesc="matrix=${MATRIX} aggregate=${AGG} seal=${SEAL}"
+            adesc="not established (matrix=${MATRIX} aggregate=${AGG})"
+          fi
+
+          post() { # post <context> <description>
+            gh api -X POST "repos/${REPO}/statuses/${SHA}" \
+              -f state="$state" -f context="$1" -f description="$2" \
+              -f target_url="$RUN_URL" >/dev/null \
+              || { echo "REFUSE: could not publish status '$1' on ${SHA}" >&2; return 1; }
+            echo "published ${state}: '$1' on ${SHA}"
+          }
+          post "trusted validation result"        "$vdesc"
+          post "no stale vulnerability exceptions" "$adesc"
+
+          [ "$state" = "success" ] || {
+            echo "trusted validation of ${SHA} FAILED; statuses published as failure" >&2
+            exit 1
+          }

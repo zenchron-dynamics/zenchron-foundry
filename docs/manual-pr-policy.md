@@ -32,6 +32,15 @@ feature branch  ->  PR  ->  wait for CI  ->  manual review  ->  squash/merge  ->
   is not blocked by GitHub. Reviewers must self-discipline to actually review.
 - **CI must be green before merge.** Red CI = do not merge
   (see [ci-failure-policy.md](ci-failure-policy.md)).
+- **Fork PRs are never merged on their own CI.** A fork PR runs only the
+  untrusted-safe checks, on ephemeral GitHub-hosted runners; `build+smoke *` and
+  `aggregate build+smoke results` deliberately **skip**, because they would build
+  fork-authored Dockerfiles on the privileged self-hosted pool (see
+  [repository-security.md § CI trust boundary](repository-security.md#ci-trust-boundary)).
+  Before merging a fork PR a maintainer must **review the diff first**, then
+  re-run the full matrix from a same-repo branch carrying those commits, and
+  merge only when that branch is green. A skipped required check is **not** a
+  pass.
 - **Release tags only through the release script** (`scripts/prepare-release.sh`),
   which gates the `v*` tag push.
 - **Emergency direct push** (using `ZENCHRON_ALLOW_PROTECTED_PUSH=1`) requires an

@@ -6,7 +6,44 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ## [Unreleased]
 
-Nothing yet.
+### Security — release-result integrity (#96)
+
+- **The exact-commit gate now picks the NEWEST result for each required check.**
+  It previously took `tail -1` — whatever the API happened to list last — so a
+  stale success could outrank a newer failure and seal a release on a result
+  nobody produced last. Normalized records carry `updated_at` and `source`
+  (`check_run` / `commit_status`), and the newest wins. Anything that cannot be
+  ordered safely REJECTS: a record with a missing or non-UTC timestamp, and two
+  or more newest records that disagree.
+- **Release-required results are published as commit statuses**, not check runs.
+  A check run attaches to the commit of the dispatched ref, never to the commit
+  under validation, so a dispatch on `master` could otherwise mark
+  `trusted validation result` green on a master commit while validating an
+  unrelated SHA. No job in `trusted-validation.yml` is named after a
+  release-required check.
+- **`statuses: write` is granted to one job.** The workflow-level default is
+  read-only; only `publish-status` may write. The job that checks out and
+  executes the commit under validation on a privileged runner holds
+  `contents: read` and nothing else.
+
+### Security — CI trust boundary (#96)
+
+- Fork pull requests can no longer schedule work on the persistent, shared,
+  sudo- and Docker-capable `[self-hosted, linux, x64, zenchron]` runners. Every
+  `ci.yml` job now derives `runs-on` from the trigger's trust: trusted events
+  (push/tag/schedule/dispatch, same-repo PRs) keep the self-hosted pool, fork PRs
+  get an ephemeral GitHub-hosted `ubuntu-latest` VM.
+- New fail-closed gate `scripts/assert-runner-trust.sh` (wired into
+  `make validate` and the `repo structure` job) enforces this across **every**
+  workflow: no `pull_request_target` anywhere, no unguarded PR-reachable job on a
+  privileged label, no unprovable workflow delegation from a PR job, and no
+  vacuous pass on empty discovery. Regression test:
+  `tests/runner/test_workflow_trust.sh`.
+- Docs truth-synced: new *CI trust boundary* section in `repository-security.md`
+  (plus a dated correction — the repo is verifiably **public**, reconciliation
+  tracked by #97), trust-boundary preface in `runner-capacity.md`, threat **T5a**
+  in the threat model, and a rewritten **AR-2** (its "runner is root without
+  sudo" text was already contradicted by the 2026-07-09 runner findings).
 
 ## [v2026.07.24] - 2026-07-25
 

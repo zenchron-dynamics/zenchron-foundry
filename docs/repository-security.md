@@ -14,6 +14,14 @@
 > [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md),
 > [manual-pr-policy.md](manual-pr-policy.md), and
 > [ci-failure-policy.md](ci-failure-policy.md).
+>
+> **Correction, verified 2026-07-28** (`gh repo view --json visibility` →
+> `PUBLIC`, `isPrivate: false`): the repository is **public today**, contradicting
+> the "must remain private" statement above. Reconciling the intended visibility
+> with branch/tag/release protection is tracked in **issue #97** and is not
+> settled here. What follows from the verified fact, and is already enforced in
+> code, is that **anyone can open a fork pull request** — see
+> [CI trust boundary](#ci-trust-boundary).
 
 Exact GitHub settings for `zenchron-dynamics/zenchron-foundry`. This file is the
 source of truth; apply via the GitHub UI or `gh`/Terraform **when the plan allows
@@ -111,7 +119,62 @@ Dependabot opens PRs to bump the digests.
 - [ ] Restrict Actions to verified + selected actions; pin third-party actions to
       a commit SHA (Dependabot updates them).
 - [ ] Default `GITHUB_TOKEN` permissions = **read**; workflows opt into more.
-- [ ] Require approval for workflows from fork PRs.
+- [ ] Require approval for workflows from fork PRs. **Not verified applied** —
+      an admin must confirm *Settings → Actions → General → Fork pull request
+      workflows*. The CI trust boundary below does **not** depend on it.
+
+## CI trust boundary
+
+**Status: ENFORCED IN CODE** (unlike the admin/UI items above). Gate:
+[`scripts/assert-runner-trust.sh`](../scripts/assert-runner-trust.sh), wired into
+`make validate` and the `repo structure` CI job; regression test:
+[`tests/runner/test_workflow_trust.sh`](../tests/runner/test_workflow_trust.sh).
+
+The `[self-hosted, linux, x64, zenchron]` runners are **persistent, shared,
+Docker-capable and sudo-capable** hosts that also execute release-adjacent jobs
+(see [runner-capacity.md](runner-capacity.md)). A fork pull request's head commit
+is attacker-controlled code — Dockerfiles, the `scripts/*.sh` CI invokes, compose
+files, linter configs — so executing it there would compromise the runner host,
+its Docker daemon, the workspaces reused by later trusted jobs, and therefore the
+release supply chain.
+
+Every job therefore derives its runner from the trust of the triggering event:
+
+| Trigger | Runner | Rationale |
+|---|---|---|
+| `push` to `master`, tag, `schedule`, `workflow_dispatch` | `[self-hosted, linux, x64, zenchron]` | Code already merged/authorized by a maintainer |
+| `pull_request` from a branch **in this repository** | `[self-hosted, linux, x64, zenchron]` | Push access to this repo is already required |
+| `pull_request` from a **fork** | `ubuntu-latest` (GitHub-hosted, ephemeral, destroyed after the job) | Untrusted code; blast radius is one throwaway VM |
+
+The decision is spelled with one unspoofable predicate,
+`github.event.pull_request.head.repo.full_name == github.repository` — GitHub
+populates `head.repo` from the head ref itself, so a PR branch cannot forge it.
+It appears either inside a job's `runs-on` expression (`ci.yml`) or as a job-level
+`if:` that skips the job entirely for forks (`scan-images.yml`).
+
+Enforced invariants (each fails the build):
+
+- **R1** — no workflow may use `pull_request_target` (base-repo token in the
+  context of PR-authored content).
+- **R2** — every `pull_request`-reachable job on a privileged label carries the
+  predicate in job-level configuration. A *step*-level `if:` or a comment
+  mentioning the predicate does **not** satisfy the gate.
+- **R3** — a `pull_request`-reachable job may not delegate to another workflow
+  (`uses:` at job level): the callee's runner labels are unprovable from the
+  caller, so the gate fails closed pending review.
+- **R4** — empty discovery (no workflow files, no `runs-on`) fails; the gate is
+  never vacuously green.
+
+Consequences for fork contributors:
+
+- Structure, lint, secret-scan, SAST and compose validation **do** run on a fork
+  PR, on GitHub-hosted runners.
+- `build+smoke *` and `aggregate build+smoke results` **skip** on fork PRs (they
+  build fork-authored Dockerfiles). Those checks are required for merge, so a
+  maintainer must re-run them from a same-repo branch before merging a fork PR —
+  see [manual-pr-policy.md](manual-pr-policy.md).
+- `ci.yml` references no secrets and keeps `permissions: contents: read`, so an
+  untrusted job has nothing to exfiltrate even on its own ephemeral VM.
 
 ## Vulnerability reports
 

@@ -13,7 +13,16 @@
 #                          calling `gh api`. Disables polling (single read).
 # JSON shape (both real gh output and fixtures):
 #   { "checks": [ {"name": <str>, "status": <queued|in_progress|completed>,
-#                  "conclusion": <success|failure|skipped|...|null> }, ... ] }
+#                  "conclusion": <success|failure|skipped|...|null>,
+#                  "updated_at": <RFC3339 UTC, e.g. 2026-08-01T09:00:00Z>,
+#                  "source": <check_run|commit_status> }, ... ] }
+#
+# `updated_at` and `source` are REQUIRED. A context can be reported more than
+# once — a check run may be re-run, a commit status may be superseded, and the
+# same context can arrive from BOTH sources. The previous implementation took
+# `tail -1`, i.e. whatever the API happened to list last, so a stale success
+# could outrank a newer failure. The newest result now wins, and anything that
+# cannot be ordered safely REJECTS.
 # =============================================================================
 set -euo pipefail
 _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -67,10 +76,56 @@ fetch_checks() { # <sha> -> {checks:[{name,status,conclusion}]}
     --slurpfile st "$tmp/st.json" '
     { checks:
       ( ($cr | map(.check_runs // []) | add // []
-             | map({name:.name, status:.status, conclusion:.conclusion}))
+             | map({name:.name, status:.status, conclusion:.conclusion,
+                    updated_at:(.completed_at // .started_at),
+                    source:"check_run"}))
       + ($st | map(.statuses    // []) | add // []
              | map({name:.context, status:"completed",
-                    conclusion:(if .state=="success" then "success" else .state end)})) ) }'
+                    conclusion:(if .state=="success" then "success" else .state end),
+                    updated_at:(.updated_at // .created_at),
+                    source:"commit_status"})) ) }'
+}
+
+# select_latest <checks-json> <context> -> {verdict, row?, why?}
+#
+# A context can be reported more than once: a check run can be re-run, a commit
+# status can be superseded, and the same context can arrive from BOTH sources.
+# `tail -1` took whatever the API listed last, so a stale success could outrank
+# a newer failure and a release could be sealed on a result nobody produced last.
+#
+# The NEWEST result wins, decided on the record's own timestamp. Anything that
+# cannot be ordered safely rejects:
+#   * a record with a missing or non-UTC timestamp — it cannot be compared;
+#   * two or more newest records that disagree — there is no basis to prefer one.
+# Both are failures to establish a result, never a pass.
+select_latest() { # <checks-json> <context>
+  jq -c --arg n "$2" '
+    [.checks[] | select(.name == $n)] as $rows
+    | if ($rows | length) == 0 then {verdict:"missing"}
+      else
+        ( $rows
+          | map(select(.updated_at == null
+                       or ((.updated_at | type) != "string")
+                       or ((.updated_at
+                            | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$")) | not)))
+        ) as $bad
+        | if ($bad | length) > 0
+          then {verdict:"unorderable",
+                why:("\($bad | length) result(s) carry no comparable UTC timestamp"
+                     + " (" + ($bad | map(.source // "?") | unique | join(",")) + ")")}
+          else
+            ($rows | map(.updated_at) | max) as $t
+            | [$rows[] | select(.updated_at == $t)] as $newest
+            | ($newest | map({status, conclusion}) | unique) as $distinct
+            | if ($distinct | length) > 1
+              then {verdict:"conflict",
+                    why:("conflicting results at the same instant " + $t + ": "
+                         + ($newest | map("\(.source // "?")=\(.conclusion // .status)")
+                                    | sort | join(" vs ")))}
+              else {verdict:"ok", row:$newest[0]}
+              end
+          end
+      end' <<<"$1"
 }
 
 # Evaluate one snapshot. Echoes PENDING if any required check is still running,
@@ -80,9 +135,15 @@ evaluate() { # <checks-json>
   local pending=0 failed=0
   while IFS= read -r name; do
     [ -n "$name" ] || continue
-    local row status concl
-    row="$(jq -c --arg n "$name" '.checks[] | select(.name==$n)' <<<"$json" | tail -1)"
-    if [ -z "$row" ]; then echo "  missing: $name" >&2; failed=1; continue; fi
+    local sel verdict row status concl
+    sel="$(select_latest "$json" "$name")"
+    verdict="$(jq -r '.verdict' <<<"$sel")"
+    case "$verdict" in
+      missing)     echo "  missing: $name" >&2; failed=1; continue ;;
+      unorderable) echo "  rejected: $name -> $(jq -r '.why' <<<"$sel")" >&2; failed=1; continue ;;
+      conflict)    echo "  rejected: $name -> $(jq -r '.why' <<<"$sel")" >&2; failed=1; continue ;;
+    esac
+    row="$(jq -c '.row' <<<"$sel")"
     status="$(jq -r '.status' <<<"$row")"; concl="$(jq -r '.conclusion // "null"' <<<"$row")"
     if [ "$status" != "completed" ]; then echo "  pending: $name ($status)" >&2; pending=1; continue; fi
     case "$accept" in *" $concl "*) : ;; *) echo "  rejected: $name -> $concl" >&2; failed=1 ;; esac
@@ -122,7 +183,8 @@ _ci_self_test() {
   # Build an all-green fixture from the policy's required list.
   _fixture() { # <mutator-jq>
     local names; names="$(required_checks | jq -R . | jq -s .)"
-    jq -n --argjson names "$names" '{checks: ($names | map({name:., status:"completed", conclusion:"success"}))}' \
+    jq -n --argjson names "$names" '{checks: ($names | map({name:., status:"completed",
+        conclusion:"success", updated_at:"2026-08-01T10:00:00Z", source:"check_run"}))}' \
       | jq "${1:-.}"
   }
   # subshell: check_commit calls die()->exit on FAIL; contain it so one failing
@@ -130,6 +192,53 @@ _ci_self_test() {
   _run() { ( CHECKS_FIXTURE="$1" check_commit "$SHA" ) >/dev/null 2>&1; }
   _ok() { _fixture "$2" > "$tmp/f.json"; if _run "$tmp/f.json"; then echo "ok   - $1"; else echo "FAIL - $1 (want pass)"; fail=1; fi; }
   _no() { _fixture "$2" > "$tmp/f.json"; if _run "$tmp/f.json"; then echo "FAIL - $1 (want reject)"; fail=1; else echo "ok   - $1"; fi; }
+
+  # --- newest-result selection (release integrity) ---------------------------
+  # A context can be reported more than once. `tail -1` took whatever the API
+  # listed last, so a STALE SUCCESS could outrank a NEWER FAILURE and seal a
+  # release on a result nobody produced last.
+  _dup() { # _dup <name> <c1> <t1> <src1> <c2> <t2> <src2>
+           # All-green required list, with <name> carrying TWO records.
+           # The SECOND pair is PREPENDED, so array order and time order
+           # deliberately disagree: `tail -1` would pick the record listed last
+           # (the first pair), not the newest one. A test whose fixture happens
+           # to list the newest record last cannot tell the two apart.
+    _fixture "$(printf '.checks |= [{name:\"%s\", status:\"completed\", conclusion:\"%s\", updated_at:\"%s\", source:\"%s\"}] + map(if .name == \"%s\" then (.conclusion=\"%s\" | .updated_at=\"%s\" | .source=\"%s\") else . end)' \
+      "$1" "$5" "$6" "$7" "$1" "$2" "$3" "$4")"
+  }
+  local FIRST; FIRST="$(required_checks | head -1)"
+
+  _dup "$FIRST" success 2026-08-01T09:00:00Z check_run failure 2026-08-01T10:00:00Z check_run > "$tmp/f.json"
+  if _run "$tmp/f.json"; then echo "FAIL - old success + NEW FAILURE rejects"; fail=1
+  else echo "ok   - old success + NEW FAILURE rejects"; fi
+
+  _dup "$FIRST" failure 2026-08-01T09:00:00Z check_run success 2026-08-01T10:00:00Z check_run > "$tmp/f.json"
+  if _run "$tmp/f.json"; then echo "ok   - old failure + NEW SUCCESS accepts"
+  else echo "FAIL - old failure + NEW SUCCESS accepts"; fail=1; fi
+
+  # The same context arriving from BOTH sources is normal here: release results
+  # are published as commit statuses while jobs also produce check runs.
+  _dup "$FIRST" failure 2026-08-01T09:00:00Z check_run success 2026-08-01T10:00:00Z commit_status > "$tmp/f.json"
+  if _run "$tmp/f.json"; then echo "ok   - duplicate context across check-run and commit-status: newest wins"
+  else echo "FAIL - duplicate context across check-run and commit-status: newest wins"; fail=1; fi
+
+  _dup "$FIRST" success 2026-08-01T09:00:00Z check_run failure 2026-08-01T09:00:00Z commit_status > "$tmp/f.json"
+  if _run "$tmp/f.json"; then echo "FAIL - equal timestamps with conflicting conclusions reject"; fail=1
+  else echo "ok   - equal timestamps with conflicting conclusions reject"; fi
+
+  _dup "$FIRST" success 2026-08-01T09:00:00Z check_run success 2026-08-01T09:00:00Z commit_status > "$tmp/f.json"
+  if _run "$tmp/f.json"; then echo "ok   - equal timestamps AGREEING is not a conflict"
+  else echo "FAIL - equal timestamps AGREEING is not a conflict"; fail=1; fi
+
+  # Unorderable records are a failure to establish a result, never a pass.
+  _no "a result with no timestamp rejects" \
+      '.checks[0] |= del(.updated_at)'
+  _no "a non-UTC offset timestamp rejects" \
+      '.checks[0].updated_at = "2026-08-01T10:00:00+02:00"'
+  _no "a non-string timestamp rejects" \
+      '.checks[0].updated_at = 1754042400'
+  _ok "a fractional-second UTC timestamp is accepted" \
+      '.checks[0].updated_at = "2026-08-01T10:00:00.123Z"'
 
   # --- independent-policy positive (SC-05) -----------------------------------
   # Every other case builds its fixture FROM the live policy, which cannot
@@ -145,9 +254,9 @@ required_checks:
   - fixture check gamma
 POL
   jq -n '{checks: [
-    {name:"fixture check alpha", status:"completed", conclusion:"success"},
-    {name:"fixture check beta",  status:"completed", conclusion:"success"},
-    {name:"fixture check gamma", status:"completed", conclusion:"success"}]}' > "$tmp/pol-fx.json"
+    {name:"fixture check alpha", status:"completed", conclusion:"success", updated_at:"2026-08-01T10:00:00Z", source:"check_run"},
+    {name:"fixture check beta",  status:"completed", conclusion:"success", updated_at:"2026-08-01T10:00:00Z", source:"check_run"},
+    {name:"fixture check gamma", status:"completed", conclusion:"success", updated_at:"2026-08-01T10:00:00Z", source:"commit_status"}]}' > "$tmp/pol-fx.json"
   if ( POLICY="$tmp/pol.yaml" CHECKS_FIXTURE="$tmp/pol-fx.json" check_commit "$SHA" ) >/dev/null 2>&1; then
     echo "ok   - hardcoded fixture policy passes (gate reads POLICY names)"
   else
