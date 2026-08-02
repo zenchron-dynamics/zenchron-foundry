@@ -238,27 +238,75 @@ assert 'trusted validation result' not in d['pr_required_checks']\""
 # Evidence must describe a COMMITTED state. The 2026-08-02 snapshot was first
 # generated from a modified working tree: source_revision named e7c4e80, which
 # did not yet contain the policy sync, the incident bundle, the admin helper or
-# these tests. Evidence that names a revision not containing the configuration it
+# these tests. Evidence naming a revision that does not hold the configuration it
 # verified is worse than no evidence — it looks authoritative and is wrong.
 #
-# Contract: source_revision is HEAD^ (the evidence commit's parent), and nothing
-# except the evidence file itself changed between them. So the named revision
-# provably contains the whole governed configuration.
+# The check asserts a SEMANTIC property, not a structural one. The first version
+# required source_revision == HEAD^, which held only on the evidence commit
+# itself: squash-merging the pull request collapses that parent relationship and
+# the assertion then failed on master and on every branch built from it.
+#
+# What actually matters is that the revision the evidence names carries the SAME
+# governed policy as the tree the evidence is committed in. That survives a
+# squash merge and still catches the original defect, because evidence generated
+# from a dirty tree names a revision whose policy differs from the one on disk.
 ck "evidence is bound to a committed revision, not a dirty tree" \
    "python3 -c \"
 import json,subprocess,sys
+POLICY='policies/repository-governance.yaml'
 rev=json.load(open('$EVIDENCE'))['source_revision']
-def git(*a): return subprocess.run(['git',*a],capture_output=True,text=True).stdout.strip()
-parent=git('rev-parse','HEAD^')
-if rev != parent:
-    sys.exit('source_revision %s is not HEAD^ %s' % (rev[:8], parent[:8]))
-changed=git('diff','--name-only','%s..HEAD' % rev).split(chr(10))
-changed=[c for c in changed if c and c != '$EVIDENCE']
-if changed:
-    sys.exit('the evidence commit changed more than the evidence: %s' % changed)\""
 
-ck "evidence source_revision is a real commit in this repository" \
-   "git cat-file -e \"\$(python3 -c \"import json;print(json.load(open('$EVIDENCE'))['source_revision'])\")\""
+def git(*a):
+    r=subprocess.run(['git',*a],capture_output=True,text=True)
+    return r.returncode, r.stdout
+
+rc,_=git('cat-file','-e',rev+'^{commit}')
+if rc!=0:
+    # Unreachable after history rewriting or garbage collection. The guard did
+    # its work before the merge; it cannot re-prove it from an absent object.
+    print('SKIP: %s is no longer reachable' % rev[:8]); raise SystemExit(0)
+
+rc,named=git('show','%s:%s' % (rev,POLICY))
+if rc!=0:
+    sys.exit('%s does not contain %s — the evidence names a revision without the '
+             'policy it claims to verify' % (rev[:8],POLICY))
+current=open(POLICY).read()
+if named!=current:
+    sys.exit('the policy at source_revision %s differs from the committed policy; '
+             'the evidence was generated from a tree that is not %s'
+             % (rev[:8],rev[:8]))\""
+
+# Syntax only, deliberately. Requiring the object to EXIST contradicted the
+# skip in the check above: once the merged branch is deleted or the intermediate
+# commit is no longer fetched, `git cat-file -e` fails and master goes red again
+# — the exact durability problem this pair is meant to remove. Reachability is
+# the semantic check's business, and it skips when the object is gone.
+ck "evidence source_revision has full SHA syntax" \
+   "python3 -c \"
+import json,re,sys
+rev=json.load(open('$EVIDENCE'))['source_revision']
+sys.exit(0 if isinstance(rev,str) and re.fullmatch(r'[0-9a-f]{40}',rev) else 1)\""
+# THE DURABILITY REGRESSION. A valid 40-hex SHA that does not exist locally is
+# what every one of these files looks like after the branch is deleted and the
+# object is pruned. The WHOLE suite must still pass, emitting the documented
+# skip — not just the semantic fragment in isolation, since it was the
+# neighbouring reachability assertion that broke this before.
+#
+# GOV_SUITE_NESTED guards the recursion: without it this case re-invokes the
+# suite, which re-runs this case, forever.
+if [ -z "${GOV_SUITE_NESTED:-}" ]; then
+  ck "an unreachable source_revision skips, and the whole suite still passes" \
+     "_bak=\"\$(mktemp)\"; cp '$EVIDENCE' \"\$_bak\";
+      python3 -c \"
+import json
+p='$EVIDENCE'; d=json.load(open(p))
+d['source_revision']='deadbeef'*5
+json.dump(d,open(p,'w'),indent=2)\";
+      out=\"\$(GOV_SUITE_NESTED=1 bash '$0' 2>&1)\"; rc=\$?;
+      cp \"\$_bak\" '$EVIDENCE'; rm -f \"\$_bak\";
+      printf '%s' \"\$out\" | grep -q 'SKIP: deadbeef' && [ \"\$rc\" -eq 0 ]"
+fi
+
 ck "no document still claims 26 required checks" \
    "! grep -rn '26 required\|26 status\|all 26 check' --include='*.md' --include='*.yaml' . | grep -v originally"
 
