@@ -24,7 +24,7 @@ FrankenPHP binaries ship a `cap_net_bind_service` file capability that the
 platform images **strip at build** — otherwise the binary fails to exec under
 `cap_drop: ALL` + `no-new-privileges` (`operation not permitted`). Consequence:
 these images cannot bind :80/:443 directly; terminate TLS at an upstream
-LB/ingress and forward to the high ports (8080/8443) — the documented topology.
+LB/ingress and forward to the high ports (8080) — the documented topology.
 
 ### How the strip is enforced (#100)
 
@@ -110,7 +110,8 @@ certified for.
 
 Non-root cannot bind ports < 1024. Therefore:
 
-- nginx listens on **8080**, Caddy/FrankenPHP on **8080/8443** (+8081 healthz).
+- nginx listens on **8080**, Caddy on **8080** (**no TLS** — see below),
+  FrankenPHP on **8080/8443** (+8081 healthz).
 - Binding :80/:443 directly is **not supported** by the hardened images (Caddy/
   FrankenPHP have their `cap_net_bind_service` file cap stripped so they run with
   zero caps). Terminate TLS at an upstream LB/ingress and forward to high ports.

@@ -120,3 +120,27 @@ docker compose run --rm php-cli php artisan about
 - `COPY --chown=10001:10001`; keep the runtime non-root.
 - Externalize writable paths (storage/var); don't disable read-only rootfs.
 - Pin the base **by digest** and **verify its signature** in your CI.
+
+## Breaking changes to be aware of (2026-07-28)
+
+### `caddy` — no TLS termination
+
+The certified configuration sets `auto_https off` and 8443 is no longer exposed.
+Terminate TLS at your load balancer and forward plaintext to `:8080`. This is a
+security restriction, not a packaging tidy-up: see
+[`security/triage-2026-07-28-ungoverned-findings.md`](security/triage-2026-07-28-ungoverned-findings.md).
+
+### `nginx` — dynamic modules removed
+
+`image_filter`, `xslt`, `njs` and `geoip` are no longer shipped, along with
+`curl`, `libxml2`, `libaom3`, `libheif1`, `libssh2-1` and the krb5 stack. None was
+loaded by any shipped config, and together they accounted for 74 of the image's
+87 CRITICAL/HIGH findings.
+
+If you loaded one of those modules yourself, choose:
+
+1. the official upstream `nginxinc/nginx-unprivileged:1.27-bookworm` (no Foundry
+   hardening);
+2. a derived image that reinstalls the module — you then own its CVE surface;
+3. pinning the previous Foundry digest temporarily, with your own recorded risk
+   acceptance (that digest still carries `CVE-2026-6653`, CVSS 9.8).

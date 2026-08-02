@@ -78,6 +78,37 @@ jobs:
       - run: bash scripts/assert-image-matrix.sh
       - name: Verify base-image digests (multi-arch resolves)
         run: bash scripts/verify-base-images.sh
+      - name: Every published platform must be reconciled
+        # reconcile-vulnerabilities.sh runs per architecture and takes a
+        # mandatory --arch, so every acceptance record names the architectures
+        # it was actually evidenced against. Nothing connected that to
+        # publication: a linux/amd64,linux/arm64 push would ship arm64 layers
+        # judged against a ledger that had only ever seen amd64. This refuses
+        # any platform no acceptance record covers, BEFORE the first push.
+        env:
+          PLAT: ${{ env.PLATFORMS }}
+          # The facts THIS publish supplies. The evidence's own claims are
+          # compared against them; a document that merely parses is not evidence
+          # about this publish.
+          EXPECTED_REVISION: ${{ inputs.expected_revision || github.sha }}
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # THIS STEP INTENTIONALLY REFUSES EVERY PUBLISH TODAY.
+          #
+          # The gate requires the child manifest digests and the Trivy database
+          # this publish scanned with. Preflight runs BEFORE the build, so
+          # neither exists yet and neither can be supplied here.
+          #
+          # Making those comparisons optional when the caller omits them was the
+          # earlier design, and it was fail-open: the binding disappeared exactly
+          # when nobody wired it. Refusing is the correct interim state.
+          #
+          # The fix is to move final authorisation AFTER the builds — capture the
+          # real child digests and DB metadata, then call this gate before the
+          # manifest is exposed — and to consume the RC manifest on the promotion
+          # path. Tracked in #139 with the arm64 evidence run.
+          bash scripts/assert-publish-platforms-reconciled.sh "$PLAT"
       - name: Stable path requires a valid release tag
         if: ${{ inputs.rc == '' }}
         env:

@@ -4,7 +4,13 @@
 # =============================================================================
 {
 	admin off            # disable admin API (attack surface)
-	# auto_https off     # enable when TLS terminates at an upstream LB
+	# CERTIFIED TOPOLOGY: this image MUST NOT terminate TLS. auto_https off stops
+	# Caddy creating any TLS listener or certificate automation, so a malformed
+	# TLS SNI can never reach certmagic -> idna.Lookup.ToASCII -> x/text
+	# unicode/norm (CVE-2026-56852, norm.Iter infinite loop, fixed in x/text
+	# v0.39.0 which the vendored v0.37.0 predates). TLS terminates at the
+	# upstream load balancer. See docs/security/triage-2026-07-28-ungoverned-findings.md.
+	auto_https off
 	storage file_system /data/caddy
 	log {
 		output stderr

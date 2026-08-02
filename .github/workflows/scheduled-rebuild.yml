@@ -165,11 +165,31 @@ jobs:
         continue-on-error: true     # a finding should REPORT, not abort the matrix
         run: |
           set -euo pipefail
+          # NOTE ON THE FLAGS, since --ignore-unfixed is exactly what #103
+          # removed from the ENFORCING gate.
+          #
+          # This is not an enforcing gate. It is the rebuild-candidate detector:
+          # it answers "has a fix become available for this pinned base?", and a
+          # finding opens an issue rather than blocking anything
+          # (continue-on-error, and the result feeds the reporting job). For that
+          # question --ignore-unfixed is the correct filter — an unfixed finding
+          # means there is nothing to rebuild toward.
+          #
+          # Enforcement lives in scan-images.yml and trusted-validation.yml,
+          # where NOTHING is suppressed: Trivy reports the full CRITICAL/HIGH set
+          # and reconcile-vulnerabilities.sh requires every finding to be
+          # governed per image and per architecture.
+          #
+          # `--ignorefile policies/.trivyignore` was removed with this change:
+          # that file is DELETED (#102 — it was global, so one entry suppressed a
+          # CVE across all ten images). Pointing at a deleted policy file is a
+          # dangling reference, and reinstating it would reintroduce exactly the
+          # cross-image suppression this work removed.
           docker run --rm -e TRIVY_NO_PROGRESS=true -v "$PWD:/work" -w /work \
             aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 \
             image "${{ steps.meta.outputs.tag }}" \
             --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
-            --ignore-unfixed --ignorefile policies/.trivyignore
+            --ignore-unfixed
 
       - name: Record finding (for the separate reporting job)
         if: steps.scan.outcome == 'failure'

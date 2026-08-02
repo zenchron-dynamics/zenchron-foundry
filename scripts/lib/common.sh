@@ -54,6 +54,35 @@ MATRIX_COUNT=10
 matrix_images() { printf '%s\n' $MATRIX_IMAGES; }   # one token per line
 matrix_families() { for t in $MATRIX_IMAGES; do printf '%s\n' "${t%:*}"; done | sort -u; }
 
+# image_label <family> [version] -> the ONE canonical label for an image.
+#
+# Every consumer of per-image reconciliation evidence pairs records by this
+# string, so it has to have a single definition. It did not: the reconciler
+# built `family + "/" + version` from whatever the caller passed, scan-images.yml
+# passes `prod` for the edge images (matching MATRIX_IMAGES) while
+# trusted-validation.yml passed an empty version, and the stale-exception
+# aggregate stripped `prod` off entirely. The same nginx image was therefore
+# "nginx/prod" in one path, "nginx" in another, and "nginx" in the canonical
+# set — so the aggregate reported nginx and caddy as BOTH missing and
+# unexpected on a run where all ten scans succeeded.
+#
+# Canonical form is `family/version`, mirroring the `family:version` spelling of
+# MATRIX_IMAGES. An empty version means the versionless edge images, which
+# MATRIX_IMAGES spells `prod`, so both spellings collapse to the same label.
+image_label() {
+  local fam="${1:?image_label: family required}" ver="${2:-}"
+  case "$ver" in
+    ""|prod) printf '%s/prod\n' "$fam" ;;
+    *)       printf '%s/%s\n' "$fam" "$ver" ;;
+  esac
+}
+
+# Every canonical image label, derived from MATRIX_IMAGES.
+matrix_image_labels() {
+  local t
+  while read -r t; do image_label "${t%:*}" "${t##*:}"; done < <(matrix_images)
+}
+
 # Assert a counter hit the full matrix; used by every 10/10 gate.
 assert_full_matrix() {
   test "${1:-0}" -eq "$MATRIX_COUNT" \

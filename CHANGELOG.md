@@ -108,6 +108,51 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   in the threat model, and a rewritten **AR-2** (its "runner is root without
   sudo" text was already contradicted by the 2026-07-09 runner findings).
 
+### BREAKING — nginx dynamic modules removed (#102/#103)
+
+`ghcr.io/zenchron-dynamics/nginx:prod` no longer ships these upstream dynamic
+modules, or the decoder/parser stacks they pulled in:
+
+| Removed module | Also removed with it |
+|---|---|
+| `ngx_http_image_filter_module` | `libgd3`, `libheif1`, `libaom3`, `libavif15` |
+| `ngx_http_xslt_filter_module` | `libxslt1.1`, `libxml2` |
+| `ngx_http_js_module` (njs), `ngx_stream_js_module` | `libxml2` |
+| `ngx_http_geoip_module`, `ngx_stream_geoip_module` | `libgeoip` |
+
+Also removed: `curl` (and with it `libcurl4`, `libssh2-1`, the krb5 stack),
+`libtiff6`, `libexpat1`.
+
+**Why:** none was loaded — no `load_module` directive exists in any shipped
+config — and together they accounted for 74 of the image's 87 CRITICAL/HIGH
+findings, including the CVSS 9.8 libxml2 use-after-free `CVE-2026-6653`.
+Removing dead code beats documenting it as unreachable.
+
+**Who is affected:** only a consumer that added a `load_module` line of their own
+for one of the modules above, or invoked `curl` inside the container. Nothing in
+Foundry's `nginx.conf`, `conf.d/`, contract or documentation referenced them.
+
+**Migration — pick one:**
+
+1. **Use the official upstream image** — `nginxinc/nginx-unprivileged:1.27-bookworm`
+   still ships all four modules (without Foundry's hardening).
+2. **Derive and reinstall** the module you need:
+
+   ```dockerfile
+   FROM ghcr.io/zenchron-dynamics/nginx@sha256:<digest>
+   USER root
+   RUN apt-get update && apt-get install -y --no-install-recommends nginx-module-njs \
+       && rm -rf /var/lib/apt/lists/*
+   USER 101:101
+   ```
+
+   Note you re-inherit that module's CVE surface, which is yours to govern.
+3. **Stay on the previous Foundry digest temporarily**, with an explicit,
+   time-boxed risk acceptance recorded on your side — that digest still carries
+   `CVE-2026-6653` and the curl/libssh2/krb5/libaom stack.
+
+Nothing yet.
+
 ## [v2026.07.24] - 2026-07-25
 
 First release sealed by the fully automated ceremony: zero manual steps, zero
