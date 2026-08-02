@@ -32,14 +32,48 @@ signatures (`.sig`/`.pem`). Verify with a cosign v2-compatible client using
 
 ## Verifying (required before deploy)
 
+**Use the platform verifier.** It applies exactly the policy the release gates
+apply, so a consumer cannot accidentally accept less than the release does:
+
+```bash
+# Pin by digest — an immutable reference is the whole point of verifying.
+IMAGE='ghcr.io/zenchron-dynamics/php-fpm@sha256:<digest>'
+
+# The 40-hex source commit the release claims to be built from (release notes /
+# release evidence, or `git rev-parse v<version>`).
+export EXPECTED_REVISION='<40-hex>'
+
+# Production images carry the RC signature via digest-only promotion, so the
+# expected signing role is rc-publisher — not a repository-wide wildcard.
+export EXPECTED_ROLE='rc-publisher'
+
+scripts/verify-image-release-identity.sh "$IMAGE"
+```
+
+One command, and it checks: signature, OIDC issuer, SPDX SBOM attestation, SLSA
+provenance, provenance **source repo and revision**, the OCI revision label on
+**every** architecture in the index, and that the required platforms are all
+published. Raw `cosign verify` covers only the first two.
+
+### Raw cosign (only when the script is unavailable)
+
+The identity is **anchored to one workflow file and one ref class** — never
+`…/zenchron-foundry/.*`, which would also accept `scheduled-rebuild.yml`
+candidate images and any workflow added later. Roles are defined in
+[`../policies/cosign-identities.yaml`](../policies/cosign-identities.yaml); the
+one below is `rc-publisher`. This path does **not** verify provenance revision
+or OCI labels, so treat it as a fallback, not an equivalent.
+
 ```bash
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
+  --certificate-identity-regexp \
+  '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 
 cosign verify-attestation --type spdxjson \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
+  --certificate-identity-regexp \
+  '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 ```

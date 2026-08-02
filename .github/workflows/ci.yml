@@ -64,6 +64,8 @@ jobs:
 
       - name: Assert every Dependabot directory has its manifest
         run: bash scripts/assert-dependabot-manifests.sh
+      - name: Assert no repository-wide cosign identity examples
+        run: bash scripts/assert-no-identity-wildcards.sh
 
       - name: Assert all CI container images are digest-pinned
         run: bash scripts/assert-pinned-containers.sh

@@ -38,6 +38,47 @@ issuer_from_policy() {
   printf '%s' "$iss"
 }
 
+# Every identity regexp the policy declares, one per line.
+policy_identity_regexps() {
+  local policy="${1:-$_ci_policy_default}"
+  command -v yq >/dev/null 2>&1 || die "yq required to read cosign-identities.yaml"
+  [ -f "$policy" ] || die "cosign identity policy not found: $policy"
+  local out; out="$(yq -r '.roles[].identity_regexp' "$policy" | grep -v '^null$')"
+  [ -n "$out" ] || die "no role identity_regexp declared in $policy"
+  printf '%s\n' "$out"
+}
+
+# assert_identity_re_in_policy <regexp> [policy]
+#
+# A regexp is accepted only if it is EXACTLY one the policy declares. Two
+# regexps cannot be compared for "is at least as strict as", so anything else —
+# including a hand-written pattern that merely looks similar — is refused.
+#
+# This exists because IDENTITY_RE and EXPECTED_IDENTITY are read from the
+# ENVIRONMENT. Resolving them from the policy when EXPECTED_ROLE is set did not
+# constrain the case where the caller supplies them directly, so the strict
+# verifier could be pointed at any identity by exporting one variable.
+assert_identity_re_in_policy() {
+  local re="$1" policy="${2:-$_ci_policy_default}"
+  [ -n "$re" ] || die "empty cosign identity regexp"
+  grep -qxF -- "$re" <<<"$(policy_identity_regexps "$policy")" \
+    || die "cosign identity regexp is not declared in $(basename "$policy"): $re"
+}
+
+# assert_identity_literal_in_policy <identity> [policy]
+#
+# An exact identity is accepted only if some declared role's regexp matches it,
+# so --certificate-identity cannot name a workflow the policy never authorised.
+assert_identity_literal_in_policy() {
+  local id="$1" policy="${2:-$_ci_policy_default}" re
+  [ -n "$id" ] || die "empty cosign identity"
+  while IFS= read -r re; do
+    [ -n "$re" ] || continue
+    if printf '%s' "$id" | grep -Eq -- "$re"; then return 0; fi
+  done <<<"$(policy_identity_regexps "$policy")"
+  die "cosign identity is not authorised by any role in $(basename "$policy"): $id"
+}
+
 # --- self-test ---------------------------------------------------------------
 _ci_self_test() {
   command -v yq >/dev/null 2>&1 || { echo "SKIP - yq absent"; return 0; }
@@ -62,6 +103,33 @@ _ci_self_test() {
   _t "release regexp REJECTS non-CalVer v-tag"    '! printf "%s" "${REL_ID%v2026.07.04}vNext" | grep -Eq "$(_relre)"'
   _t "release regexp REJECTS master-ref identity" '! printf "%s" "$RC_ID" | grep -Eq "$(_relre)"'
   _t "unknown role rejected"                   '! ( identity_re_for_role no-such-role ) 2>/dev/null'
+
+  # --- policy membership -----------------------------------------------------
+  # IDENTITY_RE and EXPECTED_IDENTITY are read from the ENVIRONMENT, so
+  # resolving them from the policy in the EXPECTED_ROLE branch did not constrain
+  # a caller who supplies them directly. These assertions are what closes that.
+  _t "a declared regexp is accepted" \
+    'assert_identity_re_in_policy "$(identity_re_for_role rc-publisher)"'
+  _t "a repo-wide wildcard regexp is REFUSED" \
+    '! ( assert_identity_re_in_policy "^https://github\.com/zenchron-dynamics/zenchron-foundry/.*$" ) 2>/dev/null'
+  _t "a near-miss regexp is REFUSED (no partial credit)" \
+    '! ( assert_identity_re_in_policy "^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/.*@refs/heads/master$" ) 2>/dev/null'
+  _t "an empty regexp is REFUSED" \
+    '! ( assert_identity_re_in_policy "" ) 2>/dev/null'
+  _t "an authorised exact identity is accepted" \
+    'assert_identity_literal_in_policy "$RC_ID"'
+  _t "a scheduled-rebuild identity is accepted (it is a declared role)" \
+    'assert_identity_literal_in_policy "$SR_ID"'
+  _t "an identity from another repository is REFUSED" \
+    '! ( assert_identity_literal_in_policy "https://github.com/evil/repo/.github/workflows/x.yml@refs/heads/master" ) 2>/dev/null'
+  _t "an identity on an unauthorised ref is REFUSED" \
+    '! ( assert_identity_literal_in_policy "https://github.com/zenchron-dynamics/zenchron-foundry/.github/workflows/publish-ghcr.yml@refs/heads/attacker" ) 2>/dev/null'
+  _t "an empty identity is REFUSED" \
+    '! ( assert_identity_literal_in_policy "" ) 2>/dev/null'
+  _t "an unreadable policy is a FAILURE, not an empty allowlist" \
+    '! ( COSIGN_IDENTITY_POLICY=/nonexistent policy_identity_regexps /nonexistent ) 2>/dev/null'
+  _t "every declared role is listed" \
+    '[ "$(policy_identity_regexps | grep -c .)" = 3 ]'
   _t "issuer is GitHub Actions"                '[ "$(issuer_from_policy)" = "https://token.actions.githubusercontent.com" ]'
   return $fail
 }

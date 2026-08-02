@@ -72,7 +72,8 @@ docker pull ghcr.io/zenchron-dynamics/nginx:prod
 curl -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
   -o /usr/local/bin/cosign && chmod +x /usr/local/bin/cosign
 cosign verify \
-  --certificate-identity-regexp 'https://github.com/zenchron-dynamics/zenchron-foundry/.*' \
+  --certificate-identity-regexp \
+  '^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   ghcr.io/zenchron-dynamics/php-fpm:8.3-prod
 ```
