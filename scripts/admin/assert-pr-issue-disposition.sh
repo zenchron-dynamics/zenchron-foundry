@@ -76,7 +76,26 @@ actual = {int(x) for x in os.environ["ACTUAL"].split() if x.strip()}
 KEYWORD = re.compile(
     r"\b(close[sd]?|fix(e[sd])?|resolve[sd]?)\b\s*:?\s*#(\d+)", re.I)
 
-lines = body.split("\n")
+# Fenced code blocks are BLANKED, not removed: a body that documents the
+# expected footer, or quotes an offending heading to explain it, must not be
+# parsed as if that were the real thing. Blanking preserves line numbering so
+# section boundaries stay correct. Found by running this guard on its own pull
+# request, which quoted both.
+raw = body.split("\n")
+lines, fence = [], None
+for l in raw:
+    m = re.match(r"^\s*(`{3,}|~{3,})", l)
+    if fence is None and m:
+        fence = m.group(1)[0] * 3
+        lines.append("")
+        continue
+    if fence is not None:
+        if m and m.group(1)[0] * 3 == fence:
+            fence = None
+        lines.append("")
+        continue
+    lines.append(l)
+
 start = None
 for i, l in enumerate(lines):
     if re.fullmatch(r"#{1,6}\s+Issue disposition\s*", l.strip()):
@@ -260,6 +279,65 @@ Unrelated prose with no keywords." "1"
 
 ### Detail
 Closes: #1" "1"
+
+  # --- fenced code blocks -----------------------------------------------------
+  # Found by running this guard on its own pull request, which both DOCUMENTED
+  # the expected footer and QUOTED an offending heading. Either would otherwise
+  # be parsed as the real thing.
+  t 0 "an EXAMPLE footer in a fence is not the real footer" \
+    '## Expected format
+
+```
+## Issue disposition
+
+Closes: #999
+```
+
+## Issue disposition
+
+Closes: #122' "122"
+  t 0 "a QUOTED offending heading in a fence is not a stray keyword" \
+    '## Background
+
+```
+## Why this does not close #55
+```
+
+## Issue disposition
+
+Closes: #122' "122"
+  t 0 "tilde fences behave the same" \
+    '## Background
+
+~~~
+close #55
+~~~
+
+## Issue disposition
+
+Closes: #122' "122"
+  t 1 "...but a real keyword OUTSIDE any fence is still caught" \
+    '## Background
+
+```
+close #55
+```
+
+This really does close #77.
+
+## Issue disposition
+
+Closes: #122' "122"
+  t 0 "an indented fence is handled" \
+    '## Background
+
+  ```
+  close #55
+  ```
+
+## Issue disposition
+
+Closes: #122' "122"
 
   echo "self-test: $ok ok, $fail failed"
   [ "$fail" -eq 0 ]
