@@ -135,6 +135,12 @@ ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # are what make it evidence ABOUT this publish.
 EXPECTED_REVISION = (os.environ.get("EXPECTED_REVISION") or "").strip()
 EXPECTED_REPOSITORY = (os.environ.get("EXPECTED_REPOSITORY") or "").strip()
+if not EXPECTED_REPOSITORY:
+    sys.exit(
+        "REFUSE: EXPECTED_REPOSITORY was not supplied; evidence must be tied to "
+        "the publishing repository.\n"
+        "  Left optional, this comparison disappears when the caller omits it — "
+        "the same fail-open shape the digest and database bindings had.")
 EXPECTED_TRIVY_DB = (os.environ.get("EXPECTED_TRIVY_DB") or "").strip()
 if not EXPECTED_TRIVY_DB:
     sys.exit(
@@ -282,7 +288,7 @@ def platform_evidence_ok(plat, evidence_dir):
         return False, ("%s: workflow_run_id is required — evidence must name the "
                        "run that produced it" % name)
     repo = doc.get("repository")
-    if EXPECTED_REPOSITORY and repo != EXPECTED_REPOSITORY:
+    if repo != EXPECTED_REPOSITORY:
         return False, ("%s: repository %r is not %r" % (name, repo, EXPECTED_REPOSITORY))
     if not isinstance(repo, str) or "/" not in repo:
         return False, "%s: repository must be <owner>/<name>" % name
@@ -636,13 +642,14 @@ Y
   e() {
     local want="$1" name="$2" plats="$3" dir="$4" led="${5:-}" scen="${6:-}" rc=0
     [ -n "$led" ] || led="$tmp/zero.yaml"
-    local rev="$EXPECTED_REVISION" runs="$tmp/runs"
+    local rev="$EXPECTED_REVISION" repo="$EXPECTED_REPOSITORY" runs="$tmp/runs"
     local good_digest; good_digest="sha256:$(printf '%064d' 1)"
     # Both expectations are MANDATORY, so the default scenario supplies them.
     local dj; dj="$(_digest_map "$good_digest")"
     local db="2026-08-01T00:00:00Z/abcdef"
     case "$scen" in
       norev)       rev="" ;;
+      norepo)      repo="" ;;
       wrongdigest) dj="$(_digest_map "sha256:$(printf '%064d' 2)")" ;;
       rightdigest) : ;;
       emptydigest) dj='{}' ;;
@@ -651,6 +658,7 @@ Y
       otherdb)     db="2099-01-01T00:00:00Z/ffffff" ;;
     esac
     ( PLATFORM_EVIDENCE_DIR="$dir" EXPECTED_REVISION="$rev" \
+      EXPECTED_REPOSITORY="$repo" \
       EXPECTED_DIGESTS_JSON="$dj" EXPECTED_TRIVY_DB="$db" \
       RUN_FIXTURE_DIR="$runs" \
       assert_platforms_reconciled "$plats" "$led" ) >/dev/null 2>&1 || rc=$?
@@ -757,6 +765,7 @@ Y
   _mkev "$ev/mand.json" linux/arm64
   e 1 "complete evidence + NO expected digest map is refused" "linux/arm64" "$ev" "" nodigest
   e 1 "complete evidence + NO expected Trivy DB is refused"   "linux/arm64" "$ev" "" nodb
+  e 1 "complete evidence + NO expected repository is refused" "linux/arm64" "$ev" "" norepo
   rm -f "$ev/mand.json"
 
   # --- the workflow run is PROVEN, not just pointed at -------------------------

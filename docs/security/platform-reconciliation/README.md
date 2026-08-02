@@ -56,10 +56,11 @@ shape check — evidence not tied to the published commit proves nothing.
 hand-authored to say `PASS` without naming the run that produced it, and
 `scanner` must be digest-pinned so the scan is reproducible.
 
-Both `EXPECTED_DIGESTS_JSON` and `EXPECTED_TRIVY_DB` are **mandatory**. Omitting
-either is refused, not skipped: a comparison that disappears when its variable is
-unset is fail-open, and it disappears precisely when nobody wired it. The digest
-map must also cover every shipping image.
+**All four are mandatory** — `EXPECTED_REVISION`, `EXPECTED_REPOSITORY`,
+`EXPECTED_TRIVY_DB` and `EXPECTED_DIGESTS_JSON`. Omitting any of them is refused,
+not skipped: a comparison that disappears when its variable is unset is
+fail-open, and it disappears precisely when nobody wired it. The digest map must
+also cover every shipping image.
 
 ### The workflow run is proven, not pointed at
 
