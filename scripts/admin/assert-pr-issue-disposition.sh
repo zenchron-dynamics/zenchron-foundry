@@ -39,6 +39,29 @@
 # `Stays open:` is documentation for the reader — the guard proves those issues
 # are NOT in the actual set, which is the property that matters.
 #
+# TWO CLOSURE PATHS, both checked:
+#
+#   1. The PULL REQUEST. GitHub derives closingIssuesReferences from the body
+#      and from Development-panel links. Compared against the declared `Closes:`.
+#
+#   2. The COMMIT that lands on the default branch. This repository squashes
+#      with `squash_merge_commit_message: COMMIT_MESSAGES`, so every original
+#      commit message is concatenated into it, and the PR title normally becomes
+#      its subject. GitHub parses closing keywords there INDEPENDENTLY of the
+#      pull request. Path 1 can report "closes nothing" while path 2 closes an
+#      issue — that is exactly what happened to #126 via #141.
+#
+#   Path 2 is handled STRICTLY: no closing keyword may appear in the title or
+#   any commit message at all, even for an issue the footer declares. The footer
+#   is then the only place closure intent can live.
+#
+# WHAT THIS CANNOT PREDICT. `gh pr merge --squash` accepts `--subject` and
+# `--body`, which replace the squash commit message entirely. Those are operator
+# inputs supplied at merge time, after every pre-merge check has run, so no
+# guard can see them. If a custom subject or body is used, it must be checked by
+# the operator; the safe default is to supply neither and let the checked title
+# and commit messages stand.
+#
 # Usage:
 #   assert-pr-issue-disposition.sh <pr-number>
 #   assert-pr-issue-disposition.sh --self-test
@@ -59,6 +82,17 @@ _closing_refs() {
     --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'
 }
 closing_refs() { "${CLOSING_REFS_FN:-_closing_refs}" "$1"; }
+
+_pr_title() { gh pr view "$1" --repo "$REPO" --json title --jq '.title'; }
+pr_title() { "${PR_TITLE_FN:-_pr_title}" "$1"; }
+
+# Every commit as `<sha>\t<message-with-newlines-escaped>`, paginated. The SHA
+# travels with the message so a diagnostic can name the offending commit.
+_pr_commits() {
+  gh api --paginate "repos/${REPO}/pulls/$1/commits?per_page=100" \
+    --jq '.[] | "\(.sha)\t\(.commit.message | gsub("\n"; "\\n"))"'
+}
+pr_commits() { "${PR_COMMITS_FN:-_pr_commits}" "$1"; }
 
 # ---------------------------------------------------------------------------
 # check_disposition <declared-body> <actual-refs>
@@ -172,6 +206,99 @@ print("DISPOSITION OK: declared and actual agree")
 PY
 }
 
+# ---------------------------------------------------------------------------
+# check_no_closing_keywords <pr-title> <commits: sha\tmessage per line>
+#
+# STRICT: the `## Issue disposition` footer is the SOLE authority on what a pull
+# request closes. No closing keyword may appear in the PR TITLE or in any COMMIT
+# SUBJECT OR BODY — not even for an issue the footer already declares.
+#
+# WHY, concretely. This repository squashes with
+# `squash_merge_commit_message: COMMIT_MESSAGES`, so every original commit
+# message is concatenated into the commit that lands on the default branch, and
+# the PR title normally becomes its subject. GitHub parses closing keywords
+# there independently of the pull-request body and of closingIssuesReferences.
+#
+# #141 proved it: the footer said `Stays open: #126`, GraphQL reported it would
+# close nothing, the body-vs-GraphQL check passed — and #126 closed anyway,
+# because the FIRST of three commits carried `Closes #126` from before the scope
+# was narrowed. Squash 7ab8151 inherited it.
+#
+# Union semantics (allow the keyword, require the sets to agree) was rejected
+# deliberately: it keeps two independent authorities, and lets historical
+# implementation messages overrule the final disposition. Under strict, they
+# cannot.
+#
+# Fenced blocks are NOT exempt here, unlike the body. A commit message is not a
+# documentation page, and guessing whether GitHub honours markdown fencing in
+# commit text would be approximating the parser again.
+#
+# Non-closing references stay allowed: Refs, Addresses, Partially addresses,
+# Related to.
+# ---------------------------------------------------------------------------
+check_no_closing_keywords() {
+  TITLE="$1" COMMITS="$2" python3 - <<'PY'
+import os, re, sys
+
+KEYWORD = re.compile(
+    r"\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b\s*:?\s*#(\d+)", re.I)
+
+title   = os.environ["TITLE"]
+commits = os.environ["COMMITS"]
+
+problems = []
+
+for m in KEYWORD.finditer(title):
+    problems.append(("PR title", title.strip(), m.group(0)))
+
+seen = 0
+for raw in commits.split("\n"):
+    if not raw.strip():
+        continue
+    if "\t" not in raw:
+        sys.exit("REFUSE: malformed commit record (no sha/message separator): %r"
+                 % raw[:80])
+    sha, msg = raw.split("\t", 1)
+    if not re.fullmatch(r"[0-9a-f]{7,40}", sha):
+        sys.exit("REFUSE: malformed commit sha: %r" % sha[:40])
+    seen += 1
+    msg = msg.replace("\\n", "\n")
+    for line in msg.split("\n"):
+        for m in KEYWORD.finditer(line):
+            problems.append(("commit %s" % sha[:7], line.strip(), m.group(0)))
+
+if seen == 0:
+    sys.exit("REFUSE: the pull request reports no commits — an empty commit set "
+             "cannot be checked, and treating it as clean would skip this gate")
+
+if problems:
+    print("REFUSE: closing keyword(s) outside the disposition footer.", file=sys.stderr)
+    print("  The footer is the SOLE authority on what this pull request closes.",
+          file=sys.stderr)
+    print("  A squash merge copies the PR title and every commit message into the",
+          file=sys.stderr)
+    print("  commit that lands on the default branch, and GitHub parses closing",
+          file=sys.stderr)
+    print("  keywords there too — that is how #141 closed #126 while its footer",
+          file=sys.stderr)
+    print("  said 'Stays open: #126'.", file=sys.stderr)
+    for src, line, hit in problems:
+        print("", file=sys.stderr)
+        print("    source: %s" % src, file=sys.stderr)
+        print("    line:   %s" % (line[:150] or "(empty)"), file=sys.stderr)
+        print("    match:  %s" % hit, file=sys.stderr)
+    print("", file=sys.stderr)
+    print("  Reword to a non-closing reference — Refs #N, Addresses #N,",
+          file=sys.stderr)
+    print("  Partially addresses #N, Related to #N — and keep closure intent",
+          file=sys.stderr)
+    print("  only in the '## Issue disposition' footer.", file=sys.stderr)
+    sys.exit(1)
+
+print("  no closing keyword in the PR title or any of %d commit message(s)" % seen)
+PY
+}
+
 assert_pr() { # assert_pr <pr-number>
   local pr="$1"
   case "$pr" in ''|*[!0-9]*) echo "REFUSE: pr must be a number, got '$pr'" >&2; return 1 ;; esac
@@ -180,7 +307,14 @@ assert_pr() { # assert_pr <pr-number>
   # An unreadable API is a refusal, never an assumed-empty set: an empty
   # `actual` would make every undeclared closure invisible.
   refs="$(closing_refs "$pr")" || { echo "REFUSE: cannot read closingIssuesReferences for #${pr}" >&2; return 1; }
+  local title commits
+  title="$(pr_title "$pr")" || { echo "REFUSE: cannot read the title of PR #${pr}" >&2; return 1; }
+  # An unreadable commit list is a refusal: an empty set would silently skip the
+  # strict check, which is the surface that closed #126.
+  commits="$(pr_commits "$pr")" || { echo "REFUSE: cannot read the commits of PR #${pr}" >&2; return 1; }
+
   echo "PR #${pr} (${REPO}):"
+  check_no_closing_keywords "$title" "$commits" || return 1
   check_disposition "$body" "$refs"
 }
 
@@ -338,6 +472,60 @@ Closes: #122' "122"
 ## Issue disposition
 
 Closes: #122' "122"
+
+  # --- STRICT: title and commit messages ------------------------------------
+  # k <expect 0|1> <name> <title> <commits>
+  k() {
+    local want="$1" name="$2" rc=0
+    check_no_closing_keywords "$3" "$4" >/dev/null 2>&1 || rc=$?
+    if [ "$rc" -eq "$want" ]; then echo "  ok   $name"; ok=$((ok+1));
+    else echo "  FAIL $name (rc=$rc want=$want)"; fail=$((fail+1)); fi
+  }
+  local C1="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  local C2="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+  # THE #141 REGRESSION, exactly: footer says Stays open, GraphQL reports none,
+  # but a commit carries the keyword.
+  k 1 "#141 regression: commit closes an issue the footer keeps open" \
+    "fix(ci): label RC builds with the canonical selector" \
+    "$C1	fix(ci): derive the OCI version label\\n\\nCloses #126"
+  # Strict differs from union here: refused even when declared.
+  k 1 "a commit closure MATCHING declared Closes: is still refused" \
+    "fix: thing" "$C1	fix: thing\\n\\nCloses #122"
+
+  k 1 "closing keyword in a commit SUBJECT" \
+    "fix: thing" "$C1	fix: closes #55"
+  k 1 "closing keyword in a multiline commit BODY" \
+    "fix: thing" "$C1	fix: thing\\n\\nSome prose.\\n\\nResolves #55\\n\\nMore."
+  k 1 "closing keyword in the PR TITLE" \
+    "fix: this closes #55" "$C1	fix: thing"
+
+  for kw in close closes closed fix fixes fixed resolve resolves resolved; do
+    k 1 "commit '$kw #55' refused" "t" "$C1	subject\\n\\n$kw #55"
+  done
+  k 1 "optional colon 'Closes: #55' refused" "t" "$C1	subject\\n\\nCloses: #55"
+
+  # Non-closing references remain allowed.
+  k 0 "'Refs #119' accepted"                  "t" "$C1	subject\\n\\nRefs #119"
+  k 0 "'Addresses #126' accepted"             "t" "$C1	subject\\n\\nAddresses #126"
+  k 0 "'Partially addresses #126' accepted"   "t" "$C1	subject\\n\\nPartially addresses #126"
+  k 0 "'Related to #99' accepted"             "t" "$C1	subject\\n\\nRelated to #99"
+
+  # Fenced blocks are deliberately NOT exempt in commit messages.
+  k 1 "a fenced example inside a commit message is still refused" \
+    "t" "$C1	subject\\n\\n~~~\\nCloses #55\\n~~~"
+  k 1 "an indented (code-block) example is still refused" \
+    "t" "$C1	subject\\n\\n    Closes #55"
+
+  # Fail-closed retrieval.
+  k 1 "an empty commit set is refused"        "t" ""
+  k 1 "a malformed commit record is refused"  "t" "no-tab-here"
+  k 1 "a malformed sha is refused"            "t" "zzz	subject"
+  k 0 "multiple commits are ALL scanned"      "t" "$C1	one
+$C2	two"
+  k 1 "...and a keyword on the LAST of several is caught" \
+    "t" "$C1	one
+$C2	two\\n\\nCloses #55"
 
   echo "self-test: $ok ok, $fail failed"
   [ "$fail" -eq 0 ]
