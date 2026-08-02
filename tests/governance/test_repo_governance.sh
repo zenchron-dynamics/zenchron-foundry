@@ -235,6 +235,28 @@ assert len(d['pr_required_checks'])==5, d['pr_required_checks']
 assert len(d['release_required_checks'])>len(d['pr_required_checks'])
 assert 'trusted validation result' in d['release_required_checks']
 assert 'trusted validation result' not in d['pr_required_checks']\""
+# Evidence must describe a COMMITTED state. The 2026-08-02 snapshot was first
+# generated from a modified working tree: source_revision named e7c4e80, which
+# did not yet contain the policy sync, the incident bundle, the admin helper or
+# these tests. Evidence that names a revision not containing the configuration it
+# verified is worse than no evidence — it looks authoritative and is wrong.
+#
+# Contract: source_revision is HEAD^ (the evidence commit's parent), and nothing
+# except the evidence file itself changed between them. So the named revision
+# provably contains the whole governed configuration.
+ck "evidence is bound to a committed revision, not a dirty tree" \
+   "python3 -c \"
+import json,subprocess,sys
+rev=json.load(open('$EVIDENCE'))['source_revision']
+def git(*a): return subprocess.run(['git',*a],capture_output=True,text=True).stdout.strip()
+parent=git('rev-parse','HEAD^')
+if rev != parent:
+    sys.exit('source_revision %s is not HEAD^ %s' % (rev[:8], parent[:8]))
+changed=git('diff','--name-only','%s..HEAD' % rev).split(chr(10))
+changed=[c for c in changed if c and c != '$EVIDENCE']
+if changed:
+    sys.exit('the evidence commit changed more than the evidence: %s' % changed)\""
+
 ck "evidence source_revision is a real commit in this repository" \
    "git cat-file -e \"\$(python3 -c \"import json;print(json.load(open('$EVIDENCE'))['source_revision'])\")\""
 ck "no document still claims 26 required checks" \
