@@ -20,22 +20,38 @@
 # architecture whether that record would have been needed there. Unverified is
 # therefore treated as unreconciled, never as "probably the same".
 #
-# WHAT THIS DOES NOT PROVE. It is a ledger-coverage check, not scan evidence.
-# It asserts that every acceptance record claims the platform; it does NOT prove
-# that a scan of that architecture was ever run, nor that it passed. Today that
-# gap is not reachable — every record is linux/amd64 only, so arm64 is refused
-# outright — but it becomes load-bearing the moment anyone adds
-# `linux/arm64` to verified_architectures.
+# WHAT THIS PROVES, AND WHAT IT DOES NOT.
 #
-# BEFORE ARM64 PUBLICATION IS ENABLED, this check must be replaced by, or paired
-# with, one that consumes real reconciliation evidence bound to:
-#     child manifest digest, architecture, source revision,
-#     image family/version, and the Trivy database snapshot
-# so that "reconciled for arm64" means an arm64 scan of the exact digest being
-# published, not a line of YAML asserting it. Adding arm64 to the ledger without
-# that evidence would turn this gate from conservative into decorative.
+# This is TWO checks, and a platform must pass both.
 #
-# The per-architecture Trivy gate remains what proves a given scan passed.
+#   1. EVIDENCE. Per-platform reconciliation evidence must exist for every one
+#      of the ten shipping images, bound to the image family/version, the child
+#      manifest digest, the architecture, the source revision, the Trivy
+#      database snapshot and the reconciliation result. Every claim the evidence
+#      makes that CAN be compared against what the publish knows IS compared:
+#      the revision, the repository, the database snapshot and each child
+#      digest. All four expectations are mandatory — omitting one is refused,
+#      never skipped. The workflow run the evidence names is fetched and must
+#      exist, have succeeded, have run a workflow trusted to produce evidence,
+#      belong to this repository, and cover the recorded revision.
+#
+#   2. LEDGER COVERAGE. Every active acceptance record must additionally cover
+#      the platform. Evidence alone does not authorise a publish, and neither
+#      does an empty ledger: "nothing accepted" and "this architecture was
+#      reconciled" are different claims.
+#
+# What it does NOT do is generate that evidence, or observe the scan itself. It
+# verifies a document produced elsewhere. The per-architecture Trivy gate in the
+# scanning workflow remains what proves a given scan passed.
+#
+# CURRENT STATE: publication is intentionally closed. The publish-ghcr preflight
+# runs BEFORE the build, so the child digests and the Trivy database metadata do
+# not exist and cannot be supplied — and because those expectations are
+# mandatory, this gate refuses every publication from there. Reopening
+# publication requires final authorisation to move AFTER the builds (capture the
+# real child digests and DB metadata, verify the evidence, only then expose the
+# manifest) and to consume the immutable RC manifest during stable promotion.
+# That restructure is #139; the arm64 evidence run belongs to it.
 #
 # Env: LEDGER (default policies/vulnerability-exceptions.yaml)
 # Exit: 0 every requested platform is reconciled; 1 otherwise.
