@@ -3,12 +3,22 @@ name: package-acl-probe
 # ---------------------------------------------------------------------------
 # Prove the GHCR package boundary BEHAVIOURALLY, because it cannot be read.
 #
-# The documented public GitHub API does not expose the two settings that define
+# The DOCUMENTED public GitHub API does not expose the two settings that define
 # this boundary — the organization's "inherit access from source repository"
 # default, and each package's "Manage Actions access" repository role. Probing
 # confirmed it: `GET /orgs/{org}/settings/packages` returns 404, and no
-# per-package access endpoint exists. Both are UI procedures, in read as well as
-# in write.
+# documented per-package access endpoint exists. The published package API covers
+# package and version metadata, deletion and restoration; the official
+# configuration instructions for both of these controls are UI procedures.
+#
+# That is a claim about the USABLE GOVERNANCE SURFACE, not about GitHub's
+# internals. Undocumented or internal endpoints may well exist; they are not
+# something a control can be built on, so they change nothing here.
+#
+# And linkage is not inheritance. A package linked to zenchron-foundry shows a
+# POTENTIAL inheritance path — GitHub permits a package to stay linked while
+# using independent granular permissions, so the link does not prove inheritance
+# is currently enabled. Reading the link therefore proves nothing either way.
 #
 # So a claim like "the repository token cannot write production packages" cannot
 # be verified by reading configuration. This workflow verifies it by ATTEMPTING
@@ -99,6 +109,22 @@ jobs:
             [ -n "$out" ] && echo "$out" || echo unreadable
           }
 
+          # --- classification ----------------------------------------------
+          # Defined before ANY push, because every push result goes through it.
+          # A non-zero exit is NOT proof of denial: a timeout or a 5xx proves
+          # nothing, and treating it as "denied" would manufacture a passing
+          # boundary out of a network failure.
+          classify() { # classify <output>
+            local o; o="$(tr '[:upper:]' '[:lower:]' <<<"$1")"
+            case "$o" in
+              *denied*|*unauthorized*|*"insufficient_scope"*|*forbidden*|*"403"*|*"permission"*)
+                echo denied ;;
+              *timeout*|*"timed out"*|*"5"[0-9][0-9]*|*"connection"*|*"no such host"*|*"i/o"*|*eof*)
+                echo indeterminate ;;
+              *) echo indeterminate ;;
+            esac
+          }
+
           # --- build a tiny, unique canary image ---------------------------
           echo "::group::build canary"
           ctx="$(mktemp -d)"
@@ -117,41 +143,46 @@ jobs:
           }
 
           # --- 1. staging MUST be writable ---------------------------------
+          # Four things must hold, not one: the push succeeds, the digest is
+          # well-formed, the TAG resolves to that digest through the registry,
+          # and the package is still private afterwards.
           echo "::group::staging write (expect allowed)"
-          svis="$(read_visibility "$STAGING")"
           push_out="$(docker push "$canary" 2>&1)"; push_rc=$?
           echo "$push_out"
-          digest=""
-          if [ "$push_rc" -eq 0 ]; then
-            digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$canary" 2>/dev/null | sed 's/.*@//')"
-            case "$digest" in
-              sha256:*) staging_result=allowed ;;
-              *)        staging_result=indeterminate; digest="" ;;
-            esac
+          digest=""; resolved=""
+          if [ "$push_rc" -ne 0 ]; then
+            # A staging write that does not succeed means the ACL is wrong in
+            # the other direction: the build cannot stage at all. Classified,
+            # not assumed — a network failure here is indeterminate, and both
+            # outcomes fail the verdict anyway.
+            staging_result="$(classify "$push_out")"
           else
-            # A denied staging write means the ACL is wrong in the other
-            # direction: the build cannot stage at all.
-            staging_result=denied
+            digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$canary" 2>/dev/null | sed 's/.*@//')"
+            case "$digest" in sha256:*) ;; *) digest="" ;; esac
+            # Resolve the tag INDEPENDENTLY through the registry. A local
+            # RepoDigest is only the daemon's record of what it believes it
+            # sent; this proves the registry actually serves that digest under
+            # that tag, which is what "the push worked" has to mean.
+            resolved="$(docker buildx imagetools inspect "$canary" \
+                          --format '{{.Manifest.Digest}}' 2>/dev/null | tr -d '[:space:]')"
+            if [ -n "$digest" ] && [ "$resolved" = "$digest" ]; then
+              staging_result=allowed
+            else
+              # Pushed, but the tag does not verifiably resolve to the digest.
+              # Not a denial and not a success — indeterminate, which fails.
+              staging_result=indeterminate
+            fi
           fi
+          # Visibility is read AFTER the push: what matters is that writing did
+          # not leave the package public.
+          svis="$(read_visibility "$STAGING")"
           add "$STAGING" "$svis" "write" "$staging_result" \
-              "$(jq -nc --arg d "$digest" --arg t "$canary" '{digest:$d, reference:$t}')"
+              "$(jq -nc --arg d "$digest" --arg t "$canary" --arg r "$resolved" \
+                 '{digest:$d, reference:$t, resolved_digest:$r}')"
           echo "::endgroup::"
 
           # --- 2. every production package MUST refuse ---------------------
-          # Classification is strict. A non-zero exit is NOT proof of denial: a
-          # timeout or a 5xx proves nothing, and treating it as "denied" would
-          # manufacture a passing boundary out of a network failure.
-          classify() { # classify <output>
-            local o; o="$(tr '[:upper:]' '[:lower:]' <<<"$1")"
-            case "$o" in
-              *denied*|*unauthorized*|*"insufficient_scope"*|*forbidden*|*"403"*|*"permission"*)
-                echo denied ;;
-              *timeout*|*"timed out"*|*"5"[0-9][0-9]*|*"connection"*|*"no such host"*|*"i/o"*|*eof*)
-                echo indeterminate ;;
-              *) echo indeterminate ;;
-            esac
-          }
-
+          # Same strict `classify` as above: only an explicit denial counts.
           for pkg in php-fpm php-cli php-worker php-frankenphp caddy nginx; do
             echo "::group::production write: ${pkg} (expect denied)"
             pvis="$(read_visibility "$pkg")"
