@@ -372,5 +372,30 @@ ck "the evidence contains no credentials or host paths" \
    "! grep -rqiE 'ghp_|ghs_|github_pat_|authorization:|bearer |X-Amz-Signature' \$EVDIR && \
     ! grep -rq '/Users/' \$EVDIR"
 
+# --- issue disposition must be machine-verifiable ---------------------------
+# #96, #97 were closed by accident and #100 nearly was — not by a stray
+# `Closes #N`, but by headings written to say the opposite: GitHub parses
+# `close #100` out of "Why this does not close #100". A regex sweep missed it
+# because it searched for `closes`. The durable control asks GitHub's own parser
+# what it will close and compares that to an explicit declaration.
+ck "the issue-disposition guard exists and self-tests" \
+   "test -x scripts/admin/assert-pr-issue-disposition.sh && \
+    bash scripts/admin/assert-pr-issue-disposition.sh --self-test >/dev/null"
+ck "the guard compares against GitHub's parser, not a regex approximation" \
+   "grep -q 'closingIssuesReferences' scripts/admin/assert-pr-issue-disposition.sh"
+ck "the guard rejects closing verbs outside the footer" \
+   "grep -q 'closing keyword(s) outside the disposition footer' scripts/admin/assert-pr-issue-disposition.sh"
+ck "the guard treats an unreadable API as a refusal, not an empty set" \
+   "grep -q 'cannot read closingIssuesReferences' scripts/admin/assert-pr-issue-disposition.sh"
+ck "the guard covers every closing keyword GitHub accepts" \
+   "python3 -c \"
+import re
+h=open('scripts/admin/assert-pr-issue-disposition.sh').read()
+m=re.search(r'KEYWORD = re\\.compile\\((.*?)re\\.I\\)', h, re.S)
+assert m, 'no KEYWORD pattern'
+pat=m.group(1)
+for kw in ('close','fix','resolve'):
+    assert kw in pat, kw\""
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_repo_governance: PASS" || echo "test_repo_governance: FAIL"
 exit $fail
