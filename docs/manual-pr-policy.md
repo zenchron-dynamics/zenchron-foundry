@@ -1,11 +1,16 @@
-# Manual PR Policy (Free-Tier)
+# PR Policy
 
-GitHub Free cannot enforce branch protection on a private repo, so this policy is
-enforced by **discipline + local tooling**, not by the platform.
+**Updated 2026-07-28 (issue #97).** The platform now enforces the core of this
+policy: `master` requires a pull request with the 5 PR-required checks green, linear
+history, resolved conversations, and blocks direct push, force-push and deletion
+— with no bypass actors, administrators included
+([repository-security.md](repository-security.md)). The previous version stated
+that GitHub Free could not enforce branch protection on a private repo; the repo
+is public, so that was false and this policy was carrying the whole load alone.
 
-> This is a compensating control, not equivalent to enforced GitHub branch
-> protection. See
-> [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md).
+What still rests on discipline, because GitHub cannot enforce it here: the
+**review itself** (single maintainer, approvals set to 0 — issue #112), treating
+a **skipped** check as a failure, and the release-time rules below.
 
 ## Workflow
 
@@ -24,12 +29,14 @@ feature branch  ->  PR  ->  wait for CI  ->  manual review  ->  squash/merge  ->
 
 ## Rules
 
-- **No direct push to `master`.** Everything goes through a PR, even though
-  GitHub does not enforce it. The local `pre-push` hook blocks accidental direct
-  pushes.
+- **No direct push to `master`.** Enforced by the `master-protection` ruleset for
+  everyone, administrators included; the local `pre-push` hook now just fails
+  faster and offline.
 - **Every change uses a PR** — including docs and config.
-- **CODEOWNERS teams are advisory.** Their review request is informational; merge
-  is not blocked by GitHub. Reviewers must self-discipline to actually review.
+- **CODEOWNERS teams are advisory.** `require_code_owner_review` is off: the sole
+  code owner cannot approve their own PR, so enabling it would block every merge
+  (issue #112). The review request is informational — a human must actually read
+  the diff.
 - **CI must be green before merge.** Red CI = do not merge
   (see [ci-failure-policy.md](ci-failure-policy.md)).
 - **Fork PRs are never merged on their own CI.** A fork PR runs only the

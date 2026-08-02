@@ -1,14 +1,54 @@
-# ACCEPTED RISK — FREE PLAN LIMITATION
+# ACCEPTED RISK — FREE PLAN LIMITATION *(SUPERSEDED 2026-07-28)*
 
-**Status:** `ACCEPTED RISK — FREE PLAN LIMITATION`
+> **STATUS: SUPERSEDED — DO NOT CITE AS CURRENT.** Retained unedited below the
+> line as the historical record of a decision that rested on a false premise.
+> Current governance: [`../repository-security.md`](../repository-security.md),
+> declared in [`../../policies/repository-governance.yaml`](../../policies/repository-governance.yaml),
+> verified by `make verify-governance`.
+>
+> **Why superseded.** This record assumed *GitHub Free + **private** repo*, on
+> which branch protection, rulesets and tag protection are indeed unavailable.
+> The repository was **public** (verified 2026-07-28,
+> `gh repo view --json visibility` → `PUBLIC`), where all three are available for
+> free. The premise was false, so every compensating control justified by it was
+> justified by nothing — and the live configuration carried **zero** protections
+> (`GET /rulesets` → `[]`, `GET /branches/master/protection` → 404) while four
+> documents implied governance was handled. Issue #97.
+>
+> **What replaced it** (applied 2026-07-28, no bypass actors, administrators
+> included): `master-protection` — PR required, no direct push, no force-push, no
+> deletion, linear history, conversation resolution, 5 PR-required status checks;
+> `release-tags-immutable` — `v*` tags cannot be deleted, force-moved or
+> repointed. Evidence: [`governance-verification-2026-07-28.json`](governance-verification-2026-07-28.json).
+>
+> **What did NOT change.** The single-maintainer gap is real and has nothing to
+> do with the plan: GitHub forbids self-approval, so required reviewers and
+> CODEOWNERS enforcement stay off (issue #112). The
+> `ALLOW_FREE_TIER_NO_REVIEWERS=1` waiver therefore still stands — but it is now
+> a *single-maintainer* waiver, not a *plan* waiver. Environment approval gates
+> are available now and remain unapplied, declared `pending` in the policy so the
+> verifier keeps them visible as a gap rather than a control.
+>
+> **Visibility rationale** (maintainer decision, 2026-07-28): public access
+> exists so external review tooling can read the repository. It is **not** a
+> grant of public distribution rights — LICENSE remains proprietary and
+> confidential, an unresolved conflict tracked in **issue #98** and *not* settled
+> here.
+>
+> The **bypass log** at the end of this file remains **live** and is still where
+> any emergency bypass must be recorded.
+
+---
+
+**Status:** `ACCEPTED RISK — FREE PLAN LIMITATION` *(historical)*
 **Owner:** Bogdan Olteanu / Zenchron Dynamics
 **Decision date:** 2026-06-01
-**Review date:** 2026-07-01 (30 days)
+**Review date:** 2026-07-01 (30 days) — expired; superseded 2026-07-28
 
 > This is a compensating control, not equivalent to enforced GitHub branch
 > protection.
 
-## Decision
+## Decision *(historical — no longer in force)*
 
 Keep `zenchron-dynamics/zenchron-foundry` on **GitHub Free** for now. The
 repository **must remain private**.

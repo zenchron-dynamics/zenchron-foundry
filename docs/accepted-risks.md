@@ -1,17 +1,28 @@
 # Accepted risks
 
-Formal record of risks accepted because the current GitHub plan cannot enforce
-the ideal control. Each names the gap, why it is accepted, and the compensating
-controls. Re-review when the org moves to Team or the repo goes public.
+Formal record of risks accepted because the ideal control cannot currently be
+enforced. Each names the gap, why it is accepted, and the compensating controls.
+
+> **Re-scoped 2026-07-28 (issue #97).** These records previously blamed the
+> GitHub *plan*. The repository is public, where rulesets, branch protection and
+> environment reviewers are all available for free — branch and tag protection
+> are now applied and machine-verified
+> ([repository-security.md](repository-security.md)). What survives is a
+> *single-maintainer* limit, which no plan fixes. Re-review when a second
+> maintainer can push (issue #112).
 
 ## AR-1 — No independent human reviewer on release
 
-- **Gap:** GitHub Free (private repo) cannot attach required reviewers or
-  `prevent_self_review` to the `foundry-rc` / `foundry-production` environments,
-  so a single maintainer both authors and approves a release.
-- **Why accepted:** it is a real platform limit, not a choice; faking a second
-  reviewer would be security theatre. `ALLOW_FREE_TIER_NO_REVIEWERS=1` in the
-  release workflows records this explicitly (fail-closed on everything else).
+- **Gap:** a single maintainer both authors and approves every release. GitHub
+  forbids self-approval, so attaching required reviewers to the `foundry-rc` /
+  `foundry-production` environments — or raising the branch ruleset's approval
+  count above 0 — would block every release rather than add oversight.
+- **Why accepted:** it is a people limit, not a platform one (corrected
+  2026-07-28: the reviewer gate is *available* now that the repo is public; it is
+  unattachable because there is nobody else to approve). Faking a second reviewer
+  would be security theatre. `ALLOW_FREE_TIER_NO_REVIEWERS=1` in the release
+  workflows records this explicitly (fail-closed on everything else); the flag
+  name is now a misnomer — it is a single-maintainer waiver, not a plan waiver.
 - **Compensating controls:** the full technical stack in
   [solo-maintainer-release-model](solo-maintainer-release-model.md) — immutable
   SHA-bound RC artifacts, exact-revision binding, mandatory exact-commit CI,

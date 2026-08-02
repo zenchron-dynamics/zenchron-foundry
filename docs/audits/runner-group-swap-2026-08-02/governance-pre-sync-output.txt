@@ -1,0 +1,42 @@
+=== Repository governance verification — zenchron-dynamics/zenchron-foundry ===
+policy: repository-governance.yaml   checked: 2026-08-02T08:48:30Z
+
+PASS: visibility is 'public' as declared
+PASS: default branch is 'master'
+PASS: default GITHUB_TOKEN permissions are read-only
+PASS: Actions cannot approve pull requests
+PASS: governance review is current (due 2026-10-28)
+PASS: runner group 3 is 'zenchron-foundry-trusted'
+PASS: runner group visibility=selected
+PASS: runner group allows_public_repositories=true
+PASS: runner group restricted_to_workflows=true
+PASS: runner group repositories match exactly (1254295268)
+PASS: no other public repository can use these runners
+FAIL: declared workflow(s) not allowed live: zenchron-dynamics/zenchron-foundry/.github/workflows/ci.yml@refs/heads/master 
+FAIL: UNDECLARED workflow(s) allowed on the boundary group: zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master 
+PASS: every allowed workflow is pinned to refs/heads/master
+PASS: group 'Default' holds no runners
+PASS: pull-request drift check executes clean and is in the validate target
+PASS: no undeclared active rulesets
+PASS: ruleset 'master-protection' targets branch
+PASS: ruleset 'master-protection' enforcement=active
+PASS: ruleset 'master-protection' ref scope matches
+PASS: ruleset 'master-protection' has no bypass actors (admins included)
+PASS: ruleset 'master-protection' rule set matches the policy exactly
+PASS: pull_request.required_approving_review_count = 0
+PASS: pull_request.dismiss_stale_reviews_on_push = true
+PASS: pull_request.required_review_thread_resolution = true
+PASS: pull_request.require_code_owner_review = false
+PASS: pull_request.require_last_push_approval = false
+PASS: required_status_checks.strict = false
+PASS: required status checks match required-release-checks.yaml exactly (5 checks)
+PASS: all declared rules are LIVE on refs/heads/master
+PASS: ruleset 'release-tags-immutable' targets tag
+PASS: ruleset 'release-tags-immutable' enforcement=active
+PASS: ruleset 'release-tags-immutable' ref scope matches
+PASS: ruleset 'release-tags-immutable' has no bypass actors (admins included)
+PASS: ruleset 'release-tags-immutable' rule set matches the policy exactly
+PASS: environment required-reviewers absent on every environment, as declared pending (gap, not a control)
+PASS: restrict_release_creation declared pending (not API-verifiable; needs a dated manual check)
+
+RESULT: FAIL (2 governance divergence(s))

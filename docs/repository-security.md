@@ -1,85 +1,136 @@
 # Repository Security Configuration
 
-> **Status: `ACCEPTED RISK — FREE PLAN LIMITATION`.** The repo is on **GitHub
-> Free** and **must remain private**. Classic branch protection, required
-> reviewers, repository rulesets, and tag protection are **unavailable on this
-> plan for private repos** (verified: the API rejects them with 422
-> "Upgrade … or make this repository public"). The settings below are therefore
-> the **target** once protection becomes available; today they are compensated
-> by deployment branch/tag policies on the `foundry-rc` (branch `master`) and
-> `foundry-production` (tags `v*.*.*`) environments, typed-confirmation
-> workflow inputs, the exact-commit CI gate, local hooks + policy, and the
-> documented `ALLOW_FREE_TIER_NO_REVIEWERS=1` waiver — which are **not
-> equivalent to enforced GitHub branch protection**. See
-> [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md),
-> [manual-pr-policy.md](manual-pr-policy.md), and
-> [ci-failure-policy.md](ci-failure-policy.md).
+> **Status: ENFORCED AND MACHINE-VERIFIED** (applied 2026-07-28, issue #97).
+> `zenchron-dynamics/zenchron-foundry` is **public** on **GitHub Free**, where
+> branch protection, rulesets and tag protection are available. Both rulesets are
+> live with **no bypass actors — administrators included**.
 >
-> **Correction, verified 2026-07-28** (`gh repo view --json visibility` →
-> `PUBLIC`, `isPrivate: false`): the repository is **public today**, contradicting
-> the "must remain private" statement above. Reconciling the intended visibility
-> with branch/tag/release protection is tracked in **issue #97** and is not
-> settled here. What follows from the verified fact, and is already enforced in
-> code, is that **anyone can open a fork pull request** — see
-> [CI trust boundary](#ci-trust-boundary).
+> The declared configuration lives in
+> [`../policies/repository-governance.yaml`](../policies/repository-governance.yaml);
+> [`../scripts/verify-repo-governance.sh`](../scripts/verify-repo-governance.sh)
+> (`make verify-governance`) compares it against the live GitHub API and **fails
+> closed in both directions** — a control claimed here but missing live, *and*
+> live configuration not declared here. Dated evidence:
+> [`audits/governance-verification-2026-07-28.json`](audits/governance-verification-2026-07-28.json).
+>
+> **What this file used to say, and why that mattered.** Until 2026-07-28 it
+> opened with an accepted-risk banner asserting the repo "must remain private"
+> and that protections were rejected with HTTP 422 on the Free plan. The repo was
+> **public**, so the premise was false — and the live configuration had *zero*
+> protections (`GET /rulesets` → `[]`, `GET /branches/master/protection` → 404).
+> A checklist of unchecked boxes read as governance. The verifier exists so that
+> can never silently recur: every claim below is now checked against reality.
+> Superseded record:
+> [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md).
 
-Exact GitHub settings for `zenchron-dynamics/zenchron-foundry`. This file is the
-source of truth; apply via the GitHub UI or `gh`/Terraform **when the plan allows
-it**.
+Sections marked **ENFORCED** are verified against the API by
+`make verify-governance`. Sections marked **NOT ENFORCED** are gaps, deliberately
+stated as gaps — not as controls-in-waiting.
 
-> **These are admin/UI actions.** They cannot be enforced from repository code.
-> A reviewer must confirm them in *Settings → Branches/Rules*. Status below is
-> "required", not "verified-applied" — applying them needs org/repo admin rights.
+## Branch ruleset — `master` (ENFORCED)
 
-## Branch protection / ruleset — `master`
+`master-protection`, target `refs/heads/master`, enforcement `active`,
+`bypass_actors: []` (live: `current_user_can_bypass: never`).
 
-> **Requires GitHub Team plan or a public repository.** On the current Free
-> private plan the API rejects every setting below with 422 — this checklist is
-> the target state, not the applied state.
+- [x] **Pull request required before merging** — no direct push, for anyone.
+- [x] **Dismiss stale approvals** when new commits are pushed.
+- [x] **Conversation resolution required** before merging.
+- [x] **All required status checks must pass.** The exact names are **not copied
+      here**: they come from
+      [`../policies/required-release-checks.yaml`](../policies/required-release-checks.yaml)
+      (`pr_required_checks`, 5), the same file the exact-commit release gate
+      reads for its larger `release_required_checks` set, and
+      `scripts/assert-required-checks.sh` keeps that file in lockstep with the
+      real workflow job names. One list, three consumers, no drift. (The
+      hand-copied list that used to sit here had rotted to job names — `build
+      representative images (…)` — that no longer exist.)
+- [x] **Linear history required.**
+- [x] **Force pushes blocked** (`non_fast_forward`).
+- [x] **Deletions blocked.**
+- [ ] **Require branches up to date before merging** — deliberately **off**.
+      A full CI pass is measured in hours (see [runner-capacity.md](runner-capacity.md)),
+      so strict mode would force a rebase and full re-run on every `master`
+      update and can livelock a merge. Compensating control: the release gate
+      re-verifies every required check against the **exact tagged commit**
+      (`scripts/check-exact-commit-ci.sh`), so a merge on a slightly stale base
+      cannot produce an unverified release. Merge-time staleness is a correctness
+      risk; release-time staleness is the security risk, and that one is closed.
+- [ ] **Require signed commits** — still off by choice; enabling it before every
+      contributor has signing configured blocks all merges. See
+      [signed-commits.md](signed-commits.md).
 
-Target branch: `master` (the project's primary branch).
+## Tag ruleset — `v*` (ENFORCED)
 
-- [ ] **Require a pull request before merging.**
-- [ ] **Require ≥ 1 approving review** (raise to 2 once the security team exists).
-- [ ] **Require review from Code Owners** (`CODEOWNERS`). *Note:* effective only
-      once real org teams/owners exist — see
-      [github-org-setup.md](github-org-setup.md). Until then CODEOWNERS routes to
-      the repo admin handle.
-- [ ] **Dismiss stale approvals** when new commits are pushed.
-- [ ] **Require conversation resolution** before merging.
-- [ ] **Require status checks to pass** (exact CI job/context names):
-      - `repo structure`
-      - `lint (shell / yaml / md / dockerfile)`
-      - `secret scan (gitleaks)`
-      - `semgrep docker security`
-      - `validate compose profiles`
-      - `build representative images (php-fpm, 8.3)`
-      - `build representative images (php-cli, 8.3)`
-      - `build representative images (php-worker, 8.3)`
-      - `build representative images (nginx)`
-      - `build representative images (caddy)`
-- [ ] **Require branches up to date** before merging.
-- [ ] **Require linear history.**
-- [ ] **Block force pushes.**
-- [ ] **Block deletions.**
-- [ ] **Restrict who can push to `master`** (include administrators — no direct
-      pushes; everything via PR).
-- [ ] **Require signed commits** — enable **only** once the org is ready (see
-      [signed-commits.md](signed-commits.md)); do not enable before contributors
-      have signing configured, or it will block all merges.
+`release-tags-immutable`, target `refs/tags/v*`, enforcement `active`,
+`bypass_actors: []`.
 
-## Tag & release protection
+- [x] **Deletion blocked** — a published release tag cannot be removed.
+- [x] **Force-move blocked** (`non_fast_forward`).
+- [x] **Repointing blocked** (`update`) — together with the two above, `v*` tags
+      are immutable for **everyone**, including the owner. Repairing a mis-tagged
+      release means disabling the ruleset, which is a visible, auditable admin
+      action rather than a quiet force-push.
+- [ ] **Tag creation is intentionally NOT restricted.** `scripts/prepare-release.sh`
+      pushes new `v*` tags as the normal release path, and a *new* tag mutates no
+      existing release. Restricting creation would break the release path and buy
+      nothing.
+- [ ] **Restrict who can create releases** — not applied. This is a role/settings
+      action with no ruleset equivalent and is not API-verifiable from repository
+      code; declared `pending` in the policy.
 
-> **Requires GitHub Team plan or a public repository.** Tag rulesets are
-> unavailable on the current Free private plan (API 422). Until then, the
-> enforced control is the `foundry-production` environment's deployment tag
-> policy (`v*.*.*`) plus the fact that `release.yml` has no tag-push trigger.
+## What is NOT enforced, and why
 
-- [ ] **Tag ruleset** for `v*`: restrict **tag creation** to maintainers
-      (publishing triggers off `v*` tags — see
-      [release-governance.md](release-governance.md)).
-- [ ] **Restrict who can create releases** to maintainers.
-- [ ] Block deletion/force-update of existing `v*` tags (immutable releases).
+These are **gaps**, not pending controls. The verifier requires each to be
+*absent* live while the policy declares it `pending`, so none can be quietly
+mistaken for protection.
+
+- **A second reviewer.** `required_approving_review_count` is **0**, and
+  `require_code_owner_review` is **off**. This is a single-maintainer repository
+  and GitHub forbids self-approval: requiring an approval with no bypass actor
+  would make every merge impossible, and adding a bypass actor to compensate
+  would reduce the entire ruleset to theatre. A PR is still mandatory; what is
+  missing is a second pair of eyes — a people problem, tracked in **issue #112**,
+  not a settings problem. Raise both in the same change that onboards a second
+  maintainer.
+- **Environment approval gates.** `foundry-rc` and `foundry-production` carry
+  deployment branch/tag policies but **no required reviewers** (verified
+  2026-07-28). Previously documented as impossible on the plan — true for Free +
+  *private*, false now that the repo is public. Same single-maintainer blocker.
+- **Fork pull request workflow approval** (*Settings → Actions → General*) — not
+  API-verifiable on this repo/token (`/actions/permissions/fork-pr-workflows` →
+  404), so it must be confirmed by hand. It is defense in depth only: the
+  [CI trust boundary](#ci-trust-boundary) does not depend on it.
+- **Organization-level rulesets** — reading them needs the `admin:org` scope,
+  which the maintainer's working token does not carry.
+
+## Organization runner group (ENFORCED)
+
+The self-hosted runners belong to the org-level **Default** group, and
+`allows_public_repositories` must be **true**. GitHub disables it by default and
+this repository is public, so the flag decides whether CI can run at all: with it
+false, jobs are created and then **never dispatched** — they queue until the
+24-hour timeout and are cancelled with no runner assigned. That is exactly what
+happened between 2026-07-27T07:40 and 2026-07-29, and diagnosing it from outside
+took hours because the endpoint requires `admin:org`.
+
+It is verified by `make verify-governance`, and an **unreadable** endpoint is a
+failure, not a skip — a control that cannot be read cannot be claimed.
+
+**This flag is only safe because of the [CI trust boundary](#ci-trust-boundary).**
+Allowing self-hosted runners on a public repository is precisely the exposure
+that fork-PR isolation contains: fork pull requests run on ephemeral
+GitHub-hosted runners, and the privileged pool only ever sees push and same-repo
+events. The verifier therefore checks both the flag *and* that
+`scripts/assert-runner-trust.sh` exists and is wired into `make validate`. Do not
+enable the flag in a repository that lacks that gate.
+
+## Emergency bypass
+
+There is no bypass actor, so an emergency means **disabling the ruleset via the
+API** — deliberately visible, and far better than a silent local hook override.
+Record every use in the bypass log at the end of
+[audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md),
+then re-run `make verify-governance` to confirm the ruleset is back.
 
 ## Signed commits
 
@@ -125,7 +176,7 @@ Dependabot opens PRs to bump the digests.
 
 ## CI trust boundary
 
-**Status: ENFORCED IN CODE** (unlike the admin/UI items above). Gate:
+**Status: ENFORCED IN CODE.** Gate:
 [`scripts/assert-runner-trust.sh`](../scripts/assert-runner-trust.sh), wired into
 `make validate` and the `repo structure` CI job; regression test:
 [`tests/runner/test_workflow_trust.sh`](../tests/runner/test_workflow_trust.sh).
@@ -181,46 +232,67 @@ Consequences for fork contributors:
 Routed via [`SECURITY.md`](../SECURITY.md) to `security@zenchron.com` / private
 reporting; SLAs there.
 
-## Apply via `gh` (example — requires admin)
+## Verify, re-apply, inspect
 
-> **Requires GitHub Team plan or a public repository.** Both commands below
-> fail with 422 on the current Free private plan. Keep them for the day the
-> plan changes; do not treat them as applied.
+**Verify (do this first, and after any settings change):**
 
 ```bash
-# Branch protection (encode the checklist as JSON):
-gh api -X PUT repos/zenchron-dynamics/zenchron-foundry/branches/master/protection \
-  --input branch-protection.json
-
-# Minimal branch-protection.json:
-# {
-#   "required_status_checks": {
-#     "strict": true,
-#     "contexts": [
-#       "repo structure",
-#       "lint (shell / yaml / md / dockerfile)",
-#       "secret scan (gitleaks)",
-#       "semgrep docker security",
-#       "validate compose profiles",
-#       "build representative images (php-fpm, 8.3)"
-#     ]
-#   },
-#   "enforce_admins": true,
-#   "required_pull_request_reviews": {
-#     "required_approving_review_count": 1,
-#     "require_code_owner_reviews": true,
-#     "dismiss_stale_reviews": true
-#   },
-#   "required_conversation_resolution": true,
-#   "required_linear_history": true,
-#   "allow_force_pushes": false,
-#   "allow_deletions": false,
-#   "restrictions": null
-# }
-
-# Tag protection for v*:
-gh api -X POST repos/zenchron-dynamics/zenchron-foundry/rulesets --input tag-ruleset.json
+make verify-governance                                   # live API vs the policy
+make verify-governance EVIDENCE=docs/audits/governance-verification-$(date -u +%F).json
 ```
 
-> `required_signed_commits` is intentionally omitted above — add it only after
+It exits non-zero on any divergence and prints which side is wrong. `LOCAL=1`
+skips only when `gh`/`jq`/`python3` are missing; a failed API call is a failure,
+never a silent pass.
+
+**Inspect what is live:**
+
+```bash
+gh api repos/zenchron-dynamics/zenchron-foundry/rulesets \
+  --jq '.[] | "\(.id) \(.name) \(.target) \(.enforcement)"'
+gh api repos/zenchron-dynamics/zenchron-foundry/rules/branches/master --jq '[.[].type]'
+```
+
+**Re-apply after an emergency disable** — reconstruct the payload from the policy
+so the two cannot drift, then re-verify:
+
+```bash
+python3 - <<'PY' > master-ruleset.json
+import yaml, json
+names = yaml.safe_load(open("policies/required-release-checks.yaml"))["required_checks"]
+p = yaml.safe_load(open("policies/repository-governance.yaml"))["branch_ruleset"]
+print(json.dumps({
+  "name": p["name"], "target": "branch", "enforcement": p["enforcement"],
+  "bypass_actors": [],
+  "conditions": {"ref_name": {"include": p["include_refs"], "exclude": []}},
+  "rules": [
+    {"type": "deletion"}, {"type": "non_fast_forward"}, {"type": "required_linear_history"},
+    {"type": "pull_request", "parameters": p["pull_request"]},
+    {"type": "required_status_checks", "parameters": {
+        "strict_required_status_checks_policy": p["required_status_checks"]["strict"],
+        "required_status_checks": [{"context": n} for n in names]}},
+  ]}, indent=2))
+PY
+gh api -X POST repos/zenchron-dynamics/zenchron-foundry/rulesets --input master-ruleset.json
+
+cat > tag-ruleset.json <<'EOF'
+{ "name": "release-tags-immutable", "target": "tag", "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {"ref_name": {"include": ["refs/tags/v*"], "exclude": []}},
+  "rules": [{"type": "deletion"}, {"type": "non_fast_forward"}, {"type": "update"}] }
+EOF
+gh api -X POST repos/zenchron-dynamics/zenchron-foundry/rulesets --input tag-ruleset.json
+
+make verify-governance
+```
+
+> Use **rulesets**, not the classic `branches/master/protection` API — this file
+> previously carried a classic-protection payload whose `contexts` had rotted to
+> job names that no longer exist (`build representative images (…)`) and whose
+> `required_approving_review_count: 1` would block **every** merge in a
+> single-maintainer repo. Anything applied by hand is invisible to the verifier
+> until it is declared in `policies/repository-governance.yaml`; declare first,
+> apply second.
+>
+> `required_signed_commits` stays omitted — add it only once
 > [signed-commits.md](signed-commits.md) is in effect for all contributors.

@@ -45,15 +45,26 @@ legacy compatibility and carry accepted, documented risk.
 - SBOM generation (Syft, SPDX + CycloneDX) per image.
 - Keyless image signing and attestation (Cosign + GitHub OIDC).
 - Dependabot (GitHub Actions, Docker bases, Composer examples).
-- **Governance (GitHub Free, private repo):** branch protection, required
-  reviewers, CODEOWNERS enforcement, and tag rulesets are **unavailable** on
-  this plan (the API rejects them with 422). Compensating controls instead:
-  deployment branch/tag policies on the `foundry-rc` (branch `master`) and
-  `foundry-production` (tags `v*.*.*`) environments, typed-confirmation
-  workflow inputs, an exact-commit CI gate, local git hooks, and the documented
-  `ALLOW_FREE_TIER_NO_REVIEWERS=1` waiver. Signed commits and CODEOWNERS remain
-  **policy** (local hooks + review practice), not GitHub-enforced. Accepted-risk
-  record: [docs/audits/free-tier-governance-accepted-risk.md](docs/audits/free-tier-governance-accepted-risk.md).
+- **Governance (enforced, verified 2026-07-28):** the repository is public, so
+  branch and tag rulesets are available and **applied** — `master` requires a
+  pull request with the 5 PR-required status checks, linear history, conversation
+  resolution, and blocks direct push, force-push and deletion; `v*` tags are
+  immutable (no delete, force-move or repoint). **No bypass actors, including
+  administrators.** Declared in `policies/repository-governance.yaml` and
+  machine-checked against the live API by `scripts/verify-repo-governance.sh`
+  (`make verify-governance`), which fails closed on drift in either direction.
+  Evidence: [docs/audits/governance-verification-2026-07-28.json](docs/audits/governance-verification-2026-07-28.json).
+  Alongside it: deployment branch/tag policies on the `foundry-rc` (branch
+  `master`) and `foundry-production` (tags `v*.*.*`) environments,
+  typed-confirmation workflow inputs, an exact-commit CI gate and local git hooks.
+- **Known governance gaps (not controls):** a required second reviewer and
+  CODEOWNERS enforcement cannot be satisfied by a single maintainer — GitHub
+  forbids self-approval, so requiring them with no bypass actor would make every
+  merge impossible. Both stay off, recorded via `ALLOW_FREE_TIER_NO_REVIEWERS=1`
+  and issue #112, together with environment approval gates (now *available*,
+  since the repo is public, but not yet applied). Signed commits remain policy,
+  not enforcement. Superseded record:
+  [docs/audits/free-tier-governance-accepted-risk.md](docs/audits/free-tier-governance-accepted-risk.md).
 
 ## Accepted Vulnerability Exceptions
 

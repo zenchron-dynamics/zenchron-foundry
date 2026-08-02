@@ -47,29 +47,33 @@ existence, deployment policy, required reviewers, production self-review) blocks
 the release. `--structure` verifies everything except reviewers, for local scaffolding
 checks. See the script header for the token it needs.
 
-**Free-tier compensating-control mode.** Because environment required reviewers are
-billing-gated on this Free + private org (see the warning below), the release
-workflows set `ALLOW_FREE_TIER_NO_REVIEWERS=1`. In that mode `--release-ready`
-still hard-fails on auth / existence / deployment-policy checks, but the
-(unattainable) reviewer + self-review checks are **WAIVED** and logged, and the
-banner reads `PASS (COMPENSATING-CONTROL MODE)`. Enforcement then rests on the
-deployment branch/tag policies plus the workflow guards (CalVer, master-ancestry,
-exact-digest equality, signature/SBOM verification). Locally, without the env var,
-the script stays **strict** and fails on missing reviewers — remove the workflow
-env var (and assign real reviewers) once the org is on **Team** or the repo is public.
+**Compensating-control mode.** Because no reviewers are attached (see the warning
+below), the release workflows set `ALLOW_FREE_TIER_NO_REVIEWERS=1`. In that mode
+`--release-ready` still hard-fails on auth / existence / deployment-policy checks,
+but the reviewer + self-review checks are **WAIVED** and logged, and the banner
+reads `PASS (COMPENSATING-CONTROL MODE)`. Enforcement then rests on the deployment
+branch/tag policies, the active `master` / `v*` rulesets
+([repository-security.md](repository-security.md)), and the workflow guards
+(CalVer, master-ancestry, exact-digest equality, signature/SBOM verification).
+Locally, without the env var, the script stays **strict** and fails on missing
+reviewers — remove the workflow env var and assign real reviewers once a second
+maintainer exists (issue #112).
 
 ## BLOCKING — human reviewers required
 
-> ⚠️ **Plan limitation (Free + private).** Environment *required reviewers* are
-> billing-gated: `PUT …/environments/{env}` with `reviewers` returns HTTP 422
-> ("ensure the billing plan supports the required reviewers protection rule").
-> On the current **GitHub Free** org, private repo, the approval gate **cannot be
-> attached at all** — this is a plan limit, not a solo-maintainer limit. The
-> deployment branch/tag policies below already work and are free. To get a real
-> reviewer gate: upgrade the org to **GitHub Team**, or make the repo public
-> (the accepted-risk doc requires it stay private). Until then the reviewer step
-> is unattainable and `--release-ready` stays red by design. See
-> [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md).
+> ⚠️ **Corrected 2026-07-28 (issue #97): this is a single-maintainer limit, not a
+> plan limit.** The previous text said environment *required reviewers* were
+> billing-gated (HTTP 422) on "GitHub Free, private repo". The repository is
+> **public**, where environment protection rules are available for free — so the
+> approval gate *can* now be attached. It is not, because with one maintainer a
+> required reviewer blocks every release instead of adding oversight (GitHub
+> forbids self-approval, and `prevent_self_review` cannot be set until a reviewer
+> exists). Verified 2026-07-28: both environments carry `branch_policy` only, no
+> `required_reviewers` — recorded as `pending` in
+> [`../policies/repository-governance.yaml`](../policies/repository-governance.yaml)
+> so `make verify-governance` keeps it visible as a **gap, not a control**.
+> Closing it means onboarding a second approver (issue #112), after which
+> `--release-ready` can drop the waiver.
 
 The environments are scaffolded but **not release-ready**. GitHub will not let
 `prevent_self_review` be set until at least one reviewer exists, so both the

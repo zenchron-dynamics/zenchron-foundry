@@ -1,0 +1,21 @@
+{
+  "runners": [
+    {
+      "busy": false,
+      "id": 22,
+      "name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "os": "Linux",
+      "status": "online",
+      "version": "2.336.0"
+    },
+    {
+      "busy": false,
+      "id": 23,
+      "name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "os": "Linux",
+      "status": "online",
+      "version": "2.336.0"
+    }
+  ],
+  "total_count": 2
+}

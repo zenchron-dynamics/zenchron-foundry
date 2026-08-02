@@ -40,13 +40,17 @@ exists. Signing is keyless (Fulcio/Rekor), so there is no private key to leak.
 
 - Only maintainers who can dispatch the release workflows and push a `v*`
   **tag** can cut a release.
-- **GitHub Free (private repo) reality:** branch protection, required
-  reviewers, CODEOWNERS enforcement, and tag rulesets are **unavailable**
-  (API 422). Direct pushes to `master` and tag creation are restricted by
-  **policy + local hooks**, not by GitHub. See
-  [repository-security.md](repository-security.md) and
-  [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md).
-- The enforced controls are the **deployment branch/tag policies** on the
+- **Enforced by GitHub since 2026-07-28 (issue #97):** direct pushes to `master`
+  are blocked by the `master-protection` ruleset (PR + the 5 PR-required checks +
+  linear history, no bypass actors), and `v*` tags are **immutable** — no
+  deletion, force-move or repoint, for anyone including the owner. Tag
+  *creation* stays open so `scripts/prepare-release.sh` can still cut a release.
+  The earlier claim that these were unavailable (API 422) assumed a *private*
+  Free repo and was false. Required reviewers and CODEOWNERS enforcement remain
+  off — now for a single-maintainer reason, not a plan reason (issue #112). See
+  [repository-security.md](repository-security.md); confirm with
+  `make verify-governance`.
+- The other enforced controls are the **deployment branch/tag policies** on the
   `foundry-rc` (branch `master`) and `foundry-production` (tags `v*.*.*`)
   environments, typed-confirmation workflow inputs, and the exact-commit CI
   gate on the tagged revision.

@@ -1,0 +1,18 @@
+{
+  "allows_public_repositories": true,
+  "name": "zenchron-foundry-trusted",
+  "restricted_to_workflows": true,
+  "selected_workflows": [
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/promote-stable.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/publish-ghcr.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/publish-rc.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/release.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/scheduled-rebuild.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master"
+  ],
+  "visibility": "selected"
+}

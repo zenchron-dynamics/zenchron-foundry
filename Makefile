@@ -181,6 +181,9 @@ verify-local: ## Verify release artifacts + base images (LOCAL skips missing too
 	@$(LOCAL_FLAG) bash scripts/verify-base-images.sh
 	@$(LOCAL_FLAG) bash scripts/verify-release-artifacts.sh
 
+verify-governance: ## Verify live GitHub governance == policies/repository-governance.yaml (needs gh + network)
+	@$(LOCAL_FLAG) bash scripts/verify-repo-governance.sh $(if $(EVIDENCE),--evidence $(EVIDENCE),)
+
 ci-local: ## Full local CI: validate + build-test + smoke-all (+scan/sbom). STRICT=1 = all gates required.
 	@$(MAKE) --no-print-directory validate
 	@$(MAKE) --no-print-directory build-test

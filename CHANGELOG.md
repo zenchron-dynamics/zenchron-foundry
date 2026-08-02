@@ -26,6 +26,44 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   executes the commit under validation on a privileged runner holds
   `contents: read` and nothing else.
 
+### Security — repository governance now enforced and verified (#97)
+
+- **`master` and `v*` are protected for the first time.** Two rulesets are live
+  with **no bypass actors, administrators included**: `master-protection` (pull
+  request required, no direct push, no force-push, no deletion, linear history,
+  conversation resolution, the required status checks) and
+  <!-- Corrected 2026-07-30: this entry originally said "all 26 required
+  status checks". The ruleset gates PULL REQUESTS and requires the 5
+  PR-producible checks; the 17-entry release set is verified on the release
+  commit. The figure was wrong when written, not changed since. -->
+  `release-tags-immutable` (`v*` cannot be deleted, force-moved or repointed).
+  Tag *creation* stays open so `scripts/prepare-release.sh` still works.
+- **The premise everything rested on was false.** Four documents stated the repo
+  "must remain private" on GitHub Free, where protections return 403/422. The
+  repo is **public** (verified 2026-07-28), where they are free — and the live
+  configuration had **zero** protections (`/rulesets` → `[]`,
+  `/branches/master/protection` → 404). Unchecked checkboxes were reading as
+  governance.
+- `policies/repository-governance.yaml` + `scripts/verify-repo-governance.sh`
+  (`make verify-governance`) now declare and machine-check that configuration,
+  failing closed on divergence in either direction. Required-check names are
+  read from `policies/required-release-checks.yaml` rather than copied. Dated
+  evidence: `docs/audits/governance-verification-2026-07-28.json`.
+- The stale apply-instructions in `repository-security.md` (classic
+  branch-protection payload, rotted `build representative images (…)` contexts,
+  `required_approving_review_count: 1`) are replaced — following them would have
+  wedged every merge in a single-maintainer repo.
+- Truth-synced: `README.md`, `SECURITY.md`, `repository-security.md`,
+  `accepted-risks.md` (AR-1), `manual-pr-policy.md`, `ci-failure-policy.md`,
+  `release-governance.md`, `release-environments.md`, `security-model.md`,
+  `solo-maintainer-release-model.md`, `architecture.md`. The Free-plan
+  accepted-risk record is **superseded**, not deleted.
+- Re-scoped, not closed: required reviewers, CODEOWNERS enforcement and
+  environment approval gates stay off because a single maintainer cannot
+  self-approve — a people limit (#112), no longer a plan limit. Visibility
+  remains public for external review access, which does **not** resolve the
+  proprietary-LICENSE conflict in #98.
+
 ### Security — CI trust boundary (#96)
 
 - Fork pull requests can no longer schedule work on the persistent, shared,

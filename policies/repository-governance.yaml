@@ -1,0 +1,217 @@
+# =============================================================================
+# policies/repository-governance.yaml
+# -----------------------------------------------------------------------------
+# The DECLARED governance configuration of this repository, in the form a
+# machine can check. scripts/verify-repo-governance.sh compares this file against
+# the live GitHub API and fails closed on ANY divergence — in BOTH directions:
+#
+#   * a control declared here but missing live  -> FAIL (claim without control)
+#   * a control live but not declared here      -> FAIL (undocumented drift)
+#
+# That two-way check is the point. Before this file existed, every governance
+# statement in docs/ was an *aspiration* written as if it were a control, and the
+# repository ran with zero protections while four documents asserted the opposite
+# (issue #97).
+#
+# This file records what IS enforced. Nothing here is a plan. Items that are not
+# yet enforced are declared `pending` and the verifier then requires them to be
+# ABSENT live, so a pending item can never be quietly read as a control.
+#
+# Required status-check NAMES are deliberately NOT duplicated here: they live in
+# policies/required-release-checks.yaml, which scripts/assert-required-checks.sh
+# already keeps in lockstep with the real workflow job names. The merge gate and
+# the release gate therefore require the identical set by construction.
+# =============================================================================
+schema_version: 1
+
+# Dated review of this file. scripts/verify-repo-governance.sh warns when the
+# review is older than review_interval_days and fails past the grace period.
+review:
+  decision_date: "2026-07-28"
+  review_date: "2026-10-28"
+  review_interval_days: 92
+  owner: "Bogdan Olteanu / Zenchron Dynamics"
+  approver: "Bogdan Olteanu (repo + org admin)"
+
+# The release environments checked BY NAME. "any environment has reviewers"
+# proved nothing about whether these two specific environments are protected.
+release_environments:
+  - foundry-rc
+  - foundry-production
+
+repository:
+  # Verified 2026-07-28: `gh repo view --json visibility` -> PUBLIC.
+  #
+  # Rationale (maintainer decision, 2026-07-28): the repository is public so that
+  # external review tooling can read it. This is an ACCESS decision, NOT a grant
+  # of public distribution rights — the LICENSE remains proprietary and
+  # confidential, which is a live conflict tracked in issue #98 and NOT resolved
+  # by this policy. Read: world-readable source under a confidential licence.
+  visibility: public
+  default_branch: master
+
+  # Verified applied 2026-07-28 (GET /actions/permissions/workflow).
+  actions:
+    default_workflow_permissions: read
+    can_approve_pull_request_reviews: false
+
+# --- Organization runner group ----------------------------------------------
+# THIS IS THE FORK-PR SECURITY BOUNDARY. Repository code cannot govern runner
+# assignment: a pull_request workflow runs the workflow file from the merge ref,
+# which includes the PR's own edits to .github/workflows/, so a fork can name the
+# privileged labels and GitHub schedules before any repository code executes.
+# The boundary therefore lives here, in GitHub's control plane, and every field
+# below is load-bearing:
+#
+#   visibility: selected + selected_repository_ids
+#       Without this the group is org-wide. zenchron-dynamics has 10+ other
+#       PUBLIC repositories; any of them could schedule on the release host.
+#
+#   restricted_to_workflows + selected_workflows pinned @refs/heads/master
+#       This is what refuses a fork. A pull_request run's workflow ref is
+#       refs/pull/N/merge, which matches no entry — proven in
+#       docs/security/fork-boundary-test-2026-07-29.md (jobs queued, both
+#       runners online and busy=false, never assigned).
+#
+#   allows_public_repositories
+#       Required because this repository is public; GitHub disables it by
+#       default, and with it false jobs queue unassigned until the 24h timeout.
+#       Only safe in combination with the two restrictions above.
+org_runner_group:
+  id: 3
+  name: zenchron-foundry-trusted
+  visibility: selected
+  allows_public_repositories: true
+  restricted_to_workflows: true
+  # The ONLY repository allowed to use these runners.
+  #
+  # MUTATION HAZARD: a PATCH to /orgs/{org}/actions/runner-groups/{id} that OMITS
+  # selected_repository_ids CLEARS it — GitHub treats "absent" as "set to empty",
+  # even when the field is not part of the intended change. That happened on
+  # 2026-08-02 during the ci.yml -> trusted-validation.yml swap and left the group
+  # with zero authorised repositories. It failed CLOSED (no repository gained
+  # access; the only authorised one lost it), was caught by postcondition
+  # verification, and was restored via the dedicated repositories endpoint.
+  # scripts/admin/runner-group-patch.sh refuses to send a PATCH without it.
+  selected_repository_ids: [1254295268]
+  selected_repository_names: [zenchron-dynamics/zenchron-foundry]
+  # Exact allowed workflow paths AND refs. Anything not listed — including the
+  # same file on any other ref — cannot schedule here.
+  selected_workflows:
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/promote-stable.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/publish-ghcr.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/publish-rc.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/release.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/scheduled-rebuild.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master
+  # PENDING: trusted-validation.yml cannot be added until it exists on master —
+  # trusted-validation.yml reached master with #131 (01a1181) and was added to the
+  # live group on 2026-08-02, replacing ci.yml — which no longer builds anything
+  # and so no longer needs the privileged pool.
+  # Evidence: docs/audits/runner-group-swap-2026-08-02/
+  pending_workflows: []
+  # The repository-side drift check that must accompany the control plane. It is
+  # NOT the boundary; it stops us reintroducing a self-hosted runs-on by accident.
+  requires_fork_pr_boundary: scripts/assert-pr-workflows-github-hosted.sh
+  # No runner may sit in an unrestricted org-wide group.
+  forbid_runners_in_groups: [Default]
+
+# --- Branch ruleset ---------------------------------------------------------
+branch_ruleset:
+  name: master-protection
+  enforcement: active
+  include_refs: ["refs/heads/master"]
+  # EMPTY BY DESIGN. docs/repository-security.md targets "include administrators
+  # — no direct pushes; everything via PR", so no actor may bypass, not even the
+  # owner (live: `current_user_can_bypass: never`). An emergency therefore means
+  # disabling the ruleset via the API, which is an auditable admin action, rather
+  # than a silent local hook bypass. Log any such use in
+  # docs/audits/free-tier-governance-accepted-risk.md.
+  bypass_actors: []
+  required_rules:
+    - deletion              # branch cannot be deleted
+    - non_fast_forward      # no force-push
+    - required_linear_history
+    - pull_request
+    - required_status_checks
+
+  pull_request:
+    # 0, NOT 1 — deliberate and load-bearing. This is a single-maintainer
+    # repository: GitHub forbids self-approval, so requiring 1 approval with no
+    # bypass actor would make EVERY merge impossible, and adding a bypass actor
+    # to compensate would turn the whole ruleset into theatre. A PR is still
+    # mandatory; what is missing is a second pair of eyes, which is a people
+    # problem tracked in issue #112, not a settings problem. Raise this to 1 in
+    # the same change that onboards a second maintainer.
+    required_approving_review_count: 0
+    dismiss_stale_reviews_on_push: true
+    required_review_thread_resolution: true
+    # Requires a CODEOWNERS review. Same self-approval wedge as above — the sole
+    # code owner cannot satisfy it. Enable with the second maintainer (#112).
+    require_code_owner_review: false
+    require_last_push_approval: false
+
+  required_status_checks:
+    # Names come from policies/required-release-checks.yaml. This ruleset gates
+    # PULL REQUESTS, so it uses `pr_required_checks` (5) — the checks a pull
+    # request can actually produce. The larger `release_required_checks` set
+    # (17, including the per-image scans and the trusted validation result) is
+    # verified on the release commit, not here.
+    source: policies/required-release-checks.yaml
+    # "Require branches to be up to date before merging" = false, deliberately.
+    # A full CI pass is measured in hours (docs/runner-capacity.md: the 10-image
+    # matrix is serial; verify-rc is ~12 h), so strict mode would force a rebase
+    # and a full re-run on every master update and could livelock a merge.
+    # Compensating control: the release gate re-verifies every required check
+    # against the EXACT tagged commit (scripts/check-exact-commit-ci.sh), so a
+    # merge made on a slightly stale base can never produce an unverified
+    # release. Merge-time staleness is a correctness risk; release-time
+    # staleness is the security risk, and that one is closed.
+    strict: false
+
+# --- Tag ruleset ------------------------------------------------------------
+tag_ruleset:
+  name: release-tags-immutable
+  enforcement: active
+  include_refs: ["refs/tags/v*"]
+  # Empty by design: release tags are immutable for EVERYONE. Repairing a
+  # mis-tagged release requires disabling this ruleset — deliberately visible.
+  bypass_actors: []
+  required_rules:
+    - deletion              # a published release tag cannot be deleted
+    - non_fast_forward      # cannot be force-moved
+    - update                # cannot be repointed
+    # NOTE: `creation` is intentionally NOT restricted. scripts/prepare-release.sh
+    # pushes new v* tags as the normal release path; blocking creation would
+    # break it and buy nothing, since a NEW tag mutates no existing release.
+
+# --- Declared-but-not-yet-enforced -----------------------------------------
+# The verifier requires each of these to be ABSENT live while it is `pending`.
+# Flip to `required` and apply in the SAME change, so docs and reality move
+# together.
+pending:
+  # Verified 2026-07-28: both environments exist with `branch_policy` only, no
+  # required_reviewers. This was previously documented as impossible on the
+  # plan; that was true for Free + PRIVATE. The repository is public now, so
+  # environment reviewers ARE available and this is a real, closable gap.
+  # Blocked on the same single-maintainer question as the approval count (#112).
+  environment_required_reviewers: pending
+  # Restricting release creation to maintainers is a role/settings action with
+  # no ruleset equivalent; it is not API-verifiable from repository code.
+  restrict_release_creation: pending
+
+# --- Not verifiable from repository code ------------------------------------
+# Listed so their absence from the verifier's output is explicit rather than an
+# unnoticed gap. Each needs a human to check the UI and date the finding.
+not_api_verifiable:
+  - "Settings -> Actions -> General -> fork pull request workflow approval
+     (GET /actions/permissions/fork-pr-workflows -> 404 on this repo/token).
+     Defense in depth only: the CI trust boundary (issue #96) does not depend
+     on it — see docs/repository-security.md#ci-trust-boundary."
+  - "Organization-level RULESETS (GET /orgs/{org}/rulesets). Still unverified —
+     distinct from the runner group above, which IS now checked."
+  - "GitHub plan/billing tier."
