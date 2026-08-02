@@ -26,6 +26,71 @@ platform images **strip at build** — otherwise the binary fails to exec under
 these images cannot bind :80/:443 directly; terminate TLS at an upstream
 LB/ingress and forward to the high ports (8080/8443) — the documented topology.
 
+### How the strip is enforced (#100)
+
+The removal used to be `setcap -r … 2>/dev/null || true`, so a missing binary, an
+absent `setcap`, or a failed removal produced a **green build shipping an image
+that cannot start** under the profile above. It is now fail-closed and proven at
+three levels:
+
+1. **In the build** — the binary must exist, `setcap`/`getcap` must be present,
+   the removal must succeed, the binary must afterwards carry no capability, and
+   `getcap -r /` must find **none anywhere** in the image. Any of these REFUSEs
+   the build. (Caddy runs no `apk` commands per ADR-0001, so a missing `setcap`
+   cannot be installed there — it must fail the build, not be skipped. For
+   FrankenPHP the whole-image scan runs *before* `libcap2-bin` is purged, or the
+   verifier would be gone before there was anything final to verify.)
+2. **On the assembled image** — `scripts/ci/capability-inventory.sh` reads file
+   capabilities from `docker export`'s PAX `SCHILY.xattr.security.capability`
+   records, needing **no tools inside the image**. That is what makes it work for
+   FrankenPHP (which purges `libcap2-bin`) and for any future distroless image
+   with no shell. It runs for **all 10 images** from `scripts/smoke/lib.sh`, and
+   `trusted-validation.yml` publishes its JSON as part of the
+   `trusted-validation-<sha>-*` artifact — on failure too, since that is when the
+   offending paths are worth having. (It is no longer `ci.yml`: #96 moved the
+   build+smoke matrix out of the pull-request path.)
+3. **At runtime** — the Caddy and FrankenPHP smoke tests start the container
+   with `--cap-drop ALL --security-opt no-new-privileges`, so a surviving
+   capability shows up as a container that cannot serve, not as a passing test.
+
+The same `|| true` shape was removed from the FrankenPHP static-archive deletion
+and the user/group creation: a failed `useradd` would otherwise yield an image
+whose `USER` does not exist.
+
+### Two-architecture verification
+
+| Image | Arch | File capabilities | Execs under `cap_drop: ALL` + `no-new-privileges` | Date |
+|---|---|---|---|---|
+| `caddy` | amd64, arm64 | 0 | yes | 2026-07-28 |
+| `php-frankenphp:8.4` | amd64, arm64 | 0 | yes | 2026-07-28 |
+| `php-frankenphp:8.3` | amd64 | 0 | yes | 2026-07-28 |
+| `php-frankenphp:8.3` | **arm64** | **0** | **yes** | **2026-08-01** |
+
+The 8.3/arm64 run closes the last untested combination (#100). Built natively on
+an arm64 host from
+`dunglas/frankenphp:1-php8.3-bookworm@sha256:6383ab28a5f5dff524085a58fa9a3073150680abf7173a744dd847e7bdd2b7d2`
+at repository revision `4fc83eed3e670ed289efc9256c4a785f1eb5c309`; image id
+`sha256:326f8f73a778ac2aac4497b5c637c29564e0e1011f45d73e8824b964ada69d4a`.
+Inventory verdict `PASS`, `count: 0`; the full smoke suite passed 8/8, and the
+container served `/healthz` with `--cap-drop ALL --security-opt
+no-new-privileges --read-only`.
+
+**Negative control, same host and profile.** The unmodified upstream base still
+ships `/usr/local/bin/frankenphp` with `net_bind_service` (effective), inventory
+verdict `FAIL`, and cannot be exec'd at all:
+
+```console
+$ docker run --rm --cap-drop ALL --security-opt no-new-privileges \
+    dunglas/frankenphp:1-php8.3-bookworm@sha256:6383ab... frankenphp version
+/usr/local/bin/docker-php-entrypoint: 9: exec: frankenphp: Operation not permitted
+rc=126
+```
+
+The same command against the hardened image runs the binary. That contrast is
+the regression this guards against: a file capability does not merely add
+privilege, it makes the binary unexecutable under the profile these images are
+certified for.
+
 ## Writable-path exceptions (read-only rootfs)
 
 | Workload | Must be writable | Provided via |

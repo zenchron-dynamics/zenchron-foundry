@@ -60,18 +60,47 @@ RUN set -eux; \
 # are needed at runtime (validation gate: "no build tools in final image").
 COPY healthcheck /usr/local/bin/frankenphp-healthcheck
 # hadolint ignore=DL3008
+# Capability removal and toolchain deletion are FAIL-CLOSED (#100). This block
+# used to hide three failures behind `|| true`: `setcap -r ... 2>/dev/null ||
+# true` (a missing binary or failed removal shipped the capability anyway),
+# `find ... -delete 2>/dev/null || true` (static archives could survive), and
+# `groupadd/useradd ... || true` (a failed identity yields an image whose USER
+# does not exist). Each step is now load-bearing and each removal is PROVEN.
+#
+# Ordering is deliberate: getcap lives in libcap2-bin, so the whole-image scan
+# runs AFTER every purge/delete but BEFORE libcap2-bin itself is removed —
+# otherwise the verifier would be gone before there was anything final to verify.
+# scripts/ci/capability-inventory.sh re-checks the assembled image from outside,
+# which also covers every layer added after this one.
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends libcap2-bin; \
-    setcap -r /usr/local/bin/frankenphp 2>/dev/null || true; \
+    test -x /usr/local/bin/frankenphp; \
+    setcap -r /usr/local/bin/frankenphp; \
+    if [ -n "$(getcap /usr/local/bin/frankenphp)" ]; then \
+        echo "REFUSE: frankenphp still carries: $(getcap /usr/local/bin/frankenphp)" >&2; \
+        exit 1; \
+    fi; \
     apt-get purge -y --auto-remove \
-        libcap2-bin gcc g++ cpp make autoconf binutils dpkg-dev libc6-dev linux-libc-dev m4 patch re2c; \
+        gcc g++ cpp make autoconf binutils dpkg-dev libc6-dev linux-libc-dev m4 patch re2c; \
     rm -f /usr/local/bin/phpize /usr/local/bin/docker-php-source; \
     rm -rf /usr/src/*; \
-    find / -xdev -name '*.a' -delete 2>/dev/null || true; \
+    find / -xdev -name '*.a' -delete; \
+    if [ -n "$(find / -xdev -name '*.a' -print -quit)" ]; then \
+        echo "REFUSE: static archives survived deletion:" >&2; \
+        find / -xdev -name '*.a' >&2; \
+        exit 1; \
+    fi; \
+    remaining="$(getcap -r / 2>/dev/null)"; \
+    if [ -n "${remaining}" ]; then \
+        echo "REFUSE: file capabilities remain in the final image:" >&2; \
+        echo "${remaining}" >&2; \
+        exit 1; \
+    fi; \
+    apt-get purge -y --auto-remove libcap2-bin; \
     rm -rf /var/lib/apt/lists/*; \
-    groupadd -g 10001 app 2>/dev/null || true; \
-    useradd  -u 10001 -g app -d /app -s /usr/sbin/nologin -M app 2>/dev/null || true; \
+    groupadd -g 10001 app; \
+    useradd  -u 10001 -g app -d /app -s /usr/sbin/nologin -M app; \
     mkdir -p /app /tmp/caddy-data /tmp/caddy-config; \
     chown -R 10001:10001 /app /tmp/caddy-data /tmp/caddy-config; \
     chmod 0555 /usr/local/bin/frankenphp-healthcheck

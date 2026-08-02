@@ -26,6 +26,31 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   executes the commit under validation on a privileged runner holds
   `contents: read` and nothing else.
 
+### Security — fail-closed capability removal + final-image inventory (#100)
+
+- `setcap -r … 2>/dev/null || true` in `caddy` and `php-frankenphp` 8.3/8.4 is
+  replaced by a fail-closed sequence: the binary must exist, `setcap`/`getcap`
+  must be present, the removal must succeed, and **no file anywhere in the image**
+  may carry a capability. Any failure REFUSEs the build. The same suppressed
+  shape is removed from FrankenPHP's static-archive deletion and from the
+  user/group creation (a failed `useradd` would ship an image whose `USER` does
+  not exist).
+- New `scripts/ci/capability-inventory.sh` verifies the **assembled** image from
+  outside, reading capabilities from `docker export` PAX xattr records — so it
+  needs no tools inside the image and works for FrankenPHP (which purges
+  `libcap2-bin`) and for any future distroless image. Wired into
+  `scripts/smoke/lib.sh`, so all **10** images are checked on every smoke run,
+  local and CI; CI publishes the JSON as a `capability-inventory-*` artifact on
+  success and failure.
+- Caddy and FrankenPHP smoke tests now run their containers with
+  `--cap-drop ALL --security-opt no-new-privileges`, turning a surviving
+  capability into an observable failure instead of an inference.
+- Verified on **both architectures** (amd64 + arm64): zero capabilities and a
+  clean exec under the hardened profile. The unmodified upstream
+  `caddy:2-alpine` base fails the same run with `operation not permitted` —
+  confirming the check is meaningful. No image was actually shipping a
+  capability; this closes a latent fail-open, not a live exposure.
+
 ### Security — repository governance now enforced and verified (#97)
 
 - **`master` and `v*` are protected for the first time.** Two rulesets are live
