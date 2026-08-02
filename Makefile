@@ -151,6 +151,7 @@ validate: ## Static gates: structure, supply-chain guard, action/container/runne
 	@bash scripts/assert-no-wolfi.sh
 	@bash scripts/assert-pinned-actions.sh
 	@bash scripts/assert-pr-workflows-github-hosted.sh
+	@bash scripts/assert-dependabot-manifests.sh
 	@bash scripts/assert-pinned-containers.sh
 	@bash scripts/assert-image-matrix.sh
 	@$(LOCAL_FLAG) bash scripts/verify-base-images.sh

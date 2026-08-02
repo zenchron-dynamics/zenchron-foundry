@@ -4,7 +4,15 @@ Reference only — copy into a real Laravel repo and adapt. No app code shipped 
 
 ## Build
 
+> **This example does not build as-is, by design.** The Dockerfile runs
+> `COPY composer.json composer.lock ./`, and no app code ships here — copy these
+> files into a real Laravel repository that has its own
+> manifests. Because there is no manifest to watch, this directory is
+> deliberately **not** in `.github/dependabot.yml`; `make validate` fails if a
+> Dependabot entry is ever pointed at a directory without one (#119).
+
 ```bash
+# from YOUR application repo, after copying this Dockerfile + compose files in:
 docker compose build           # builds example-laravel:local from ./Dockerfile
 ```
 
