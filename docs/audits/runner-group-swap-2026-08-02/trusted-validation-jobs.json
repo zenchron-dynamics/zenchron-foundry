@@ -1,0 +1,1801 @@
+{
+  "jobs": [
+    {
+      "completed_at": "2026-08-02T08:47:04Z",
+      "conclusion": "success",
+      "created_at": "2026-08-02T08:46:58Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476779367,
+      "name": "authorize trusted validation",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions",
+      "runner_id": 1000000825,
+      "runner_name": "GitHub Actions 1000000825",
+      "started_at": "2026-08-02T08:47:00Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T08:47:01Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T08:47:01Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:47:03Z",
+          "conclusion": "success",
+          "name": "Validate inputs and bind the SHA",
+          "number": 2,
+          "started_at": "2026-08-02T08:47:01Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:47:03Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 3,
+          "started_at": "2026-08-02T08:47:03Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T08:55:46Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788594,
+      "name": "trusted dispatch build+scan php-cli 8.4",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 22,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "started_at": "2026-08-02T08:51:42Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T08:51:47Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T08:51:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:48Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T08:51:47Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:48Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T08:51:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:51Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T08:51:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:51Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T08:51:51Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:56Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T08:51:51Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:17Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T08:51:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:25Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T08:55:17Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:34Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T08:55:25Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:34Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T08:55:34Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:34Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T08:55:34Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:36Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T08:55:34Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:37Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T08:55:36Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:40Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T08:55:37Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:42Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T08:55:40Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:42Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T08:55:42Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:43Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T08:55:42Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:43Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T08:55:43Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T08:59:50Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788598,
+      "name": "trusted dispatch build+scan php-fpm 8.3",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 22,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "started_at": "2026-08-02T08:55:48Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T08:55:53Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T08:55:50Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:53Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T08:55:53Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:53Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T08:55:53Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:54Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T08:55:53Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:54Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T08:55:54Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:55:59Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T08:55:54Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:21Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T08:55:59Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:31Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T08:59:21Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:40Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T08:59:31Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:40Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T08:59:40Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:40Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T08:59:40Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:41Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T08:59:40Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:41Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T08:59:41Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:45Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T08:59:41Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:46Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T08:59:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:47Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T08:59:46Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:47Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T08:59:47Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:47Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T08:59:47Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T08:51:40Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788609,
+      "name": "trusted dispatch build+scan php-cli 8.3",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 23,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "started_at": "2026-08-02T08:47:06Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T08:47:11Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T08:47:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:47:11Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T08:47:11Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:47:11Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T08:47:11Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:47:14Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T08:47:11Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:47:14Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T08:47:14Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:47:25Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T08:47:14Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:50:56Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T08:47:25Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:07Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T08:50:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:26Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T08:51:07Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:26Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T08:51:26Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:26Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T08:51:26Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:28Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T08:51:26Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:29Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T08:51:28Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:32Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T08:51:29Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:36Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T08:51:32Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:36Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T08:51:36Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:36Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T08:51:36Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:51:37Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T08:51:36Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:15:49Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788612,
+      "name": "trusted dispatch build+scan php-frankenphp 8.3",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 23,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "started_at": "2026-08-02T09:12:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T09:12:06Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T09:12:03Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:12:06Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T09:12:06Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:12:07Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T09:12:06Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:12:08Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T09:12:07Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:12:08Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T09:12:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:12:13Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T09:12:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:20Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T09:12:13Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:26Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T09:15:20Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:37Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T09:15:26Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:37Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T09:15:37Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:37Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T09:15:37Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:39Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T09:15:37Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:39Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T09:15:39Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:42Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T09:15:39Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:45Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T09:15:42Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:45Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T09:15:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:45Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T09:15:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:46Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T09:15:46Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:21:06Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788616,
+      "name": "trusted dispatch build+scan nginx prod",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 22,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "started_at": "2026-08-02T09:19:52Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T09:19:56Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T09:19:54Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:57Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T09:19:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:57Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T09:19:57Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:58Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T09:19:57Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:58Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T09:19:58Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:20:03Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T09:19:58Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:20:44Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T09:20:03Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:20:51Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T09:20:44Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:20:56Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T09:20:51Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:20:56Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T09:20:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:20:56Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T09:20:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:20:58Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T09:20:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:20:58Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T09:20:58Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:01Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T09:20:58Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:02Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T09:21:01Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:02Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T09:21:02Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:02Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T09:21:02Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:02Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T09:21:02Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:21:52Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788620,
+      "name": "trusted dispatch build+scan caddy prod",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 22,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "started_at": "2026-08-02T09:21:08Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T09:21:12Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T09:21:10Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:12Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T09:21:12Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:13Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T09:21:12Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:14Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T09:21:13Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:14Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T09:21:14Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:19Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T09:21:14Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:34Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T09:21:19Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:38Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T09:21:34Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:43Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T09:21:38Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:43Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T09:21:43Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:43Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T09:21:43Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:45Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T09:21:43Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:45Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T09:21:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:47Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T09:21:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:48Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T09:21:47Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:49Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T09:21:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:49Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T09:21:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:49Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T09:21:49Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:19:50Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788622,
+      "name": "trusted dispatch build+scan php-frankenphp 8.4",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 22,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "started_at": "2026-08-02T09:15:51Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T09:15:56Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T09:15:53Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:56Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T09:15:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:57Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T09:15:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:59Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T09:15:57Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:15:59Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T09:15:59Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:16:04Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T09:15:59Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:20Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T09:16:04Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:26Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T09:19:20Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:39Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T09:19:26Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:39Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T09:19:39Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:39Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T09:19:39Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:40Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T09:19:39Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:41Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T09:19:40Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:45Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T09:19:41Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:46Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T09:19:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:46Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T09:19:46Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:46Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T09:19:46Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:19:47Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T09:19:46Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:12:00Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788626,
+      "name": "trusted dispatch build+scan php-worker 8.4",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 23,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "started_at": "2026-08-02T09:08:01Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T09:08:06Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T09:08:03Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:08:06Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T09:08:06Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:08:07Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T09:08:06Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:08:08Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T09:08:07Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:08:08Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T09:08:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:08:13Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T09:08:08Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:31Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T09:08:13Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:39Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T09:11:31Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:49Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T09:11:39Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:49Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T09:11:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:49Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T09:11:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:50Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T09:11:49Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:51Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T09:11:50Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:54Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T09:11:51Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:56Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T09:11:54Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:56Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T09:11:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:56Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T09:11:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:11:56Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T09:11:56Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:03:57Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788627,
+      "name": "trusted dispatch build+scan php-fpm 8.4",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 23,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "started_at": "2026-08-02T08:59:52Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T08:59:57Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T08:59:54Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:57Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T08:59:57Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T08:59:57Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T08:59:57Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:00:00Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T08:59:57Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:00:00Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T09:00:00Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:00:06Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T09:00:00Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:26Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T09:00:06Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:36Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T09:03:26Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:45Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T09:03:36Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:45Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T09:03:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:45Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T09:03:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:47Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T09:03:45Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:48Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T09:03:47Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:51Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T09:03:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:53Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T09:03:51Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:53Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T09:03:53Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:53Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T09:03:53Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:03:53Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T09:03:53Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:07:59Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T08:47:04Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91476788636,
+      "name": "trusted dispatch build+scan php-worker 8.3",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 3,
+      "runner_group_name": "zenchron-foundry-trusted",
+      "runner_id": 22,
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "started_at": "2026-08-02T09:03:59Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T09:04:03Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T09:04:01Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:04:03Z",
+          "conclusion": "success",
+          "name": "Set up runner",
+          "number": 2,
+          "started_at": "2026-08-02T09:04:03Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:04:04Z",
+          "conclusion": "success",
+          "name": "Reset workspace ownership (self-hosted hygiene, pre-checkout)",
+          "number": 3,
+          "started_at": "2026-08-02T09:04:03Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:04:05Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 4,
+          "started_at": "2026-08-02T09:04:04Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:04:05Z",
+          "conclusion": "success",
+          "name": "Confirm the checkout is the authorized commit",
+          "number": 5,
+          "started_at": "2026-08-02T09:04:05Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:04:12Z",
+          "conclusion": "success",
+          "name": "Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 6,
+          "started_at": "2026-08-02T09:04:05Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:30Z",
+          "conclusion": "success",
+          "name": "Build (no push, amd64, loaded for smoke and scan)",
+          "number": 7,
+          "started_at": "2026-08-02T09:04:12Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:38Z",
+          "conclusion": "success",
+          "name": "Smoke test the built image (runtime contract)",
+          "number": 8,
+          "started_at": "2026-08-02T09:07:30Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:48Z",
+          "conclusion": "success",
+          "name": "Trivy scan (full CRITICAL/HIGH set, nothing suppressed)",
+          "number": 9,
+          "started_at": "2026-08-02T09:07:38Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:48Z",
+          "conclusion": "failure",
+          "name": "Vulnerability gate (reconcile every finding against the ledger)",
+          "number": 10,
+          "started_at": "2026-08-02T09:07:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:48Z",
+          "conclusion": "success",
+          "name": "Record commit-bound result",
+          "number": 11,
+          "started_at": "2026-08-02T09:07:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:50Z",
+          "conclusion": "success",
+          "name": "Upload commit-bound evidence",
+          "number": 12,
+          "started_at": "2026-08-02T09:07:48Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:50Z",
+          "conclusion": "skipped",
+          "name": "Upload vulnerability reconciliation",
+          "number": 13,
+          "started_at": "2026-08-02T09:07:50Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:53Z",
+          "conclusion": "success",
+          "name": "Post Build (no push, amd64, loaded for smoke and scan)",
+          "number": 23,
+          "started_at": "2026-08-02T09:07:50Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:55Z",
+          "conclusion": "success",
+          "name": "Post Run docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c",
+          "number": 24,
+          "started_at": "2026-08-02T09:07:53Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:55Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": 25,
+          "started_at": "2026-08-02T09:07:55Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:55Z",
+          "conclusion": "success",
+          "name": "Complete runner",
+          "number": 26,
+          "started_at": "2026-08-02T09:07:55Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:07:55Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "started_at": "2026-08-02T09:07:55Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:21:58Z",
+      "conclusion": "failure",
+      "created_at": "2026-08-02T09:21:52Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91479961272,
+      "name": "trusted dispatch validation result",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions",
+      "runner_id": 1000000826,
+      "runner_name": "GitHub Actions 1000000826",
+      "started_at": "2026-08-02T09:21:55Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completed_at": "2026-08-02T09:21:56Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "started_at": "2026-08-02T09:21:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:56Z",
+          "conclusion": "failure",
+          "name": "The whole matrix and the aggregate must be green",
+          "number": 2,
+          "started_at": "2026-08-02T09:21:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:56Z",
+          "conclusion": "skipped",
+          "name": "Re-confirm the PR head has not moved",
+          "number": 3,
+          "started_at": "2026-08-02T09:21:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:56Z",
+          "conclusion": "skipped",
+          "name": "Restate what this result does and does not certify",
+          "number": 4,
+          "started_at": "2026-08-02T09:21:56Z",
+          "status": "completed"
+        },
+        {
+          "completed_at": "2026-08-02T09:21:56Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 5,
+          "started_at": "2026-08-02T09:21:56Z",
+          "status": "completed"
+        }
+      ],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:21:52Z",
+      "conclusion": "skipped",
+      "created_at": "2026-08-02T09:21:52Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91479961505,
+      "name": "trusted dispatch stale-exception check",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": null,
+      "runner_group_name": null,
+      "runner_id": null,
+      "runner_name": null,
+      "started_at": "2026-08-02T09:21:52Z",
+      "status": "completed",
+      "steps": [],
+      "workflow_name": "trusted-validation"
+    },
+    {
+      "completed_at": "2026-08-02T09:21:58Z",
+      "conclusion": "skipped",
+      "created_at": "2026-08-02T09:21:59Z",
+      "head_branch": "master",
+      "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+      "id": 91479971992,
+      "name": "publish release statuses",
+      "run_attempt": 1,
+      "run_id": 30740447770,
+      "run_url": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/actions/runs/30740447770",
+      "runner_group_id": null,
+      "runner_group_name": null,
+      "runner_id": null,
+      "runner_name": null,
+      "started_at": "2026-08-02T09:21:59Z",
+      "status": "completed",
+      "steps": [],
+      "workflow_name": "trusted-validation"
+    }
+  ],
+  "total_count": 14
+}

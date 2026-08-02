@@ -18,7 +18,7 @@ fail=0
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
 POLICY=policies/repository-governance.yaml
-EVIDENCE=docs/audits/governance-verification-2026-07-30.json
+EVIDENCE=docs/audits/governance-verification-2026-08-02.json
 
 ck "governance policy exists"          "test -f $POLICY"
 ck "verifier comparators self-test"    "bash scripts/verify-repo-governance.sh --self-test >/dev/null"
@@ -186,10 +186,14 @@ ck "verifier proves no other public repo has access" \
    "grep -q 'other PUBLIC repositories' scripts/verify-repo-governance.sh"
 ck "verifier proves Default holds no runners" \
    "grep -q 'holds no runners' scripts/verify-repo-governance.sh"
-ck "trusted-validation is tracked as pending until it reaches master" \
+# Was: "tracked as pending until it reaches master". It reached master with #131
+# (01a1181) and went live on 2026-08-02, so the pending list must now be EMPTY —
+# a workflow left in `pending` while it is live is undeclared drift.
+ck "trusted-validation is live, no longer pending" \
    "python3 -c \"
 import yaml;g=yaml.safe_load(open('$POLICY'))['org_runner_group']
-assert any('trusted-validation.yml' in w for w in g['pending_workflows'])\""
+assert g['pending_workflows']==[], g['pending_workflows']
+assert any('trusted-validation.yml@refs/heads/master' in w for w in g['selected_workflows'])\""
 ck "ruleset is compared against PR-producible checks" \
    "grep -q 'pr_required_checks' scripts/verify-repo-governance.sh"
 ck "fork-boundary evidence is committed" \
@@ -235,6 +239,68 @@ ck "evidence source_revision is a real commit in this repository" \
    "git cat-file -e \"\$(python3 -c \"import json;print(json.load(open('$EVIDENCE'))['source_revision'])\")\""
 ck "no document still claims 26 required checks" \
    "! grep -rn '26 required\|26 status\|all 26 check' --include='*.md' --include='*.yaml' . | grep -v originally"
+
+# --- the 2026-08-02 allowlist swap, and the incident it exposed -------------
+ck "the policy declares trusted-validation, not ci.yml" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+w=g['selected_workflows']
+assert not any('/ci.yml@' in x for x in w), 'ci.yml still declared'
+assert sum('trusted-validation.yml@refs/heads/master' in x for x in w)==1, w
+assert g['pending_workflows']==[], g['pending_workflows']\""
+ck "the policy pins exactly one repository by ID" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+assert g['selected_repository_ids']==[1254295268], g['selected_repository_ids']\""
+ck "the PATCH hazard is documented beside the field it destroys" \
+   "grep -q 'MUTATION HAZARD' $POLICY && grep -q 'selected_repository_ids CLEARS it' $POLICY"
+
+# A declarative policy cannot stop a hand-written curl; the helper is the guard.
+ck "the admin mutation helper exists and self-tests" \
+   "test -x scripts/admin/runner-group-patch.sh && \
+    bash scripts/admin/runner-group-patch.sh --self-test >/dev/null"
+ck "the helper REFUSES the exact payload that caused the incident" \
+   "! bash -c '
+      . scripts/admin/runner-group-patch.sh --self-test >/dev/null 2>&1
+      eval \"\$(sed -n \"/^assert_patch_payload_safe()/,/^}/p\" scripts/admin/runner-group-patch.sh)\"
+      die() { return 1; }
+      printf %s \"{\\\"selected_workflows\\\":[\\\"a@refs/heads/master\\\"]}\" > /tmp/_incident.json
+      assert_patch_payload_safe /tmp/_incident.json' >/dev/null 2>&1"
+ck "the helper verifies AFTER the mutation, not just the HTTP status" \
+   "grep -q 'a 200 is not evidence' scripts/admin/runner-group-patch.sh && \
+    grep -q 'compare_snapshots' scripts/admin/runner-group-patch.sh"
+
+# --- incident evidence is committed and intact -----------------------------
+# NOTE: read inside the strings ck() evals, which the linter cannot follow.
+# shellcheck disable=SC2034
+EVDIR=docs/audits/runner-group-swap-2026-08-02
+ck "the incident evidence bundle is committed" \
+   "test -f \$EVDIR/README.md && test -f \$EVDIR/SHA256SUMS"
+ck "every evidence file matches its checksum" \
+   "( cd \$EVDIR && shasum -a 256 -c SHA256SUMS >/dev/null 2>&1 )"
+ck "the evidence records the fail-closed classification" \
+   "grep -q 'Fail-closed runner-group availability incident' \$EVDIR/README.md && \
+    grep -q 'not.*a privilege exposure' \$EVDIR/README.md"
+ck "the evidence shows the repository selection going 1 -> 0 -> 1" \
+   "python3 -c \"
+import json
+b=json.load(open('\$EVDIR/selected-repositories-before.json'))
+a=json.load(open('\$EVDIR/selected-repositories-after-patch.json'))
+r=json.load(open('\$EVDIR/selected-repositories-restored.json'))
+assert (b['total_count'],a['total_count'],r['total_count'])==(1,0,1), (b,a,r)\""
+ck "the evidence proves the trusted matrix reached self-hosted runners" \
+   "python3 -c \"
+import json
+j=json.load(open('\$EVDIR/trusted-validation-jobs.json'))
+legs=[x for x in j['jobs'] if x['name'].startswith('trusted dispatch build')]
+assert len(legs)==10, len(legs)
+runners={x.get('runner_name') for x in legs}
+assert all(r and r.startswith('runner-prod-') for r in runners), runners\""
+ck "the evidence contains no credentials or host paths" \
+   "! grep -rqiE 'ghp_|ghs_|github_pat_|authorization:|bearer |X-Amz-Signature' \$EVDIR && \
+    ! grep -rq '/Users/' \$EVDIR"
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_repo_governance: PASS" || echo "test_repo_governance: FAIL"
 exit $fail

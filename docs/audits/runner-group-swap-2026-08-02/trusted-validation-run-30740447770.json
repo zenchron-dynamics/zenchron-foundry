@@ -1,0 +1,20 @@
+{
+  "check_suite_id": 83358097858,
+  "check_suite_node_id": "CS_kwDOSsMG5M8AAAATaIehwg",
+  "conclusion": "failure",
+  "created_at": "2026-08-02T08:46:56Z",
+  "display_title": "trusted-validation",
+  "event": "workflow_dispatch",
+  "head_branch": "master",
+  "head_sha": "01a1181ebd9876b79fb141e035f792740c2e22e7",
+  "id": 30740447770,
+  "name": "trusted-validation",
+  "path": ".github/workflows/trusted-validation.yml",
+  "referenced_workflows": [],
+  "run_attempt": 1,
+  "run_number": 1,
+  "run_started_at": "2026-08-02T08:46:56Z",
+  "status": "completed",
+  "updated_at": "2026-08-02T09:21:59Z",
+  "workflow_id": 325455521
+}

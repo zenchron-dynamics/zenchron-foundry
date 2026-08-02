@@ -84,26 +84,36 @@ org_runner_group:
   allows_public_repositories: true
   restricted_to_workflows: true
   # The ONLY repository allowed to use these runners.
+  #
+  # MUTATION HAZARD: a PATCH to /orgs/{org}/actions/runner-groups/{id} that OMITS
+  # selected_repository_ids CLEARS it — GitHub treats "absent" as "set to empty",
+  # even when the field is not part of the intended change. That happened on
+  # 2026-08-02 during the ci.yml -> trusted-validation.yml swap and left the group
+  # with zero authorised repositories. It failed CLOSED (no repository gained
+  # access; the only authorised one lost it), was caught by postcondition
+  # verification, and was restored via the dedicated repositories endpoint.
+  # scripts/admin/runner-group-patch.sh refuses to send a PATCH without it.
   selected_repository_ids: [1254295268]
   selected_repository_names: [zenchron-dynamics/zenchron-foundry]
   # Exact allowed workflow paths AND refs. Anything not listed — including the
   # same file on any other ref — cannot schedule here.
   selected_workflows:
     - zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master
-    - zenchron-dynamics/zenchron-foundry/.github/workflows/ci.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/promote-stable.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/publish-ghcr.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/publish-rc.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/release.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/scheduled-rebuild.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master
   # PENDING: trusted-validation.yml cannot be added until it exists on master —
-  # GitHub rejects a selected_workflows entry whose path is absent at the ref.
-  # Add it in the same change that merges #96, then re-run make verify-governance.
-  pending_workflows:
-    - zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master
+  # trusted-validation.yml reached master with #131 (01a1181) and was added to the
+  # live group on 2026-08-02, replacing ci.yml — which no longer builds anything
+  # and so no longer needs the privileged pool.
+  # Evidence: docs/audits/runner-group-swap-2026-08-02/
+  pending_workflows: []
   # The repository-side drift check that must accompany the control plane. It is
   # NOT the boundary; it stops us reintroducing a self-hosted runs-on by accident.
   requires_fork_pr_boundary: scripts/assert-pr-workflows-github-hosted.sh
