@@ -265,12 +265,20 @@ authorize() { # authorize <evidence-dir> <out.json>
     done
   done < <(matrix_image_labels)
   # unexpected extras
+  local KNOWN_LABELS KNOWN_PLATFORMS
+  KNOWN_LABELS="$(matrix_image_labels)"
+  KNOWN_PLATFORMS="$(printf '%s' "$EXPECTED_PLATFORMS" | tr ',' '\n')"
   for key in "${seen_keys[@]:-}"; do
     [ -n "$key" ] || continue
     local kl="${key%|*}" kp="${key#*|}"
-    if ! matrix_image_labels | grep -qxF "$kl"; then
+    # NOT `matrix_image_labels | grep -q`. `grep -q` exits at the first match,
+    # the producer takes SIGPIPE, and `set -o pipefail` reports the pipeline as
+    # failed — so a child that IS in the matrix was intermittently reported as
+    # not being in it. Timing-dependent, so it passed on one platform and failed
+    # on another. Here-strings have no pipeline to fail.
+    if ! grep -qxF "$kl" <<<"$KNOWN_LABELS"; then
       refusals+=("unexpected child '$kl' is not in the image matrix")
-    elif ! printf '%s' "$EXPECTED_PLATFORMS" | tr ',' '\n' | grep -qxF "$kp"; then
+    elif ! grep -qxF "$kp" <<<"$KNOWN_PLATFORMS"; then
       refusals+=("unexpected child '$kl' on unrequested platform '$kp'")
     fi
   done
@@ -347,7 +355,7 @@ _asc_self_test() {
       base="$(jq -nc --arg l "$lbl" --arg d "$DIG" --arg s "$SUM" --arg p "$PKG" \
                 --arg rev "$REV" --arg repo "$EXPECTED_REPOSITORY" '{
         image_label:$l, platform:"linux/amd64",
-        staging_tag:($l|gsub("/";"-"))+"-r1-a1-saaaaaaa-amd64",
+        staging_tag:(($l|gsub("/";"-"))+"-r1-a1-saaaaaaa-amd64"),
         digest_reference:($p+"@"+$d), manifest_digest:$d, tag_resolved_digest:$d,
         visibility:"private", config_architecture:"amd64",
         manifest_media_type:"application/vnd.oci.image.manifest.v1+json",
