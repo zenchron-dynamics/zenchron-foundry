@@ -257,11 +257,6 @@
             "application/vnd.docker.distribution.manifest.v2+json"
           ],
           "description": "Read from the registry object itself. An index digest is REFUSED: an index can still be pulled with --platform, inspected and scanned, so every downstream check would pass while the record described the wrong object. Disabling sbom/provenance makes an index unlikely, not impossible."
-        },
-        "oci_labels_sha256": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$",
-          "description": "Checksum of the inspected OCI label map recorded for this child (#126)."
         }
       }
     }

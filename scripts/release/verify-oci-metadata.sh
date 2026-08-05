@@ -39,6 +39,22 @@ _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/common.sh
 . "$_d/../lib/common.sh"
 
+# The static keys EVERY image must declare and every contract must pin. The
+# check used to be "iterate whatever oci_static happens to contain, then require
+# at least six keys" — so a contract that simply omitted a dimension validated
+# cleanly against an image that also omitted it. Caddy was in exactly that state:
+# no base.name in the Dockerfile, none in the contract, and #126 requires base
+# metadata on every child. Six other keys being present is not sufficient.
+REQUIRED_STATIC_KEYS="\
+org.opencontainers.image.title
+org.opencontainers.image.description
+org.opencontainers.image.vendor
+org.opencontainers.image.source
+org.opencontainers.image.base.name
+org.opencontainers.image.licenses
+com.zenchron.runtime
+com.zenchron.support"
+
 _default_inspect() { docker inspect "$1" --format '{{json .Config}}' 2>/dev/null | jq '{Config: .}'; }
 
 verify_oci_metadata() { # <ref> <contract> <labels-out>
@@ -82,10 +98,19 @@ verify_oci_metadata() { # <ref> <contract> <labels-out>
     [ "$got" = "$want" ] || bad+=("$key: image has '${got:-<missing>}', contract requires '$want'")
   done < <(yq -r '.oci_static // {} | keys | .[]' "$contract")
 
-  # The contract must actually pin something; an empty oci_static block would
-  # make this check pass while asserting nothing.
-  [ "$(yq -r '.oci_static // {} | length' "$contract")" -ge 6 ] \
-    || bad+=("contract pins fewer than 6 static labels — it asserts almost nothing")
+  # Every mandatory dimension must be pinned by the contract AND present on the
+  # image. Counting keys is not the same as requiring the right ones.
+  local rk
+  while IFS= read -r rk; do
+    [ -n "$rk" ] || continue
+    local pinned; pinned="$(yq -r ".oci_static.\"${rk}\" // \"\"" "$contract")"
+    if [ -z "$pinned" ] || [ "$pinned" = null ]; then
+      bad+=("$rk: MANDATORY but the contract does not pin it")
+      continue
+    fi
+    local present; present="$(jq -r --arg k "$rk" '.[$k] // ""' <<<"$labels")"
+    [ -n "$present" ] || bad+=("$rk: MANDATORY but the image does not carry it")
+  done <<<"$REQUIRED_STATIC_KEYS"
 
   # --- dynamic: must equal what this run is ---------------------------------
   want="$(yq -r '.oci_version_label' "$contract")"
@@ -126,6 +151,7 @@ oci_static:
   "org.opencontainers.image.source": "https://github.com/zenchron-dynamics/zenchron-foundry"
   "org.opencontainers.image.base.name": "docker.io/nginxinc/nginx-unprivileged:1.27-bookworm"
   "org.opencontainers.image.licenses": "LicenseRef-Zenchron-Internal"
+  "com.zenchron.runtime": "nginx"
   "com.zenchron.support": "supported"
 oci_version_label: "prod"
 YAML
@@ -139,6 +165,7 @@ YAML
  "org.opencontainers.image.source":"https://github.com/zenchron-dynamics/zenchron-foundry",
  "org.opencontainers.image.base.name":"docker.io/nginxinc/nginx-unprivileged:1.27-bookworm",
  "org.opencontainers.image.licenses":"LicenseRef-Zenchron-Internal",
+ "com.zenchron.runtime":"nginx",
  "com.zenchron.support":"supported",
  "org.opencontainers.image.version":"prod",
  "org.opencontainers.image.revision":"$REV",
@@ -172,6 +199,34 @@ JSON
   t "a ref.name that is not the pushed tag refuses" fail '.["org.opencontainers.image.ref.name"]="something-else"'
   t "an image with no labels refuses"  fail '{}'
   t "a missing created label refuses"  fail 'del(.["org.opencontainers.image.created"])'
+
+  # The gap this closed: a contract that simply OMITS a dimension used to
+  # validate cleanly against an image that also omits it. Caddy was in exactly
+  # that state for base.name. Removing the key from BOTH sides must still fail.
+  local C2="$tmp/c2.yaml"
+  grep -v 'base.name' "$C" > "$C2"
+  local L2; L2="$(_labels 'del(.["org.opencontainers.image.base.name"])')"
+  _stub2() { jq -n --argjson l "$L2" '{Config:{Labels:$l}}'; }
+  if ( INSPECT_FN=_stub2 verify_oci_metadata img "$C2" "$tmp/o2.json" ) >/dev/null 2>&1; then
+    echo "FAIL - a mandatory key absent from BOTH contract and image should refuse"; nbad=$((nbad+1))
+  else
+    echo "ok   - a mandatory key absent from BOTH contract and image still refuses"; ok=$((ok+1))
+  fi
+
+  # ...and every mandatory dimension, one at a time
+  local rk
+  while IFS= read -r rk; do
+    [ -n "$rk" ] || continue
+    local Cx="$tmp/cx.yaml" Lx
+    grep -vF "\"$rk\"" "$C" > "$Cx"
+    Lx="$(_labels "del(.[\"$rk\"])")"
+    _stubx() { jq -n --argjson l "$Lx" '{Config:{Labels:$l}}'; }
+    if ( INSPECT_FN=_stubx verify_oci_metadata img "$Cx" "$tmp/ox.json" ) >/dev/null 2>&1; then
+      echo "FAIL - dropping mandatory $rk should refuse"; nbad=$((nbad+1))
+    else
+      echo "ok   - dropping mandatory $rk refuses"; ok=$((ok+1))
+    fi
+  done <<<"$REQUIRED_STATIC_KEYS"
 
   # the label map is written out as evidence even though the run passed
   local L; L="$(_labels)"; _stub() { jq -n --argjson l "$L" '{Config:{Labels:$l}}'; }

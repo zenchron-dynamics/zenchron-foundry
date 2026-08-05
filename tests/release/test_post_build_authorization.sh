@@ -225,6 +225,49 @@ try:
     jsonschema.validate(d,s); sys.exit(1)
 except jsonschema.ValidationError: pass\""
 
+# --- 4d. the runtime schema gate ------------------------------------------
+# The aggregator and the schema check different things and neither subsumes the
+# other. This proves the runtime gate catches something the aggregator does NOT
+# independently validate: an empty staging_tag. The aggregator never inspects it;
+# the schema requires minLength 1.
+D="$TMP/schemagate"; mk "$D"; run "$D" >/dev/null
+ck "the aggregator alone accepts an empty staging_tag" \
+   "python3 -c \"
+import json
+d=json.load(open('$D/out.json'))
+d['children'][0]['staging_tag']=''
+json.dump(d, open('$D/mutated.json','w'))\" && test -s '$D/mutated.json'"
+ck "the runtime schema gate refuses it" \
+   "! bash scripts/release/validate-authorization-record.sh '$D/mutated.json' >/dev/null 2>&1"
+# Captured, not piped: pipefail makes `validator | grep` fail on the validator's
+# non-zero exit even when grep matched.
+bash scripts/release/validate-authorization-record.sh "$D/mutated.json" > "$D/verr" 2>&1 || true
+ck "...naming the offending field" "grep -q staging_tag '$D/verr'"
+ck "the runtime gate accepts the real PASS record" \
+   "bash scripts/release/validate-authorization-record.sh '$D/out.json' >/dev/null 2>&1"
+
+# A FAIL record must validate too — a refusal is exactly when it gets read.
+D="$TMP/failrec"; mk "$D"; rm -f "$D/child-1.json"; run "$D" >/dev/null
+ck "a FAIL record is also schema-valid at run time" \
+   "bash scripts/release/validate-authorization-record.sh '$D/out.json' >/dev/null 2>&1"
+
+# A missing validator must not pass.
+ck "the runtime gate refuses a missing record rather than passing" \
+   "! bash scripts/release/validate-authorization-record.sh '$TMP/nope.json' >/dev/null 2>&1"
+
+# --- 4e. media-type classification, by SENTENCE not by the word 'index' ----
+# The media-type string itself contains "index", so grepping for it proved
+# nothing about which branch fired.
+D="$TMP/idx2"; mk "$D" "nginx/prod" '.manifest_media_type="application/vnd.oci.image.index.v1+json"'; RC="$(run "$D")"
+ck "an OCI index is classified as an index" \
+   "grep -q 'refusing an INDEX digest' '$D/stderr'"
+D="$TMP/mlist2"; mk "$D" "nginx/prod" '.manifest_media_type="application/vnd.docker.distribution.manifest.list.v2+json"'; RC="$(run "$D")"
+ck "a docker manifest list is classified as an index" \
+   "grep -q 'refusing an INDEX digest' '$D/stderr'"
+D="$TMP/junk"; mk "$D" "nginx/prod" '.manifest_media_type="application/octet-stream"'; RC="$(run "$D")"
+ck "an unrecognised media type is classified as unknown, not as an index" \
+   "grep -q 'unknown media type' '$D/stderr' && ! grep -q 'refusing an INDEX' '$D/stderr'"
+
 # --- 5. architecture policy applies to the requested matrix ----------------
 D="$TMP/arm"; mk "$D"; RC="$(run "$D" EXPECTED_PLATFORMS="linux/amd64,linux/arm64")"
 ck "an unevidenced architecture refuses the whole matrix" "[ '$RC' != 0 ]"

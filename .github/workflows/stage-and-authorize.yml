@@ -604,12 +604,25 @@ jobs:
           jq . authorization/post-build-authorization.json
           echo "::endgroup::"
 
+          # The schema is enforced HERE, in the producer, not only in tests and
+          # not only by some future consumer. The aggregator decides the verdict
+          # from the evidence; the schema constrains the shape, including fields
+          # the aggregator never inspects. Both must hold, for PASS and for FAIL
+          # alike — a malformed FAIL record is as useless as a malformed PASS.
+          bash scripts/release/validate-authorization-record.sh \
+            authorization/post-build-authorization.json
+          schema_rc=$?
+          [ "$schema_rc" -eq 0 ] || echo "::error::the authorization record is not schema-valid"
+
           # Written to a temporary file first: reading and writing SHA256SUMS in
           # one pipeline would race with its own output.
           ( cd authorization \
             && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > .sums.tmp \
             && mv .sums.tmp SHA256SUMS )
-          exit "$rc"
+
+          # Either failure fails the job, and the evidence bundle uploads either
+          # way (the upload step is if: always()).
+          [ "$rc" -eq 0 ] && [ "$schema_rc" -eq 0 ]
 
       - name: Upload the authorization record
         if: always()

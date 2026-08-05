@@ -223,5 +223,34 @@ ck "the OCI verifier self-test passes" \
 ck "every contract pins its static OCI metadata" \
    "[ \"\$(grep -l 'oci_static:' contracts/images/*.yaml | wc -l | tr -d ' ')\" = 10 ]"
 
+# --- the producer validates its own output at run time --------------------
+ck "the workflow validates the record against schema v1" \
+   "grep -q 'validate-authorization-record.sh' $STAGER"
+ck "...and a schema-invalid record fails the job" \
+   "grep -q 'schema_rc' $STAGER && grep -qE '\\[ .\\\$rc. -eq 0 \\] && \\[ .\\\$schema_rc. -eq 0 \\]' $STAGER"
+ck "...while the evidence bundle still uploads" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$STAGER'))
+up=[s for s in d['jobs']['authorize']['steps'] if 'upload-artifact' in str(s.get('uses',''))]
+assert up and up[0].get('if')=='always()', up\""
+
+# --- the offline suite runs in a REQUIRED PR job --------------------------
+# Until this was wired, none of the tests that found the last release-blocking
+# defects were executed by CI at all.
+ck "the offline suite runs in ci.yml" \
+   "grep -q 'tests/run-all.sh' .github/workflows/ci.yml"
+ck "...inside the already-required repo structure job" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('.github/workflows/ci.yml'))
+job=[j for j in d['jobs'].values() if j.get('name')=='repo structure'][0]
+runs=' '.join((s.get('run') or '') for s in job['steps'])
+assert 'tests/run-all.sh' in runs, runs[:200]\""
+ck "...and refuses to run with a degraded validator" \
+   "grep -q 'the suite would silently weaken' .github/workflows/ci.yml"
+ck "'repo structure' is a required release check" \
+   "grep -q 'repo structure' policies/required-release-checks.yaml"
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_no_production_publisher: PASS" || echo "test_no_production_publisher: FAIL"
 exit $fail

@@ -69,11 +69,6 @@ SCOPE="immutable-rc-manifest-input"
 # verify the run through the GitHub API.
 CANONICAL_WORKFLOW_REF="${CANONICAL_WORKFLOW_REF:-zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master}"
 
-# Media types that identify a single platform image. An INDEX must be refused:
-# it can still be pulled with --platform, inspected and scanned, so every
-# downstream check passes while the record describes the wrong object.
-IMAGE_MEDIA_TYPES="application/vnd.oci.image.manifest.v1+json application/vnd.docker.distribution.manifest.v2+json"
-
 # The checksum algorithm is SHARED, not reimplemented here. Two copies of it —
 # one inline in the workflow, one here — were not the same function: the producer
 # hashed `evidence/child`, this recomputed after collection into
@@ -193,11 +188,21 @@ authorize() { # authorize <evidence-dir> <out.json>
     fi
     case "$ref" in *"@${mdig}") : ;; *) refusals+=("$id: digest_reference does not end in the manifest digest") ;; esac
 
-    # the digest must name a platform image, never an index
-    case " $IMAGE_MEDIA_TYPES " in
-      *" $mtype "*) : ;;
-      *index*|*"manifest.list"*) refusals+=("$id: manifest_media_type '$mtype' is an INDEX; the record must describe a platform child") ;;
-      *) refusals+=("$id: manifest_media_type '${mtype:-<missing>}' is not an image manifest media type") ;;
+    # The digest must name a platform image, never an index.
+    #
+    # This matched on " $IMAGE_MEDIA_TYPES " — the ALLOWED LIST — so the
+    # index-specific branch tested the list against itself and could never
+    # classify the candidate. An index was still refused, by the generic branch,
+    # so it was fail-closed; but the classification it claimed to make was not
+    # the one it made, and the test passed by grepping for "index", a word the
+    # media-type string itself contains.
+    case "$mtype" in
+      application/vnd.oci.image.manifest.v1+json|application/vnd.docker.distribution.manifest.v2+json)
+        : ;;
+      application/vnd.oci.image.index.v1+json|application/vnd.docker.distribution.manifest.list.v2+json)
+        refusals+=("$id: refusing an INDEX digest '$mtype' — the record must describe a platform child manifest") ;;
+      *)
+        refusals+=("$id: unknown media type '${mtype:-<missing>}' — not an image manifest") ;;
     esac
 
     # quarantine must still be private
