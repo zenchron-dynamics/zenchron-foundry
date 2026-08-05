@@ -1,0 +1,518 @@
+name: stage-and-authorize
+
+# ---------------------------------------------------------------------------
+# Build every image, push it to the PRIVATE quarantine package, evaluate it by
+# digest, and emit a post-build authorization record. Then STOP.
+#
+# WHY AUTHORIZATION MOVED AFTER THE BUILD. The old gate ran in preflight, before
+# anything existed, so it could not see the child digests or the vulnerability
+# database the scan actually used. It refused every publish outright — honest,
+# but not a control. Authorization has to happen where the facts are.
+#
+# WHAT THIS WORKFLOW DOES NOT DO, deliberately:
+#   * no production package is ever addressed — the only destination is the
+#     private foundry-staging package, and the repository token is empirically
+#     unable to write production packages anyway
+#     (docs/audits/package-acl-2026-08-03/, run 30837370041);
+#   * no public tag, no stable tag, no convenience alias;
+#   * no multi-platform index — each child is pushed as an exact platform
+#     manifest, because the record is about specific child digests;
+#   * NO SIGNING and no id-token. Signing belongs with the immutable RC
+#     manifest, once that manifest exists. Mixing OIDC signing into the build is
+#     the coupling this refactor removes.
+#
+# The record authorizes exactly one thing: these staged child digests are
+# eligible as inputs to an immutable RC manifest. `public_exposure_authorized`
+# is always false.
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Platforms to stage. Only architectures with reconciliation evidence can be authorized; linux/arm64 refuses the whole matrix until #139 lands."
+        type: string
+        default: "linux/amd64"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage-and-authorize-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: zenchron-dynamics
+  STAGING_PACKAGE: ghcr.io/zenchron-dynamics/foundry-staging
+  TRIVY_IMAGE: aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500
+
+jobs:
+  # -------------------------------------------------------------------------
+  # One database for the whole run. Ten jobs each resolving their own snapshot
+  # would let a single authorization record combine findings judged against
+  # different vulnerability knowledge states.
+  # -------------------------------------------------------------------------
+  freeze-db:
+    name: freeze the vulnerability database
+    runs-on: [self-hosted, linux, x64, zenchron]
+    permissions:
+      contents: read
+    outputs:
+      identity: ${{ steps.freeze.outputs.identity }}
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Download and freeze the database
+        id: freeze
+        run: |
+          set -euo pipefail
+          rm -rf trivy-cache && mkdir -p trivy-cache
+          n=0
+          until docker run --rm -v "$PWD/trivy-cache:/root/.cache/trivy" \
+                  "${TRIVY_IMAGE}" image --download-db-only; do
+            n=$((n+1)); [ "$n" -ge 3 ] && { echo "REFUSE: cannot download the vulnerability database"; exit 1; }
+            echo "db download attempt $n failed; retrying in 15s"; sleep 15
+          done
+          meta=trivy-cache/db/metadata.json
+          [ -s "$meta" ] || { echo "REFUSE: no database metadata after download"; exit 1; }
+          # Canonical identity: the fields that describe the SNAPSHOT. DownloadedAt
+          # is deliberately excluded — it records when we fetched it, not which
+          # database it is, and including it would make every job disagree.
+          identity="$(jq -r '"v\(.Version)+updated:\(.UpdatedAt)+next:\(.NextUpdate)"' "$meta")"
+          case "$identity" in
+            *null*|"") echo "REFUSE: database metadata is incomplete: $(cat "$meta")"; exit 1 ;;
+          esac
+          echo "identity=${identity}" >> "$GITHUB_OUTPUT"
+          echo "frozen database: ${identity}"
+          tar -czf trivy-db.tar.gz -C trivy-cache .
+
+      - name: Upload the frozen database
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: trivy-db-${{ github.run_id }}-${{ github.run_attempt }}
+          path: trivy-db.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
+  # -------------------------------------------------------------------------
+  # Build the exact platform child, stage it, then evaluate THAT DIGEST.
+  # -------------------------------------------------------------------------
+  stage:
+    name: stage ${{ matrix.fam }}/${{ matrix.ver }}
+    needs: freeze-db
+    runs-on: [self-hosted, linux, x64, zenchron]
+    permissions:
+      contents: read
+      packages: write        # staging package only; production is denied by ACL
+    strategy:
+      fail-fast: false
+      # Serialized: the host is 2 vCPU / 4 GB and buildkit + Trivy resident twice
+      # over is an OOM, not a speedup.
+      max-parallel: 1
+      matrix:
+        include:
+          - { fam: php-fpm,        ver: "8.3",  ctx: "images/php-fpm/8.3" }
+          - { fam: php-fpm,        ver: "8.4",  ctx: "images/php-fpm/8.4" }
+          - { fam: php-cli,        ver: "8.3",  ctx: "images/php-cli/8.3" }
+          - { fam: php-cli,        ver: "8.4",  ctx: "images/php-cli/8.4" }
+          - { fam: php-worker,     ver: "8.3",  ctx: "images/php-worker/8.3" }
+          - { fam: php-worker,     ver: "8.4",  ctx: "images/php-worker/8.4" }
+          - { fam: php-frankenphp, ver: "8.3",  ctx: "images/php-frankenphp/8.3" }
+          - { fam: php-frankenphp, ver: "8.4",  ctx: "images/php-frankenphp/8.4" }
+          - { fam: caddy,          ver: "prod", ctx: "images/caddy" }
+          - { fam: nginx,          ver: "prod", ctx: "images/nginx" }
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Download the frozen database
+        uses: actions/download-artifact@abefc31eb2ec6e152ff1b4e83e9700a37e9eba59 # v6
+        with:
+          name: trivy-db-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Restore and re-verify the frozen database
+        env:
+          EXPECTED_DB: ${{ needs.freeze-db.outputs.identity }}
+        run: |
+          set -euo pipefail
+          [ -n "$EXPECTED_DB" ] || { echo "REFUSE: the run has no frozen database identity"; exit 1; }
+          rm -rf trivy-cache && mkdir -p trivy-cache
+          tar -xzf trivy-db.tar.gz -C trivy-cache
+          got="$(jq -r '"v\(.Version)+updated:\(.UpdatedAt)+next:\(.NextUpdate)"' trivy-cache/db/metadata.json)"
+          # The child records what it ACTUALLY used, and the aggregate compares
+          # every child against the run's snapshot. Checking here too means a
+          # mismatch fails at the point of use, with the image named.
+          [ "$got" = "$EXPECTED_DB" ] \
+            || { echo "REFUSE: restored database '$got' != frozen '$EXPECTED_DB'"; exit 1; }
+          echo "using frozen database: $got"
+
+      - name: Login to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Staging identity
+        id: id
+        env:
+          FAM: ${{ matrix.fam }}
+          VER: ${{ matrix.ver }}
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/common.sh
+          # Exactly one platform per child. The record is about specific child
+          # digests, so a comma-separated build would produce an index and the
+          # digest would identify the wrong object.
+          case "$PLATFORMS" in
+            *,*) echo "REFUSE: stage one platform per run; got '$PLATFORMS'"; exit 1 ;;
+            linux/*) : ;;
+            *) echo "REFUSE: '$PLATFORMS' is not a linux/<arch> platform"; exit 1 ;;
+          esac
+          arch="${PLATFORMS#linux/}"
+          label="$(image_label "$FAM" "$VER")"          # e.g. php-fpm/8.3, nginx/prod
+          slug="${label//\//-}"
+          tag="${slug}-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}-s${GITHUB_SHA:0:7}-${arch}"
+          # The OCI version label is NOT the canonical identity (#126). Each
+          # Dockerfile declares org.opencontainers.image.version itself — "prod"
+          # for the edge images, "<ver>-prod" for the PHP families — and a build
+          # label that disagrees with the image's own Dockerfile is exactly the
+          # metadata contradiction #126 is about. `prod` must stay `prod`;
+          # hardcoding "${VER}-prod" would produce "prod-prod" for nginx/caddy.
+          if [ "$VER" = prod ]; then version_label="prod"; else version_label="${VER}-prod"; fi
+          {
+            echo "label=${label}"
+            echo "arch=${arch}"
+            echo "platform=${PLATFORMS}"
+            echo "tag=${tag}"
+            echo "ref=${STAGING_PACKAGE}:${tag}"
+            echo "version_label=${version_label}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build the exact platform child and stage it
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: ${{ matrix.ctx }}
+          platforms: ${{ steps.id.outputs.platform }}
+          push: true
+          tags: ${{ steps.id.outputs.ref }}
+          # Both OFF on purpose: either one makes buildx push an index with an
+          # attestation manifest, and then the digest names the index rather than
+          # the platform child this record is about. SBOM generation belongs with
+          # the RC manifest.
+          sbom: false
+          provenance: false
+          build-args: |
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            VCS_REF=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.id.outputs.version_label }}
+            org.opencontainers.image.ref.name=${{ steps.id.outputs.tag }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - name: Resolve the staged digest independently
+        id: resolve
+        env:
+          REF: ${{ steps.id.outputs.ref }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/common.sh
+          is_digest "$BUILD_DIGEST" || die "build digest '$BUILD_DIGEST' is not sha256:<64-hex>"
+          # The builder's own output is not registry evidence. Ask the registry
+          # what it serves for this tag.
+          resolved="$(docker buildx imagetools inspect "$REF" --format '{{.Manifest.Digest}}' 2>/dev/null | tr -d '[:space:]')"
+          is_digest "$resolved" || die "the registry did not resolve '$REF' to a digest"
+          [ "$resolved" = "$BUILD_DIGEST" ] \
+            || die "staging tag resolves to '$resolved' but the build produced '$BUILD_DIGEST'"
+          {
+            echo "digest=${resolved}"
+            echo "digest_ref=${STAGING_PACKAGE}@${resolved}"
+          } >> "$GITHUB_OUTPUT"
+          echo "staged and resolved: ${STAGING_PACKAGE}@${resolved}"
+
+      - name: Read staging visibility
+        id: vis
+        env:
+          # The repository token cannot read organization package metadata; the
+          # read-only audit credential can. An unreadable visibility is recorded
+          # as 'unreadable' and refused downstream — never assumed private.
+          AUDIT_TOKEN: ${{ secrets.PACKAGES_AUDIT_TOKEN }}
+        run: |
+          set -uo pipefail
+          v="$(GH_TOKEN="${AUDIT_TOKEN:-}" gh api \
+                 "orgs/${NAMESPACE}/packages/container/foundry-staging" \
+                 --jq '.visibility' 2>/dev/null)" || v=""
+          echo "visibility=${v:-unreadable}" >> "$GITHUB_OUTPUT"
+
+      - name: Pull the staged child by digest
+        env:
+          DIGEST_REF: ${{ steps.resolve.outputs.digest_ref }}
+        run: |
+          set -euo pipefail
+          # Everything below evaluates THIS object, not a local rebuild.
+          docker pull --platform "${{ steps.id.outputs.platform }}" "$DIGEST_REF"
+
+      - name: Evaluate the staged child
+        id: eval
+        env:
+          FAM: ${{ matrix.fam }}
+          VER: ${{ matrix.ver }}
+          ARCH: ${{ steps.id.outputs.arch }}
+          LABEL: ${{ steps.id.outputs.label }}
+          DIGEST_REF: ${{ steps.resolve.outputs.digest_ref }}
+        run: |
+          set -uo pipefail   # each check records PASS/FAIL rather than aborting
+          mkdir -p evidence/child
+          smoke=FAIL scan=FAIL recon=FAIL meta=FAIL carch=""
+
+          # architecture actually baked into the config
+          carch="$(docker image inspect "$DIGEST_REF" --format '{{.Architecture}}' 2>/dev/null || echo "")"
+
+          echo "::group::smoke"
+          if bash "scripts/smoke/smoke-${FAM}.sh" "$DIGEST_REF" > evidence/child/smoke.log 2>&1; then smoke=PASS; fi
+          tail -20 evidence/child/smoke.log; echo "smoke=$smoke"
+          echo "::endgroup::"
+
+          echo "::group::metadata contract (#126)"
+          contract="contracts/images/${FAM}-${VER}.yaml"
+          if bash scripts/verify-image-contract.sh "$DIGEST_REF" "$contract" > evidence/child/contract.log 2>&1; then meta=PASS; fi
+          tail -20 evidence/child/contract.log; echo "metadata_contract=$meta"
+          echo "::endgroup::"
+
+          echo "::group::scan against the frozen database"
+          # --skip-db-update: the snapshot is fixed for the whole run. Without it
+          # a long matrix would silently roll onto a newer database mid-record.
+          if docker run --rm \
+               -v "$PWD/trivy-cache:/root/.cache/trivy" \
+               -v /var/run/docker.sock:/var/run/docker.sock \
+               -v "$PWD:/work" -w /work \
+               "${TRIVY_IMAGE}" image "$DIGEST_REF" \
+               --skip-db-update --skip-java-db-update \
+               --severity CRITICAL,HIGH --format json \
+               --output evidence/child/trivy.json > evidence/child/scan.log 2>&1; then
+            [ -s evidence/child/trivy.json ] && scan=PASS
+          fi
+          tail -10 evidence/child/scan.log; echo "scan=$scan"
+          echo "::endgroup::"
+
+          echo "::group::reconcile against the exception ledger"
+          if [ "$scan" = PASS ]; then
+            args=(evidence/child/trivy.json "$FAM")
+            [ "$VER" != prod ] && args+=("$VER")
+            if bash scripts/reconcile-vulnerabilities.sh "${args[@]}" \
+                 --arch "$ARCH" --json evidence/child/reconcile.json \
+                 > evidence/child/reconcile.log 2>&1; then recon=PASS; fi
+            tail -20 evidence/child/reconcile.log
+          else
+            echo "scan did not produce a report; reconciliation cannot run" > evidence/child/reconcile.log
+          fi
+          echo "reconciliation=$recon"
+          echo "::endgroup::"
+
+          {
+            echo "smoke=$smoke"; echo "scan=$scan"; echo "recon=$recon"
+            echo "meta=$meta"; echo "carch=${carch:-unknown}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Emit child evidence
+        env:
+          LABEL: ${{ steps.id.outputs.label }}
+          PLATFORM: ${{ steps.id.outputs.platform }}
+          TAG: ${{ steps.id.outputs.tag }}
+          DIGEST_REF: ${{ steps.resolve.outputs.digest_ref }}
+          DIGEST: ${{ steps.resolve.outputs.digest }}
+          RESOLVED: ${{ steps.resolve.outputs.digest }}
+          VIS: ${{ steps.vis.outputs.visibility }}
+          CARCH: ${{ steps.eval.outputs.carch }}
+          DB: ${{ needs.freeze-db.outputs.identity }}
+          SMOKE: ${{ steps.eval.outputs.smoke }}
+          SCAN: ${{ steps.eval.outputs.scan }}
+          RECON: ${{ steps.eval.outputs.recon }}
+          META: ${{ steps.eval.outputs.meta }}
+        run: |
+          set -euo pipefail
+          # Checksum over the evidence bundle this record summarizes, so the
+          # claim and the artifacts it is derived from cannot drift apart.
+          esum="$(find evidence/child -type f | sort | xargs shasum -a 256 | shasum -a 256 | cut -d' ' -f1)"
+          slug="${LABEL//\//-}"
+          mkdir -p evidence/out
+          jq -n --arg l "$LABEL" --arg p "$PLATFORM" --arg t "$TAG" \
+                --arg dr "$DIGEST_REF" --arg d "$DIGEST" --arg rd "$RESOLVED" \
+                --arg v "$VIS" --arg ca "$CARCH" --arg db "$DB" \
+                --arg rev "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" \
+                --argjson rid "$GITHUB_RUN_ID" --argjson ratt "$GITHUB_RUN_ATTEMPT" \
+                --arg sm "$SMOKE" --arg sc "$SCAN" --arg rc "$RECON" --arg mt "$META" \
+                --arg es "$esum" '{
+            image_label:$l, platform:$p, staging_tag:$t,
+            digest_reference:$dr, manifest_digest:$d, tag_resolved_digest:$rd,
+            visibility:$v, config_architecture:$ca, trivy_db_identity:$db,
+            source_revision:$rev, workflow_run_id:$rid, workflow_run_attempt:$ratt,
+            repository:$repo, smoke_test:$sm, scan:$sc, reconciliation:$rc,
+            metadata_contract:$mt, evidence_sha256:$es}' > "evidence/out/${slug}.json"
+          cp -r evidence/child "evidence/out/${slug}-evidence"
+          jq . "evidence/out/${slug}.json"
+
+      - name: Upload child evidence
+        # Uploaded even on failure: a refused child is exactly what the operator
+        # needs to see.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: child-${{ matrix.fam }}-${{ matrix.ver }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: evidence/out/
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
+  # The authorization decision. Read-only: it publishes nothing and must not be
+  # able to.
+  # -------------------------------------------------------------------------
+  authorize:
+    name: post-build authorization
+    needs: [freeze-db, stage]
+    runs-on: [self-hosted, linux, x64, zenchron]
+    permissions:
+      contents: read
+      packages: read         # deliberately NOT write, and no id-token
+    steps:
+      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
+        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
+        # guards). Inline because it must run BEFORE checkout puts that script on
+        # disk. Do NOT edit this copy alone: every workflow carries the same block,
+        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
+        run: |
+          set -euo pipefail
+          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
+          # Guards from the canonical script: canonicalize via realpath so a
+          # symlinked workspace cannot escape the runner root; refuse root paths.
+          ws="$(realpath "$ws")"; root="$(realpath "$root")"
+          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
+          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
+          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
+          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
+          # prior container step blocks checkout even when $ws itself looks ours.
+          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
+          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
+          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Collect child evidence
+        uses: actions/download-artifact@abefc31eb2ec6e152ff1b4e83e9700a37e9eba59 # v6
+        with:
+          pattern: child-*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: collected
+          merge-multiple: true
+
+      - name: Authorize
+        env:
+          EXPECTED_REPOSITORY: ${{ github.repository }}
+          EXPECTED_REVISION: ${{ github.sha }}
+          EXPECTED_RUN_ID: ${{ github.run_id }}
+          EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
+          EXPECTED_PLATFORMS: ${{ inputs.platforms }}
+          EXPECTED_STAGING_PACKAGE: ${{ env.STAGING_PACKAGE }}
+          EXPECTED_TRIVY_DB: ${{ needs.freeze-db.outputs.identity }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          set -uo pipefail
+          # `set +e` is LOAD-BEARING. GitHub runs this block as `bash -e {0}`, so
+          # errexit is already on. A REFUSED authorization is an expected outcome
+          # here — the aggregator writes its FAIL record and exits non-zero — and
+          # under errexit that exit would abort the step before the record was
+          # checksummed, losing the reasons exactly when they are needed. The
+          # step's own exit status is set explicitly at the end.
+          set +e
+          mkdir -p authorization/child-evidence authorization/records
+          # Only the top-level per-child records go to the aggregator; the raw
+          # logs travel alongside as the bundle the checksums cover.
+          find collected -maxdepth 1 -name '*.json' -exec cp {} authorization/child-evidence/ \;
+          find collected -maxdepth 1 -type d -name '*-evidence' -exec cp -r {} authorization/child-evidence/ \;
+          find authorization/child-evidence -maxdepth 1 -name '*.json' -exec cp {} authorization/records/ \;
+
+          GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            bash scripts/release/authorize-staged-candidates.sh \
+              authorization/records authorization/post-build-authorization.json
+          rc=$?
+
+          echo "::group::authorization record"
+          jq . authorization/post-build-authorization.json
+          echo "::endgroup::"
+
+          # Written to a temporary file first: reading and writing SHA256SUMS in
+          # one pipeline would race with its own output.
+          ( cd authorization \
+            && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > .sums.tmp \
+            && mv .sums.tmp SHA256SUMS )
+          exit "$rc"
+
+      - name: Upload the authorization record
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: post-build-authorization-${{ github.run_id }}-${{ github.run_attempt }}
+          path: authorization/
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        run: |
+          set -uo pipefail
+          f=authorization/post-build-authorization.json
+          [ -s "$f" ] || { echo "no authorization record was produced" >> "$GITHUB_STEP_SUMMARY"; exit 0; }
+          {
+            echo "### Post-build authorization"
+            echo
+            echo "| field | value |"
+            echo "|---|---|"
+            echo "| verdict | \`$(jq -r .verdict "$f")\` |"
+            echo "| scope | \`$(jq -r .authorization_scope "$f")\` |"
+            echo "| public exposure authorized | \`$(jq -r .public_exposure_authorized "$f")\` |"
+            echo "| children | $(jq -r '.children|length' "$f") / $(jq -r .expected_matrix.expected_children "$f") |"
+            echo "| database snapshot | \`$(jq -r .trivy_db_snapshot.identity "$f")\` |"
+            echo
+            echo "Staged only to \`$(jq -r .staging_package "$f")\`. No production package, no public tag, no index, no signature."
+          } >> "$GITHUB_STEP_SUMMARY"
