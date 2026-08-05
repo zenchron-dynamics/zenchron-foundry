@@ -445,23 +445,27 @@ jobs:
           set -euo pipefail
           # Checksum over the evidence bundle this record summarizes, so the
           # claim and the artifacts it is derived from cannot drift apart.
-          esum="$(find evidence/child -type f | sort | xargs shasum -a 256 | shasum -a 256 | cut -d' ' -f1)"
+          #
+          # The SHARED script, not an inline copy. The authorizer recomputes this
+          # AFTER the directory has been collected under a different prefix, and
+          # a path-dependent hash would differ every time for no real reason.
+          esum="$(bash scripts/release/evidence-checksum.sh evidence/child)"
           slug="${LABEL//\//-}"
           mkdir -p evidence/out
           jq -n --arg l "$LABEL" --arg p "$PLATFORM" --arg t "$TAG" \
                 --arg dr "$DIGEST_REF" --arg d "$DIGEST" --arg rd "$RESOLVED" \
-                --arg v "$VIS" --arg ca "$CARCH" --arg db "$DB" --arg mt "$MTYPE" \
+                --arg v "$VIS" --arg ca "$CARCH" --arg db "$DB" --arg mtype "$MTYPE" \
                 --arg rev "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" \
                 --argjson rid "$GITHUB_RUN_ID" --argjson ratt "$GITHUB_RUN_ATTEMPT" \
-                --arg sm "$SMOKE" --arg sc "$SCAN" --arg rc "$RECON" --arg mt "$META" \
+                --arg sm "$SMOKE" --arg sc "$SCAN" --arg rc "$RECON" --arg meta "$META" \
                 --arg es "$esum" '{
             image_label:$l, platform:$p, staging_tag:$t,
-            digest_reference:$dr, manifest_digest:$d, manifest_media_type:$mt,
+            digest_reference:$dr, manifest_digest:$d, manifest_media_type:$mtype,
             tag_resolved_digest:$rd,
             visibility:$v, config_architecture:$ca, trivy_db_identity:$db,
             source_revision:$rev, workflow_run_id:$rid, workflow_run_attempt:$ratt,
             repository:$repo, smoke_test:$sm, scan:$sc, reconciliation:$rc,
-            metadata_contract:$mt, evidence_sha256:$es}' > "evidence/out/${slug}.json"
+            metadata_contract:$meta, evidence_sha256:$es}' > "evidence/out/${slug}.json"
           cp -r evidence/child "evidence/out/${slug}-evidence"
           jq . "evidence/out/${slug}.json"
 
@@ -481,15 +485,32 @@ jobs:
   # -------------------------------------------------------------------------
   authorize:
     name: post-build authorization
-    # `always() && !cancelled()` is LOAD-BEARING. GitHub skips a dependent job
-    # by default when any needed job fails, so a single child failing to build,
-    # push, resolve or emit evidence would have skipped authorization entirely —
-    # producing neither the PASS nor the promised machine-readable FAIL record.
-    # The one case where the record matters most is the case that produced none.
+    # `always()` is LOAD-BEARING for the STAGE results: GitHub skips a dependent
+    # job when a needed job fails, so one child failing to build, push, resolve
+    # or emit evidence would have skipped authorization entirely — producing
+    # neither the PASS nor the promised machine-readable FAIL. The one case where
+    # the record matters most is the case that produced none.
+    #
+    # But `always()` overrides EVERY needs result, including the guard's. On its
+    # own it let a dispatch from a non-master ref fail the GitHub-hosted guard
+    # and still start this job on the SELF-HOSTED runner, check out that branch,
+    # and execute its copy of the authorizer — exactly what the guard exists to
+    # prevent. The two results are therefore required explicitly:
+    #
+    #   guard      MUST have succeeded — nothing self-hosted runs otherwise;
+    #   freeze-db  MUST have succeeded — without a frozen snapshot identity there
+    #              is no expectation to judge the children against, and this job
+    #              would abort on the missing expectation rather than write the
+    #              record (see the note in the Authorize step);
+    #   stage      deliberately unconstrained — its failures are the findings.
     #
     # `!cancelled()` so a deliberate cancellation stays a cancellation rather
     # than manufacturing a FAIL verdict nobody asked for.
-    if: ${{ always() && !cancelled() }}
+    if: >-
+      ${{ always()
+          && !cancelled()
+          && needs.guard.result == 'success'
+          && needs.freeze-db.result == 'success' }}
     needs: [guard, freeze-db, stage]
     runs-on: [self-hosted, linux, x64, zenchron]
     permissions:
@@ -542,8 +563,15 @@ jobs:
           EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
           EXPECTED_PLATFORMS: ${{ inputs.platforms }}
           EXPECTED_STAGING_PACKAGE: ${{ env.STAGING_PACKAGE }}
-          # Empty if freeze-db itself failed; the aggregator refuses an empty
-          # expectation rather than treating it as "no constraint".
+          # Never empty: this job only runs when freeze-db succeeded.
+          #
+          # The earlier note here claimed the aggregator would "refuse an empty
+          # expectation", implying a FAIL record. It would not: a missing
+          # mandatory expectation calls die(), which exits BEFORE the record is
+          # written. The contract is now explicit instead — an infrastructure
+          # failure before authorization produces NO authorization record, and
+          # the absence of a record is not a refusal to be interpreted. Only a
+          # completed evaluation yields PASS or FAIL.
           EXPECTED_TRIVY_DB: ${{ needs.freeze-db.outputs.identity }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           BUILD_CREATED: ${{ needs.guard.outputs.created }}

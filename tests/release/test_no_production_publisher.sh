@@ -148,9 +148,32 @@ ck "authorization runs even when a child fails" \
    "python3 -c \"
 import yaml
 d=yaml.safe_load(open('$STAGER'))
-c=d['jobs']['authorize'].get('if','')
+c=' '.join(d['jobs']['authorize'].get('if','').split())
 assert 'always()' in c, c
 assert 'cancelled()' in c, c\""
+# always() overrides EVERY needs result, including the guard's. Without an
+# explicit success requirement a dispatch from a non-master ref could fail the
+# GitHub-hosted guard and still start this job on the SELF-HOSTED runner, check
+# out that branch and run its copy of the authorizer.
+ck "...but NOT when the default-branch guard failed" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$STAGER'))
+c=' '.join(d['jobs']['authorize'].get('if','').split())
+assert \\\"needs.guard.result == 'success'\\\" in c, c\""
+ck "...and not without a frozen database snapshot" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$STAGER'))
+c=' '.join(d['jobs']['authorize'].get('if','').split())
+assert \\\"needs.freeze-db.result == 'success'\\\" in c, c\""
+# Truthfulness: an infrastructure failure before authorization produces NO
+# record. It must not be described as emitting a refusal, because die() exits
+# before the record is written.
+ck "the workflow does not claim an empty expectation yields a FAIL record" \
+   "! grep -q 'aggregator refuses an empty expectation' $STAGER"
+ck "the shared checksum script self-test passes" \
+   "bash scripts/release/evidence-checksum.sh --self-test >/dev/null 2>&1"
 ck "...and collects evidence tolerantly" \
    "python3 -c \"
 import yaml

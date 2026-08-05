@@ -37,7 +37,11 @@ SUM="$(printf 'c%.0s' {1..64})"
 PKG="ghcr.io/zenchron-dynamics/foundry-staging"
 REPO="zenchron-dynamics/zenchron-foundry"
 
-esum_of() { find "$1" -type f | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256 | cut -d' ' -f1; }
+# The SHARED implementation, not a copy. A local reimplementation is how the
+# producer and the authorizer drifted apart in the first place: identical bytes
+# under two different directory prefixes hashed differently, and the test never
+# noticed because it never relocated anything.
+esum_of() { bash scripts/release/evidence-checksum.sh "$1"; }
 
 mk() { # mk <dir> [label] [jq-filter]
   local d="$1" target="${2:-}" filt="${3:-.}" lbl i=0

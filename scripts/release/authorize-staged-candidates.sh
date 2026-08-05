@@ -74,11 +74,14 @@ CANONICAL_WORKFLOW_REF="${CANONICAL_WORKFLOW_REF:-zenchron-dynamics/zenchron-fou
 # downstream check passes while the record describes the wrong object.
 IMAGE_MEDIA_TYPES="application/vnd.oci.image.manifest.v1+json application/vnd.docker.distribution.manifest.v2+json"
 
-# Deterministic checksum of an evidence directory. Must match the algorithm the
-# staging job uses, or every child would be refused.
-evidence_checksum() { # <dir>
-  find "$1" -type f | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256 | cut -d' ' -f1
-}
+# The checksum algorithm is SHARED, not reimplemented here. Two copies of it —
+# one inline in the workflow, one here — were not the same function: the producer
+# hashed `evidence/child`, this recomputed after collection into
+# `authorization/child-evidence/<slug>-evidence`, and shasum prints the pathname
+# beside each digest, so identical bytes under two prefixes hashed differently.
+# Every child would have been refused for a meaningless mismatch.
+# shellcheck source=evidence-checksum.sh
+. "$_d/evidence-checksum.sh"
 
 # ---------------------------------------------------------------------------
 # Evaluation. Collects EVERY refusal rather than exiting on the first, so one
