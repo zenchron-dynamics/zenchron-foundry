@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "repository": "zenchron-dynamics/zenchron-foundry",
+  "source_revision": "b48ae24527495ccb402be0f94cc6e65a6f6bc694",
+  "workflow_run_id": 30837370041,
+  "workflow_run_attempt": 1,
+  "generated_at": "2026-08-03T17:35:11Z",
+  "token_type": "GITHUB_TOKEN + PACKAGES_AUDIT_TOKEN(metadata)",
+  "packages": [
+    {
+      "name": "foundry-staging",
+      "visibility": "private",
+      "expected_access": "write",
+      "operation": "push",
+      "result": "allowed",
+      "digest": "sha256:e93f888e5fcf1c5b3bb3bd366a45a9b7d269fd596b79480948f3a13214ccaec7",
+      "reference": "ghcr.io/zenchron-dynamics/foundry-staging:acl-probe-r30837370041-a1-sb48ae24",
+      "resolved_digest": "sha256:e93f888e5fcf1c5b3bb3bd366a45a9b7d269fd596b79480948f3a13214ccaec7"
+    },
+    {
+      "name": "php-fpm",
+      "visibility": "private",
+      "expected_access": "read-only",
+      "operation": "push",
+      "result": "denied",
+      "registry_error": "The push refers to repository [ghcr.io/zenchron-dynamics/php-fpm]\nd12ddde6c402: Preparing\ndenied: permission_denied: write_package"
+    },
+    {
+      "name": "php-cli",
+      "visibility": "private",
+      "expected_access": "read-only",
+      "operation": "push",
+      "result": "denied",
+      "registry_error": "The push refers to repository [ghcr.io/zenchron-dynamics/php-cli]\nd12ddde6c402: Preparing\ndenied: permission_denied: write_package"
+    },
+    {
+      "name": "php-worker",
+      "visibility": "private",
+      "expected_access": "read-only",
+      "operation": "push",
+      "result": "denied",
+      "registry_error": "The push refers to repository [ghcr.io/zenchron-dynamics/php-worker]\nd12ddde6c402: Preparing\ndenied: permission_denied: write_package"
+    },
+    {
+      "name": "php-frankenphp",
+      "visibility": "private",
+      "expected_access": "read-only",
+      "operation": "push",
+      "result": "denied",
+      "registry_error": "The push refers to repository [ghcr.io/zenchron-dynamics/php-frankenphp]\nd12ddde6c402: Preparing\ndenied: permission_denied: write_package"
+    },
+    {
+      "name": "caddy",
+      "visibility": "private",
+      "expected_access": "read-only",
+      "operation": "push",
+      "result": "denied",
+      "registry_error": "The push refers to repository [ghcr.io/zenchron-dynamics/caddy]\nd12ddde6c402: Preparing\ndenied: permission_denied: write_package"
+    },
+    {
+      "name": "nginx",
+      "visibility": "private",
+      "expected_access": "read-only",
+      "operation": "push",
+      "result": "denied",
+      "registry_error": "The push refers to repository [ghcr.io/zenchron-dynamics/nginx]\nd12ddde6c402: Preparing\ndenied: permission_denied: write_package"
+    }
+  ],
+  "verdict": "PASS"
+}

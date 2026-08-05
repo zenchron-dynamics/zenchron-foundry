@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "artifact_id": 8865384046,
+  "artifact_name": "package-acl-probe-30837370041-1",
+  "artifact_sha256": "dad83ff325f00d29d68bbbbb1b69044c6992839344aa5648e8e9f7e9e7c500ea",
+  "artifact_size_bytes": 764,
+  "workflow_run_id": 30837370041,
+  "workflow_run_attempt": 1,
+  "workflow": ".github/workflows/package-acl-probe.yml",
+  "event": "workflow_dispatch",
+  "head_branch": "master",
+  "head_sha": "b48ae24527495ccb402be0f94cc6e65a6f6bc694",
+  "triggering_actor": "bogdaniel",
+  "run_started_at": "2026-08-03T17:34:35Z",
+  "evidence_generated_at": "2026-08-03T17:35:11Z",
+  "conclusion": "success",
+  "verdict": "PASS",
+  "metadata_source": "GitHub REST API: /repos/zenchron-dynamics/zenchron-foundry/actions/runs/30837370041 and .../artifacts",
+  "artifact_digest_binding": "artifact_sha256 equals the digest GitHub recorded for the uploaded artifact, so the committed ZIP is provably the exact object the run produced"
+}
