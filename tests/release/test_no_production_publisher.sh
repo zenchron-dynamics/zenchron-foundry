@@ -140,5 +140,65 @@ for n,j in d['jobs'].items():
      "grep -q 'REFUSE: public publication is disabled' $f && grep -q 'stage-and-authorize.yml' $f"
 done
 
+# --- the authorization job must survive a failed child ---------------------
+# GitHub SKIPS a dependent job when a needed job fails. Without an always()
+# condition one failed matrix child produced no record at all — neither PASS nor
+# the promised machine-readable FAIL — which is the case the record exists for.
+ck "authorization runs even when a child fails" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$STAGER'))
+c=d['jobs']['authorize'].get('if','')
+assert 'always()' in c, c
+assert 'cancelled()' in c, c\""
+ck "...and collects evidence tolerantly" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$STAGER'))
+steps=d['jobs']['authorize']['steps']
+assert any('mkdir -p collected' in (s.get('run') or '') for s in steps), 'no unconditional collection dir'
+dl=[s for s in steps if 'download-artifact' in str(s.get('uses',''))]
+assert dl and dl[0].get('continue-on-error') is True, dl\""
+ck "...and recomputes evidence checksums against the collected bundle" \
+   "grep -q 'EVIDENCE_ROOT=authorization/child-evidence' $STAGER"
+
+# --- the ref guard runs first, GitHub-hosted, before anything privileged ---
+ck "a default-branch guard exists" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$STAGER'))
+g=d['jobs']['guard']
+assert g['runs-on']=='ubuntu-latest', g['runs-on']
+assert g['permissions']=={'contents':'read'}, g['permissions']
+assert 'refs/heads/master' in str(g['steps'])\""
+ck "every privileged job needs the guard first" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$STAGER'))
+for n in ('freeze-db','stage','authorize'):
+    need=d['jobs'][n]['needs']
+    need=[need] if isinstance(need,str) else need
+    assert 'guard' in need, (n, need)\""
+# Comment lines excluded: the guard step EXPLAINS why repository.updated_at is
+# the wrong source, and that explanation should stay.
+ck "the build timestamp is frozen once, not taken from repository metadata" \
+   "grep -q 'needs.guard.outputs.created' $STAGER && ! uncommented $STAGER | grep -q 'repository.updated_at'"
+
+# --- the staged object must be proven to be a platform child ---------------
+ck "the media type is read from the registry object" \
+   "grep -q 'imagetools inspect .* --raw' $STAGER"
+ck "an index media type is refused at staging time" \
+   "grep -q 'application/vnd.oci.image.index.v1+json' $STAGER && grep -q 'is an INDEX' $STAGER"
+
+# --- the full OCI contract, not just the revision label --------------------
+ck "the staging job runs the full OCI metadata verifier (#126)" \
+   "grep -q 'verify-oci-metadata.sh' $STAGER"
+ck "...and both the runtime and OCI checks must pass" \
+   "grep -q 'runtime_ok. = 1 . && .. \"\$oci_ok\" = 1' $STAGER || grep -q 'oci_ok' $STAGER"
+ck "the OCI verifier self-test passes" \
+   "bash scripts/release/verify-oci-metadata.sh --self-test >/dev/null 2>&1"
+ck "every contract pins its static OCI metadata" \
+   "[ \"\$(grep -l 'oci_static:' contracts/images/*.yaml | wc -l | tr -d ' ')\" = 10 ]"
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_no_production_publisher: PASS" || echo "test_no_production_publisher: FAIL"
 exit $fail

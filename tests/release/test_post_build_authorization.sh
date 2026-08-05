@@ -37,18 +37,24 @@ SUM="$(printf 'c%.0s' {1..64})"
 PKG="ghcr.io/zenchron-dynamics/foundry-staging"
 REPO="zenchron-dynamics/zenchron-foundry"
 
+esum_of() { find "$1" -type f | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256 | cut -d' ' -f1; }
+
 mk() { # mk <dir> [label] [jq-filter]
   local d="$1" target="${2:-}" filt="${3:-.}" lbl i=0
   mkdir -p "$d"
   while IFS= read -r lbl; do
     i=$((i+1))
-    local b
+    local b slug edir
+    slug="${lbl//\//-}"; edir="$d/${slug}-evidence"
+    mkdir -p "$edir"; printf 'evidence for %s\n' "$lbl" > "$edir/log.txt"
+    SUM="$(esum_of "$edir")"
     b="$(jq -nc --arg l "$lbl" --arg dg "$DIG" --arg s "$SUM" --arg p "$PKG" \
            --arg rev "$REV" --arg repo "$REPO" '{
       image_label:$l, platform:"linux/amd64",
       staging_tag:(($l|gsub("/";"-"))+"-r1-a1-saaaaaaa-amd64"),
       digest_reference:($p+"@"+$dg), manifest_digest:$dg, tag_resolved_digest:$dg,
       visibility:"private", config_architecture:"amd64",
+      manifest_media_type:"application/vnd.oci.image.manifest.v1+json",
       trivy_db_identity:"db@2026-08-05", source_revision:$rev,
       workflow_run_id:1, workflow_run_attempt:1, repository:$repo,
       smoke_test:"PASS", scan:"PASS", reconciliation:"PASS",
@@ -64,7 +70,8 @@ run() { # run <dir> [extra env assignments...] -> writes $dir/out.json, echoes r
       EXPECTED_RUN_ID=1 EXPECTED_RUN_ATTEMPT=1 \
       EXPECTED_PLATFORMS="linux/amd64" EXPECTED_STAGING_PACKAGE="$PKG" \
       EXPECTED_TRIVY_DB="db@2026-08-05" \
-      WORKFLOW_REF="wf@refs/heads/master" GENERATED_AT="2026-08-05T00:00:00Z" \
+      WORKFLOW_REF="zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master" GENERATED_AT="2026-08-05T00:00:00Z" \
+      BUILD_CREATED="2026-08-06T00:00:00Z" EVIDENCE_ROOT="$d" \
       "$@" bash "$SCRIPT" "$d" "$d/out.json" >"$d/stdout" 2>"$d/stderr"
   echo $?
 }
@@ -169,6 +176,51 @@ ck "an image outside the matrix refuses" "[ '$RC' != 0 ]"
 D="$TMP/empty"; mkdir -p "$D"; RC="$(run "$D")"
 ck "empty evidence discovery refuses, never an empty PASS" "[ '$RC' != 0 ]"
 
+# --- 4b. corrections: media type, evidence binding, workflow identity ------
+D="$TMP/index"; mk "$D" "nginx/prod" '.manifest_media_type="application/vnd.oci.image.index.v1+json"'; RC="$(run "$D")"
+ck "an INDEX digest refuses (not a platform child)" "[ '$RC' != 0 ]"
+ck "...and says the object is an index" "grep -qi 'INDEX' '$D/stderr'"
+
+D="$TMP/nomt"; mk "$D" "nginx/prod" 'del(.manifest_media_type)'; RC="$(run "$D")"
+ck "a missing manifest media type refuses" "[ '$RC' != 0 ]"
+
+# The case that made the checksum decorative: well-formed, plausible, wrong.
+D="$TMP/badsum"; mk "$D" "nginx/prod" '.evidence_sha256="'"$(printf 'e%.0s' {1..64})"'"'; RC="$(run "$D")"
+ck "a well-formed but INCORRECT evidence checksum refuses" "[ '$RC' != 0 ]"
+ck "...naming the recomputation" "grep -q 'does not match the evidence directory' '$D/stderr'"
+
+D="$TMP/tampered"; mk "$D"; printf 'tampered\n' >> "$D/nginx-prod-evidence/log.txt"; RC="$(run "$D")"
+ck "evidence altered after the checksum was taken refuses" "[ '$RC' != 0 ]"
+
+D="$TMP/wfref"; mk "$D"; RC="$(run "$D" WORKFLOW_REF="zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/attacker")"
+ck "a non-canonical workflow identity refuses" "[ '$RC' != 0 ]"
+
+D="$TMP/schemapass"; mk "$D"; run "$D" >/dev/null
+ck "the record pins the canonical workflow identity" \
+   "[ \"\$(jq -r .workflow_ref '$D/out.json')\" = 'zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master' ]"
+ck "the record carries one frozen build timestamp" \
+   "[ \"\$(jq -r .build_created '$D/out.json')\" = '2026-08-06T00:00:00Z' ]"
+ck "every child records an image-manifest media type" \
+   "[ \"\$(jq '[.children[]|select(.manifest_media_type|test(\"manifest\"))]|length' '$D/out.json')\" = 10 ]"
+
+# --- 4c. the schema now ties the verdict to the child gates ----------------
+ck "the schema rejects PASS alongside a failed child gate" \
+   "python3 -c \"
+import json,jsonschema,sys
+s=json.load(open('$SCHEMA')); d=json.load(open('$D/out.json'))
+d['children'][0]['smoke_test']='FAIL'
+try:
+    jsonschema.validate(d,s); sys.exit(1)
+except jsonschema.ValidationError: pass\""
+ck "the schema requires reasons on FAIL" \
+   "python3 -c \"
+import json,jsonschema,sys
+s=json.load(open('$SCHEMA')); d=json.load(open('$D/out.json'))
+d['verdict']='FAIL'
+try:
+    jsonschema.validate(d,s); sys.exit(1)
+except jsonschema.ValidationError: pass\""
+
 # --- 5. architecture policy applies to the requested matrix ----------------
 D="$TMP/arm"; mk "$D"; RC="$(run "$D" EXPECTED_PLATFORMS="linux/amd64,linux/arm64")"
 ck "an unevidenced architecture refuses the whole matrix" "[ '$RC' != 0 ]"
@@ -179,7 +231,8 @@ ck "...rather than emitting a PASS that silently excludes it" \
 
 # --- 6. mandatory expectations ---------------------------------------------
 for v in EXPECTED_REPOSITORY EXPECTED_REVISION EXPECTED_RUN_ID EXPECTED_TRIVY_DB \
-         EXPECTED_STAGING_PACKAGE EXPECTED_PLATFORMS WORKFLOW_REF GENERATED_AT; do
+         EXPECTED_STAGING_PACKAGE EXPECTED_PLATFORMS WORKFLOW_REF GENERATED_AT \
+         BUILD_CREATED EVIDENCE_ROOT; do
   D="$TMP/omit_$v"; mk "$D"; RC="$(run "$D" "$v=")"
   ck "omitting $v refuses" "[ '$RC' != 0 ]"
 done

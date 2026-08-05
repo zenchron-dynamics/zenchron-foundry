@@ -61,6 +61,25 @@ AUTHORIZED_PLATFORMS="${AUTHORIZED_PLATFORMS:-linux/amd64}"
 
 SCOPE="immutable-rc-manifest-input"
 
+# The ONE workflow identity allowed to produce an authorization record. Copying
+# whatever the caller happened to be dispatched as would let a branch copy of the
+# workflow emit a record that reads as authoritative — and workflow_dispatch can
+# select any ref. This is a guard against accidental branch dispatch; it is NOT
+# proof, because a record cannot vouch for itself. A consumer must independently
+# verify the run through the GitHub API.
+CANONICAL_WORKFLOW_REF="${CANONICAL_WORKFLOW_REF:-zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master}"
+
+# Media types that identify a single platform image. An INDEX must be refused:
+# it can still be pulled with --platform, inspected and scanned, so every
+# downstream check passes while the record describes the wrong object.
+IMAGE_MEDIA_TYPES="application/vnd.oci.image.manifest.v1+json application/vnd.docker.distribution.manifest.v2+json"
+
+# Deterministic checksum of an evidence directory. Must match the algorithm the
+# staging job uses, or every child would be refused.
+evidence_checksum() { # <dir>
+  find "$1" -type f | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256 | cut -d' ' -f1
+}
+
 # ---------------------------------------------------------------------------
 # Evaluation. Collects EVERY refusal rather than exiting on the first, so one
 # run tells the operator everything that is wrong.
@@ -76,7 +95,8 @@ authorize() { # authorize <evidence-dir> <out.json>
   local v
   for v in EXPECTED_REPOSITORY EXPECTED_REVISION EXPECTED_RUN_ID \
            EXPECTED_RUN_ATTEMPT EXPECTED_PLATFORMS EXPECTED_STAGING_PACKAGE \
-           EXPECTED_TRIVY_DB WORKFLOW_REF GENERATED_AT; do
+           EXPECTED_TRIVY_DB WORKFLOW_REF GENERATED_AT BUILD_CREATED \
+           EVIDENCE_ROOT; do
     [ -n "${!v:-}" ] || die "$v is required (every expectation is mandatory)"
   done
   is_hex40 "$EXPECTED_REVISION" || die "EXPECTED_REVISION is not 40-hex"
@@ -84,6 +104,11 @@ authorize() { # authorize <evidence-dir> <out.json>
   case "$EXPECTED_RUN_ATTEMPT" in ''|*[!0-9]*) die "EXPECTED_RUN_ATTEMPT must be numeric" ;; esac
 
   [ -d "$dir" ] || die "evidence directory not found: $dir"
+  [ -d "$EVIDENCE_ROOT" ] || die "EVIDENCE_ROOT not found: $EVIDENCE_ROOT"
+
+  # Workflow identity: pinned, not merely recorded.
+  [ "$WORKFLOW_REF" = "$CANONICAL_WORKFLOW_REF" ] \
+    || refusals+=("workflow_ref '$WORKFLOW_REF' is not the canonical producer '$CANONICAL_WORKFLOW_REF'")
 
   # --- architecture policy, on the requested matrix ------------------------
   local plat
@@ -114,11 +139,12 @@ authorize() { # authorize <evidence-dir> <out.json>
       refusals+=("$(basename "$f"): not valid JSON"); continue
     fi
 
-    local label platform ref mdig tdig vis carch db rev rid ratt repo smoke scan recon meta esum
+    local label platform ref mdig mtype tdig vis carch db rev rid ratt repo smoke scan recon meta esum
     label="$(jq -r '.image_label      // ""' <<<"$c")"
     platform="$(jq -r '.platform        // ""' <<<"$c")"
     ref="$(jq -r '.digest_reference     // ""' <<<"$c")"
     mdig="$(jq -r '.manifest_digest     // ""' <<<"$c")"
+    mtype="$(jq -r '.manifest_media_type // ""' <<<"$c")"
     tdig="$(jq -r '.tag_resolved_digest // ""' <<<"$c")"
     vis="$(jq -r '.visibility           // ""' <<<"$c")"
     carch="$(jq -r '.config_architecture// ""' <<<"$c")"
@@ -164,6 +190,13 @@ authorize() { # authorize <evidence-dir> <out.json>
     fi
     case "$ref" in *"@${mdig}") : ;; *) refusals+=("$id: digest_reference does not end in the manifest digest") ;; esac
 
+    # the digest must name a platform image, never an index
+    case " $IMAGE_MEDIA_TYPES " in
+      *" $mtype "*) : ;;
+      *index*|*"manifest.list"*) refusals+=("$id: manifest_media_type '$mtype' is an INDEX; the record must describe a platform child") ;;
+      *) refusals+=("$id: manifest_media_type '${mtype:-<missing>}' is not an image manifest media type") ;;
+    esac
+
     # quarantine must still be private
     [ "$vis" = private ] || refusals+=("$id: staging visibility is '$vis', not private")
 
@@ -184,8 +217,22 @@ authorize() { # authorize <evidence-dir> <out.json>
     [ "$recon" = PASS ] || refusals+=("$id: reconciliation is '$recon' — an ungoverned vulnerability finding")
     [ "$meta"  = PASS ] || refusals+=("$id: metadata_contract is '$meta' (#126)")
 
-    printf '%s' "$esum" | grep -Eq '^[0-9a-f]{64}$' \
-      || refusals+=("$id: evidence_sha256 is missing or malformed")
+    # The checksum is RECOMPUTED, not merely shape-checked. A well-formed but
+    # invented 64-hex value used to pass, which made the binding decorative.
+    if ! printf '%s' "$esum" | grep -Eq '^[0-9a-f]{64}$'; then
+      refusals+=("$id: evidence_sha256 is missing or malformed")
+    else
+      local slug edir actual
+      slug="${label//\//-}"
+      edir="${EVIDENCE_ROOT}/${slug}-evidence"
+      if [ ! -d "$edir" ]; then
+        refusals+=("$id: no evidence directory at '${slug}-evidence' to check the checksum against")
+      else
+        actual="$(evidence_checksum "$edir")"
+        [ "$actual" = "$esum" ] \
+          || refusals+=("$id: evidence_sha256 '$esum' does not match the evidence directory (recomputed '$actual')")
+      fi
+    fi
 
     children="$(jq -c --argjson c "$c" '. + [$c]' <<<"$children")"
   done
@@ -234,6 +281,7 @@ authorize() { # authorize <evidence-dir> <out.json>
     --arg repo "$EXPECTED_REPOSITORY" --arg rev "$EXPECTED_REVISION" \
     --argjson rid "$EXPECTED_RUN_ID" --argjson ratt "$EXPECTED_RUN_ATTEMPT" \
     --arg wref "$WORKFLOW_REF" --arg gen "$GENERATED_AT" \
+    --arg bcreated "$BUILD_CREATED" \
     --arg db "$EXPECTED_TRIVY_DB" --arg pkg "$EXPECTED_STAGING_PACKAGE" \
     --argjson imgs "$n_images" \
     --argjson plats "$(printf '%s' "$EXPECTED_PLATFORMS" | tr ',' '\n' | jq -R . | jq -sc .)" \
@@ -242,7 +290,7 @@ authorize() { # authorize <evidence-dir> <out.json>
     --arg verdict "$verdict" --argjson refusals "$refusals_json" '
     {schema_version: 1, repository: $repo, source_revision: $rev,
      workflow_run_id: $rid, workflow_run_attempt: $ratt, workflow_ref: $wref,
-     generated_at: $gen,
+     generated_at: $gen, build_created: $bcreated,
      trivy_db_snapshot: {identity: $db, frozen: true},
      staging_package: $pkg,
      expected_matrix: {images: $imgs, platforms: $plats, expected_children: $exp},
@@ -274,22 +322,27 @@ _asc_self_test() {
   export EXPECTED_REPOSITORY="zenchron-dynamics/zenchron-foundry" \
          EXPECTED_REVISION="$REV" EXPECTED_RUN_ID=1 EXPECTED_RUN_ATTEMPT=1 \
          EXPECTED_PLATFORMS="linux/amd64" EXPECTED_STAGING_PACKAGE="$PKG" \
-         EXPECTED_TRIVY_DB="db@2026-08-05" \
-         WORKFLOW_REF="wf@refs/heads/master" GENERATED_AT="2026-08-05T00:00:00Z"
+         EXPECTED_TRIVY_DB="db@2026-08-05" BUILD_CREATED="2026-08-06T00:00:00Z" \
+         WORKFLOW_REF="$CANONICAL_WORKFLOW_REF" GENERATED_AT="2026-08-05T00:00:00Z"
 
   # writes a full evidence set; $1 = dir, $2 = jq mutation applied to ONE child
   _mk() { # _mk <dir> [label-to-mutate] [jq-filter]
     local d="$1" target="${2:-}" filt="${3:-.}" lbl i=0
     mkdir -p "$d"
+    export EVIDENCE_ROOT="$d"
     while IFS= read -r lbl; do
       i=$((i+1))
-      local base
+      local base slug edir
+      slug="${lbl//\//-}"; edir="$d/${slug}-evidence"
+      mkdir -p "$edir"; printf 'evidence for %s\n' "$lbl" > "$edir/log.txt"
+      SUM="$(evidence_checksum "$edir")"
       base="$(jq -nc --arg l "$lbl" --arg d "$DIG" --arg s "$SUM" --arg p "$PKG" \
                 --arg rev "$REV" --arg repo "$EXPECTED_REPOSITORY" '{
         image_label:$l, platform:"linux/amd64",
         staging_tag:($l|gsub("/";"-"))+"-r1-a1-saaaaaaa-amd64",
         digest_reference:($p+"@"+$d), manifest_digest:$d, tag_resolved_digest:$d,
         visibility:"private", config_architecture:"amd64",
+        manifest_media_type:"application/vnd.oci.image.manifest.v1+json",
         trivy_db_identity:"db@2026-08-05", source_revision:$rev,
         workflow_run_id:1, workflow_run_attempt:1, repository:$repo,
         smoke_test:"PASS", scan:"PASS", reconciliation:"PASS",
@@ -374,7 +427,32 @@ _asc_self_test() {
   d="$tmp/sum"; _mk "$d" "nginx/prod" 'del(.evidence_sha256)'
   t "a missing evidence checksum refuses" fail "$d"
 
-  d="$tmp/empty"; mkdir -p "$d"
+  d="$tmp/index"; _mk "$d" "nginx/prod" '.manifest_media_type="application/vnd.oci.image.index.v1+json"'
+  t "an INDEX digest refuses (it is not a platform child)" fail "$d"
+
+  d="$tmp/mlist"; _mk "$d" "nginx/prod" '.manifest_media_type="application/vnd.docker.distribution.manifest.list.v2+json"'
+  t "a docker manifest list refuses" fail "$d"
+
+  d="$tmp/nomtype"; _mk "$d" "nginx/prod" 'del(.manifest_media_type)'
+  t "a missing manifest media type refuses" fail "$d"
+
+  # THE case that made the checksum decorative: well-formed, plausible, wrong.
+  d="$tmp/badsum"; _mk "$d" "nginx/prod" '.evidence_sha256="'"$(printf 'e%.0s' {1..64})"'"'
+  t "a well-formed but INCORRECT evidence checksum refuses" fail "$d"
+
+  d="$tmp/nodir"; _mk "$d"; rm -rf "$d/nginx-prod-evidence"
+  t "a checksum with no evidence directory to check against refuses" fail "$d"
+
+  d="$tmp/tampered"; _mk "$d"; printf 'tampered\n' >> "$d/nginx-prod-evidence/log.txt"
+  t "evidence altered after the checksum was taken refuses" fail "$d"
+
+  d="$tmp/wfref"; _mk "$d"
+  ( export WORKFLOW_REF="zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/some-branch"
+    ! authorize "$d" "$d/out.json" >/dev/null 2>&1 ) \
+    && { echo "ok   - a non-canonical workflow identity refuses"; ok=$((ok+1)); } \
+    || { echo "FAIL - workflow identity"; bad=$((bad+1)); }
+
+  d="$tmp/empty"; mkdir -p "$d"; export EVIDENCE_ROOT="$d"
   t "empty evidence discovery refuses, never an empty PASS" fail "$d"
 
   d="$tmp/badjson"; _mk "$d"; printf 'not json' > "$d/child-1.json"
@@ -401,7 +479,7 @@ _asc_self_test() {
   d="$tmp/mand"; _mk "$d"
   local mv
   for mv in EXPECTED_TRIVY_DB EXPECTED_REPOSITORY EXPECTED_REVISION \
-            EXPECTED_STAGING_PACKAGE WORKFLOW_REF; do
+            EXPECTED_STAGING_PACKAGE WORKFLOW_REF BUILD_CREATED EVIDENCE_ROOT; do
     if ( unset "$mv"; authorize "$d" "$d/out.json" ) >/dev/null 2>&1; then
       echo "FAIL - omitting $mv should refuse"; bad=$((bad+1))
     else

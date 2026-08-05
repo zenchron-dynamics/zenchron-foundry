@@ -49,12 +49,51 @@ env:
 
 jobs:
   # -------------------------------------------------------------------------
+  # Ref guard FIRST, on a GitHub-hosted runner, before any self-hosted job and
+  # before anything holds packages: write. workflow_dispatch lets the operator
+  # pick any ref, so without this a branch copy of this file could stage images
+  # and emit a record that reads as authoritative.
+  #
+  # This guards against ACCIDENTAL branch dispatch. It is not proof of anything:
+  # a workflow cannot vouch for its own identity. A consumer of the record must
+  # independently verify the run through the GitHub API.
+  # -------------------------------------------------------------------------
+  guard:
+    name: refuse any ref but the default branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      created: ${{ steps.stamp.outputs.created }}
+    steps:
+      - name: Refuse a non-default ref
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          [ "$REF" = "refs/heads/master" ] \
+            || { echo "REFUSE: dispatch from master only, got '${REF}'" >&2; exit 1; }
+          echo "OK: running from ${REF}"
+      - name: Freeze the build timestamp for the whole run
+        id: stamp
+        run: |
+          set -euo pipefail
+          # ONE created timestamp for every child. github.event.repository.updated_at
+          # is repository metadata — when the repo record last changed — not
+          # evidence of when these images were built, and it drifts for reasons
+          # that have nothing to do with this run.
+          created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "created=${created}" >> "$GITHUB_OUTPUT"
+          echo "build created: ${created}"
+
+  # -------------------------------------------------------------------------
   # One database for the whole run. Ten jobs each resolving their own snapshot
   # would let a single authorization record combine findings judged against
   # different vulnerability knowledge states.
   # -------------------------------------------------------------------------
   freeze-db:
     name: freeze the vulnerability database
+    needs: guard
     runs-on: [self-hosted, linux, x64, zenchron]
     permissions:
       contents: read
@@ -119,7 +158,7 @@ jobs:
   # -------------------------------------------------------------------------
   stage:
     name: stage ${{ matrix.fam }}/${{ matrix.ver }}
-    needs: freeze-db
+    needs: [guard, freeze-db]
     runs-on: [self-hosted, linux, x64, zenchron]
     permissions:
       contents: read
@@ -245,10 +284,10 @@ jobs:
           sbom: false
           provenance: false
           build-args: |
-            BUILD_DATE=${{ github.event.repository.updated_at }}
+            BUILD_DATE=${{ needs.guard.outputs.created }}
             VCS_REF=${{ github.sha }}
           labels: |
-            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+            org.opencontainers.image.created=${{ needs.guard.outputs.created }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.id.outputs.version_label }}
             org.opencontainers.image.ref.name=${{ steps.id.outputs.tag }}
@@ -269,9 +308,23 @@ jobs:
           is_digest "$resolved" || die "the registry did not resolve '$REF' to a digest"
           [ "$resolved" = "$BUILD_DIGEST" ] \
             || die "staging tag resolves to '$resolved' but the build produced '$BUILD_DIGEST'"
+
+          # Equal digests do not prove the object is a platform CHILD. An index
+          # can be pulled with --platform, inspected and scanned, so every check
+          # downstream would pass while the record described the index. sbom and
+          # provenance are off, which makes an index unlikely — not impossible.
+          # Read the media type from the registry object itself.
+          mtype="$(docker buildx imagetools inspect "$REF" --raw 2>/dev/null | jq -r '.mediaType // ""')"
+          case "$mtype" in
+            application/vnd.oci.image.manifest.v1+json|application/vnd.docker.distribution.manifest.v2+json) : ;;
+            application/vnd.oci.image.index.v1+json|application/vnd.docker.distribution.manifest.list.v2+json)
+              die "staged object is an INDEX ($mtype); the record must describe a platform child" ;;
+            *) die "could not read a usable manifest media type from the registry (got '${mtype:-<empty>}')" ;;
+          esac
           {
             echo "digest=${resolved}"
             echo "digest_ref=${STAGING_PACKAGE}@${resolved}"
+            echo "media_type=${mtype}"
           } >> "$GITHUB_OUTPUT"
           echo "staged and resolved: ${STAGING_PACKAGE}@${resolved}"
 
@@ -304,9 +357,12 @@ jobs:
           VER: ${{ matrix.ver }}
           ARCH: ${{ steps.id.outputs.arch }}
           LABEL: ${{ steps.id.outputs.label }}
+          TAG: ${{ steps.id.outputs.tag }}
+          BUILD_CREATED: ${{ needs.guard.outputs.created }}
           DIGEST_REF: ${{ steps.resolve.outputs.digest_ref }}
         run: |
           set -uo pipefail   # each check records PASS/FAIL rather than aborting
+          set +e             # GitHub runs this as `bash -e`; a FAIL is expected here
           mkdir -p evidence/child
           smoke=FAIL scan=FAIL recon=FAIL meta=FAIL carch=""
 
@@ -320,8 +376,18 @@ jobs:
 
           echo "::group::metadata contract (#126)"
           contract="contracts/images/${FAM}-${VER}.yaml"
-          if bash scripts/verify-image-contract.sh "$DIGEST_REF" "$contract" > evidence/child/contract.log 2>&1; then meta=PASS; fi
-          tail -20 evidence/child/contract.log; echo "metadata_contract=$meta"
+          # Runtime posture AND the full OCI label map. verify-image-contract.sh
+          # checks user/ports/healthcheck and exactly one label; on its own it
+          # would report PASS while licence, source, base image, support status
+          # and created timestamp went unchecked.
+          runtime_ok=0; oci_ok=0
+          bash scripts/verify-image-contract.sh "$DIGEST_REF" "$contract" > evidence/child/contract.log 2>&1 && runtime_ok=1
+          EXPECT_REVISION="$GITHUB_SHA" EXPECT_CREATED="$BUILD_CREATED" EXPECT_REF_NAME="$TAG" \
+            bash scripts/release/verify-oci-metadata.sh "$DIGEST_REF" "$contract" \
+              evidence/child/oci-labels.json > evidence/child/oci-metadata.log 2>&1 && oci_ok=1
+          [ "$runtime_ok" = 1 ] && [ "$oci_ok" = 1 ] && meta=PASS
+          tail -20 evidence/child/contract.log; tail -20 evidence/child/oci-metadata.log
+          echo "metadata_contract=$meta (runtime=$runtime_ok oci=$oci_ok)"
           echo "::endgroup::"
 
           echo "::group::scan against the frozen database"
@@ -367,6 +433,7 @@ jobs:
           DIGEST_REF: ${{ steps.resolve.outputs.digest_ref }}
           DIGEST: ${{ steps.resolve.outputs.digest }}
           RESOLVED: ${{ steps.resolve.outputs.digest }}
+          MTYPE: ${{ steps.resolve.outputs.media_type }}
           VIS: ${{ steps.vis.outputs.visibility }}
           CARCH: ${{ steps.eval.outputs.carch }}
           DB: ${{ needs.freeze-db.outputs.identity }}
@@ -383,13 +450,14 @@ jobs:
           mkdir -p evidence/out
           jq -n --arg l "$LABEL" --arg p "$PLATFORM" --arg t "$TAG" \
                 --arg dr "$DIGEST_REF" --arg d "$DIGEST" --arg rd "$RESOLVED" \
-                --arg v "$VIS" --arg ca "$CARCH" --arg db "$DB" \
+                --arg v "$VIS" --arg ca "$CARCH" --arg db "$DB" --arg mt "$MTYPE" \
                 --arg rev "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" \
                 --argjson rid "$GITHUB_RUN_ID" --argjson ratt "$GITHUB_RUN_ATTEMPT" \
                 --arg sm "$SMOKE" --arg sc "$SCAN" --arg rc "$RECON" --arg mt "$META" \
                 --arg es "$esum" '{
             image_label:$l, platform:$p, staging_tag:$t,
-            digest_reference:$dr, manifest_digest:$d, tag_resolved_digest:$rd,
+            digest_reference:$dr, manifest_digest:$d, manifest_media_type:$mt,
+            tag_resolved_digest:$rd,
             visibility:$v, config_architecture:$ca, trivy_db_identity:$db,
             source_revision:$rev, workflow_run_id:$rid, workflow_run_attempt:$ratt,
             repository:$repo, smoke_test:$sm, scan:$sc, reconciliation:$rc,
@@ -413,7 +481,16 @@ jobs:
   # -------------------------------------------------------------------------
   authorize:
     name: post-build authorization
-    needs: [freeze-db, stage]
+    # `always() && !cancelled()` is LOAD-BEARING. GitHub skips a dependent job
+    # by default when any needed job fails, so a single child failing to build,
+    # push, resolve or emit evidence would have skipped authorization entirely —
+    # producing neither the PASS nor the promised machine-readable FAIL record.
+    # The one case where the record matters most is the case that produced none.
+    #
+    # `!cancelled()` so a deliberate cancellation stays a cancellation rather
+    # than manufacturing a FAIL verdict nobody asked for.
+    if: ${{ always() && !cancelled() }}
+    needs: [guard, freeze-db, stage]
     runs-on: [self-hosted, linux, x64, zenchron]
     permissions:
       contents: read
@@ -440,7 +517,17 @@ jobs:
           else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Prepare the collection directory
+        # Created unconditionally so a run where NO child uploaded anything still
+        # reaches the aggregator, which reports every missing matrix entry. An
+        # absent directory would abort before the record was written.
+        run: mkdir -p collected
+
       - name: Collect child evidence
+        # continue-on-error: with a failed child there may be fewer artifacts
+        # than the pattern expects, or none. That is not an infrastructure
+        # problem to abort on — it is the finding, and the aggregate states it.
+        continue-on-error: true
         uses: actions/download-artifact@abefc31eb2ec6e152ff1b4e83e9700a37e9eba59 # v6
         with:
           pattern: child-*-${{ github.run_id }}-${{ github.run_attempt }}
@@ -455,8 +542,11 @@ jobs:
           EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
           EXPECTED_PLATFORMS: ${{ inputs.platforms }}
           EXPECTED_STAGING_PACKAGE: ${{ env.STAGING_PACKAGE }}
+          # Empty if freeze-db itself failed; the aggregator refuses an empty
+          # expectation rather than treating it as "no constraint".
           EXPECTED_TRIVY_DB: ${{ needs.freeze-db.outputs.identity }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
+          BUILD_CREATED: ${{ needs.guard.outputs.created }}
         run: |
           set -uo pipefail
           # `set +e` is LOAD-BEARING. GitHub runs this block as `bash -e {0}`, so
@@ -473,7 +563,11 @@ jobs:
           find collected -maxdepth 1 -type d -name '*-evidence' -exec cp -r {} authorization/child-evidence/ \;
           find authorization/child-evidence -maxdepth 1 -name '*.json' -exec cp {} authorization/records/ \;
 
+          # EVIDENCE_ROOT is the directory the aggregator RECOMPUTES each child's
+          # evidence checksum against. Without it the checksum was only
+          # shape-checked, so any invented 64-hex value passed.
           GENERATED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          EVIDENCE_ROOT=authorization/child-evidence \
             bash scripts/release/authorize-staged-candidates.sh \
               authorization/records authorization/post-build-authorization.json
           rc=$?

@@ -13,6 +13,7 @@
     "workflow_run_attempt",
     "workflow_ref",
     "generated_at",
+    "build_created",
     "trivy_db_snapshot",
     "staging_package",
     "expected_matrix",
@@ -22,7 +23,9 @@
     "verdict"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": {
+      "const": 1
+    },
     "repository": {
       "type": "string",
       "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
@@ -33,12 +36,17 @@
       "pattern": "^[0-9a-f]{40}$",
       "description": "Full source revision the children were built from. Every child's evidence must agree with this."
     },
-    "workflow_run_id": { "type": "integer", "minimum": 1 },
-    "workflow_run_attempt": { "type": "integer", "minimum": 1 },
+    "workflow_run_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "workflow_run_attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
     "workflow_ref": {
-      "type": "string",
-      "minLength": 1,
-      "description": "The workflow file reference that produced this record, e.g. owner/repo/.github/workflows/stage-and-authorize.yml@refs/heads/master."
+      "const": "zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master",
+      "description": "The canonical producing workflow, pinned. Recording whatever the caller happened to be run as would let a branch copy of this workflow emit a record that looks authoritative. A consumer must STILL verify the run through the GitHub API: this field says what the record claims, and an in-record constant cannot prove itself."
     },
     "generated_at": {
       "type": "string",
@@ -47,7 +55,10 @@
     "trivy_db_snapshot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["identity", "frozen"],
+      "required": [
+        "identity",
+        "frozen"
+      ],
       "description": "The ONE vulnerability database snapshot every child was evaluated against. Ten jobs each resolving their own database would let a single record combine findings judged against different knowledge states, so the aggregate requires every child to report this identity verbatim.",
       "properties": {
         "identity": {
@@ -69,23 +80,38 @@
     "expected_matrix": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["images", "platforms", "expected_children"],
+      "required": [
+        "images",
+        "platforms",
+        "expected_children"
+      ],
       "description": "The COMPLETE set of children this record claims to cover, declared before evaluation. Completeness is checked against this rather than against whatever happened to be collected, so a silently missing job cannot produce a smaller passing record.",
       "properties": {
-        "images": { "type": "integer", "minimum": 1 },
+        "images": {
+          "type": "integer",
+          "minimum": 1
+        },
         "platforms": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^linux/(amd64|arm64)$" }
+          "items": {
+            "type": "string",
+            "pattern": "^linux/(amd64|arm64)$"
+          }
         },
-        "expected_children": { "type": "integer", "minimum": 1 }
+        "expected_children": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
     "children": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/child" }
+      "items": {
+        "$ref": "#/$defs/child"
+      }
     },
     "authorization_scope": {
       "const": "immutable-rc-manifest-input",
@@ -95,11 +121,24 @@
       "const": false,
       "description": "Always false in v1. Public exposure is authorized by a separate protected path, never by this gate. Encoded as a const so a record asserting otherwise fails schema validation rather than being interpreted."
     },
-    "verdict": { "enum": ["PASS", "FAIL"] },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
     "refusals": {
       "type": "array",
-      "items": { "type": "string", "minLength": 1 },
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
       "description": "Every reason the verdict is FAIL. Present and non-empty whenever verdict is FAIL."
+    },
+    "build_created": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "The org.opencontainers.image.created value every child was built with, frozen once for the run. Repository metadata such as updated_at is not evidence of when these images were built."
     }
   },
   "$defs": {
@@ -112,6 +151,7 @@
         "staging_tag",
         "digest_reference",
         "manifest_digest",
+        "manifest_media_type",
         "tag_resolved_digest",
         "visibility",
         "config_architecture",
@@ -132,40 +172,161 @@
           "pattern": "^[a-z0-9-]+/(prod|[0-9]+\\.[0-9]+)$",
           "description": "Canonical image identity, e.g. php-fpm/8.3 or nginx/prod."
         },
-        "platform": { "type": "string", "pattern": "^linux/(amd64|arm64)$" },
-        "staging_tag": { "type": "string", "minLength": 1 },
+        "platform": {
+          "type": "string",
+          "pattern": "^linux/(amd64|arm64)$"
+        },
+        "staging_tag": {
+          "type": "string",
+          "minLength": 1
+        },
         "digest_reference": {
           "type": "string",
           "pattern": "^ghcr\\.io/[a-z0-9._-]+/[a-z0-9._-]+@sha256:[0-9a-f]{64}$",
           "description": "Immutable by-digest reference. A tag-only reference is refused: a tag is mutable and cannot identify what was evaluated."
         },
-        "manifest_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "manifest_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
         "tag_resolved_digest": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$",
           "description": "The digest the registry serves for staging_tag, resolved independently. Must equal manifest_digest; a local build record is not registry evidence."
         },
-        "visibility": { "const": "private" },
+        "visibility": {
+          "const": "private"
+        },
         "config_architecture": {
           "type": "string",
           "pattern": "^(amd64|arm64)$",
           "description": "Architecture read from the pushed image config. Must agree with `platform`; a child labelled one way and built another is refused."
         },
-        "trivy_db_identity": { "type": "string", "minLength": 1 },
-        "source_revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-        "workflow_run_id": { "type": "integer", "minimum": 1 },
-        "workflow_run_attempt": { "type": "integer", "minimum": 1 },
-        "repository": { "type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$" },
-        "smoke_test": { "enum": ["PASS", "FAIL"] },
-        "scan": { "enum": ["PASS", "FAIL"] },
-        "reconciliation": { "enum": ["PASS", "FAIL"] },
-        "metadata_contract": { "enum": ["PASS", "FAIL"] },
+        "trivy_db_identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "workflow_run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"
+        },
+        "smoke_test": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "scan": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "reconciliation": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "metadata_contract": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
         "evidence_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "Checksum of this child's evidence bundle, so the record can be tied to the artifacts it summarizes."
+          "description": "Checksum of this child's evidence directory, recomputed by the authorizer from the copied evidence rather than trusted as reported. A well-formed but incorrect value is refused."
+        },
+        "manifest_media_type": {
+          "enum": [
+            "application/vnd.oci.image.manifest.v1+json",
+            "application/vnd.docker.distribution.manifest.v2+json"
+          ],
+          "description": "Read from the registry object itself. An index digest is REFUSED: an index can still be pulled with --platform, inspected and scanned, so every downstream check would pass while the record described the wrong object. Disabling sbom/provenance makes an index unlikely, not impossible."
+        },
+        "oci_labels_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Checksum of the inspected OCI label map recorded for this child (#126)."
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "description": "A PASS verdict cannot coexist with a failed child gate. Previously the verdict enum and the child gate enums were independent, so a record could assert PASS while carrying children whose smoke, scan, reconciliation and metadata all read FAIL.",
+        "properties": {
+          "children": {
+            "items": {
+              "properties": {
+                "smoke_test": {
+                  "const": "PASS"
+                },
+                "scan": {
+                  "const": "PASS"
+                },
+                "reconciliation": {
+                  "const": "PASS"
+                },
+                "metadata_contract": {
+                  "const": "PASS"
+                }
+              }
+            }
+          },
+          "refusals": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "FAIL"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "description": "A FAIL verdict must say why. The prose said refusals were present on FAIL; nothing required it.",
+        "required": [
+          "refusals"
+        ],
+        "properties": {
+          "refusals": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ]
 }

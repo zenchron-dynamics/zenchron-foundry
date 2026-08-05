@@ -15,3 +15,26 @@ oci_revision_label: required
 # tests/vulnerability-policy/test_reconciliation_scope.sh fails if any returns.
 excluded_modules: [image_filter, xslt, njs, geoip]
 excluded_packages: [curl, libcurl4, libssh2-1, libaom3, libheif1, libgd3, libxml2, libxslt1.1, libtiff6, libexpat1]
+
+# Expected STATIC OCI metadata (#126). Checked against the label map read
+# from the staged image. Dynamic values (version, created, revision,
+# ref.name) are supplied by the run and compared against the run itself,
+# so they are deliberately absent here.
+#
+# Seeded from the Dockerfile, but this is the REVIEWED EXPECTATION, not a
+# mirror of it: changing a licence, source or base image in the Dockerfile
+# without changing this file is exactly the drift the gate exists to catch.
+oci_static:
+  "org.opencontainers.image.title": "zenchron-nginx"
+  "org.opencontainers.image.description": "Hardened nginx for PHP-FPM upstream / static assets, Debian-based"
+  "org.opencontainers.image.vendor": "Zenchron Dynamics"
+  "org.opencontainers.image.source": "https://github.com/zenchron-dynamics/zenchron-foundry"
+  "org.opencontainers.image.base.name": "docker.io/nginxinc/nginx-unprivileged:1.27-bookworm"
+  "org.opencontainers.image.licenses": "LicenseRef-Zenchron-Internal"
+  "com.zenchron.base": "debian-bookworm"
+  "com.zenchron.runtime": "nginx"
+  "com.zenchron.support": "supported"
+
+# The version label this image must carry. `prod` stays `prod` — hardcoding
+# "<selector>-prod" is what produced "prod-prod" for the edge images.
+oci_version_label: "prod"
