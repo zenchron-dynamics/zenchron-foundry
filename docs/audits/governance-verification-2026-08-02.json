@@ -1,7 +1,7 @@
 {
   "repository": "zenchron-dynamics/zenchron-foundry",
-  "checked_at": "2026-08-02T09:56:39Z",
-  "source_revision": "4f5f0cef3372fcb335bd9658ab1e1308265ba222",
+  "checked_at": "2026-08-06T11:36:07Z",
+  "source_revision": "9af3cee6632446b2d846ffa2cc04531162f8da3b",
   "verdict": "PASS",
   "settings": {
     "visibility": "public",
