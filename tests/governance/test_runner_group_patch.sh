@@ -27,14 +27,31 @@ ck "its self-test passes (real execution path, injected transport)" \
    "bash $H --self-test >/dev/null 2>&1"
 
 # --- the contract, asserted structurally ----------------------------------
-ck "the repository list is a separate mandatory argument" \
-   "grep -q 'desired-repositories.json required' $H"
+ck "the expected-state document is mandatory" \
+   "grep -q 'expected-state.json required' $H"
+# The helper PRESERVES membership; it does not change it. A version that accepted
+# a caller-supplied "desired" set could widen access while nominally editing a
+# workflow list, and would have returned PASS for doing so.
+ck "membership is preserved, never modified" \
+   "grep -q 'DOES NOT CHANGE REPOSITORY MEMBERSHIP' $H"
+ck "every mandatory expectation is required, not optional" \
+   "grep -q 'Every expectation is mandatory; an' $H"
+ck "safe values are enforced, not merely permitted" \
+   "grep -q 'Permitted is not the same as safe' $H"
+ck "drift detection compares the WHOLE state, not just repositories" \
+   "grep -q 'snapshot B (drift check)' $H && grep -q 'fingerprint' $H"
+ck "postconditions flag unrequested changes" \
+   "grep -q 'UNREQUESTED CHANGE' $H"
+ck "recovery restores membership before any rollback PATCH" \
+   "grep -q 'No rollback PATCH will be sent' $H"
+ck "PASS requires the evidence to be written and re-read" \
+   "grep -q 'an unreadable record is the same as no record' $H"
 ck "the PATCH allowlist excludes repository membership" \
    "! grep -qE '^PATCH_ALLOWED_KEYS=.*selected_repository_ids' $H"
 ck "selected_repository_ids, runners and repositories are forbidden in a PATCH" \
    "grep -q 'PATCH_FORBIDDEN_KEYS=\"selected_repository_ids runners repositories\"' $H"
-ck "the repository PUT is unconditional after a successful PATCH" \
-   "grep -q 'UNCONDITIONAL after every successful PATCH' $H"
+ck "the repository PUT always follows a successful PATCH" \
+   "grep -q 'closing the availability window' $H"
 ck "the API version is pinned on every call" \
    "grep -q 'X-GitHub-Api-Version: \${API_VERSION}' $H"
 # Not a grep for the word: the helper's own self-test contains that pattern as

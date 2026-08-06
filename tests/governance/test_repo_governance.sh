@@ -354,10 +354,10 @@ ck "the helper REFUSES the exact payload that caused the incident" \
 # a 200 must not be trusted — only the internals it names.
 # Measurement: docs/audits/runner-group-patch-semantics-2026-08-06/
 ck "the helper verifies AFTER the mutation, not just the HTTP status" \
-   "grep -q 'only a postcondition read can tell the difference' scripts/admin/runner-group-patch.sh && \
+   "grep -q 'NOTHING may be inferred from the status' scripts/admin/runner-group-patch.sh && \
     grep -q 'verifying postconditions' scripts/admin/runner-group-patch.sh"
 ck "the helper restores repository membership after every successful PATCH" \
-   "grep -q 'UNCONDITIONAL after every successful PATCH' scripts/admin/runner-group-patch.sh"
+   "grep -q 'closing the availability window' scripts/admin/runner-group-patch.sh"
 
 # --- incident evidence is committed and intact -----------------------------
 # NOTE: read inside the strings ck() evals, which the linter cannot follow.

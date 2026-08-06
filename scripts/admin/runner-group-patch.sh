@@ -2,46 +2,48 @@
 # =============================================================================
 # scripts/admin/runner-group-patch.sh
 # -----------------------------------------------------------------------------
-# Mutate an org runner group's PROPERTIES and WORKFLOW allowlist, and leave its
-# repository membership exactly as the caller declares it.
+# Change an org runner group's WORKFLOW ALLOWLIST (and only that), while
+# PRESERVING every other property, its repository membership and its runners.
 #
-# WHY THE PREVIOUS VERSION HAD TO BE REPLACED. On 2026-08-02 a PATCH that changed
-# only `selected_workflows` also emptied the group's repository selection. The
-# fix then was to REQUIRE `selected_repository_ids` in every PATCH payload.
-# GitHub now rejects that field outright:
+# THIS HELPER DOES NOT CHANGE REPOSITORY MEMBERSHIP. It restores it. GitHub's
+# PATCH destroys the selection as a side effect, so the repository list is
+# supplied purely so the helper can put back exactly what was there. Widening or
+# narrowing membership is a different operation with different review, and any
+# attempt to do it here REFUSES before anything is mutated.
 #
-#     "selected_repository_ids" is not a permitted key. (HTTP 422)
-#
-# So the guardrail demanded a field the API forbids, and nothing could pass. The
-# safety RATIONALE was right; the MECHANISM became impossible.
-#
-# The replacement is not a guess. Measured on a throwaway group, 2026-08-06 —
+# WHY IT WORKS THIS WAY. Measured on a throwaway group, 2026-08-06 —
 # docs/audits/runner-group-patch-semantics-2026-08-06/:
 #
 #     PATCH with    selected_repository_ids  -> 422, nothing changes
 #     PATCH without selected_repository_ids  -> 200 OK, membership CLEARED
-#     PUT .../repositories                   -> membership restored exactly
+#     PUT .../repositories                   -> restored exactly
 #
-# The 200 OK is the dangerous part: the call reports success while emptying the
-# selection, so only a postcondition read can tell the difference.
+# A 200 OK is emitted while the selection is emptied. Since the API demonstrably
+# changes a resource nobody asked about, NOTHING may be inferred from the status
+# code or from the fields that happened to be requested: every stable field is
+# compared before and after, and only explicitly intended ones may differ.
 #
-# WHAT THIS GUARANTEES, HONESTLY. Two REST calls cannot be made atomic. A
-# workflow PATCH opens a MEASURED FAIL-CLOSED AVAILABILITY WINDOW in which no
-# repository is authorised and trusted jobs are unschedulable. This helper closes
-# that window immediately, verifies closure, and treats failure to restore
-# repository membership as an INCIDENT. It is not transactional and must not be
-# described as such.
+# WHAT IT DOES NOT GUARANTEE. Two REST calls cannot be made atomic. The PATCH
+# opens a measured FAIL-CLOSED AVAILABILITY WINDOW in which no repository is
+# authorised and trusted jobs are unschedulable. This closes it immediately and
+# verifies closure. It is not transactional.
 #
 # Usage:
-#   runner-group-patch.sh <group-id> <group-patch.json> <desired-repositories.json> \
+#   runner-group-patch.sh <group-id> <group-patch.json> <expected-state.json> \
 #                         [--evidence <dir>]
 #   runner-group-patch.sh --self-test
 #
-# The repository list is a SEPARATE MANDATORY INPUT, never part of the PATCH.
+# expected-state.json is MANDATORY and must describe the COMPLETE pre-mutation
+# state. Optional expectations are fail-open: the binding disappears exactly when
+# nobody supplies it.
 #
-# Env: ORG (default zenchron-dynamics), API_VERSION (default 2026-03-10, pinned
-# across every call), GH_API_FN (injectable transport), EXPECT_* preconditions.
-# Exit: 0 applied and verified; 1 refused, failed, or incident.
+#   {"id":3, "name":"zenchron-foundry-trusted", "visibility":"selected",
+#    "allows_public_repositories":true, "restricted_to_workflows":true,
+#    "selected_repository_ids":[...], "runner_ids":[...],
+#    "selected_workflows":[...]}
+#
+# Exit: 0 only when the mutation is verified AND its evidence is written and
+# re-read. 1 on any refusal, failure or incident.
 # =============================================================================
 set -uo pipefail
 
@@ -55,64 +57,94 @@ log()  { printf '%s\n' "$*"; }
 warn() { printf '%s\n' "$*" >&2; }
 die()  { printf 'REFUSE: %s\n' "$*" >&2; return 1; }
 
-# An ALLOWLIST, not a denylist: an unknown key is refused rather than forwarded,
-# because the failure mode here is precisely a field doing something other than
-# what it appears to.
+# Only the workflow allowlist may be intentionally changed. The other keys are
+# accepted so the caller can restate them, but they are pinned to safe values;
+# a request to relax them refuses.
 PATCH_ALLOWED_KEYS="name visibility allows_public_repositories restricted_to_workflows selected_workflows"
 PATCH_FORBIDDEN_KEYS="selected_repository_ids runners repositories"
+INTENDED_MUTABLE_KEYS="selected_workflows"
+# Safety invariants required both in the request and in the observed state.
+SAFE_VISIBILITY="selected"
+SAFE_RESTRICTED="true"
+SAFE_PUBLIC="true"
+
+# Sorted, de-duplicated integer list. Every comparison goes through this so
+# ordering noise never reads as drift and a duplicated id never hides a change.
+canon_ids() { # <json-array>
+  python3 -c 'import json,sys
+v=json.loads(sys.argv[1])
+if not isinstance(v,list) or not all(isinstance(i,int) for i in v):
+    sys.exit("REFUSE: not an integer id list: %r" % (v,))
+if len(set(v))!=len(v):
+    sys.exit("REFUSE: duplicate ids: %r" % (v,))
+print(json.dumps(sorted(v)))' "$1"
+}
+canon_strs() { # <json-array>
+  python3 -c 'import json,sys
+v=json.loads(sys.argv[1])
+if not isinstance(v,list): sys.exit("REFUSE: not a list")
+if len(set(v))!=len(v): sys.exit("REFUSE: duplicate entries: %r" % (v,))
+print(json.dumps(sorted(v)))' "$1"
+}
 
 assert_patch_payload_safe() { # <payload-file>
   local file="$1"
   [ -f "$file" ] || { die "patch payload not found: $file"; return 1; }
-  PAYLOAD="$file" ALLOWED="$PATCH_ALLOWED_KEYS" FORBIDDEN="$PATCH_FORBIDDEN_KEYS" python3 - <<'PY'
+  PAYLOAD="$file" ALLOWED="$PATCH_ALLOWED_KEYS" FORBIDDEN="$PATCH_FORBIDDEN_KEYS" \
+  SVIS="$SAFE_VISIBILITY" SRES="$SAFE_RESTRICTED" SPUB="$SAFE_PUBLIC" python3 - <<'PY'
 import json, os, sys
-allowed = set(os.environ["ALLOWED"].split())
-forbidden = set(os.environ["FORBIDDEN"].split())
-try:
-    p = json.load(open(os.environ["PAYLOAD"]))
-except Exception as exc:
-    sys.exit("REFUSE: patch payload is not valid JSON: %s" % exc)
-if not isinstance(p, dict):
-    sys.exit("REFUSE: patch payload must be a JSON object")
+allowed = set(os.environ["ALLOWED"].split()); forbidden = set(os.environ["FORBIDDEN"].split())
+try: p = json.load(open(os.environ["PAYLOAD"]))
+except Exception as exc: sys.exit("REFUSE: patch payload is not valid JSON: %s" % exc)
+if not isinstance(p, dict): sys.exit("REFUSE: patch payload must be a JSON object")
 bad = sorted(set(p) & forbidden)
 if bad:
-    sys.exit("REFUSE: %s belong to dedicated endpoints and must not appear in a "
-             "group PATCH. GitHub rejects selected_repository_ids with 422, and a "
-             "PATCH that omits it CLEARS repository membership - pass the "
-             "repository list as the separate mandatory argument." % ", ".join(bad))
+    sys.exit("REFUSE: %s belong to dedicated endpoints and must not appear in a group "
+             "PATCH. GitHub rejects selected_repository_ids with 422, and a PATCH that "
+             "omits it CLEARS membership." % ", ".join(bad))
 unknown = sorted(set(p) - allowed)
 if unknown:
-    sys.exit("REFUSE: unsupported PATCH key(s): %s (allowed: %s)"
-             % (", ".join(unknown), ", ".join(sorted(allowed))))
-for w in p.get("selected_workflows", []):
+    sys.exit("REFUSE: unsupported PATCH key(s): %s" % ", ".join(unknown))
+# Permitted is not the same as safe. A caller must not be able to relax the
+# boundary while nominally editing a workflow list.
+if "visibility" in p and p["visibility"] != os.environ["SVIS"]:
+    sys.exit("REFUSE: visibility must remain %r, requested %r" % (os.environ["SVIS"], p["visibility"]))
+if "restricted_to_workflows" in p and p["restricted_to_workflows"] is not (os.environ["SRES"] == "true"):
+    sys.exit("REFUSE: restricted_to_workflows must remain %s" % os.environ["SRES"])
+if "allows_public_repositories" in p and p["allows_public_repositories"] is not (os.environ["SPUB"] == "true"):
+    sys.exit("REFUSE: allows_public_repositories must remain %s" % os.environ["SPUB"])
+wf = p.get("selected_workflows")
+if wf is None or not wf:
+    sys.exit("REFUSE: selected_workflows is the only intended change and must be present and non-empty")
+for w in wf:
     if not w.endswith("@refs/heads/master"):
         sys.exit("REFUSE: workflow ref not pinned to the default branch: %s" % w)
+if len(set(wf)) != len(wf):
+    sys.exit("REFUSE: duplicate workflow entries: %r" % wf)
 PY
 }
 
-assert_repo_list_safe() { # <repos-file>
-  local file="$1"
-  [ -f "$file" ] || { die "desired-repositories file not found: $file"; return 1; }
-  REPOS="$file" python3 - <<'PY'
+assert_expected_state() { # <expected-file> <gid>
+  local file="$1" gid="$2"
+  [ -f "$file" ] || { die "expected-state document not found: $file"; return 1; }
+  EXPECTED="$file" GID="$gid" SVIS="$SAFE_VISIBILITY" SRES="$SAFE_RESTRICTED" SPUB="$SAFE_PUBLIC" python3 - <<'PY'
 import json, os, sys
-try:
-    d = json.load(open(os.environ["REPOS"]))
-except Exception as exc:
-    sys.exit("REFUSE: desired-repositories is not valid JSON: %s" % exc)
-ids = d.get("selected_repository_ids") if isinstance(d, dict) else d
-if not isinstance(ids, list) or not ids:
-    sys.exit("REFUSE: desired repository list is empty or malformed. An empty list "
-             "would leave the group with no authorised repository, which is the "
-             "outage this helper exists to prevent.")
-if not all(isinstance(i, int) for i in ids):
-    sys.exit("REFUSE: repository ids must be integers: %r" % ids)
+try: e = json.load(open(os.environ["EXPECTED"]))
+except Exception as exc: sys.exit("REFUSE: expected-state is not valid JSON: %s" % exc)
+need = ["id","name","visibility","allows_public_repositories","restricted_to_workflows",
+        "selected_repository_ids","runner_ids","selected_workflows"]
+missing = [k for k in need if k not in e]
+if missing:
+    sys.exit("REFUSE: expected-state is missing %s. Every expectation is mandatory; an "
+             "optional one is fail-open." % ", ".join(missing))
+if str(e["id"]) != os.environ["GID"]:
+    sys.exit("REFUSE: expected-state is for group %s, invoked for %s" % (e["id"], os.environ["GID"]))
+if e["visibility"] != os.environ["SVIS"]: sys.exit("REFUSE: expected visibility must be %r" % os.environ["SVIS"])
+if e["restricted_to_workflows"] is not (os.environ["SRES"] == "true"): sys.exit("REFUSE: expected restricted_to_workflows must be true")
+if e["allows_public_repositories"] is not (os.environ["SPUB"] == "true"): sys.exit("REFUSE: expected allows_public_repositories must be true")
+if not e["selected_repository_ids"]:
+    sys.exit("REFUSE: expected repository list is empty; this helper restores membership, it does not invent it")
 PY
-}
-
-repo_ids_of() {
-  python3 -c 'import json,sys
-d=json.load(open(sys.argv[1]))
-print(json.dumps(d.get("selected_repository_ids") if isinstance(d,dict) else d))' "$1"
 }
 
 group_json()   { api "orgs/${ORG}/actions/runner-groups/$1"; }
@@ -128,51 +160,50 @@ snapshot() { # <gid> <dir> <prefix>
   [ -s "$dir/${p}-group.json" ] && [ -s "$dir/${p}-repos.json" ] && [ -s "$dir/${p}-runners.json" ]
 }
 
-# UNCONDITIONAL after every successful PATCH. Never skipped because a GET looked
-# fine: the measurement says the PATCH clears membership, and a read that
-# disagrees is a reason to investigate, not to skip the repair.
+# Canonical fingerprint of an observed state, for drift comparison and for the
+# postcondition diff. Every stable field, not only the requested ones.
+fingerprint() { # <dir> <prefix>
+  python3 -c 'import json,sys
+g=json.load(open(sys.argv[1])); r=json.load(open(sys.argv[2])); n=json.load(open(sys.argv[3]))
+print(json.dumps({
+ "name":g.get("name"), "visibility":g.get("visibility"),
+ "allows_public_repositories":g.get("allows_public_repositories"),
+ "restricted_to_workflows":g.get("restricted_to_workflows"),
+ "default":g.get("default"), "inherited":g.get("inherited"),
+ "selected_workflows":sorted(g.get("selected_workflows") or []),
+ "repositories":sorted(r), "runners":sorted(n)}, sort_keys=True))' \
+   "$1/$2-group.json" "$1/$2-repos.json" "$1/$2-runners.json"
+}
+
 put_repositories() { # <gid> <ids-json>
   local gid="$1" ids="$2" tmp rc
   tmp="$(mktemp)"
   python3 -c 'import json,sys; json.dump({"selected_repository_ids": json.loads(sys.argv[1])}, open(sys.argv[2],"w"))' "$ids" "$tmp"
   api --method PUT "orgs/${ORG}/actions/runner-groups/${gid}/repositories" --input "$tmp" >/dev/null 2>&1
-  rc=$?
-  rm -f "$tmp"
-  return $rc
+  rc=$?; rm -f "$tmp"; return $rc
 }
 
-restore_repositories() { # <gid> <ids-json> — bounded retries, membership FIRST
-  local gid="$1" ids="$2" i
+# Restores AND verifies. Returns non-zero unless the observed set is exactly the
+# requested one and non-empty.
+restore_repositories() { # <gid> <ids-json>
+  local gid="$1" ids="$2" i got
   for i in 1 2 3; do
-    if put_repositories "$gid" "$ids"; then
-      [ "$(repos_json "$gid" 2>/dev/null)" = "$ids" ] && return 0
-    fi
-    warn "restore attempt $i did not take; retrying"
+    put_repositories "$gid" "$ids"
+    got="$(canon_ids "$(repos_json "$gid" 2>/dev/null || echo '[]')" 2>/dev/null)"
+    if [ "$got" = "$ids" ] && [ "$got" != "[]" ]; then return 0; fi
+    warn "restore attempt $i did not take (observed ${got:-unreadable}); retrying"
   done
   return 1
 }
 
-assert_preconditions() { # <gid> <dir>
-  local dir="$2" got
-  if [ -n "${EXPECT_NAME:-}" ]; then
-    got="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("name",""))' "$dir/before-group.json")"
-    [ "$got" = "$EXPECT_NAME" ] || { die "group name is '$got', expected '$EXPECT_NAME'"; return 1; }
-  fi
-  if [ -n "${EXPECT_REPOS:-}" ]; then
-    got="$(cat "$dir/before-repos.json")"
-    [ "$got" = "$EXPECT_REPOS" ] || { die "repositories are $got, expected $EXPECT_REPOS"; return 1; }
-  fi
-  if [ -n "${EXPECT_RUNNERS:-}" ]; then
-    got="$(cat "$dir/before-runners.json")"
-    [ "$got" = "$EXPECT_RUNNERS" ] || { die "runners are $got, expected $EXPECT_RUNNERS"; return 1; }
-  fi
-  # This helper RESTORES membership; it does not invent it.
-  [ "$(cat "$dir/before-repos.json")" = "[]" ] \
-    && { die "group already authorises no repositories; refusing to mutate"; return 1; }
-  return 0
+finish() { # <gid> <ev> <verdict> <reason> <want>
+  write_evidence "$@" || { warn "INCIDENT: evidence could not be written"; return 1; }
+  # Re-read it: an unreadable record is the same as no record.
+  jq -e '.verdict' "$2/result.json" >/dev/null 2>&1 || { warn "INCIDENT: evidence is unreadable after writing"; return 1; }
+  [ "$3" = PASS ]
 }
 
-write_evidence() { # <gid> <dir> <verdict> <reason> <want-ids>
+write_evidence() { # <gid> <ev> <verdict> <reason> <want>
   python3 - "$1" "$2" "$3" "$4" "$5" "$ORG" "$API_VERSION" <<'PY'
 import json, os, sys, datetime
 gid, ev, verdict, reason, want, org, apiv = sys.argv[1:8]
@@ -180,30 +211,26 @@ def rd(n):
     try: return json.load(open(os.path.join(ev, n)))
     except Exception: return None
 json.dump({
-  "schema_version": 1, "organization": org, "runner_group_id": int(gid),
-  "api_version": apiv,
+  "schema_version": 2, "organization": org, "runner_group_id": int(gid), "api_version": apiv,
   "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
   "verdict": verdict, "reason": reason,
-  "desired_repository_ids": json.loads(want),
-  "before": {"group": rd("before-group.json"), "repositories": rd("before-repos.json"),
-             "runners": rd("before-runners.json")},
+  "preserved_repository_ids": json.loads(want),
+  "before": {"group": rd("before-group.json"), "repositories": rd("before-repos.json"), "runners": rd("before-runners.json")},
+  "recheck": {"repositories": rd("recheck-repos.json"), "runners": rd("recheck-runners.json")},
   "patch_request": rd("patch-request.json"),
-  "after": {"group": rd("after-group.json"), "repositories": rd("after-repos.json"),
-            "runners": rd("after-runners.json")},
-  "restored": {"group": rd("restored-group.json"), "repositories": rd("restored-repos.json"),
-               "runners": rd("restored-runners.json")},
-  "guarantee": ("the PATCH opens a measured fail-closed window in which no repository "
-                "is authorised; this run closed it and verified closure. Two REST "
-                "calls are not atomic."),
+  "after": {"group": rd("after-group.json"), "repositories": rd("after-repos.json"), "runners": rd("after-runners.json")},
+  "restored": {"group": rd("restored-group.json"), "repositories": rd("restored-repos.json"), "runners": rd("restored-runners.json")},
+  "guarantee": ("repository membership is PRESERVED, never modified, by this helper. "
+                "The PATCH opens a measured fail-closed window in which no repository is "
+                "authorised; it is closed and verified here. Two REST calls are not atomic."),
 }, open(os.path.join(ev, "result.json"), "w"), indent=2)
 PY
-  log "evidence: $2/result.json ($3)"
 }
 
-patch_group() { # <gid> <patch.json> <repos.json> [--evidence <dir>]
-  local gid="${1:?usage: runner-group-patch.sh <group-id> <group-patch.json> <desired-repositories.json> [--evidence <dir>]}"
+patch_group() { # <gid> <patch.json> <expected-state.json> [--evidence <dir>]
+  local gid="${1:?usage: runner-group-patch.sh <group-id> <group-patch.json> <expected-state.json> [--evidence <dir>]}"
   local patch="${2:?group-patch.json required}"
-  local repos="${3:?desired-repositories.json required}"
+  local expected="${3:?expected-state.json required}"
   shift 3
   local ev="./runner-group-evidence"
   while [ $# -gt 0 ]; do
@@ -215,187 +242,272 @@ patch_group() { # <gid> <patch.json> <repos.json> [--evidence <dir>]
   mkdir -p "$ev"
 
   assert_patch_payload_safe "$patch" || return 1
-  assert_repo_list_safe "$repos" || return 1
-  local want_ids; want_ids="$(repo_ids_of "$repos")"
+  assert_expected_state "$expected" "$gid" || return 1
 
-  log "==> snapshotting group ${gid}"
-  snapshot "$gid" "$ev" before || { die "could not read the group before mutating it"; return 1; }
-  assert_preconditions "$gid" "$ev" || return 1
+  local exp_repos exp_runners exp_wf
+  exp_repos="$(canon_ids "$(jq -c .selected_repository_ids "$expected")")" || return 1
+  exp_runners="$(canon_ids "$(jq -c .runner_ids "$expected")")" || return 1
+  exp_wf="$(canon_strs "$(jq -c .selected_workflows "$expected")")" || return 1
 
-  # A snapshot acted on minutes later cannot see concurrent administration.
-  local recheck; recheck="$(repos_json "$gid" 2>/dev/null)"
-  [ "$recheck" = "$(cat "$ev/before-repos.json")" ] \
-    || { die "repository selection changed between snapshot and PATCH (now $recheck)"; return 1; }
+  # ---- snapshot A -------------------------------------------------------
+  log "==> snapshot A"
+  snapshot "$gid" "$ev" before || { die "could not read the group"; return 1; }
+  local a_repos a_runners a_wf
+  a_repos="$(canon_ids "$(cat "$ev/before-repos.json")")" || return 1
+  a_runners="$(canon_ids "$(cat "$ev/before-runners.json")")" || return 1
+  a_wf="$(canon_strs "$(jq -c '.selected_workflows // []' "$ev/before-group.json")")" || return 1
 
-  log "==> PATCH (properties + workflows only)"
+  # ---- validate A against the mandatory expectations --------------------
+  local want got
+  for pair in "name:$(jq -r .name "$expected"):$(jq -r .name "$ev/before-group.json")" \
+              "visibility:$(jq -r .visibility "$expected"):$(jq -r .visibility "$ev/before-group.json")" \
+              "restricted_to_workflows:$(jq -r .restricted_to_workflows "$expected"):$(jq -r .restricted_to_workflows "$ev/before-group.json")" \
+              "allows_public_repositories:$(jq -r .allows_public_repositories "$expected"):$(jq -r .allows_public_repositories "$ev/before-group.json")"; do
+    local k="${pair%%:*}" rest="${pair#*:}"; want="${rest%%:*}"; got="${rest#*:}"
+    [ "$want" = "$got" ] || { die "$k is '$got', expected '$want'"; return 1; }
+  done
+  [ "$a_repos"   = "$exp_repos" ]   || { die "repositories are $a_repos, expected $exp_repos"; return 1; }
+  [ "$a_runners" = "$exp_runners" ] || { die "runners are $a_runners, expected $exp_runners"; return 1; }
+  [ "$a_wf"      = "$exp_wf" ]      || { die "current workflow set differs from the expected one"; return 1; }
+  [ "$a_repos" = "[]" ] && { die "group authorises no repositories; refusing to mutate"; return 1; }
+
+  # Membership is PRESERVED. Widening or narrowing is a different operation.
+  local preserve="$a_repos"
+
+  # ---- snapshot B, immediately before mutating --------------------------
+  log "==> snapshot B (drift check)"
+  local fa fb
+  fa="$(fingerprint "$ev" before)"
+  snapshot "$gid" "$ev" recheck || { die "could not re-read the group before mutating"; return 1; }
+  fb="$(fingerprint "$ev" recheck)"
+  [ "$fa" = "$fb" ] || { die "the group changed between snapshot A and the PATCH (concurrent administration); refusing"; return 1; }
+
+  # ---- mutate -----------------------------------------------------------
+  log "==> PATCH (workflow allowlist only)"
   cp "$patch" "$ev/patch-request.json"
   if ! api --method PATCH "orgs/${ORG}/actions/runner-groups/${gid}" \
         --input "$patch" > "$ev/patch-response.json" 2>"$ev/patch-error.txt"; then
-    warn "PATCH failed; repository membership was never touched"
+    warn "PATCH failed; nothing was mutated"
     [ -s "$ev/patch-error.txt" ] && cat "$ev/patch-error.txt" >&2
-    write_evidence "$gid" "$ev" REFUSED "patch-failed" "$want_ids"
-    return 1
+    finish "$gid" "$ev" REFUSED "patch-failed" "$preserve"; return 1
   fi
 
   log "==> PUT repositories (closing the availability window)"
-  if ! restore_repositories "$gid" "$want_ids"; then
+  if ! restore_repositories "$gid" "$preserve"; then
     warn "INCIDENT: repository membership could not be restored after the PATCH"
-    warn "the group may currently authorise NO repositories"
-    write_evidence "$gid" "$ev" INCIDENT "repository-restore-failed" "$want_ids"
-    return 1
+    warn "no further PATCH will be attempted while access may be empty"
+    finish "$gid" "$ev" INCIDENT "repository-restore-failed-after-patch" "$preserve"; return 1
   fi
 
+  # ---- verify -----------------------------------------------------------
   log "==> verifying postconditions"
-  snapshot "$gid" "$ev" after || { die "could not re-read the group after mutating it"; return 1; }
+  if ! snapshot "$gid" "$ev" after; then
+    warn "INCIDENT: the group could not be re-read after mutation; attempting recovery"
+    recover "$gid" "$ev" "$preserve"
+    finish "$gid" "$ev" INCIDENT "postcondition-read-failed" "$preserve"; return 1
+  fi
 
-  local verdict=PASS reason=ok after_repos after_runners mismatch
-  after_repos="$(cat "$ev/after-repos.json")"
-  after_runners="$(cat "$ev/after-runners.json")"
-  [ "$after_repos" = "$want_ids" ] || { verdict=INCIDENT; reason="repositories are $after_repos, expected $want_ids"; }
-  [ "$after_runners" = "$(cat "$ev/before-runners.json")" ] \
-    || { verdict=INCIDENT; reason="runner membership drifted: $(cat "$ev/before-runners.json") -> $after_runners"; }
-
-  mismatch="$(PATCH="$patch" AFTER="$ev/after-group.json" python3 - <<'PY'
+  local verdict=PASS reason=ok
+  local diff
+  diff="$(BEF="$(fingerprint "$ev" before)" AFT="$(fingerprint "$ev" after)" \
+          REQ="$patch" INTENDED="$INTENDED_MUTABLE_KEYS" python3 - <<'PY'
 import json, os
-p = json.load(open(os.environ["PATCH"])); a = json.load(open(os.environ["AFTER"]))
+b = json.loads(os.environ["BEF"]); a = json.loads(os.environ["AFT"])
+req = json.load(open(os.environ["REQ"])); intended = set(os.environ["INTENDED"].split())
 out = []
-for k, v in p.items():
-    got = a.get(k)
-    if k == "selected_workflows":
-        if sorted(got or []) != sorted(v): out.append("%s mismatch" % k)
-    elif got != v: out.append("%s: %r != requested %r" % (k, got, v))
+for k in sorted(set(b) | set(a)):
+    if b.get(k) == a.get(k):
+        continue
+    if k in intended:
+        want = sorted(req.get(k, []))
+        if a.get(k) != want:
+            out.append("%s: %r != requested %r" % (k, a.get(k), want))
+    else:
+        # The whole reason this helper exists: the API changes things nobody
+        # asked about while returning 200.
+        out.append("UNREQUESTED CHANGE %s: %r -> %r" % (k, b.get(k), a.get(k)))
 print("; ".join(out))
 PY
 )"
-  [ -n "$mismatch" ] && { verdict=INCIDENT; reason="$mismatch"; }
+  [ -n "$diff" ] && { verdict=INCIDENT; reason="$diff"; }
+
+  # Independent invariants, not merely "unchanged".
+  [ "$(jq -r .visibility "$ev/after-group.json")" = "$SAFE_VISIBILITY" ] || { verdict=INCIDENT; reason="visibility is not $SAFE_VISIBILITY"; }
+  [ "$(jq -r .restricted_to_workflows "$ev/after-group.json")" = "$SAFE_RESTRICTED" ] || { verdict=INCIDENT; reason="restricted_to_workflows is not $SAFE_RESTRICTED"; }
+  [ "$(canon_ids "$(cat "$ev/after-repos.json")" 2>/dev/null)" = "$preserve" ] || { verdict=INCIDENT; reason="repositories are not exactly $preserve"; }
+  [ "$(canon_ids "$(cat "$ev/after-runners.json")" 2>/dev/null)" = "$exp_runners" ] || { verdict=INCIDENT; reason="runner membership drifted"; }
 
   if [ "$verdict" != PASS ]; then
     warn "INCIDENT: $reason"
-    warn "restoring repository membership FIRST, then the previous group state"
-    restore_repositories "$gid" "$(cat "$ev/before-repos.json")" \
-      || warn "INCIDENT: could not restore the previous repository membership"
-    # The rollback is itself a PATCH, which clears membership again...
-    PREV="$ev/before-group.json" python3 -c 'import json,os,sys
-g=json.load(open(os.environ["PREV"]))
-json.dump({k:g[k] for k in ("name","visibility","allows_public_repositories","restricted_to_workflows","selected_workflows") if k in g}, open(sys.argv[1],"w"))' "$ev/rollback-patch.json" 2>/dev/null \
-      && api --method PATCH "orgs/${ORG}/actions/runner-groups/${gid}" --input "$ev/rollback-patch.json" >/dev/null 2>&1
-    # ...so it goes back a SECOND time.
-    restore_repositories "$gid" "$(cat "$ev/before-repos.json")" \
-      || warn "INCIDENT: repository membership empty after the rollback PATCH"
-    snapshot "$gid" "$ev" restored || true
-    write_evidence "$gid" "$ev" "$verdict" "$reason" "$want_ids"
-    return 1
+    recover "$gid" "$ev" "$preserve"
+    finish "$gid" "$ev" INCIDENT "$reason" "$preserve"; return 1
   fi
 
-  write_evidence "$gid" "$ev" PASS ok "$want_ids"
-  log "OK: group ${gid} updated; repositories $after_repos; runners unchanged"
+  finish "$gid" "$ev" PASS ok "$preserve" || return 1
+  log "OK: group ${gid} workflow allowlist updated; repositories $preserve preserved; runners unchanged"
 }
 
-# ---------------------------------------------------------------------------
-# self-test — drives patch_group through an injected transport so the REAL
-# execution path runs, not a parallel reimplementation. The transport models the
-# MEASURED behaviour: a keyless PATCH empties the repository selection.
+# Recovery, in the one order that is safe. Membership FIRST; a rollback PATCH is
+# never sent while access may be empty, because that PATCH would clear it again
+# with nothing proven to restore.
+recover() { # <gid> <ev> <preserve>
+  local gid="$1" ev="$2" preserve="$3"
+  warn "recovery: restoring repository membership first"
+  if ! restore_repositories "$gid" "$preserve"; then
+    warn "INCIDENT: membership restoration failed; STOPPING. No rollback PATCH will be sent"
+    warn "the group may authorise no repositories — manual intervention required"
+    return 1
+  fi
+  warn "recovery: membership verified; rolling back group fields"
+  PREV="$ev/before-group.json" python3 -c 'import json,os,sys
+g=json.load(open(os.environ["PREV"]))
+json.dump({k:g[k] for k in ("name","visibility","allows_public_repositories","restricted_to_workflows","selected_workflows") if k in g}, open(sys.argv[1],"w"))' "$ev/rollback-patch.json" 2>/dev/null || return 1
+  if ! api --method PATCH "orgs/${ORG}/actions/runner-groups/${gid}" --input "$ev/rollback-patch.json" >/dev/null 2>&1; then
+    warn "INCIDENT: rollback PATCH failed"
+    restore_repositories "$gid" "$preserve" || warn "INCIDENT: membership also empty after the failed rollback"
+    return 1
+  fi
+  # The rollback PATCH cleared membership again.
+  restore_repositories "$gid" "$preserve" || { warn "INCIDENT: membership empty after the rollback PATCH"; return 1; }
+  snapshot "$gid" "$ev" restored || warn "INCIDENT: could not read the restored state"
+  local fr; fr="$(fingerprint "$ev" restored 2>/dev/null)"
+  [ "$fr" = "$(fingerprint "$ev" before)" ] || { warn "INCIDENT: restored state does not match the original"; return 1; }
+  warn "recovery: original state restored and verified"
+}
+
 # ---------------------------------------------------------------------------
 _rgp_self_test() {
   local ok=0 nbad=0 tmp rc; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
   t() { if eval "$2"; then echo "ok   - $1"; ok=$((ok+1)); else echo "FAIL - $1"; nbad=$((nbad+1)); fi; }
+  local OLD="zenchron-dynamics/zenchron-foundry/.github/workflows/old.yml@refs/heads/master"
+  local NEW="zenchron-dynamics/zenchron-foundry/.github/workflows/new.yml@refs/heads/master"
 
-  printf '{"selected_repository_ids":[1254295268]}\n' > "$tmp/repos.json"
-  printf '{"name":"g","visibility":"selected","allows_public_repositories":true,"restricted_to_workflows":true,"selected_workflows":["zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master"]}\n' > "$tmp/patch.json"
+  mkexp() { python3 -c 'import json,sys
+json.dump({"id":9,"name":"g","visibility":"selected","allows_public_repositories":True,
+"restricted_to_workflows":True,"selected_repository_ids":json.loads(sys.argv[1]),
+"runner_ids":json.loads(sys.argv[2]),"selected_workflows":[sys.argv[3]]}, open(sys.argv[4],"w"))' "$1" "$2" "$3" "$4"; }
+  mkpatch() { python3 -c 'import json,sys
+json.dump({"name":"g","visibility":"selected","allows_public_repositories":True,
+"restricted_to_workflows":True,"selected_workflows":[sys.argv[1]]}, open(sys.argv[2],"w"))' "$1" "$2"; }
 
-  printf '{"selected_workflows":[],"selected_repository_ids":[1]}\n' > "$tmp/b1.json"
-  t "PATCH payload containing selected_repository_ids refuses locally" "! assert_patch_payload_safe '$tmp/b1.json' 2>/dev/null"
+  mkexp '[1254295268]' '[]' "$OLD" "$tmp/exp.json"
+  mkpatch "$NEW" "$tmp/patch.json"
+
+  # --- local validation ---------------------------------------------------
+  printf '{"selected_workflows":["x@refs/heads/master"],"selected_repository_ids":[1]}\n' > "$tmp/b1.json"
+  t "PATCH containing selected_repository_ids refuses" "! assert_patch_payload_safe '$tmp/b1.json' 2>/dev/null"
   printf '{"runners":[1]}\n' > "$tmp/b2.json"
-  t "PATCH payload containing runners refuses locally" "! assert_patch_payload_safe '$tmp/b2.json' 2>/dev/null"
-  printf '{"repositories":[1]}\n' > "$tmp/b3.json"
-  t "PATCH payload containing repositories refuses locally" "! assert_patch_payload_safe '$tmp/b3.json' 2>/dev/null"
-  printf '{"name":"g","surprise":true}\n' > "$tmp/b4.json"
-  t "an unknown PATCH key refuses" "! assert_patch_payload_safe '$tmp/b4.json' 2>/dev/null"
-  printf '{"selected_workflows":["o/r/.github/workflows/x.yml@refs/heads/dev"]}\n' > "$tmp/b5.json"
-  t "a non-master workflow ref refuses" "! assert_patch_payload_safe '$tmp/b5.json' 2>/dev/null"
-  printf '{"selected_repository_ids":[]}\n' > "$tmp/b6.json"
-  t "an empty desired repository list refuses" "! assert_repo_list_safe '$tmp/b6.json' 2>/dev/null"
-  t "a well-formed payload is accepted" "assert_patch_payload_safe '$tmp/patch.json'"
+  t "PATCH containing runners refuses" "! assert_patch_payload_safe '$tmp/b2.json' 2>/dev/null"
+  printf '{"name":"g","surprise":true}\n' > "$tmp/b3.json"
+  t "an unknown PATCH key refuses" "! assert_patch_payload_safe '$tmp/b3.json' 2>/dev/null"
+  printf '{"visibility":"all","selected_workflows":["x@refs/heads/master"]}\n' > "$tmp/b4.json"
+  t "an unsafe visibility value refuses" "! assert_patch_payload_safe '$tmp/b4.json' 2>/dev/null"
+  printf '{"restricted_to_workflows":false,"selected_workflows":["x@refs/heads/master"]}\n' > "$tmp/b5.json"
+  t "relaxing restricted_to_workflows refuses" "! assert_patch_payload_safe '$tmp/b5.json' 2>/dev/null"
+  printf '{"selected_workflows":["o/r/.github/workflows/x.yml@refs/heads/dev"]}\n' > "$tmp/b6.json"
+  t "a non-master workflow ref refuses" "! assert_patch_payload_safe '$tmp/b6.json' 2>/dev/null"
+  printf '{"id":9,"name":"g"}\n' > "$tmp/b7.json"
+  t "an incomplete expected-state refuses" "! assert_expected_state '$tmp/b7.json' 9 2>/dev/null"
+  t "canonicalisation rejects duplicate ids" "! canon_ids '[1,1]' 2>/dev/null"
+  t "canonicalisation sorts ids" "[ \"\$(canon_ids '[3,1,2]')\" = '[1, 2, 3]' ] || [ \"\$(canon_ids '[3,1,2]')\" = '[1,2,3]' ]"
 
+  # --- injected transport, modelling the MEASURED behaviour ---------------
   FAKE="$tmp/state"; mkdir -p "$FAKE"; export FAKE
   _reset() { printf '[1254295268]\n' > "$FAKE/repos"; printf '[]\n' > "$FAKE/runners"
-             printf 'old.yml@refs/heads/master\n' > "$FAKE/wf"; : > "$FAKE/calls"
-             printf 'ok\n' > "$FAKE/pmode"; printf 'ok\n' > "$FAKE/umode"; printf 'no\n' > "$FAKE/drift"; }
+             printf '%s\n' "$OLD" > "$FAKE/wf"; printf 'selected\n' > "$FAKE/vis"; : > "$FAKE/calls"
+             printf 'ok\n' > "$FAKE/pmode"; printf 'ok\n' > "$FAKE/umode"
+             printf 'no\n' > "$FAKE/sideeffect"; printf 'no\n' > "$FAKE/readfail"; }
   fake_api() {
-    local method="" path="" input=""
+    local m="" p="" i=""
     while [ $# -gt 0 ]; do
-      case "$1" in
-        --method) method="$2"; shift 2 ;; --input) input="$2"; shift 2 ;;
-        --jq) shift 2 ;; -H) shift 2 ;; *) path="$1"; shift ;;
-      esac
+      case "$1" in --method) m="$2"; shift 2 ;; --input) i="$2"; shift 2 ;;
+                   --jq) shift 2 ;; -H) shift 2 ;; *) p="$1"; shift ;; esac
     done
-    echo "${method:-GET} $path" >> "$FAKE/calls"
-    case "${method:-GET} $path" in
-      "GET "*"/repositories") cat "$FAKE/repos" ;;
-      "GET "*"/runners")      cat "$FAKE/runners" ;;
-      "GET "*) jq -n --arg w "$(cat "$FAKE/wf")" '{id:9,name:"g",visibility:"selected",allows_public_repositories:true,restricted_to_workflows:true,selected_workflows:[$w]}' ;;
+    echo "${m:-GET} $p" >> "$FAKE/calls"
+    case "${m:-GET} $p" in
+      "GET "*"/repositories") [ "$(cat "$FAKE/readfail")" = yes ] && return 1; cat "$FAKE/repos" ;;
+      "GET "*"/runners")      [ "$(cat "$FAKE/readfail")" = yes ] && return 1; cat "$FAKE/runners" ;;
+      "GET "*) [ "$(cat "$FAKE/readfail")" = yes ] && return 1
+               jq -n --arg w "$(cat "$FAKE/wf")" --arg v "$(cat "$FAKE/vis")" \
+                 '{id:9,name:"g",visibility:$v,allows_public_repositories:true,restricted_to_workflows:true,default:false,inherited:false,selected_workflows:[$w]}' ;;
       "PATCH "*)
         [ "$(cat "$FAKE/pmode")" = fail ] && return 1
         python3 -c 'import json,sys
-p=json.load(open(sys.argv[1])); open(sys.argv[2],"w").write((p.get("selected_workflows") or ["none"])[0]+"\n")' "$input" "$FAKE/wf"
-        printf '[]\n' > "$FAKE/repos"          # MEASURED: PATCH clears membership
-        [ "$(cat "$FAKE/drift")" = yes ] && printf '[7]\n' > "$FAKE/runners"
+p=json.load(open(sys.argv[1])); open(sys.argv[2],"w").write((p.get("selected_workflows") or ["none"])[0]+"\n")' "$i" "$FAKE/wf"
+        printf '[]\n' > "$FAKE/repos"                       # MEASURED
+        [ "$(cat "$FAKE/sideeffect")" = yes ] && printf 'all\n' > "$FAKE/vis"
         echo '{}' ;;
       "PUT "*"/repositories")
         [ "$(cat "$FAKE/umode")" = fail ] && return 1
         python3 -c 'import json,sys
-json.dump(json.load(open(sys.argv[1]))["selected_repository_ids"], open(sys.argv[2],"w"))' "$input" "$FAKE/repos"
+json.dump(json.load(open(sys.argv[1]))["selected_repository_ids"], open(sys.argv[2],"w"))' "$i" "$FAKE/repos"
         printf '\n' >> "$FAKE/repos"; echo '{}' ;;
       *) echo '{}' ;;
     esac
   }
 
-  printf '{"name":"g","visibility":"selected","allows_public_repositories":true,"restricted_to_workflows":true,"selected_workflows":["zenchron-dynamics/zenchron-foundry/.github/workflows/new.yml@refs/heads/master"]}\n' > "$tmp/wf.json"
-
   _reset
-  ( GH_API_FN=fake_api EXPECT_REPOS='[1254295268]' patch_group 9 "$tmp/wf.json" "$tmp/repos.json" --evidence "$tmp/e1" ) >/dev/null 2>&1; rc=$?
-  t "a successful run exits 0" "[ $rc -eq 0 ]"
-  t "the repository PUT always follows a successful PATCH" "grep -q 'PUT .*repositories' '$FAKE/calls'"
-  t "repository PUT restores the exact desired set" "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
-  t "evidence is emitted on success" "[ \"\$(jq -r .verdict '$tmp/e1/result.json')\" = PASS ]"
-  t "PASS is backed by a postcondition read, not the 200 alone" \
-    "jq -e '.after.repositories != null' '$tmp/e1/result.json' >/dev/null"
-  # Not "does the word appear" — it appears in the DENIAL. The evidence must
-  # state the limitation, and must never assert the opposite.
-  t "the evidence states the operation is not atomic" \
-    "grep -q 'are not atomic' '$tmp/e1/result.json'"
-  t "...and never claims it is transactional or atomic" \
-    "! grep -qiE 'is atomic|atomically|transactional\\.' '$tmp/e1/result.json'"
-  t "...and names the fail-closed window" \
-    "grep -q 'fail-closed window' '$tmp/e1/result.json'"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e1" ) >/dev/null 2>&1; rc=$?
+  t "a preserving run exits 0" "[ $rc -eq 0 ]"
+  t "membership is preserved exactly" "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
+  t "evidence records PASS" "[ \"\$(jq -r .verdict '$tmp/e1/result.json')\" = PASS ]"
+  t "the evidence says membership is preserved, not modified" \
+    "grep -q 'PRESERVED, never modified' '$tmp/e1/result.json'"
 
-  _reset; printf 'fail\n' > "$FAKE/umode"
-  ( GH_API_FN=fake_api patch_group 9 "$tmp/wf.json" "$tmp/repos.json" --evidence "$tmp/e2" ) >/dev/null 2>&1; rc=$?
-  t "repository PUT failure exits non-zero" "[ $rc -ne 0 ]"
-  t "...and records an INCIDENT" "[ \"\$(jq -r .verdict '$tmp/e2/result.json')\" = INCIDENT ]"
-  t "...and evidence is emitted on failure" "test -s '$tmp/e2/result.json'"
+  # widening / narrowing REFUSE before any PATCH
+  _reset; mkexp '[1254295268,999999]' '[]' "$OLD" "$tmp/wide.json"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/wide.json" --evidence "$tmp/e2" ) >/dev/null 2>&1; rc=$?
+  t "repository widening REFUSES" "[ $rc -ne 0 ]"
+  t "...and sends no PATCH" "! grep -q '^PATCH' '$FAKE/calls'"
+  _reset; mkexp '[]' '[]' "$OLD" "$tmp/narrow.json"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/narrow.json" --evidence "$tmp/e3" ) >/dev/null 2>&1; rc=$?
+  t "repository narrowing REFUSES" "[ $rc -ne 0 ]"
+  t "...and sends no PATCH" "! grep -q '^PATCH' '$FAKE/calls'"
 
+  # drift before PATCH
+  _reset; mkexp '[1254295268]' '[7]' "$OLD" "$tmp/rdrift.json"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/rdrift.json" --evidence "$tmp/e4" ) >/dev/null 2>&1; rc=$?
+  t "runner drift before PATCH REFUSES" "[ $rc -ne 0 ]"
+  t "...and sends no PATCH" "! grep -q '^PATCH' '$FAKE/calls'"
+  _reset; mkexp '[1254295268]' '[]' "$NEW" "$tmp/wdrift.json"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/wdrift.json" --evidence "$tmp/e5" ) >/dev/null 2>&1; rc=$?
+  t "workflow drift before PATCH REFUSES" "[ $rc -ne 0 ]"
+
+  # unrequested side effect -> INCIDENT
+  _reset; printf 'yes\n' > "$FAKE/sideeffect"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e6" ) >/dev/null 2>&1; rc=$?
+  t "an unrequested group-field side effect is an INCIDENT" "[ $rc -ne 0 ]"
+  t "...named as an unrequested change" "grep -q 'UNREQUESTED CHANGE\\|visibility is not' '$tmp/e6/result.json'"
+
+  # PATCH failure -> no PUT
   _reset; printf 'fail\n' > "$FAKE/pmode"
-  ( GH_API_FN=fake_api patch_group 9 "$tmp/wf.json" "$tmp/repos.json" --evidence "$tmp/e3" ) >/dev/null 2>&1; rc=$?
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e7" ) >/dev/null 2>&1; rc=$?
   t "a failed PATCH exits non-zero" "[ $rc -ne 0 ]"
   t "...performs no repository PUT" "! grep -q 'PUT .*repositories' '$FAKE/calls'"
-  t "...leaves membership untouched" "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
-  t "...and records REFUSED" "[ \"\$(jq -r .verdict '$tmp/e3/result.json')\" = REFUSED ]"
+  t "...and records REFUSED" "[ \"\$(jq -r .verdict '$tmp/e7/result.json')\" = REFUSED ]"
 
-  _reset; printf 'yes\n' > "$FAKE/drift"
-  ( GH_API_FN=fake_api patch_group 9 "$tmp/wf.json" "$tmp/repos.json" --evidence "$tmp/e4" ) >/dev/null 2>&1; rc=$?
-  t "runner membership drift exits non-zero" "[ $rc -ne 0 ]"
-  t "...and is named in the evidence" "grep -q 'runner membership drifted' '$tmp/e4/result.json'"
+  # first restoration fails -> no rollback PATCH at all
+  _reset; printf 'fail\n' > "$FAKE/umode"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e8" ) >/dev/null 2>&1; rc=$?
+  t "a failed first restoration exits non-zero" "[ $rc -ne 0 ]"
+  t "...sends exactly one PATCH (no rollback while access may be empty)" \
+    "[ \"\$(grep -c '^PATCH' '$FAKE/calls')\" = 1 ]"
+  t "...and records an INCIDENT" "[ \"\$(jq -r .verdict '$tmp/e8/result.json')\" = INCIDENT ]"
 
+  # post-mutation read failure -> recovery attempted + evidence
   _reset
-  printf '{"selected_repository_ids":[1254295268,999999]}\n' > "$tmp/wide.json"
-  ( GH_API_FN=fake_api EXPECT_REPOS='[1254295268]' patch_group 9 "$tmp/wf.json" "$tmp/wide.json" --evidence "$tmp/e5" ) >/dev/null 2>&1
-  t "repository widening is recorded explicitly" "jq -e '.desired_repository_ids|length==2' '$tmp/e5/result.json' >/dev/null"
+  _readfail_api() { local r; fake_api "$@"; r=$?
+    grep -q '^PATCH' "$FAKE/calls" && grep -q 'PUT .*repositories' "$FAKE/calls" && printf 'yes\n' > "$FAKE/readfail"
+    return $r; }
+  ( GH_API_FN=_readfail_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e9" ) >/dev/null 2>&1; rc=$?
+  t "a post-mutation read failure exits non-zero" "[ $rc -ne 0 ]"
+  t "...still writes evidence" "test -s '$tmp/e9/result.json'"
+  t "...recorded as an INCIDENT" "[ \"\$(jq -r .verdict '$tmp/e9/result.json')\" = INCIDENT ]"
 
+  # evidence-write failure -> never PASS
   _reset
-  ( GH_API_FN=fake_api EXPECT_REPOS='[1]' patch_group 9 "$tmp/wf.json" "$tmp/repos.json" --evidence "$tmp/e6" ) >/dev/null 2>&1; rc=$?
-  t "a precondition mismatch refuses before mutating" "[ $rc -ne 0 ]"
-  t "...and no PATCH was sent" "! grep -q '^PATCH' '$FAKE/calls'"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence /proc/nonexistent/nope ) >/dev/null 2>&1; rc=$?
+  t "an evidence-write failure never yields PASS" "[ $rc -ne 0 ]"
 
   echo "self-test: $ok ok, $nbad failed"
   [ "$nbad" -eq 0 ]
@@ -403,6 +515,6 @@ json.dump(json.load(open(sys.argv[1]))["selected_repository_ids"], open(sys.argv
 
 case "${1-}" in
   --self-test) _rgp_self_test && echo "runner-group-patch.sh: SELF-TEST OK" ;;
-  "") echo "usage: runner-group-patch.sh <group-id> <group-patch.json> <desired-repositories.json> [--evidence <dir>]" >&2; exit 2 ;;
+  "") echo "usage: runner-group-patch.sh <group-id> <group-patch.json> <expected-state.json> [--evidence <dir>]" >&2; exit 2 ;;
   *) patch_group "$@" ;;
 esac
