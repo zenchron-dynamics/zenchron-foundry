@@ -1,291 +1,53 @@
 name: scheduled-rebuild
 
-# Weekly rebuild of all 10 images into IMMUTABLE dated CANDIDATE tags
-# (<fam>:rebuild-<date>-<run>-<attempt>-sha-<short> etc). It NEVER touches
-# canonical *-prod tags — stable promotion stays manual via release.yml after a
-# human compares the candidate. Candidates are signed under THIS workflow's
-# identity (scheduled-rebuild.yml), which policies/cosign-identities.yaml keeps
-# DISTINCT from rc-publisher — so a candidate can never satisfy production RC
-# verification.
+# ---------------------------------------------------------------------------
+# DISABLED ENTRY POINT — this workflow no longer rebuilds or publishes anything.
+#
+# It used to rebuild every image on a schedule to pick up base-image updates,
+# push the result to the PRODUCTION packages and cosign-sign it with a distinct
+# OIDC identity. That is a production publication path, and it has been DELETED
+# from executable code along with the rest of them.
+#
+# It is listed here explicitly because it is easy to miss: it composed its
+# destination from ${REGISTRY}/${NAMESPACE}/${{ matrix.fam }} rather than naming
+# a production package literally, so a search for production package names would
+# not have found it. A grep is not an inventory.
+#
+# Rebuilding on a schedule is still worth having; it returns once staging and
+# authorization can feed a protected exposure path (#139).
+# ---------------------------------------------------------------------------
+
 on:
-  schedule:
-    - cron: "0 4 * * 1"        # Monday 04:00 UTC (after scan-images at 03:00)
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  # Shared verbatim with publish-rc.yml — see the rationale there. A rebuild must
-  # never hold the cosign slot while a release is publishing.
-  group: org-cosign-publish
-  cancel-in-progress: false
-
-env:
-  REGISTRY: ghcr.io
-  NAMESPACE: zenchron-dynamics
-
 jobs:
-  preflight:
-    runs-on: [self-hosted, linux, x64, zenchron]
-    steps:
-      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
-        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
-        # guards). Inline because it must run BEFORE checkout puts that script on
-        # disk. Do NOT edit this copy alone: every workflow carries the same block,
-        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
-        run: |
-          set -euo pipefail
-          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
-          # Guards from the canonical script: canonicalize via realpath so a
-          # symlinked workspace cannot escape the runner root; refuse root paths.
-          ws="$(realpath "$ws")"; root="$(realpath "$root")"
-          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
-          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
-          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
-          # prior container step blocks checkout even when $ws itself looks ours.
-          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
-          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
-          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - run: bash scripts/assert-pinned-actions.sh
-      - run: bash scripts/assert-image-matrix.sh
-      - run: bash scripts/verify-base-images.sh
-      - name: Validate vulnerability-exception policy before building
-        run: bash scripts/validate-vulnerability-exceptions.sh
-
-  rebuild:
-    needs: preflight
-    runs-on: [self-hosted, linux, x64, zenchron]
+  refuse:
+    name: scheduled rebuild is disabled
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write          # candidate (rebuild-*) tags only — never *-prod
-      id-token: write          # keyless cosign for candidates (distinct identity)
-      # NOTE: NO `issues: write` here — issue reporting is a separate least-priv job.
-    strategy:
-      fail-fast: false
-      # WF-01: serialized, matching every other heavy matrix (ci.yml build-test,
-      # scan-images.yml, verify-rc.yml, publish-ghcr.yml). The host is a single
-      # 2 vCPU / 4 GB runner: concurrent multi-arch rebuilds (buildkit + QEMU
-      # arm64 emulation + Trivy resident) gain no throughput and risk OOM/disk
-      # exhaustion.
-      max-parallel: 1
-      matrix:
-        include:
-          - { fam: php-fpm,        ver: "8.3", ctx: "images/php-fpm/8.3" }
-          - { fam: php-fpm,        ver: "8.4", ctx: "images/php-fpm/8.4" }
-          - { fam: php-cli,        ver: "8.3", ctx: "images/php-cli/8.3" }
-          - { fam: php-cli,        ver: "8.4", ctx: "images/php-cli/8.4" }
-          - { fam: php-worker,     ver: "8.3", ctx: "images/php-worker/8.3" }
-          - { fam: php-worker,     ver: "8.4", ctx: "images/php-worker/8.4" }
-          - { fam: php-frankenphp, ver: "8.3", ctx: "images/php-frankenphp/8.3" }
-          - { fam: php-frankenphp, ver: "8.4", ctx: "images/php-frankenphp/8.4" }
-          - { fam: caddy,          ver: "prod", ctx: "images/caddy" }
-          - { fam: nginx,          ver: "prod", ctx: "images/nginx" }
     steps:
-      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
-        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
-        # guards). Inline because it must run BEFORE checkout puts that script on
-        # disk. Do NOT edit this copy alone: every workflow carries the same block,
-        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
+      - name: Refuse
         run: |
           set -euo pipefail
-          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
-          # Guards from the canonical script: canonicalize via realpath so a
-          # symlinked workspace cannot escape the runner root; refuse root paths.
-          ws="$(realpath "$ws")"; root="$(realpath "$root")"
-          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
-          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
-          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
-          # prior container step blocks checkout even when $ws itself looks ours.
-          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
-          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
-          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
-      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-        with:
-          cosign-release: v2.5.2   # scripts use v2 sign-blob semantics (.sig/.pem); cosign v3 defaults to the bundle format
-          # Per-job install dir: the self-hosted runners share one $HOME, so the
-          # default ~/.cosign lets concurrent jobs rm/mv over each other mid-install.
-          install-dir: ${{ runner.temp }}/cosign
+          cat >&2 <<'MSG'
+          REFUSE: public publication is disabled pending immutable RC manifest
+          sealing and protected exposure (#139).
 
-      - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          The scheduled rebuild pushed and signed images in the production
+          packages. That path was removed from executable code.
 
-      - name: Immutable candidate tag (never canonical) + base digest
-        id: meta
-        run: |
-          set -euo pipefail
-          base="${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}"
-          date_tag="$(date -u +%Y.%m.%d)"
-          short="$(printf '%s' "${{ github.sha }}" | cut -c1-12)"
-          stamp="${date_tag}-${{ github.run_id }}-${{ github.run_attempt }}-sha-${short}"
-          if [ "${{ matrix.ver }}" = "prod" ]; then
-            tag="${base}:rebuild-${stamp}"
-          else
-            tag="${base}:${{ matrix.ver }}-rebuild-${stamp}"
-          fi
-          # Pinned base image digest (dedup key for issue reporting).
-          basedg="$(grep -oE 'sha256:[0-9a-f]{64}' '${{ matrix.ctx }}/Dockerfile' | head -1)"
-          {
-            echo "tag=${tag}"
-            echo "base_digest=${basedg:-unknown}"
-          } >> "$GITHUB_OUTPUT"
+          The schedule trigger is removed too: a cron that fails every night is
+          noise, and noise is how a disabled control stops being noticed.
 
-      - name: Build & push candidate (multi-arch, signed, attested)
-        id: build
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
-        with:
-          context: ${{ matrix.ctx }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tag }}
-          sbom: true
-          provenance: mode=max
-          build-args: |
-            VCS_REF=${{ github.sha }}
-          labels: |
-            org.opencontainers.image.revision=${{ github.sha }}
+          Run instead:
+            stage-and-authorize.yml - builds every image, stages it privately,
+            evaluates it by digest, and emits a post-build authorization record.
 
-      - name: Cosign sign candidate (scheduled-rebuild identity)
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-        run: cosign sign --yes "${REGISTRY}/${NAMESPACE}/${{ matrix.fam }}@${DIGEST}"
-
-      - name: Scan candidate (fixable CRITICAL/HIGH)
-        id: scan
-        continue-on-error: true     # a finding should REPORT, not abort the matrix
-        run: |
-          set -euo pipefail
-          # NOTE ON THE FLAGS, since --ignore-unfixed is exactly what #103
-          # removed from the ENFORCING gate.
-          #
-          # This is not an enforcing gate. It is the rebuild-candidate detector:
-          # it answers "has a fix become available for this pinned base?", and a
-          # finding opens an issue rather than blocking anything
-          # (continue-on-error, and the result feeds the reporting job). For that
-          # question --ignore-unfixed is the correct filter — an unfixed finding
-          # means there is nothing to rebuild toward.
-          #
-          # Enforcement lives in scan-images.yml and trusted-validation.yml,
-          # where NOTHING is suppressed: Trivy reports the full CRITICAL/HIGH set
-          # and reconcile-vulnerabilities.sh requires every finding to be
-          # governed per image and per architecture.
-          #
-          # `--ignorefile policies/.trivyignore` was removed with this change:
-          # that file is DELETED (#102 — it was global, so one entry suppressed a
-          # CVE across all ten images). Pointing at a deleted policy file is a
-          # dangling reference, and reinstating it would reintroduce exactly the
-          # cross-image suppression this work removed.
-          docker run --rm -e TRIVY_NO_PROGRESS=true -v "$PWD:/work" -w /work \
-            aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500 \
-            image "${{ steps.meta.outputs.tag }}" \
-            --scanners vuln --severity CRITICAL,HIGH --exit-code 1 \
-            --ignore-unfixed
-
-      - name: Record finding (for the separate reporting job)
-        if: steps.scan.outcome == 'failure'
-        run: |
-          set -euo pipefail
-          mkdir -p rebuild-findings
-          # Dedup key = image family/ver @ pinned base digest. Same base across
-          # weeks -> one issue. (ponytail: base-digest granularity; per-CVE dedup
-          # if the noise ever warrants parsing the Trivy report.)
-          cat > "rebuild-findings/${{ matrix.fam }}-${{ matrix.ver }}.txt" <<EOF
-          fam=${{ matrix.fam }}
-          ver=${{ matrix.ver }}
-          tag=${{ steps.meta.outputs.tag }}
-          base_digest=${{ steps.meta.outputs.base_digest }}
-          key=${{ matrix.fam }}/${{ matrix.ver }}@${{ steps.meta.outputs.base_digest }}
-          EOF
-
-      - name: Upload findings
-        if: steps.scan.outcome == 'failure'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: rebuild-findings-${{ matrix.fam }}-${{ matrix.ver }}
-          path: rebuild-findings/
-          if-no-files-found: ignore
-
-
-  # Least-privilege reporting job: the ONLY job with `issues: write`. Dedupes by
-  # the family/ver@base-digest key so a persistent base does not spam issues.
-  report:
-    needs: rebuild
-    if: always()
-    runs-on: [self-hosted, linux, x64, zenchron]
-    permissions:
-      contents: read
-      issues: write
-    steps:
-      - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
-        # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
-        # guards). Inline because it must run BEFORE checkout puts that script on
-        # disk. Do NOT edit this copy alone: every workflow carries the same block,
-        # and scripts/ci/assert-canonical-reset-block.sh fails CI on any drift.
-        run: |
-          set -euo pipefail
-          ws="${GITHUB_WORKSPACE:?}"; root="${RUNNER_WORKSPACE:?}"
-          # Guards from the canonical script: canonicalize via realpath so a
-          # symlinked workspace cannot escape the runner root; refuse root paths.
-          ws="$(realpath "$ws")"; root="$(realpath "$root")"
-          case "$ws" in ""|"/"|"//") echo "REFUSE: workspace resolves to a root path: '$ws'" >&2; exit 1 ;; esac
-          case "$root" in ""|"/"|"//") echo "REFUSE: runner root resolves to a root path: '$root'" >&2; exit 1 ;; esac
-          case "$ws" in "$root"|"$root"/*) : ;; *) echo "REFUSE: workspace '$ws' outside runner root '$root'" >&2; exit 1 ;; esac
-          # Unconditionally reclaim the WHOLE tree: a nested root-owned .git/ left by a
-          # prior container step blocks checkout even when $ws itself looks ours.
-          if [ "$(id -u)" -eq 0 ]; then chown -R "$(id -u):$(id -g)" "$ws"
-          elif command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then sudo -n chown -R "$(id -u):$(id -g)" "$ws"
-          else echo "ERROR: '$ws' not owned by $(id -u) and cannot elevate" >&2; exit 1; fi
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      # WF-11: NO continue-on-error here — a FAILED download must fail this job
-      # loudly instead of silently skipping issue creation. Zero findings is NOT
-      # a failure: with `pattern:`, download-artifact v4 succeeds when nothing
-      # matches (it just downloads nothing), and the reporting step below treats
-      # the missing/empty `all-findings` directory as the real "no findings"
-      # signal and exits green.
-      - name: Download all findings (zero matches OK; a failed download fails the job)
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v4
-        with:
-          path: all-findings
-          pattern: rebuild-findings-*
-          merge-multiple: true
-      - name: Open deduplicated issues on new fixable findings
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const fs = require('fs');
-            const dir = 'all-findings';
-            if (!fs.existsSync(dir)) { core.info('no findings'); return; }
-            const files = fs.readdirSync(dir).filter(f => f.endsWith('.txt'));
-            if (!files.length) { core.info('no findings'); return; }
-            // existing open issues labelled scheduled-rebuild -> dedup by key marker.
-            const existing = await github.paginate(github.rest.issues.listForRepo, {
-              owner: context.repo.owner, repo: context.repo.repo,
-              state: 'open', labels: 'scheduled-rebuild', per_page: 100,
-            });
-            const seen = new Set(existing.map(i => (i.body || '').match(/rebuild-key:\s*(\S+)/)?.[1]).filter(Boolean));
-            for (const f of files) {
-              const kv = Object.fromEntries(fs.readFileSync(`${dir}/${f}`, 'utf8')
-                .split('\n').map(l => l.split('=')).filter(a => a.length === 2).map(([k, v]) => [k.trim(), v.trim()]));
-              if (!kv.key || seen.has(kv.key)) { core.info(`skip (dup/no-key): ${kv.key||f}`); continue; }
-              seen.add(kv.key);
-              await github.rest.issues.create({
-                owner: context.repo.owner, repo: context.repo.repo,
-                title: `Scheduled rebuild: fixable CRITICAL/HIGH in ${kv.fam}/${kv.ver}`,
-                labels: ['security', 'scheduled-rebuild'],
-                body: `Candidate \`${kv.tag}\` reports fixable CRITICAL/HIGH the current stable may not.\n\n`
-                    + `rebuild-key: ${kv.key}\n\n`
-                    + `Review, then promote via the release workflow if appropriate. `
-                    + `See docs/vulnerability-management.md and docs/release-process.md.`,
-              });
-              core.info(`opened issue for ${kv.key}`);
-            }
+          Boundary evidence:
+            docs/audits/package-acl-2026-08-03/  (run 30837370041, verdict PASS)
+          MSG
+          exit 1

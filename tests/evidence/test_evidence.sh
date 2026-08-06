@@ -33,13 +33,6 @@ ck "absent verification allowed (dry-run)"  'ALLOW_ABSENT=1 bash scripts/validat
 rm -rf "$tmp"
 
 # governance wiring
-ck "promote-stable requires typed confirmation" \
-   'yq -e ".on.workflow_dispatch.inputs.confirmation.required == true" .github/workflows/promote-stable.yml >/dev/null'
-ck "promote-stable requires risk acceptance" \
-   'yq -e ".on.workflow_dispatch.inputs.risk_acceptance_confirmation.required == true" .github/workflows/promote-stable.yml >/dev/null'
-ck "promote-stable does NOT require two reviewers (solo model)" \
-   'grep -q "ACCEPT-RISK" .github/workflows/promote-stable.yml'
-ck "release builds+validates evidence"  'grep -q "build-release-evidence.sh" .github/workflows/release.yml && grep -q "validate-release-evidence.sh" .github/workflows/release.yml'
 ck "solo-maintainer model documented"   'test -f docs/solo-maintainer-release-model.md'
 ck "accepted risks documented"          'test -f docs/accepted-risks.md'
 

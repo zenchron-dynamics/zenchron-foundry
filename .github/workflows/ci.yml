@@ -67,6 +67,44 @@ jobs:
       - name: Assert no repository-wide cosign identity examples
         run: bash scripts/assert-no-identity-wildcards.sh
 
+      # The offline control suite runs HERE, in an already-required job, rather
+      # than as a new check that would need a branch-protection change to become
+      # required. Until this was wired, "five checks green" said nothing about
+      # the tests that found the last three release-blocking defects — the
+      # producer harness, the checksum relocation case and the aggregator's
+      # refusal paths were all passing locally and never run by CI.
+      #
+      # tests/run-all.sh is offline by construction: it discovers every
+      # tests/**/test_*.sh, touches no network and no registry, and needs only
+      # the read-only permissions this job already has.
+      - name: Ensure offline test tooling
+        run: |
+          set -euo pipefail
+          # ensure-release-tools.sh already provides everything this needs: gh,
+          # jq and yq by pinned checksum, and python3 + PyYAML + jsonschema from
+          # the distribution, re-verifying both imports before it returns.
+          #
+          # An unversioned `pip install jsonschema` used to follow this line. It
+          # was redundant, and it put a mutable PyPI fetch inside a REQUIRED
+          # governance check — a network dependency that can change under the
+          # gate between runs is the wrong shape for the job that decides whether
+          # the controls hold.
+          sudo bash scripts/ci/ensure-release-tools.sh
+          python3 - <<'PY'
+          from importlib.metadata import version
+          import jsonschema  # noqa: F401
+          print("jsonschema", version("jsonschema"))
+          PY
+
+      - name: Refuse to run the suite with a degraded validator
+        run: |
+          set -euo pipefail
+          python3 -c 'import jsonschema' \
+            || { echo "REFUSE: jsonschema missing; the suite would silently weaken" >&2; exit 1; }
+
+      - name: Run the offline control suite
+        run: bash tests/run-all.sh
+
       - name: Assert all CI container images are digest-pinned
         run: bash scripts/assert-pinned-containers.sh
 

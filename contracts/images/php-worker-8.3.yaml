@@ -13,3 +13,27 @@ heartbeat_file: /tmp/worker-heartbeat
 graceful_sigterm_seconds: 9
 forbidden_tools: [apk, gcc, make, phpize]
 oci_revision_label: required
+
+# Expected STATIC OCI metadata (#126). Checked against the label map read
+# from the staged image. Dynamic values (version, created, revision,
+# ref.name) are supplied by the run and compared against the run itself,
+# so they are deliberately absent here.
+#
+# Seeded from the Dockerfile, but this is the REVIEWED EXPECTATION, not a
+# mirror of it: changing a licence, source or base image in the Dockerfile
+# without changing this file is exactly the drift the gate exists to catch.
+oci_static:
+  "org.opencontainers.image.title": "zenchron-php-worker"
+  "org.opencontainers.image.description": "Hardened PHP 8.3 worker runtime (queue/messenger), Debian-based"
+  "org.opencontainers.image.vendor": "Zenchron Dynamics"
+  "org.opencontainers.image.source": "https://github.com/zenchron-dynamics/zenchron-foundry"
+  "org.opencontainers.image.base.name": "docker.io/library/php:8.3-cli-bookworm"
+  "org.opencontainers.image.licenses": "LicenseRef-Zenchron-Internal"
+  "com.zenchron.base": "debian-bookworm"
+  "com.zenchron.php": "8.3"
+  "com.zenchron.runtime": "php-worker"
+  "com.zenchron.support": "supported"
+
+# The version label this image must carry. `prod` stays `prod` — hardcoding
+# "<selector>-prod" is what produced "prod-prod" for the edge images.
+oci_version_label: "8.3-prod"

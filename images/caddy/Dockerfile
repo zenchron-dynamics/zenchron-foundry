@@ -22,6 +22,7 @@ LABEL org.opencontainers.image.title="zenchron-caddy" \
       org.opencontainers.image.description="Hardened Caddy reverse proxy / static file server" \
       org.opencontainers.image.vendor="Zenchron Dynamics" \
       org.opencontainers.image.source="https://github.com/zenchron-dynamics/zenchron-foundry" \
+      org.opencontainers.image.base.name="docker.io/library/caddy:2-alpine" \
       org.opencontainers.image.version="prod" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \

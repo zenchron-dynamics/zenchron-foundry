@@ -15,40 +15,12 @@ ck "promotion ref policy self-test"   'bash scripts/check-promotion-ref.sh --sel
 ck "required-checks assert self-test" 'bash scripts/assert-required-checks.sh --self-test >/dev/null'
 
 # --- the committed-evidence model is gone -----------------------------------
-ck "release.yml does not read committed release-evidence/" \
-   '! grep -q "release-evidence/" .github/workflows/release.yml'
 ck "no committed RC manifest in the source tree" \
    '! find release-evidence -name "release-manifest.yaml" 2>/dev/null | grep -q .'
 
 # --- release.yml: dispatched from the tag, artifact-sourced, seal-only -------
-ck "release.yml is dispatch-only (no tag-push auto-seal)" \
-   'yq -e ".on | has(\"workflow_dispatch\") and (has(\"push\") | not)" .github/workflows/release.yml >/dev/null'
-ck "release.yml takes the publish-rc run id" \
-   'yq -e ".on.workflow_dispatch.inputs | keys | contains([\"version\",\"rc\",\"rc_manifest_run_id\"])" .github/workflows/release.yml >/dev/null'
-ck "release.yml enforces the stable-tag ref policy" \
-   'grep -q "check-promotion-ref.sh" .github/workflows/release.yml'
-ck "release.yml fetches the signed RC manifest artifact" \
-   'grep -q "fetch-rc-manifest.sh" .github/workflows/release.yml'
-ck "release.yml verifies stable aliases == RC digests" \
-   'grep -q "verify-release-binding.sh" .github/workflows/release.yml'
-ck "release.yml keeps the exact-commit CI gate" \
-   'grep -q "check-exact-commit-ci.sh" .github/workflows/release.yml'
-ck "release.yml still performs no docker build" \
-   '! grep -v "^ *#" .github/workflows/release.yml | grep -Eq "docker build|buildx build"'
-ck "release.yml can read artifacts (actions: read)" \
-   'yq -e ".jobs.guard.permissions.actions == \"read\" and .jobs.release.permissions.actions == \"read\"" .github/workflows/release.yml >/dev/null'
 
 # --- promote-stable.yml: tag-first ------------------------------------------
-ck "promote-stable.yml enforces the stable-tag ref policy" \
-   'grep -q "check-promotion-ref.sh" .github/workflows/promote-stable.yml'
-ck "promote-stable.yml binds tag commit to expected_revision" \
-   'grep -q "tag commit \$SHA != expected_revision" .github/workflows/promote-stable.yml'
-ck "promote-stable.yml fetches the RC manifest through the verifier" \
-   'grep -q "fetch-rc-manifest.sh" .github/workflows/promote-stable.yml'
-ck "promote-stable.yml keeps the production environment gate" \
-   'yq -e ".jobs.gate.environment == \"foundry-production\"" .github/workflows/promote-stable.yml >/dev/null'
-ck "promote-stable.yml still performs no docker build (comments aside)" \
-   '! grep -v "^ *#" .github/workflows/promote-stable.yml | grep -Eq "docker build|buildx build"'
 
 # --- required-check naming drift is caught (the gate matches names verbatim) -
 tmp="$(mktemp -d)"
@@ -61,8 +33,6 @@ ck "unproducible required check is rejected" \
 yq '.required_checks -= ["scan caddy prod"]' policies/required-release-checks.yaml > "$tmp/drop.yaml"
 ck "dropping a gating job is rejected" \
    '! POLICY="$tmp/drop.yaml" bash scripts/assert-required-checks.sh >/dev/null 2>&1'
-ck "release guard asserts the check names" \
-   'grep -q "assert-required-checks.sh" .github/workflows/release.yml'
 ck "ci asserts the check names" \
    'grep -q "assert-required-checks.sh" .github/workflows/ci.yml'
 rm -rf "$tmp"

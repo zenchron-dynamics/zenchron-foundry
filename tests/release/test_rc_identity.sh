@@ -9,22 +9,22 @@ ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 ck "validate-release-version self-test" 'bash scripts/validate-release-version.sh --self-test >/dev/null'
 ck "registry-probe self-test"           'bash scripts/lib/registry-probe.sh --self-test >/dev/null'
 
-# publish-rc.yml carries the four required bound inputs
-for i in version rc expected_revision confirmation; do
-  ck "publish-rc requires input: $i" "yq -e '.on.workflow_dispatch.inputs.$i.required == true' .github/workflows/publish-rc.yml >/dev/null"
-done
+# The four bound inputs (version, rc, expected_revision, confirmation) belonged
+# to the RC publisher, which this change deleted. They return with the sealing
+# path in PR B; the inventory in tests/release/test_disabled_paths_inventory.sh
+# is the list that must come back with it.
 # PR #65 replaced the per-version+rc+revision group with ONE literal org-wide
 # cosign slot (self-hosted runners share $HOME; concurrent signing workflows
 # raced each other's ~/.cosign install). Assert the serialized group instead.
-ck "publish-rc serializes signing (org-cosign-publish, never cancelled)" \
-   'yq -e ".concurrency.group == \"org-cosign-publish\" and .concurrency.\"cancel-in-progress\" == false" .github/workflows/publish-rc.yml >/dev/null'
 
-# publish-ghcr.yml gained version + expected_revision call inputs
-for i in version expected_revision; do
-  ck "publish-ghcr has call input: $i" "yq -e '.on.workflow_call.inputs.$i' .github/workflows/publish-ghcr.yml >/dev/null"
-done
-ck "publish-ghcr computes immutable RC tag" 'grep -q "immutable_rc_suffix" .github/workflows/publish-ghcr.yml'
-ck "publish-ghcr runs the immutability probe" 'grep -q "probe_immutable_tag" .github/workflows/publish-ghcr.yml'
+# The reusable publisher that carried these call inputs was deleted. What
+# replaces the binding they provided is stronger: the post-build authorizer
+# takes the revision, run, attempt, repository, staging package and database
+# snapshot as MANDATORY expectations and refuses if any is omitted.
+ck "the post-build authorizer refuses without its bound expectations" \
+   "grep -q 'every expectation is mandatory' scripts/release/authorize-staged-candidates.sh"
+ck "the authorizer self-test passes" \
+   "bash scripts/release/authorize-staged-candidates.sh --self-test >/dev/null 2>&1"
 
 # --- PT-09: the ancestry gate must REFUSE an RC built from a non-master branch.
 # Throwaway repo: an "origin" with master, a clone with a divergent local branch
