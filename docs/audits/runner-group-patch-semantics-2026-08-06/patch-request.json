@@ -1,0 +1,9 @@
+{
+  "name": "zenchron-foundry-patch-semantics-20260806-76b542",
+  "visibility": "selected",
+  "allows_public_repositories": true,
+  "restricted_to_workflows": true,
+  "selected_workflows": [
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master"
+  ]
+}

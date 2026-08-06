@@ -349,9 +349,15 @@ ck "the helper REFUSES the exact payload that caused the incident" \
       die() { return 1; }
       printf %s \"{\\\"selected_workflows\\\":[\\\"a@refs/heads/master\\\"]}\" > /tmp/_incident.json
       assert_patch_payload_safe /tmp/_incident.json' >/dev/null 2>&1"
+# The helper was rewritten on 2026-08-06: GitHub now 422s the field the old one
+# REQUIRED, so it could never succeed. The property asserted here is unchanged —
+# a 200 must not be trusted — only the internals it names.
+# Measurement: docs/audits/runner-group-patch-semantics-2026-08-06/
 ck "the helper verifies AFTER the mutation, not just the HTTP status" \
-   "grep -q 'a 200 is not evidence' scripts/admin/runner-group-patch.sh && \
-    grep -q 'compare_snapshots' scripts/admin/runner-group-patch.sh"
+   "grep -q 'only a postcondition read can tell the difference' scripts/admin/runner-group-patch.sh && \
+    grep -q 'verifying postconditions' scripts/admin/runner-group-patch.sh"
+ck "the helper restores repository membership after every successful PATCH" \
+   "grep -q 'UNCONDITIONAL after every successful PATCH' scripts/admin/runner-group-patch.sh"
 
 # --- incident evidence is committed and intact -----------------------------
 # NOTE: read inside the strings ck() evals, which the linter cannot follow.

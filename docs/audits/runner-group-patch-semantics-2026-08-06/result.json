@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "experiment": "runner-group PATCH repository-membership semantics",
+  "question": "does a PATCH that omits selected_repository_ids preserve or clear repository membership?",
+  "organization": "zenchron-dynamics",
+  "temporary_group": {
+    "id": 4,
+    "name": "zenchron-foundry-patch-semantics-20260806-76b542"
+  },
+  "api_version": "2026-03-10",
+  "actor": "bogdaniel",
+  "timestamps": {
+    "created": "2026-08-06T12:46:45Z",
+    "before": "2026-08-06T12:46:46Z",
+    "patched": "2026-08-06T12:46:48Z",
+    "after": "2026-08-06T12:46:49Z"
+  },
+  "patch_request": {
+    "name": "zenchron-foundry-patch-semantics-20260806-76b542",
+    "visibility": "selected",
+    "allows_public_repositories": true,
+    "restricted_to_workflows": true,
+    "selected_workflows": [
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master"
+    ]
+  },
+  "patch_exit": 0,
+  "repositories_put_exit": 0,
+  "repositories": {
+    "before": [
+      1254295268
+    ],
+    "after_patch": [],
+    "after_put": [
+      1254295268
+    ]
+  },
+  "verdict": "CLEARED",
+  "restored": "yes",
+  "production_group_3_touched": false,
+  "workflows_dispatched": 0
+}

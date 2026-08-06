@@ -1,0 +1,13 @@
+{
+  "name": "zenchron-foundry-patch-semantics-20260806-76b542",
+  "visibility": "selected",
+  "selected_repository_ids": [
+    1254295268
+  ],
+  "runners": [],
+  "allows_public_repositories": true,
+  "restricted_to_workflows": true,
+  "selected_workflows": [
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master"
+  ]
+}
