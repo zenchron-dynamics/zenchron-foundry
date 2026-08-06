@@ -252,5 +252,41 @@ ck "...and refuses to run with a degraded validator" \
 ck "'repo structure' is a required release check" \
    "grep -q 'repo structure' policies/required-release-checks.yaml"
 
+# --- the runner-group dependency is recorded, not assumed ------------------
+# The group matches EXACT workflow paths at EXACT refs, so a workflow absent
+# from the allowlist cannot be scheduled on the self-hosted pool at all: the
+# dispatch queues and is never assigned. That is indistinguishable from a hang
+# unless it is written down. Merging this PR is not sufficient to run the
+# acceptance dispatch — the control-plane change has to happen in between.
+POLICY=policies/repository-governance.yaml
+ck "the staging workflow is recorded as PENDING in the runner group" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+pend=g.get('pending_workflows') or []
+assert any('stage-and-authorize.yml@refs/heads/master' in w for w in pend), pend\""
+# It must NOT be claimed as live: the workflow does not exist on master yet, so
+# it cannot have been added to the group, and saying otherwise would make this
+# file describe a configuration that does not exist.
+ck "...and is NOT yet claimed as selected" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+sel=g.get('selected_workflows') or []
+assert not any('stage-and-authorize' in w for w in sel), sel\""
+ck "the pending entry is fully qualified (owner/repo/path@ref)" \
+   "python3 -c \"
+import yaml,re
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+for w in g.get('pending_workflows') or []:
+    assert re.match(r'^[\w.-]+/[\w.-]+/\.github/workflows/[\w.-]+\.yml@refs/heads/master\$', w), w\""
+# The repository selection is the field a careless PATCH clears; record it so a
+# post-merge control-plane change can be checked against it.
+ck "the runner group still pins exactly one repository id" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+assert g['selected_repository_ids'] == [1254295268], g['selected_repository_ids']\""
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_no_production_publisher: PASS" || echo "test_no_production_publisher: FAIL"
 exit $fail

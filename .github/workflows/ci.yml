@@ -80,14 +80,21 @@ jobs:
       - name: Ensure offline test tooling
         run: |
           set -euo pipefail
-          sudo bash scripts/ci/ensure-release-tools.sh   # gh, jq, yq (checksum-pinned)
-          # jsonschema is not optional here. Without it the authorization
-          # harness falls back to asserting a handful of invariants by hand
-          # instead of validating against the published schema — a silent
-          # weakening exactly where the check matters most.
-          python3 -m pip install --quiet --break-system-packages jsonschema \
-            || python3 -m pip install --quiet jsonschema
-          python3 -c 'import jsonschema; print("jsonschema", jsonschema.__version__)'
+          # ensure-release-tools.sh already provides everything this needs: gh,
+          # jq and yq by pinned checksum, and python3 + PyYAML + jsonschema from
+          # the distribution, re-verifying both imports before it returns.
+          #
+          # An unversioned `pip install jsonschema` used to follow this line. It
+          # was redundant, and it put a mutable PyPI fetch inside a REQUIRED
+          # governance check — a network dependency that can change under the
+          # gate between runs is the wrong shape for the job that decides whether
+          # the controls hold.
+          sudo bash scripts/ci/ensure-release-tools.sh
+          python3 - <<'PY'
+          from importlib.metadata import version
+          import jsonschema  # noqa: F401
+          print("jsonschema", version("jsonschema"))
+          PY
 
       - name: Refuse to run the suite with a degraded validator
         run: |

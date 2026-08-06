@@ -189,11 +189,23 @@ ck "verifier proves Default holds no runners" \
 # Was: "tracked as pending until it reaches master". It reached master with #131
 # (01a1181) and went live on 2026-08-02, so the pending list must now be EMPTY —
 # a workflow left in `pending` while it is live is undeclared drift.
+# Asserts what it means, not `pending_workflows == []`. An empty list was never
+# the guarantee — it was true at the time, and it broke the moment another
+# workflow legitimately became pending. The invariant is about THIS workflow.
 ck "trusted-validation is live, no longer pending" \
    "python3 -c \"
 import yaml;g=yaml.safe_load(open('$POLICY'))['org_runner_group']
-assert g['pending_workflows']==[], g['pending_workflows']
+pend=g.get('pending_workflows') or []
+assert not any('trusted-validation' in w for w in pend), pend
 assert any('trusted-validation.yml@refs/heads/master' in w for w in g['selected_workflows'])\""
+# A pending entry is a real dependency, so it must never overlap with the live
+# list: an entry claimed as both configured and awaiting configuration describes
+# nothing.
+ck "no workflow is both pending and selected" \
+   "python3 -c \"
+import yaml;g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+pend=set(g.get('pending_workflows') or []); sel=set(g.get('selected_workflows') or [])
+assert not (pend & sel), sorted(pend & sel)\""
 ck "ruleset is compared against PR-producible checks" \
    "grep -q 'pr_required_checks' scripts/verify-repo-governance.sh"
 ck "fork-boundary evidence is committed" \
@@ -317,8 +329,7 @@ import yaml
 g=yaml.safe_load(open('$POLICY'))['org_runner_group']
 w=g['selected_workflows']
 assert not any('/ci.yml@' in x for x in w), 'ci.yml still declared'
-assert sum('trusted-validation.yml@refs/heads/master' in x for x in w)==1, w
-assert g['pending_workflows']==[], g['pending_workflows']\""
+assert sum('trusted-validation.yml@refs/heads/master' in x for x in w)==1, w\""
 ck "the policy pins exactly one repository by ID" \
    "python3 -c \"
 import yaml
