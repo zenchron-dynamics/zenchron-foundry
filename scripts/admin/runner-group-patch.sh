@@ -196,6 +196,15 @@ restore_repositories() { # <gid> <ids-json>
   return 1
 }
 
+# Recovery outcome, recorded rather than discarded. recover() has several
+# materially different catastrophic endings and they must not all read as one
+# generic INCIDENT.
+RECOVERY_ATTEMPTED=false
+RECOVERY_STATUS=NOT_ATTEMPTED
+RECOVERY_REASON=""
+RECOVERY_MEMBERSHIP_OK=false
+RECOVERY_FINGERPRINT_OK=false
+
 finish() { # <gid> <ev> <verdict> <reason> <want>
   write_evidence "$@" || { warn "INCIDENT: evidence could not be written"; return 1; }
   # Re-read it: an unreadable record is the same as no record.
@@ -204,6 +213,8 @@ finish() { # <gid> <ev> <verdict> <reason> <want>
 }
 
 write_evidence() { # <gid> <ev> <verdict> <reason> <want>
+  RA="$RECOVERY_ATTEMPTED" RS="$RECOVERY_STATUS" RR="$RECOVERY_REASON" \
+  RM="$RECOVERY_MEMBERSHIP_OK" RF="$RECOVERY_FINGERPRINT_OK" \
   python3 - "$1" "$2" "$3" "$4" "$5" "$ORG" "$API_VERSION" <<'PY'
 import json, os, sys, datetime
 gid, ev, verdict, reason, want, org, apiv = sys.argv[1:8]
@@ -220,6 +231,11 @@ json.dump({
   "patch_request": rd("patch-request.json"),
   "after": {"group": rd("after-group.json"), "repositories": rd("after-repos.json"), "runners": rd("after-runners.json")},
   "restored": {"group": rd("restored-group.json"), "repositories": rd("restored-repos.json"), "runners": rd("restored-runners.json")},
+  "recovery": {"attempted": os.environ.get("RA") == "true",
+               "status": os.environ.get("RS", "NOT_ATTEMPTED"),
+               "reason": os.environ.get("RR", ""),
+               "repository_membership_verified": os.environ.get("RM") == "true",
+               "original_fingerprint_restored": os.environ.get("RF") == "true"},
   "guarantee": ("repository membership is PRESERVED, never modified, by this helper. "
                 "The PATCH opens a measured fail-closed window in which no repository is "
                 "authorised; it is closed and verified here. Two REST calls are not atomic."),
@@ -243,6 +259,19 @@ patch_group() { # <gid> <patch.json> <expected-state.json> [--evidence <dir>]
 
   assert_patch_payload_safe "$patch" || return 1
   assert_expected_state "$expected" "$gid" || return 1
+
+  # A non-intended field present in the request must already equal the expected
+  # state. `name` is an allowed key, so a typo would otherwise reach GitHub and
+  # be caught only AFTER execution, as an unrequested change to be recovered from.
+  # A guardrail that detects a caller mistake only by performing it is not one.
+  local nk
+  for nk in name visibility allows_public_repositories restricted_to_workflows; do
+    local rv ev_
+    rv="$(jq -r --arg k "$nk" 'if has($k) then (.[$k]|tostring) else "\u0000absent" end' "$patch")"
+    [ "$rv" = "$(printf '\u0000')absent" ] && continue
+    ev_="$(jq -r --arg k "$nk" '.[$k]|tostring' "$expected")"
+    [ "$rv" = "$ev_" ] || { die "request sets $nk='$rv' but the expected state says '$ev_'; only selected_workflows may change"; return 1; }
+  done
 
   local exp_repos exp_runners exp_wf
   exp_repos="$(canon_ids "$(jq -c .selected_repository_ids "$expected")")" || return 1
@@ -287,15 +316,54 @@ patch_group() { # <gid> <patch.json> <expected-state.json> [--evidence <dir>]
   cp "$patch" "$ev/patch-request.json"
   if ! api --method PATCH "orgs/${ORG}/actions/runner-groups/${gid}" \
         --input "$patch" > "$ev/patch-response.json" 2>"$ev/patch-error.txt"; then
-    warn "PATCH failed; nothing was mutated"
+    # A non-zero CLIENT result does not prove the SERVER made no change. A lost
+    # response, a broken connection or a 5xx after the mutation was applied all
+    # look identical here — and in that case the group is already left with the
+    # new workflow set and an EMPTY repository selection, which is the outage
+    # this helper exists to prevent. Same posture as the rest of Foundry: a
+    # generic failure is INDETERMINATE, never proof of a no-op.
+    warn "PATCH returned non-zero: INDETERMINATE — the mutation may or may not have been applied"
     [ -s "$ev/patch-error.txt" ] && cat "$ev/patch-error.txt" >&2
-    finish "$gid" "$ev" REFUSED "patch-failed" "$preserve"; return 1
+    warn "re-asserting repository membership before assuming anything"
+    if ! restore_repositories "$gid" "$preserve"; then
+      warn "INCIDENT: membership could not be re-asserted after an indeterminate PATCH"
+      RECOVERY_STATUS=FAILED RECOVERY_REASON="membership-reassert-failed-after-indeterminate-patch" \
+        RECOVERY_ATTEMPTED=true RECOVERY_MEMBERSHIP_OK=false RECOVERY_FINGERPRINT_OK=false
+      finish "$gid" "$ev" INCIDENT "patch-indeterminate; membership could not be re-asserted" "$preserve"
+      return 1
+    fi
+    if ! snapshot "$gid" "$ev" after; then
+      warn "INCIDENT: state unreadable after an indeterminate PATCH"
+      RECOVERY_STATUS=FAILED RECOVERY_REASON="state-unreadable-after-indeterminate-patch" \
+        RECOVERY_ATTEMPTED=true RECOVERY_MEMBERSHIP_OK=true RECOVERY_FINGERPRINT_OK=false
+      finish "$gid" "$ev" INCIDENT "patch-indeterminate; state unreadable" "$preserve"
+      return 1
+    fi
+    if [ "$(fingerprint "$ev" after)" = "$(fingerprint "$ev" before)" ]; then
+      # Nothing was applied. Membership is proven restored. Still never PASS:
+      # the requested mutation did not happen.
+      RECOVERY_STATUS=RESTORED RECOVERY_REASON="patch-not-applied; original state intact" \
+        RECOVERY_ATTEMPTED=true RECOVERY_MEMBERSHIP_OK=true RECOVERY_FINGERPRINT_OK=true
+      finish "$gid" "$ev" INDETERMINATE "patch-failed-and-not-applied" "$preserve"
+      return 1
+    fi
+    warn "the group DID change despite the failure; recovering"
+    recover "$gid" "$ev" "$preserve"
+    finish "$gid" "$ev" INDETERMINATE "patch-failed-but-partially-applied" "$preserve"
+    return 1
   fi
 
   log "==> PUT repositories (closing the availability window)"
   if ! restore_repositories "$gid" "$preserve"; then
     warn "INCIDENT: repository membership could not be restored after the PATCH"
     warn "no further PATCH will be attempted while access may be empty"
+    # This branch never reaches recover(), so it records its own outcome —
+    # otherwise the artifact would say NOT_ATTEMPTED for the worst case there is.
+    RECOVERY_ATTEMPTED=true
+    RECOVERY_STATUS=FAILED
+    RECOVERY_REASON="membership-restoration-failed-after-patch; no rollback attempted"
+    RECOVERY_MEMBERSHIP_OK=false
+    RECOVERY_FINGERPRINT_OK=false
     finish "$gid" "$ev" INCIDENT "repository-restore-failed-after-patch" "$preserve"; return 1
   fi
 
@@ -361,26 +429,56 @@ PY
 # with nothing proven to restore.
 recover() { # <gid> <ev> <preserve>
   local gid="$1" ev="$2" preserve="$3"
+  RECOVERY_ATTEMPTED=true
+  RECOVERY_MEMBERSHIP_OK=false
+  RECOVERY_FINGERPRINT_OK=false
   warn "recovery: restoring repository membership first"
   if ! restore_repositories "$gid" "$preserve"; then
     warn "INCIDENT: membership restoration failed; STOPPING. No rollback PATCH will be sent"
     warn "the group may authorise no repositories — manual intervention required"
+    RECOVERY_STATUS=FAILED
+    RECOVERY_REASON="membership-restoration-failed-before-rollback"
     return 1
   fi
+  RECOVERY_MEMBERSHIP_OK=true
   warn "recovery: membership verified; rolling back group fields"
-  PREV="$ev/before-group.json" python3 -c 'import json,os,sys
+  if ! PREV="$ev/before-group.json" python3 -c 'import json,os,sys
 g=json.load(open(os.environ["PREV"]))
-json.dump({k:g[k] for k in ("name","visibility","allows_public_repositories","restricted_to_workflows","selected_workflows") if k in g}, open(sys.argv[1],"w"))' "$ev/rollback-patch.json" 2>/dev/null || return 1
+json.dump({k:g[k] for k in ("name","visibility","allows_public_repositories","restricted_to_workflows","selected_workflows") if k in g}, open(sys.argv[1],"w"))' "$ev/rollback-patch.json" 2>/dev/null; then
+    RECOVERY_STATUS=FAILED; RECOVERY_REASON="could-not-build-rollback-payload"; return 1
+  fi
   if ! api --method PATCH "orgs/${ORG}/actions/runner-groups/${gid}" --input "$ev/rollback-patch.json" >/dev/null 2>&1; then
     warn "INCIDENT: rollback PATCH failed"
-    restore_repositories "$gid" "$preserve" || warn "INCIDENT: membership also empty after the failed rollback"
+    # Indeterminate for the same reason as the forward PATCH: it may have applied
+    # and cleared membership before failing.
+    if restore_repositories "$gid" "$preserve"; then
+      RECOVERY_STATUS=FAILED; RECOVERY_REASON="rollback-patch-failed; membership re-asserted"
+    else
+      RECOVERY_MEMBERSHIP_OK=false
+      RECOVERY_STATUS=FAILED; RECOVERY_REASON="rollback-patch-failed; membership also empty"
+    fi
     return 1
   fi
   # The rollback PATCH cleared membership again.
-  restore_repositories "$gid" "$preserve" || { warn "INCIDENT: membership empty after the rollback PATCH"; return 1; }
-  snapshot "$gid" "$ev" restored || warn "INCIDENT: could not read the restored state"
-  local fr; fr="$(fingerprint "$ev" restored 2>/dev/null)"
-  [ "$fr" = "$(fingerprint "$ev" before)" ] || { warn "INCIDENT: restored state does not match the original"; return 1; }
+  if ! restore_repositories "$gid" "$preserve"; then
+    RECOVERY_MEMBERSHIP_OK=false
+    RECOVERY_STATUS=FAILED; RECOVERY_REASON="membership-restoration-failed-after-rollback"
+    warn "INCIDENT: membership empty after the rollback PATCH"
+    return 1
+  fi
+  if ! snapshot "$gid" "$ev" restored; then
+    RECOVERY_STATUS=FAILED; RECOVERY_REASON="restored-state-unreadable"
+    warn "INCIDENT: could not read the restored state"
+    return 1
+  fi
+  if [ "$(fingerprint "$ev" restored)" != "$(fingerprint "$ev" before)" ]; then
+    RECOVERY_STATUS=FAILED; RECOVERY_REASON="restored-fingerprint-differs-from-original"
+    warn "INCIDENT: restored state does not match the original"
+    return 1
+  fi
+  RECOVERY_FINGERPRINT_OK=true
+  RECOVERY_STATUS=RESTORED
+  RECOVERY_REASON="original state restored and verified"
   warn "recovery: original state restored and verified"
 }
 
@@ -454,7 +552,20 @@ json.dump({"name":"g","visibility":"selected","allows_public_repositories":True,
         jq -n --arg w "$(cat "$FAKE/wf")" --arg v "$(cat "$FAKE/vis")" \
           '{id:9,name:"g",visibility:$v,allows_public_repositories:true,restricted_to_workflows:true,default:false,inherited:false,selected_workflows:[$w]}' ;;
       "PATCH "*)
-        [ "$(cat "$FAKE/pmode")" = fail ] && return 1
+        # fail        : nothing applied, non-zero          (clean client failure)
+        # failafter   : workflow applied + repos cleared, then non-zero
+        # failclear   : repos cleared only, then non-zero
+        case "$(cat "$FAKE/pmode")" in
+          fail) return 1 ;;
+          failclear) printf 'ok\n' > "$FAKE/pmode"; printf '[]\n' > "$FAKE/repos"; return 1 ;;
+          failafter)
+            # one-shot: the recovery rollback must be able to succeed, or the
+            # test proves detection instead of repair
+            printf 'ok\n' > "$FAKE/pmode"
+            python3 -c 'import json,sys
+p=json.load(open(sys.argv[1])); open(sys.argv[2],"w").write((p.get("selected_workflows") or ["none"])[0]+"\n")' "$i" "$FAKE/wf"
+            printf '[]\n' > "$FAKE/repos"; return 1 ;;
+        esac
         # noop: 200 OK, membership cleared, requested change NOT applied.
         if [ "$(cat "$FAKE/noop")" != yes ]; then
           python3 -c 'import json,sys
@@ -543,12 +654,44 @@ json.dump(json.load(open(sys.argv[1]))["selected_repository_ids"], open(sys.argv
     "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ] && \
      [ \"\$(cat '$FAKE/vis')\" = selected ] && [ \"\$(cat '$FAKE/wf')\" = '$OLD' ]"
 
-  # PATCH failure -> no PUT
+  # --- A NON-ZERO PATCH IS INDETERMINATE, NOT PROOF OF A NO-OP.
+  # The previous version asserted "a failed PATCH performs no repository PUT" —
+  # encoding the defect as a requirement. A lost response or a 5xx AFTER the
+  # server applied the change is indistinguishable from a clean failure, and in
+  # that case the group is left with the new workflows and NO repositories.
   _reset; printf 'fail\n' > "$FAKE/pmode"
   ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e7" ) >/dev/null 2>&1; rc=$?
-  t "a failed PATCH exits non-zero" "[ $rc -ne 0 ]"
-  t "...performs no repository PUT" "! grep -q 'PUT .*repositories' '$FAKE/calls'"
-  t "...and records REFUSED" "[ \"\$(jq -r .verdict '$tmp/e7/result.json')\" = REFUSED ]"
+  t "a PATCH that fails before applying exits non-zero" "[ $rc -ne 0 ]"
+  t "...STILL re-asserts repository membership" "grep -q 'PUT .*repositories' '$FAKE/calls'"
+  t "...is recorded INDETERMINATE, never REFUSED/PASS" \
+    "[ \"\$(jq -r .verdict '$tmp/e7/result.json')\" = INDETERMINATE ]"
+  t "...and states the original survived" \
+    "[ \"\$(jq -r .recovery.original_fingerprint_restored '$tmp/e7/result.json')\" = true ]"
+
+  # apply-then-fail: the case that can recreate the outage
+  _reset; printf 'failafter\n' > "$FAKE/pmode"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e7b" ) >/dev/null 2>&1; rc=$?
+  t "a PATCH that APPLIES then fails exits non-zero" "[ $rc -ne 0 ]"
+  t "...restores repository membership" "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
+  t "...detects that the group did change" \
+    "[ \"\$(jq -r .reason '$tmp/e7b/result.json')\" = patch-failed-but-partially-applied ]"
+  t "...and recovers the original workflow set" "[ \"\$(cat '$FAKE/wf')\" = '$OLD' ]"
+  t "...recording recovery as RESTORED" \
+    "[ \"\$(jq -r .recovery.status '$tmp/e7b/result.json')\" = RESTORED ]"
+
+  # repos cleared only, then failure
+  _reset; printf 'failclear\n' > "$FAKE/pmode"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e7c" ) >/dev/null 2>&1; rc=$?
+  t "a PATCH that clears repositories then fails exits non-zero" "[ $rc -ne 0 ]"
+  t "...restores membership rather than assuming a no-op" \
+    "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
+
+  # indeterminate AND unreadable afterwards
+  _reset; printf 'fail\n' > "$FAKE/pmode"; printf '3\n' > "$FAKE/failgget"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e7d" ) >/dev/null 2>&1; rc=$?
+  t "an indeterminate PATCH with unreadable state exits non-zero" "[ $rc -ne 0 ]"
+  t "...and says the state was unreadable" \
+    "grep -q 'state unreadable' '$tmp/e7d/result.json'"
 
   # first restoration fails -> no rollback PATCH at all
   _reset; printf 'fail\n' > "$FAKE/umode"
@@ -573,6 +716,51 @@ json.dump(json.load(open(sys.argv[1]))["selected_repository_ids"], open(sys.argv
   t "...still writes evidence" "test -s '$tmp/e9/result.json'"
   t "...recorded as postcondition-read-failed" \
     "[ \"\$(jq -r .reason '$tmp/e9/result.json')\" = postcondition-read-failed ]"
+
+  # --- recovery outcomes must be machine-readable, not one generic INCIDENT.
+  _reset; printf 'yes\n' > "$FAKE/sideeffect"; printf 'yes\n' > "$FAKE/once"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/r1" ) >/dev/null 2>&1
+  t "successful recovery is recorded as RESTORED" \
+    "[ \"\$(jq -r .recovery.status '$tmp/r1/result.json')\" = RESTORED ]"
+  t "...with membership and fingerprint both verified" \
+    "[ \"\$(jq -r .recovery.repository_membership_verified '$tmp/r1/result.json')\" = true ] && \
+     [ \"\$(jq -r .recovery.original_fingerprint_restored '$tmp/r1/result.json')\" = true ]"
+
+  # rollback PATCH fails during recovery
+  _reset; printf 'yes\n' > "$FAKE/sideeffect"
+  _rbfail_api() { local r
+    if [ "${1:-}" = --method ] && [ "${2:-}" = PATCH ] && grep -qc '^PATCH' "$FAKE/calls"        && [ "$(grep -c '^PATCH' "$FAKE/calls")" -ge 1 ]; then printf 'fail\n' > "$FAKE/pmode"; fi
+    fake_api "$@"; r=$?; return $r; }
+  ( GH_API_FN=_rbfail_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/r2" ) >/dev/null 2>&1
+  t "a failed rollback PATCH is named in the evidence" \
+    "jq -r .recovery.reason '$tmp/r2/result.json' | grep -q 'rollback-patch-failed\\|membership-restoration'"
+  t "...and recovery status is FAILED" \
+    "[ \"\$(jq -r .recovery.status '$tmp/r2/result.json')\" = FAILED ]"
+
+  # membership restoration fails before any rollback
+  _reset; printf 'fail\n' > "$FAKE/umode"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/r3" ) >/dev/null 2>&1
+  t "a failed first restoration is recorded as FAILED" \
+    "[ \"\$(jq -r .recovery.status '$tmp/r3/result.json')\" = FAILED ]"
+  t "...naming the membership failure explicitly" \
+    "jq -r .recovery.reason '$tmp/r3/result.json' | grep -q membership"
+  t "...and membership is NOT claimed verified" \
+    "[ \"\$(jq -r .recovery.repository_membership_verified '$tmp/r3/result.json')\" = false ]"
+
+  # a clean PASS records no recovery
+  _reset
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/r4" ) >/dev/null 2>&1
+  t "a clean run records recovery as not attempted" \
+    "[ \"\$(jq -r .recovery.attempted '$tmp/r4/result.json')\" = false ]"
+
+  # --- non-intended request fields are pinned BEFORE mutating -------------
+  _reset
+  python3 -c 'import json,sys
+json.dump({"name":"wrong-name","visibility":"selected","allows_public_repositories":True,
+"restricted_to_workflows":True,"selected_workflows":[sys.argv[1]]}, open(sys.argv[2],"w"))' "$NEW" "$tmp/badname.json"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/badname.json" "$tmp/exp.json" --evidence "$tmp/r5" ) >/dev/null 2>&1; rc=$?
+  t "a request renaming the group REFUSES" "[ $rc -ne 0 ]"
+  t "...before sending any PATCH" "! grep -q '^PATCH' '$FAKE/calls'"
 
   # --- evidence-write failure AFTER a fully successful mutation. The earlier
   # version pointed --evidence at an uncreatable path, which failed before the
