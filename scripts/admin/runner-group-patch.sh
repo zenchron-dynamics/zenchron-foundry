@@ -79,6 +79,18 @@ if len(set(v))!=len(v):
     sys.exit("REFUSE: duplicate ids: %r" % (v,))
 print(json.dumps(sorted(v)))' "$1"
 }
+# JSON key presence, decided by jq's EXIT STATUS. Never by encoding a sentinel
+# through command substitution: `printf '\u0000'` is a bash-4 feature, and on
+# bash 3.2 (macOS) it yields the literal text, so the comparison never matched
+# and every ABSENT field was treated as present-and-wrong. A minimal payload —
+# the shape production actually uses — could not pass.
+#
+# `has()` also draws the right line between absent and null: {"name": null} is
+# PRESENT with value null, and must be treated as a mismatch, not as omitted.
+json_has_key() { # <file> <key>
+  jq -e --arg k "$2" 'has($k)' "$1" >/dev/null 2>&1
+}
+
 canon_strs() { # <json-array>
   python3 -c 'import json,sys
 v=json.loads(sys.argv[1])
@@ -267,9 +279,9 @@ patch_group() { # <gid> <patch.json> <expected-state.json> [--evidence <dir>]
   local nk
   for nk in name visibility allows_public_repositories restricted_to_workflows; do
     local rv ev_
-    rv="$(jq -r --arg k "$nk" 'if has($k) then (.[$k]|tostring) else "\u0000absent" end' "$patch")"
-    [ "$rv" = "$(printf '\u0000')absent" ] && continue
-    ev_="$(jq -r --arg k "$nk" '.[$k]|tostring' "$expected")"
+    json_has_key "$patch" "$nk" || continue
+    rv="$(jq -r --arg k "$nk" '.[$k] | tostring' "$patch")"
+    ev_="$(jq -r --arg k "$nk" '.[$k] | tostring' "$expected")"
     [ "$rv" = "$ev_" ] || { die "request sets $nk='$rv' but the expected state says '$ev_'; only selected_workflows may change"; return 1; }
   done
 
@@ -795,6 +807,56 @@ json.dump(json.load(open(sys.argv[1]))["selected_repository_ids"], open(sys.argv
   ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/r4" ) >/dev/null 2>&1
   t "a clean run records recovery as not attempted" \
     "[ \"\$(jq -r .recovery.attempted '$tmp/r4/result.json')\" = false ]"
+
+  # --- json_has_key: presence by jq status, not by a shell round-trip -----
+  printf '{"a":1,"n":null}\n' > "$tmp/pres.json"
+  t "json_has_key finds a present key" "json_has_key '$tmp/pres.json' a"
+  t "json_has_key rejects an absent key" "! json_has_key '$tmp/pres.json' zz"
+  t "json_has_key treats null as PRESENT, not absent" "json_has_key '$tmp/pres.json' n"
+
+  # --- THE PRODUCTION PAYLOAD SHAPE: only selected_workflows.
+  # The previous sentinel made this impossible to pass, and no fixture used it —
+  # every patch document in the suite carried name/visibility/both flags, so the
+  # one shape production actually sends was never executed.
+  _reset
+  printf '{"selected_workflows":["%s"]}\n' "$NEW" > "$tmp/minimal.json"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/minimal.json" "$tmp/exp.json" --evidence "$tmp/m1" ) >/dev/null 2>&1; rc=$?
+  t "a MINIMAL payload (only selected_workflows) is accepted" "[ $rc -eq 0 ]"
+  t "...reaches the PATCH" "grep -q '^PATCH' '$FAKE/calls'"
+  t "...and the repository PUT" "grep -q 'PUT .*repositories' '$FAKE/calls'"
+  t "...verdict PASS" "[ \"\$(jq -r .verdict '$tmp/m1/result.json')\" = PASS ]"
+  t "...installing the requested workflow set" "[ \"\$(cat '$FAKE/wf')\" = '$NEW' ]"
+  t "...and preserving membership" "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
+
+  # --- each non-intended field: present+matching accepted, present+differing refused
+  for nk in name visibility allows_public_repositories restricted_to_workflows; do
+    okval="$(jq -r --arg k "$nk" '.[$k]|tostring' "$tmp/exp.json")"
+    _reset
+    python3 -c 'import json,sys
+d={"selected_workflows":[sys.argv[3]]}
+v=sys.argv[2]
+d[sys.argv[1]] = True if v=="true" else (False if v=="false" else v)
+json.dump(d, open(sys.argv[4],"w"))' "$nk" "$okval" "$NEW" "$tmp/pin_ok.json"
+    ( GH_API_FN=fake_api patch_group 9 "$tmp/pin_ok.json" "$tmp/exp.json" --evidence "$tmp/p_$nk" ) >/dev/null 2>&1; rc=$?
+    t "$nk present and matching is accepted" "[ $rc -eq 0 ]"
+
+    _reset
+    python3 -c 'import json,sys
+d={"selected_workflows":[sys.argv[2]]}
+d[sys.argv[1]] = "definitely-wrong" if sys.argv[1] in ("name","visibility") else False
+json.dump(d, open(sys.argv[3],"w"))' "$nk" "$NEW" "$tmp/pin_bad.json"
+    ( GH_API_FN=fake_api patch_group 9 "$tmp/pin_bad.json" "$tmp/exp.json" --evidence "$tmp/pb_$nk" ) >/dev/null 2>&1; rc=$?
+    t "$nk present and differing REFUSES" "[ $rc -ne 0 ]"
+    t "...$nk: no PATCH sent" "! grep -q '^PATCH' '$FAKE/calls'"
+    t "...$nk: no repository PUT sent" "! grep -q 'PUT .*repositories' '$FAKE/calls'"
+  done
+
+  # explicit null is PRESENT and therefore a mismatch, never "absent"
+  _reset
+  printf '{"name":null,"selected_workflows":["%s"]}\n' "$NEW" > "$tmp/nullname.json"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/nullname.json" "$tmp/exp.json" --evidence "$tmp/pn" ) >/dev/null 2>&1; rc=$?
+  t "an explicit null non-intended field REFUSES (present, not absent)" "[ $rc -ne 0 ]"
+  t "...sending no PATCH" "! grep -q '^PATCH' '$FAKE/calls'"
 
   # --- non-intended request fields are pinned BEFORE mutating -------------
   _reset
