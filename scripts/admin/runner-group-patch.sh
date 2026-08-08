@@ -315,16 +315,25 @@ import json, os
 b = json.loads(os.environ["BEF"]); a = json.loads(os.environ["AFT"])
 req = json.load(open(os.environ["REQ"])); intended = set(os.environ["INTENDED"].split())
 out = []
+
+# TWO INDEPENDENT ASSERTIONS. A single loop that skips when before == after was
+# wrong for the intended field: if the API returns 200, clears membership, and
+# does NOT apply the requested workflow change, then before == after and the
+# comparison short-circuits before ever checking the REQUESTED value. The helper
+# would report PASS while the workflow was never installed — precisely the
+# "200 is not proof the mutation happened" failure this exists to catch.
+
+# 1. Intended fields must equal what was REQUESTED, whether or not they changed.
+for k in sorted(intended):
+    want = sorted(req.get(k, []))
+    if a.get(k) != want:
+        out.append("%s: %r != requested %r" % (k, a.get(k), want))
+
+# 2. Everything else must equal what was there BEFORE.
 for k in sorted(set(b) | set(a)):
-    if b.get(k) == a.get(k):
-        continue
     if k in intended:
-        want = sorted(req.get(k, []))
-        if a.get(k) != want:
-            out.append("%s: %r != requested %r" % (k, a.get(k), want))
-    else:
-        # The whole reason this helper exists: the API changes things nobody
-        # asked about while returning 200.
+        continue
+    if b.get(k) != a.get(k):
         out.append("UNREQUESTED CHANGE %s: %r -> %r" % (k, b.get(k), a.get(k)))
 print("; ".join(out))
 PY
@@ -380,6 +389,7 @@ _rgp_self_test() {
   local ok=0 nbad=0 tmp rc; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
   t() { if eval "$2"; then echo "ok   - $1"; ok=$((ok+1)); else echo "FAIL - $1"; nbad=$((nbad+1)); fi; }
   local OLD="zenchron-dynamics/zenchron-foundry/.github/workflows/old.yml@refs/heads/master"
+  local DRIFT="zenchron-dynamics/zenchron-foundry/.github/workflows/drifted.yml@refs/heads/master"
   local NEW="zenchron-dynamics/zenchron-foundry/.github/workflows/new.yml@refs/heads/master"
 
   mkexp() { python3 -c 'import json,sys
@@ -416,7 +426,10 @@ json.dump({"name":"g","visibility":"selected","allows_public_repositories":True,
   _reset() { printf '[1254295268]\n' > "$FAKE/repos"; printf '[]\n' > "$FAKE/runners"
              printf '%s\n' "$OLD" > "$FAKE/wf"; printf 'selected\n' > "$FAKE/vis"; : > "$FAKE/calls"
              printf 'ok\n' > "$FAKE/pmode"; printf 'ok\n' > "$FAKE/umode"
-             printf 'no\n' > "$FAKE/sideeffect"; printf 'no\n' > "$FAKE/readfail"; }
+             printf 'no\n' > "$FAKE/sideeffect"; printf 'no\n' > "$FAKE/readfail"
+             printf 'no\n' > "$FAKE/noop"; printf 'no\n' > "$FAKE/once"
+             printf '0\n' > "$FAKE/ggets"; printf '0\n' > "$FAKE/failgget"
+             printf '0\n' > "$FAKE/driftafter"; printf 'no\n' > "$FAKE/drifted"; }
   fake_api() {
     local m="" p="" i=""
     while [ $# -gt 0 ]; do
@@ -427,15 +440,38 @@ json.dump({"name":"g","visibility":"selected","allows_public_repositories":True,
     case "${m:-GET} $p" in
       "GET "*"/repositories") [ "$(cat "$FAKE/readfail")" = yes ] && return 1; cat "$FAKE/repos" ;;
       "GET "*"/runners")      [ "$(cat "$FAKE/readfail")" = yes ] && return 1; cat "$FAKE/runners" ;;
-      "GET "*) [ "$(cat "$FAKE/readfail")" = yes ] && return 1
-               jq -n --arg w "$(cat "$FAKE/wf")" --arg v "$(cat "$FAKE/vis")" \
-                 '{id:9,name:"g",visibility:$v,allows_public_repositories:true,restricted_to_workflows:true,default:false,inherited:false,selected_workflows:[$w]}' ;;
+      "GET "*)
+        [ "$(cat "$FAKE/readfail")" = yes ] && return 1
+        n=$(( $(cat "$FAKE/ggets") + 1 )); echo "$n" > "$FAKE/ggets"
+        # Fail ONE specific group read, so the postcondition-snapshot branch is
+        # reached rather than the earlier restore-verification branch.
+        [ "$n" = "$(cat "$FAKE/failgget")" ] && return 1
+        # Concurrent administration BETWEEN snapshot A and snapshot B.
+        if [ "$(cat "$FAKE/driftafter")" != 0 ] && [ "$n" -ge "$(cat "$FAKE/driftafter")" ] \
+           && [ "$(cat "$FAKE/drifted")" = no ]; then
+          printf 'yes\n' > "$FAKE/drifted"; printf '%s\n' "$DRIFT" > "$FAKE/wf"
+        fi
+        jq -n --arg w "$(cat "$FAKE/wf")" --arg v "$(cat "$FAKE/vis")" \
+          '{id:9,name:"g",visibility:$v,allows_public_repositories:true,restricted_to_workflows:true,default:false,inherited:false,selected_workflows:[$w]}' ;;
       "PATCH "*)
         [ "$(cat "$FAKE/pmode")" = fail ] && return 1
-        python3 -c 'import json,sys
+        # noop: 200 OK, membership cleared, requested change NOT applied.
+        if [ "$(cat "$FAKE/noop")" != yes ]; then
+          python3 -c 'import json,sys
 p=json.load(open(sys.argv[1])); open(sys.argv[2],"w").write((p.get("selected_workflows") or ["none"])[0]+"\n")' "$i" "$FAKE/wf"
+        fi
         printf '[]\n' > "$FAKE/repos"                       # MEASURED
-        [ "$(cat "$FAKE/sideeffect")" = yes ] && printf 'all\n' > "$FAKE/vis"
+        # Apply visibility from the payload, so a rollback PATCH can genuinely
+        # restore it; otherwise recovery could never be proved to work.
+        python3 -c 'import json,sys
+p=json.load(open(sys.argv[1]))
+v=p.get("visibility")
+if v: open(sys.argv[2],"w").write(v+"\n")' "$i" "$FAKE/vis"
+        if [ "$(cat "$FAKE/sideeffect")" = yes ]; then
+          printf 'all\n' > "$FAKE/vis"
+          # one-shot: the rollback PATCH must be able to succeed
+          [ "$(cat "$FAKE/once")" = yes ] && printf 'no\n' > "$FAKE/sideeffect"
+        fi
         echo '{}' ;;
       "PUT "*"/repositories")
         [ "$(cat "$FAKE/umode")" = fail ] && return 1
@@ -464,20 +500,48 @@ json.dump(json.load(open(sys.argv[1]))["selected_repository_ids"], open(sys.argv
   t "repository narrowing REFUSES" "[ $rc -ne 0 ]"
   t "...and sends no PATCH" "! grep -q '^PATCH' '$FAKE/calls'"
 
-  # drift before PATCH
+  # --- THE BLOCKER: 200 OK, membership cleared, requested change NOT applied.
+  # before == after for selected_workflows, so a comparison that skips equal
+  # fields never checks it against the REQUEST and reports PASS.
+  _reset; printf 'yes\n' > "$FAKE/noop"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/en" ) >/dev/null 2>&1; rc=$?
+  t "a 200 no-op PATCH does NOT yield PASS" "[ $rc -ne 0 ]"
+  t "...recorded as an INCIDENT" "[ \"\$(jq -r .verdict '$tmp/en/result.json')\" = INCIDENT ]"
+  t "...naming selected_workflows against the request" \
+    "grep -q 'selected_workflows.*!= requested' '$tmp/en/result.json'"
+  t "...and the original state is restored" \
+    "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
+
+  # --- REAL snapshot A -> snapshot B drift. The control plane changes BETWEEN
+  # the two reads; expectations still match A, so this can only be caught by the
+  # fingerprint comparison.
+  _reset; printf '2\n' > "$FAKE/driftafter"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/ed" ) >/dev/null 2>&1; rc=$?
+  t "concurrent administration between snapshot A and B REFUSES" "[ $rc -ne 0 ]"
+  t "...sending no PATCH" "! grep -q '^PATCH' '$FAKE/calls'"
+  t "...and no repository PUT" "! grep -q 'PUT .*repositories' '$FAKE/calls'"
+
+  # expectation mismatch at snapshot A is a DIFFERENT gate; keep both.
   _reset; mkexp '[1254295268]' '[7]' "$OLD" "$tmp/rdrift.json"
   ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/rdrift.json" --evidence "$tmp/e4" ) >/dev/null 2>&1; rc=$?
-  t "runner drift before PATCH REFUSES" "[ $rc -ne 0 ]"
+  t "runner set disagreeing with expectations REFUSES" "[ $rc -ne 0 ]"
   t "...and sends no PATCH" "! grep -q '^PATCH' '$FAKE/calls'"
   _reset; mkexp '[1254295268]' '[]' "$NEW" "$tmp/wdrift.json"
   ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/wdrift.json" --evidence "$tmp/e5" ) >/dev/null 2>&1; rc=$?
-  t "workflow drift before PATCH REFUSES" "[ $rc -ne 0 ]"
+  t "workflow set disagreeing with expectations REFUSES" "[ $rc -ne 0 ]"
 
-  # unrequested side effect -> INCIDENT
-  _reset; printf 'yes\n' > "$FAKE/sideeffect"
+  # --- unrequested side effect on the FIRST patch only, so recovery can succeed
+  # and the full restore state machine is actually exercised.
+  _reset; printf 'yes\n' > "$FAKE/sideeffect"; printf 'yes\n' > "$FAKE/once"
   ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e6" ) >/dev/null 2>&1; rc=$?
   t "an unrequested group-field side effect is an INCIDENT" "[ $rc -ne 0 ]"
   t "...named as an unrequested change" "grep -q 'UNREQUESTED CHANGE\\|visibility is not' '$tmp/e6/result.json'"
+  t "...recovery sends a rollback PATCH" "[ \"\$(grep -c '^PATCH' '$FAKE/calls')\" -ge 2 ]"
+  t "...restores membership after the rollback too" \
+    "[ \"\$(grep -c 'PUT .*repositories' '$FAKE/calls')\" -ge 3 ]"
+  t "...and the group is fully restored to its original state" \
+    "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ] && \
+     [ \"\$(cat '$FAKE/vis')\" = selected ] && [ \"\$(cat '$FAKE/wf')\" = '$OLD' ]"
 
   # PATCH failure -> no PUT
   _reset; printf 'fail\n' > "$FAKE/pmode"
@@ -494,20 +558,34 @@ json.dump(json.load(open(sys.argv[1]))["selected_repository_ids"], open(sys.argv
     "[ \"\$(grep -c '^PATCH' '$FAKE/calls')\" = 1 ]"
   t "...and records an INCIDENT" "[ \"\$(jq -r .verdict '$tmp/e8/result.json')\" = INCIDENT ]"
 
-  # post-mutation read failure -> recovery attempted + evidence
-  _reset
-  _readfail_api() { local r; fake_api "$@"; r=$?
-    grep -q '^PATCH' "$FAKE/calls" && grep -q 'PUT .*repositories' "$FAKE/calls" && printf 'yes\n' > "$FAKE/readfail"
-    return $r; }
-  ( GH_API_FN=_readfail_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e9" ) >/dev/null 2>&1; rc=$?
-  t "a post-mutation read failure exits non-zero" "[ $rc -ne 0 ]"
+  # --- post-mutation read failure, targeted at the POSTCONDITION snapshot.
+  # Group GETs: 1 = snapshot A, 2 = snapshot B, 3 = postcondition snapshot.
+  # Failing #3 reaches the branch defect 6 was written to repair, instead of the
+  # earlier restore-verification branch (which reads repositories, not the group).
+  _reset; printf '3\n' > "$FAKE/failgget"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/e9" ) >/dev/null 2>&1; rc=$?
+  t "a postcondition-snapshot failure exits non-zero" "[ $rc -ne 0 ]"
+  t "...after the first membership restoration succeeded" \
+    "[ \"\$(grep -c 'PUT .*repositories' '$FAKE/calls')\" -ge 1 ]"
+  t "...runs recovery, including a rollback PATCH" "[ \"\$(grep -c '^PATCH' '$FAKE/calls')\" -ge 2 ]"
+  t "...restores membership again after that rollback" \
+    "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
   t "...still writes evidence" "test -s '$tmp/e9/result.json'"
-  t "...recorded as an INCIDENT" "[ \"\$(jq -r .verdict '$tmp/e9/result.json')\" = INCIDENT ]"
+  t "...recorded as postcondition-read-failed" \
+    "[ \"\$(jq -r .reason '$tmp/e9/result.json')\" = postcondition-read-failed ]"
 
-  # evidence-write failure -> never PASS
+  # --- evidence-write failure AFTER a fully successful mutation. The earlier
+  # version pointed --evidence at an uncreatable path, which failed before the
+  # first control-plane call and so never exercised the post-mutation timing.
+  _reset
+  ( write_evidence() { return 1; }
+    GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/ew" ) >/dev/null 2>&1; rc=$?
+  t "an evidence-write failure after a successful mutation never yields PASS" "[ $rc -ne 0 ]"
+  t "...even though the mutation itself succeeded" \
+    "[ \"\$(cat '$FAKE/wf')\" = '$NEW' ] && [ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
   _reset
   ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence /proc/nonexistent/nope ) >/dev/null 2>&1; rc=$?
-  t "an evidence-write failure never yields PASS" "[ $rc -ne 0 ]"
+  t "an uncreatable evidence directory also refuses" "[ $rc -ne 0 ]"
 
   echo "self-test: $ok ok, $nbad failed"
   [ "$nbad" -eq 0 ]
