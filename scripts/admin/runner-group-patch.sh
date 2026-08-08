@@ -333,10 +333,17 @@ patch_group() { # <gid> <patch.json> <expected-state.json> [--evidence <dir>]
       return 1
     fi
     if ! snapshot "$gid" "$ev" after; then
-      warn "INCIDENT: state unreadable after an indeterminate PATCH"
-      RECOVERY_STATUS=FAILED RECOVERY_REASON="state-unreadable-after-indeterminate-patch" \
-        RECOVERY_ATTEMPTED=true RECOVERY_MEMBERSHIP_OK=true RECOVERY_FINGERPRINT_OK=false
-      finish "$gid" "$ev" INCIDENT "patch-indeterminate; state unreadable" "$preserve"
+      # UNREADABLE is not the same as UNCHANGED. The lost PATCH may well have
+      # installed the new workflow set before the response vanished, so stopping
+      # here could leave an unapproved allowlist live while the policy still
+      # records it as pending. Membership is already repaired; roll the group
+      # back to the state we do know.
+      warn "state unreadable after an indeterminate PATCH; rolling back to the known pre-state"
+      if recover "$gid" "$ev" "$preserve"; then
+        finish "$gid" "$ev" INDETERMINATE "patch-indeterminate; state was unreadable, rolled back to the pre-state" "$preserve"
+      else
+        finish "$gid" "$ev" INCIDENT "patch-indeterminate; state unreadable and recovery failed" "$preserve"
+      fi
       return 1
     fi
     if [ "$(fingerprint "$ev" after)" = "$(fingerprint "$ev" before)" ]; then
@@ -347,9 +354,15 @@ patch_group() { # <gid> <patch.json> <expected-state.json> [--evidence <dir>]
       finish "$gid" "$ev" INDETERMINATE "patch-failed-and-not-applied" "$preserve"
       return 1
     fi
+    # recover()'s RESULT decides the verdict. A nested recovery.status of FAILED
+    # under a top-level INDETERMINATE would understate what the helper knows:
+    # that production recovery did not succeed.
     warn "the group DID change despite the failure; recovering"
-    recover "$gid" "$ev" "$preserve"
-    finish "$gid" "$ev" INDETERMINATE "patch-failed-but-partially-applied" "$preserve"
+    if recover "$gid" "$ev" "$preserve"; then
+      finish "$gid" "$ev" INDETERMINATE "patch-failed-but-partially-applied" "$preserve"
+    else
+      finish "$gid" "$ev" INCIDENT "patch-failed-but-partially-applied; recovery-failed" "$preserve"
+    fi
     return 1
   fi
 
@@ -371,8 +384,12 @@ patch_group() { # <gid> <patch.json> <expected-state.json> [--evidence <dir>]
   log "==> verifying postconditions"
   if ! snapshot "$gid" "$ev" after; then
     warn "INCIDENT: the group could not be re-read after mutation; attempting recovery"
-    recover "$gid" "$ev" "$preserve"
-    finish "$gid" "$ev" INCIDENT "postcondition-read-failed" "$preserve"; return 1
+    if recover "$gid" "$ev" "$preserve"; then
+      finish "$gid" "$ev" INCIDENT "postcondition-read-failed" "$preserve"
+    else
+      finish "$gid" "$ev" INCIDENT "postcondition-read-failed; recovery-failed" "$preserve"
+    fi
+    return 1
   fi
 
   local verdict=PASS reason=ok
@@ -416,8 +433,12 @@ PY
 
   if [ "$verdict" != PASS ]; then
     warn "INCIDENT: $reason"
-    recover "$gid" "$ev" "$preserve"
-    finish "$gid" "$ev" INCIDENT "$reason" "$preserve"; return 1
+    if recover "$gid" "$ev" "$preserve"; then
+      finish "$gid" "$ev" INCIDENT "$reason" "$preserve"
+    else
+      finish "$gid" "$ev" INCIDENT "$reason; recovery-failed" "$preserve"
+    fi
+    return 1
   fi
 
   finish "$gid" "$ev" PASS ok "$preserve" || return 1
@@ -716,6 +737,28 @@ json.dump(json.load(open(sys.argv[1]))["selected_repository_ids"], open(sys.argv
   t "...still writes evidence" "test -s '$tmp/e9/result.json'"
   t "...recorded as postcondition-read-failed" \
     "[ \"\$(jq -r .reason '$tmp/e9/result.json')\" = postcondition-read-failed ]"
+
+  # --- indeterminate PATCH + UNREADABLE state must roll back, not merely record.
+  # The lost PATCH may have installed the new workflow set, so stopping here
+  # could leave an unapproved allowlist live while policy still says pending.
+  # Group GETs: 1 = snapshot A, 2 = snapshot B, 3 = post-PATCH, 4 = restored.
+  _reset; printf 'failafter\n' > "$FAKE/pmode"; printf '3\n' > "$FAKE/failgget"
+  ( GH_API_FN=fake_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/u1" ) >/dev/null 2>&1; rc=$?
+  t "apply-then-fail with an unreadable state exits non-zero" "[ $rc -ne 0 ]"
+  t "...rolls back the workflow set rather than leaving it live" "[ \"\$(cat '$FAKE/wf')\" = '$OLD' ]"
+  t "...and restores repository membership" "[ \"\$(tr -d '\\n' < '$FAKE/repos')\" = '[1254295268]' ]"
+  t "...verdict INDETERMINATE" "[ \"\$(jq -r .verdict '$tmp/u1/result.json')\" = INDETERMINATE ]"
+  t "...recovery RESTORED" "[ \"\$(jq -r .recovery.status '$tmp/u1/result.json')\" = RESTORED ]"
+
+  # ...and when that rollback cannot succeed, the top-level verdict must say so.
+  _reset; printf 'failafter\n' > "$FAKE/pmode"; printf '3\n' > "$FAKE/failgget"
+  _rbdie_api() { local r; fake_api "$@"; r=$?
+    grep -q '^PATCH' "$FAKE/calls" && printf 'fail\n' > "$FAKE/pmode"; return $r; }
+  ( GH_API_FN=_rbdie_api patch_group 9 "$tmp/patch.json" "$tmp/exp.json" --evidence "$tmp/u2" ) >/dev/null 2>&1; rc=$?
+  t "a failed rollback after an unreadable state exits non-zero" "[ $rc -ne 0 ]"
+  t "...verdict INCIDENT, not merely INDETERMINATE" \
+    "[ \"\$(jq -r .verdict '$tmp/u2/result.json')\" = INCIDENT ]"
+  t "...recovery FAILED" "[ \"\$(jq -r .recovery.status '$tmp/u2/result.json')\" = FAILED ]"
 
   # --- recovery outcomes must be machine-readable, not one generic INCIDENT.
   _reset; printf 'yes\n' > "$FAKE/sideeffect"; printf 'yes\n' > "$FAKE/once"
