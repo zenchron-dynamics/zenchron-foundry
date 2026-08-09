@@ -587,8 +587,12 @@ runner_group_evidence() {
 
 write_evidence() { # write_evidence <path> <verdict>
   local out="$1" verdict="$2"
+  # The evidence must describe COMMITTED bytes: a snapshot generated from a
+  # dirty tree binds content that exists nowhere in history.
+  bash "$ROOT/scripts/governance-content-binding.sh" --assert-clean || return 1
   jq -n \
     --arg repo "$REPO" \
+    --argjson content_binding "$(bash "$ROOT/scripts/governance-content-binding.sh" --json)" \
     --arg checked_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --arg verdict "$verdict" \
     --arg revision "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)" \
@@ -599,7 +603,10 @@ write_evidence() { # write_evidence <path> <verdict>
     --argjson pr_required_checks "$(required_check_names | jq -R . | jq -s .)" \
     --argjson release_required_checks "$(yq -r '.release_required_checks[]' "$CHECKS_POLICY" | jq -R . | jq -s .)" \
     --argjson runner_group "$(runner_group_evidence)" \
-    '{repository:$repo, checked_at:$checked_at, source_revision:$revision, verdict:$verdict,
+    '{repository:$repo, checked_at:$checked_at,
+      binding_note:"content_binding is the durable security binding; source_revision is PROVENANCE ONLY and is rewritten by squash/rebase merges",
+      content_binding:$content_binding,
+      source_revision:$revision, verdict:$verdict,
       settings:$repo_json, rulesets:$rulesets, rules_applied_to_default_branch:$applied_to_default,
       environments:$environments,
       pr_required_checks:$pr_required_checks,

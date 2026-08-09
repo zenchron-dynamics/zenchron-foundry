@@ -1,7 +1,35 @@
 {
   "repository": "zenchron-dynamics/zenchron-foundry",
-  "checked_at": "2026-08-06T11:36:07Z",
-  "source_revision": "9af3cee6632446b2d846ffa2cc04531162f8da3b",
+  "checked_at": "2026-08-09T21:46:00Z",
+  "binding_note": "content_binding is the durable security binding; source_revision is PROVENANCE ONLY and is rewritten by squash/rebase merges",
+  "content_binding": {
+    "aggregate": "aa0e76ec36b0cc7a602c6ada7f99bf212337d9af41f8eccfbd2b1611cc77d878",
+    "algorithm": "sha256",
+    "files": [
+      {
+        "path": "policies/repository-governance.yaml",
+        "sha256": "c5cdcc064fa76cbbc2607ef4b44269dd5b8bb72e6db2b1706dc610ffa29c2ca6"
+      },
+      {
+        "path": "policies/required-release-checks.yaml",
+        "sha256": "b04f17af3ff52b667b79d5d03aadc6ca1feb1ea456a0ed28357de7943212efb5"
+      },
+      {
+        "path": "scripts/assert-pr-workflows-github-hosted.sh",
+        "sha256": "8b201d1bf89c877487c2d0027cbb075236a4fe90b77a48af6edffe51182bcfcf"
+      },
+      {
+        "path": "scripts/governance-content-binding.sh",
+        "sha256": "1d0a70133714c816de4554e4a6d76b6cb5444de673a6896ade9d1a5cfa005248"
+      },
+      {
+        "path": "scripts/verify-repo-governance.sh",
+        "sha256": "06c315db9ae7b939f4e41961141e85cba736397778b8adda93750553b2dda021"
+      }
+    ],
+    "schema": "repository-governance-binding-v1"
+  },
+  "source_revision": "cb0d85fdd8800e2d9329d6122b83110fbbbb485b",
   "verdict": "PASS",
   "settings": {
     "visibility": "public",
@@ -175,12 +203,8 @@
     ],
     "selected_workflows": [
       "zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master",
-      "zenchron-dynamics/zenchron-foundry/.github/workflows/promote-stable.yml@refs/heads/master",
-      "zenchron-dynamics/zenchron-foundry/.github/workflows/publish-ghcr.yml@refs/heads/master",
-      "zenchron-dynamics/zenchron-foundry/.github/workflows/publish-rc.yml@refs/heads/master",
-      "zenchron-dynamics/zenchron-foundry/.github/workflows/release.yml@refs/heads/master",
       "zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master",
-      "zenchron-dynamics/zenchron-foundry/.github/workflows/scheduled-rebuild.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master",
       "zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master",
       "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master",
       "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master"

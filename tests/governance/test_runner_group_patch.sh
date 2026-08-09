@@ -85,13 +85,16 @@ ck "no credentials leaked into the bundle" \
 
 # --- this PR must not have performed the production transition -------------
 # The helper is the tool; using it on group 3 is a separate, authorized step.
-ck "the policy still records stage-and-authorize as PENDING" \
+# Was: "still PENDING". The transition completed on 2026-08-08, so the helper PR's
+# self-imposed constraint — that it must not have performed the mutation — is
+# discharged. What matters now is that the declaration matches the control plane.
+# Evidence: docs/audits/runner-group-transition-2026-08-08-live/
+ck "the policy records stage-and-authorize as SELECTED, nothing pending" \
    "python3 -c \"
 import yaml
 g=yaml.safe_load(open('policies/repository-governance.yaml'))['org_runner_group']
-pend=g.get('pending_workflows') or []
-assert any('stage-and-authorize' in w for w in pend), pend
-assert not any('stage-and-authorize' in w for w in g['selected_workflows'])\""
+assert any('stage-and-authorize' in w for w in g['selected_workflows'])
+assert (g.get('pending_workflows') or [])==[], g['pending_workflows']\""
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_runner_group_patch: PASS" || echo "test_runner_group_patch: FAIL"
 exit $fail
