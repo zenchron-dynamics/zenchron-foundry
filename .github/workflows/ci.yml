@@ -63,6 +63,12 @@ jobs:
       # into a required validation step instead of discovering it minutes into a
       # privileged run. Deliberately NOT in tests/run-all.sh, which is offline.
       - name: Assert every pinned GitHub Action exists upstream
+        # gh needs a token: unauthenticated calls to the commits API are
+        # rejected/rate-limited, and the resolver fails CLOSED on any failure —
+        # correct, but it made every pin read as unresolved. contents:read on the
+        # default token is enough to read public commits.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash scripts/assert-pinned-actions.sh --verify-upstream
 
       - name: Assert no fork PR can reach a privileged self-hosted runner
