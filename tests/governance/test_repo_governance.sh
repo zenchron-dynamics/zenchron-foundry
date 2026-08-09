@@ -233,7 +233,7 @@ ck "evidence shows every allowed workflow ref-pinned to master" \
    "python3 -c \"
 import json;g=json.load(open('$EVIDENCE'))['org_runner_group']
 wfs=g['selected_workflows']
-assert len(wfs)==10, len(wfs)
+assert len(wfs)==6, len(wfs)   # 10 -> 6 on 2026-08-08
 assert all(w.endswith('@refs/heads/master') for w in wfs), wfs\""
 ck "evidence shows the Default group holds no runners" \
    "python3 -c \"
@@ -262,62 +262,67 @@ assert 'trusted validation result' not in d['pr_required_checks']\""
 # governed policy as the tree the evidence is committed in. That survives a
 # squash merge and still catches the original defect, because evidence generated
 # from a dirty tree names a revision whose policy differs from the one on disk.
-ck "evidence is bound to a committed revision, not a dirty tree" \
-   "python3 -c \"
-import json,subprocess,sys
-POLICY='policies/repository-governance.yaml'
-rev=json.load(open('$EVIDENCE'))['source_revision']
+# --- THE DURABLE BINDING -----------------------------------------------------
+# This used to require the policy AT source_revision to equal the committed
+# policy, and to SKIP when the revision became unreachable. Both merge methods
+# permitted here (squash, rebase) REWRITE commit SHAs, so the anchor named a
+# commit that stopped existing the moment the change landed -- and the skip
+# turned "unverifiable" into "pass". It was also circular: a policy-only change
+# could not be green without regenerating evidence in the very commit range the
+# merge would invalidate.
+#
+# The binding is now the CONTENT of the governed inputs, which survives squash,
+# rebase, mirror and re-clone. source_revision is provenance only.
+# The committed evidence goes through the SAME verifier a consumer would use.
+# Earlier versions compared hashes inside the test, which proves two strings
+# differ, not that any gate rejects anything.
+ck "the committed evidence is ACCEPTED by the real verifier" \
+   "bash scripts/governance-content-binding.sh --verify-evidence $EVIDENCE >/dev/null 2>&1"
+ck "the evidence declares the versioned binding schema" \
+   "[ \"\$(jq -r .content_binding.schema $EVIDENCE)\" = repository-governance-binding-v1 ]"
+ck "the bound set is exactly the five governed inputs" \
+   "[ \"\$(jq '.content_binding.files|length' $EVIDENCE)\" = 5 ]"
+ck "...including the binding script itself" \
+   "jq -e '[.content_binding.files[].path] | any(test(\"governance-content-binding.sh\"))' $EVIDENCE >/dev/null"
+ck "the evidence states that source_revision is NOT the security binding" \
+   "jq -e '.binding_note | test(\"PROVENANCE ONLY\")' $EVIDENCE >/dev/null"
+# Corrupt the committed evidence and require the verifier to refuse it. This is
+# the end-to-end consumer path, not a reimplementation of its comparison.
+for _m in 'doc["content_binding"]["aggregate"]="0"*64' \
+          'doc["content_binding"]["files"].pop()' \
+          'doc["content_binding"]["files"].append({"path":"x","sha256":"b"*64})' \
+          'doc["content_binding"]["schema"]="v0"' \
+          'doc["source_revision"]="deadbeef"*5; doc["content_binding"]["aggregate"]="0"*64'; do
+  python3 -c "
+import json,sys
+doc=json.load(open('$EVIDENCE'))
+$_m
+json.dump(doc, open('/tmp/gov_bad.json','w'))"
+  ck "the verifier REFUSES corrupted evidence [${_m:0:38}...]" \
+     "! bash scripts/governance-content-binding.sh --verify-evidence /tmp/gov_bad.json >/dev/null 2>&1"
+done
+# ...and the one case that must still PASS.
+python3 -c "
+import json
+doc=json.load(open('$EVIDENCE'))
+doc['source_revision']='deadbeef'*5
+json.dump(doc, open('/tmp/gov_unreach.json','w'))"
+ck "an unreachable source_revision with a valid binding is ACCEPTED" \
+   "bash scripts/governance-content-binding.sh --verify-evidence /tmp/gov_unreach.json >/dev/null 2>&1"
+ck "the binding self-test passes" \
+   "bash scripts/governance-content-binding.sh --self-test >/dev/null 2>&1"
 
-def git(*a):
-    r=subprocess.run(['git',*a],capture_output=True,text=True)
-    return r.returncode, r.stdout
-
-rc,_=git('cat-file','-e',rev+'^{commit}')
-if rc!=0:
-    # Unreachable after history rewriting or garbage collection. The guard did
-    # its work before the merge; it cannot re-prove it from an absent object.
-    print('SKIP: %s is no longer reachable' % rev[:8]); raise SystemExit(0)
-
-rc,named=git('show','%s:%s' % (rev,POLICY))
-if rc!=0:
-    sys.exit('%s does not contain %s — the evidence names a revision without the '
-             'policy it claims to verify' % (rev[:8],POLICY))
-current=open(POLICY).read()
-if named!=current:
-    sys.exit('the policy at source_revision %s differs from the committed policy; '
-             'the evidence was generated from a tree that is not %s'
-             % (rev[:8],rev[:8]))\""
-
-# Syntax only, deliberately. Requiring the object to EXIST contradicted the
-# skip in the check above: once the merged branch is deleted or the intermediate
-# commit is no longer fetched, `git cat-file -e` fails and master goes red again
-# — the exact durability problem this pair is meant to remove. Reachability is
-# the semantic check's business, and it skips when the object is gone.
 ck "evidence source_revision has full SHA syntax" \
    "python3 -c \"
 import json,re,sys
 rev=json.load(open('$EVIDENCE'))['source_revision']
 sys.exit(0 if isinstance(rev,str) and re.fullmatch(r'[0-9a-f]{40}',rev) else 1)\""
-# THE DURABILITY REGRESSION. A valid 40-hex SHA that does not exist locally is
-# what every one of these files looks like after the branch is deleted and the
-# object is pruned. The WHOLE suite must still pass, emitting the documented
-# skip — not just the semantic fragment in isolation, since it was the
-# neighbouring reachability assertion that broke this before.
-#
-# GOV_SUITE_NESTED guards the recursion: without it this case re-invokes the
-# suite, which re-runs this case, forever.
-if [ -z "${GOV_SUITE_NESTED:-}" ]; then
-  ck "an unreachable source_revision skips, and the whole suite still passes" \
-     "_bak=\"\$(mktemp)\"; cp '$EVIDENCE' \"\$_bak\";
-      python3 -c \"
-import json
-p='$EVIDENCE'; d=json.load(open(p))
-d['source_revision']='deadbeef'*5
-json.dump(d,open(p,'w'),indent=2)\";
-      out=\"\$(GOV_SUITE_NESTED=1 bash '$0' 2>&1)\"; rc=\$?;
-      cp \"\$_bak\" '$EVIDENCE'; rm -f \"\$_bak\";
-      printf '%s' \"\$out\" | grep -q 'SKIP: deadbeef' && [ \"\$rc\" -eq 0 ]"
-fi
+# REMOVED: the durability regression that proved an unreachable source_revision
+# would SKIP and let the whole suite pass. It made unverifiable-equals-pass a
+# REQUIREMENT, which is why the binding survived being unverifiable for so long.
+# The binding is now content-addressed and does not depend on revision
+# reachability at all, so there is nothing to skip and nothing to prove skips.
+# The GOV_SUITE_NESTED recursion guard went with it.
 
 ck "no document still claims 26 required checks" \
    "! grep -rn '26 required\|26 status\|all 26 check' --include='*.md' --include='*.yaml' . | grep -v originally"

@@ -1,0 +1,108 @@
+{
+  "schema_version": 2,
+  "organization": "zenchron-dynamics",
+  "runner_group_id": 3,
+  "api_version": "2026-03-10",
+  "generated_at": "2026-08-08T19:57:50Z",
+  "verdict": "PASS",
+  "reason": "ok",
+  "preserved_repository_ids": [
+    1254295268
+  ],
+  "before": {
+    "group": {
+      "id": 3,
+      "name": "zenchron-foundry-trusted",
+      "visibility": "selected",
+      "allows_public_repositories": true,
+      "default": false,
+      "workflow_restrictions_read_only": false,
+      "restricted_to_workflows": true,
+      "selected_workflows": [
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/promote-stable.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/publish-ghcr.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/publish-rc.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/release.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/scheduled-rebuild.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master"
+      ],
+      "selected_repositories_url": "https://api.github.com/orgs/zenchron-dynamics/actions/runner-groups/3/repositories",
+      "runners_url": "https://api.github.com/orgs/zenchron-dynamics/actions/runner-groups/3/runners",
+      "hosted_runners_url": "https://api.github.com/orgs/zenchron-dynamics/actions/runner-groups/3/hosted-runners",
+      "inherited": false
+    },
+    "repositories": [
+      1254295268
+    ],
+    "runners": [
+      22,
+      23
+    ]
+  },
+  "recheck": {
+    "repositories": [
+      1254295268
+    ],
+    "runners": [
+      22,
+      23
+    ]
+  },
+  "patch_request": {
+    "selected_workflows": [
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master"
+    ]
+  },
+  "after": {
+    "group": {
+      "id": 3,
+      "name": "zenchron-foundry-trusted",
+      "visibility": "selected",
+      "allows_public_repositories": true,
+      "default": false,
+      "workflow_restrictions_read_only": false,
+      "restricted_to_workflows": true,
+      "selected_workflows": [
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master",
+        "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master"
+      ],
+      "selected_repositories_url": "https://api.github.com/orgs/zenchron-dynamics/actions/runner-groups/3/repositories",
+      "runners_url": "https://api.github.com/orgs/zenchron-dynamics/actions/runner-groups/3/runners",
+      "hosted_runners_url": "https://api.github.com/orgs/zenchron-dynamics/actions/runner-groups/3/hosted-runners",
+      "inherited": false
+    },
+    "repositories": [
+      1254295268
+    ],
+    "runners": [
+      22,
+      23
+    ]
+  },
+  "restored": {
+    "group": null,
+    "repositories": null,
+    "runners": null
+  },
+  "recovery": {
+    "attempted": false,
+    "status": "NOT_ATTEMPTED",
+    "reason": "",
+    "repository_membership_verified": false,
+    "original_fingerprint_restored": false
+  },
+  "guarantee": "repository membership is PRESERVED, never modified, by this helper. The PATCH opens a measured fail-closed window in which no repository is authorised; it is closed and verified here. Two REST calls are not atomic."
+}

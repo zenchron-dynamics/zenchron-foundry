@@ -1,0 +1,10 @@
+{
+  "selected_workflows": [
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master",
+    "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master"
+  ]
+}

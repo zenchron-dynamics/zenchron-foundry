@@ -92,49 +92,42 @@ org_runner_group:
   # with zero authorised repositories. It failed CLOSED (no repository gained
   # access; the only authorised one lost it), was caught by postcondition
   # verification, and was restored via the dedicated repositories endpoint.
-  # scripts/admin/runner-group-patch.sh refuses to send a PATCH without it.
+  #
+  # MEASURED 2026-08-06 (docs/audits/runner-group-patch-semantics-2026-08-06/):
+  #   PATCH INCLUDING selected_repository_ids -> 422 "not a permitted key"
+  #   PATCH OMITTING  selected_repository_ids -> 200 OK, membership CLEARED
+  #   PUT .../repositories                    -> membership restored exactly
+  # So the field must NOT be sent in a group PATCH. The earlier rule here — that
+  # the helper REFUSES a PATCH omitting it — is superseded; it became impossible
+  # once GitHub started rejecting the field, and blocked every mutation.
+  # scripts/admin/runner-group-patch.sh now omits it, restores the preserved set
+  # through the dedicated PUT immediately afterwards, and verifies the complete
+  # post-state. The PATCH/PUT pair is NOT atomic: it opens a measured
+  # fail-closed window in which no repository is authorised.
   selected_repository_ids: [1254295268]
   selected_repository_names: [zenchron-dynamics/zenchron-foundry]
   # Exact allowed workflow paths AND refs. Anything not listed — including the
   # same file on any other ref — cannot schedule here.
   selected_workflows:
     - zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master
-    - zenchron-dynamics/zenchron-foundry/.github/workflows/promote-stable.yml@refs/heads/master
-    - zenchron-dynamics/zenchron-foundry/.github/workflows/publish-ghcr.yml@refs/heads/master
-    - zenchron-dynamics/zenchron-foundry/.github/workflows/publish-rc.yml@refs/heads/master
-    - zenchron-dynamics/zenchron-foundry/.github/workflows/release.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master
-    - zenchron-dynamics/zenchron-foundry/.github/workflows/scheduled-rebuild.yml@refs/heads/master
+    - zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master
     - zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master
-  # The list above records the LIVE group, not the intended one. Five of those
-  # entries name workflows that no longer build anything:
+  # Transitioned 10 -> 6 on 2026-08-08. The five removed entries named workflows
+  # that no longer build anything (publish-ghcr deleted; promote-stable,
+  # publish-rc, release and scheduled-rebuild retained only as fail-closed entry
+  # points that refuse). stage-and-authorize.yml is the sole builder that still
+  # needs the privileged pool.
   #
-  #   publish-ghcr.yml     deleted outright
-  #   promote-stable.yml   \
-  #   publish-rc.yml        |  retained as fail-closed entry points that refuse,
-  #   release.yml           |  with contents:read only and no self-hosted job
-  #   scheduled-rebuild.yml/
+  # Evidence: docs/audits/runner-group-transition-2026-08-08-live/
+  #   helper revision a43de134bb2bf77e20d341a274bd4a0a7f9edf3d, verdict PASS,
+  #   repositories and runners preserved, independently re-read afterwards.
   #
-  # They stay listed because this file states what IS configured, and removing
-  # them from the file would not remove them from the group. The control-plane
-  # change is a separate, evidenced operation — see pending_workflows.
-  #
-  # PENDING: an entry cannot be added to the live group until the workflow exists
-  # on master, because the group matches exact workflow paths at exact refs.
-  # Precedent: trusted-validation.yml reached master with #131 (01a1181) and was
-  # added on 2026-08-02, replacing ci.yml.
-  # Evidence: docs/audits/runner-group-swap-2026-08-02/
-  #
-  # stage-and-authorize.yml is the ONLY workflow that still needs the privileged
-  # pool for building. Until it is added, an acceptance dispatch after merge
-  # would queue and never be assigned — the same failure mode as the fork
-  # boundary test, and indistinguishable from a hang if it is not written down.
-  # MERGING PR #152 IS THEREFORE NOT SUFFICIENT to run the acceptance dispatch;
-  # the runner-group transition has to happen in between.
-  pending_workflows:
-    - zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master
+  # Nothing is pending: the workflow existed on master before the group could
+  # match it, which is why it was recorded here as pending until 2026-08-08.
+  pending_workflows: []
   # The repository-side drift check that must accompany the control plane. It is
   # NOT the boundary; it stops us reintroducing a self-hosted runs-on by accident.
   requires_fork_pr_boundary: scripts/assert-pr-workflows-github-hosted.sh

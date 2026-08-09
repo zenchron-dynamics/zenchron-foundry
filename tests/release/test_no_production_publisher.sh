@@ -252,41 +252,61 @@ ck "...and refuses to run with a degraded validator" \
 ck "'repo structure' is a required release check" \
    "grep -q 'repo structure' policies/required-release-checks.yaml"
 
-# --- the runner-group dependency is recorded, not assumed ------------------
-# The group matches EXACT workflow paths at EXACT refs, so a workflow absent
-# from the allowlist cannot be scheduled on the self-hosted pool at all: the
-# dispatch queues and is never assigned. That is indistinguishable from a hang
-# unless it is written down. Merging this PR is not sufficient to run the
-# acceptance dispatch — the control-plane change has to happen in between.
+# --- the runner-group transition is COMPLETE, and declared so ---------------
+# This asserted the pending state before 2026-08-08. Inverting it alone would
+# prove one property; the transition is described in full instead, so a partial
+# or drifted declaration cannot pass.
+# Evidence: docs/audits/runner-group-transition-2026-08-08-live/
 POLICY=policies/repository-governance.yaml
-ck "the staging workflow is recorded as PENDING in the runner group" \
+ck "the declared workflow set is exactly the six trusted builders" \
    "python3 -c \"
 import yaml
 g=yaml.safe_load(open('$POLICY'))['org_runner_group']
-pend=g.get('pending_workflows') or []
-assert any('stage-and-authorize.yml@refs/heads/master' in w for w in pend), pend\""
-# It must NOT be claimed as live: the workflow does not exist on master yet, so
-# it cannot have been added to the group, and saying otherwise would make this
-# file describe a configuration that does not exist.
-ck "...and is NOT yet claimed as selected" \
+got=sorted(w.split('/workflows/')[1] for w in g['selected_workflows'])
+want=sorted(n+'@refs/heads/master' for n in
+  ['build-images.yml','scan-images.yml','stage-and-authorize.yml',
+   'trusted-validation.yml','verify-rc.yml','verify-signatures.yml'])
+assert got==want, got\""
+ck "nothing is pending any more" \
    "python3 -c \"
 import yaml
 g=yaml.safe_load(open('$POLICY'))['org_runner_group']
-sel=g.get('selected_workflows') or []
-assert not any('stage-and-authorize' in w for w in sel), sel\""
-ck "the pending entry is fully qualified (owner/repo/path@ref)" \
-   "python3 -c \"
-import yaml,re
-g=yaml.safe_load(open('$POLICY'))['org_runner_group']
-for w in g.get('pending_workflows') or []:
-    assert re.match(r'^[\w.-]+/[\w.-]+/\.github/workflows/[\w.-]+\.yml@refs/heads/master\$', w), w\""
-# The repository selection is the field a careless PATCH clears; record it so a
-# post-merge control-plane change can be checked against it.
-ck "the runner group still pins exactly one repository id" \
+assert (g.get('pending_workflows') or [])==[], g['pending_workflows']\""
+ck "stage-and-authorize is SELECTED" \
    "python3 -c \"
 import yaml
 g=yaml.safe_load(open('$POLICY'))['org_runner_group']
-assert g['selected_repository_ids'] == [1254295268], g['selected_repository_ids']\""
+assert any('stage-and-authorize' in w for w in g['selected_workflows'])\""
+ck "...and no longer pending" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+assert not any('stage-and-authorize' in w for w in (g.get('pending_workflows') or []))\""
+ck "none of the five retired entries survives" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+retired=['promote-stable','publish-ghcr','publish-rc','release','scheduled-rebuild']
+bad=[w for w in g['selected_workflows'] if any('/'+r+'.yml@' in w for r in retired)]
+assert not bad, bad\""
+ck "no workflow is both selected and pending" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+assert not (set(g.get('pending_workflows') or []) & set(g['selected_workflows']))\""
+ck "the repository selection is still exactly one id" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+assert g['selected_repository_ids']==[1254295268], g['selected_repository_ids']\""
+ck "every declared workflow is pinned to the default branch" \
+   "python3 -c \"
+import yaml
+g=yaml.safe_load(open('$POLICY'))['org_runner_group']
+for w in g['selected_workflows']:
+    assert w.endswith('@refs/heads/master'), w\""
+ck "the superseded PATCH claim is gone from the policy" \
+   "! grep -q 'refuses to send a PATCH without it' $POLICY"
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_no_production_publisher: PASS" || echo "test_no_production_publisher: FAIL"
 exit $fail
