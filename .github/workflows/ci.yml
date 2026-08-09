@@ -53,8 +53,17 @@ jobs:
       - name: Assert no Wolfi/Chainguard/apk in active code
         run: bash scripts/assert-no-wolfi.sh
 
-      - name: Assert all GitHub Actions are SHA-pinned
+      - name: Assert all GitHub Actions are immutable SHA pins
         run: bash scripts/assert-pinned-actions.sh
+
+      # Acceptance run 31340810647 died at "Set up job" on a well-formed 40-hex
+      # pin that had never existed upstream. The syntax gate above proved
+      # immutability; nothing proved EXISTENCE. GitHub has to resolve these
+      # references before a job can start, so this moves that resolution failure
+      # into a required validation step instead of discovering it minutes into a
+      # privileged run. Deliberately NOT in tests/run-all.sh, which is offline.
+      - name: Assert every pinned GitHub Action exists upstream
+        run: bash scripts/assert-pinned-actions.sh --verify-upstream
 
       - name: Assert no fork PR can reach a privileged self-hosted runner
         run: bash scripts/assert-pr-workflows-github-hosted.sh

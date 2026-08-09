@@ -96,5 +96,26 @@ g=yaml.safe_load(open('policies/repository-governance.yaml'))['org_runner_group'
 assert any('stage-and-authorize' in w for w in g['selected_workflows'])
 assert (g.get('pending_workflows') or [])==[], g['pending_workflows']\""
 
+# --- pinned-action existence, failure semantics only (offline) -------------
+# The live resolution runs in CI. What must be deterministic here is what the
+# checker does when upstream says no, says nothing, or says something else.
+ck "the pinned-action resolver self-test passes" \
+   "bash scripts/assert-pinned-actions.sh --self-test >/dev/null 2>&1"
+ck "the dead pin from run 31340810647 is absent from every workflow" \
+   "! grep -rq 'abefc31eb2ec6e152ff1b4e83e9700a37e9eba59' .github/workflows/"
+ck "the upstream check is wired into the required repo structure job" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('.github/workflows/ci.yml'))
+job=[j for j in d['jobs'].values() if j.get('name')=='repo structure'][0]
+runs=' '.join((s.get('run') or '') for s in job['steps'])
+assert '--verify-upstream' in runs, runs[:200]\""
+# NOT asserted by grepping tests/ for the flag: that matched this very
+# assertion's own text. Prose-grepping has produced a false result in almost
+# every round of this work. The property is enforced structurally instead --
+# the flag is invoked from ci.yml (asserted above) and nowhere in the suite
+# calls the resolver's network path, because --self-test uses injected
+# transports exclusively.
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_runner_group_patch: PASS" || echo "test_runner_group_patch: FAIL"
 exit $fail
