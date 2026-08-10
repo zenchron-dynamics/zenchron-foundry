@@ -144,3 +144,82 @@ present".
 - No exception expiry was extended. The new record carries the cohort expiry.
 - `CVE-2026-7598` (libssh2, integer overflow via oversized username/password)
   remains an exception, unchanged.
+
+---
+
+## 3. Two open range questions, resolved (#137, #138)
+
+Both were opened on 2026-07-28 as follow-ups to the #102/#103 triage, both with a
+2026-08-31 deadline, and both asked the same shape of question: *is the record's
+assumed reachability actually right?* Answering them now, before the expiry,
+avoids a re-review that only re-states the assumption.
+
+### #137 — CVE-2026-57432 (perl `S_measure_struct`): 5.36.0 IS affected
+
+The record was written on a **presumed-in-range** basis: the upstream range gives
+no introduction point, so 5.36.0 was assumed affected. Its sibling
+`CVE-2026-13221` turned out *not* affected on exactly that point, which is what
+made the presumption worth testing.
+
+It does not go the same way.
+
+Debian's tracker lists only fixes, both landing in v5.43.11:
+[`5f7eb6bb`](https://github.com/Perl/perl5/commit/5f7eb6bbbe0510964e3fb1d6bb691e5445913e55)
+and `40754edc`. The first one **adds** a guard:
+
+```c
+if ((size > 0) &&
+    ((len > SSize_t_MAX / size) ||          /* overflow of len * size   */
+     (len * size > SSize_t_MAX - total)))   /* overflow of total + ...  */
+    croak("Pack template structure size is too large");
+```
+
+immediately before the pre-existing `total += len * size;`. It guards
+long-standing code rather than fixing code introduced after 5.36.0 — so unlike
+CVE-2026-13221 there is no post-5.36.0 introduction point to appeal to.
+
+Confirmed on the shipped build (`php-cli:8.4-prod`, `perl-base
+5.36.0-7+deb12u3`): the fix's diagnostic does not exist. A pack template with an
+overflowing repeat count runs into `Out of memory!` / the unguarded arithmetic,
+never `Pack template structure size is too large`.
+
+**Disposition: the exception stands as an exception.** It does not move to
+`not_affected:`. Its `reachability` classification —
+`not-reachable-under-intended-use`, because no perl process runs at runtime in
+any image — is unchanged and independent of the range question. The record's
+evidence and its `note:` are updated to say the range was resolved rather than
+presumed.
+
+### #138 — CVE-2026-56208..56211 (libaom): encoder-only, decode is not reachable
+
+The severity assessment rested on advisory **titles** describing encoder paths.
+That is now confirmed from vendor analysis rather than inferred.
+
+Red Hat's analysis of CVE-2026-56209 — the most serious of the four, an arbitrary
+address write — places it "in the encoder's SVC layer context handling via
+`ctrl_set_layer_id()`, **not in decoding functionality**", and states that
+"decoding an AV1 file alone cannot trigger this vulnerability". It is reachable
+only from an application that exposes **SVC encoder configuration** to untrusted
+input. The pointer is injected through crafted Y-plane pixel values, but only
+once an out-of-range layer id has already been set through `aom_codec_control`.
+
+The same axis holds for the other three: 56208 is untrusted encoder
+configuration, 56210 is a `layer_id` bounds check, 56211 is out-of-range
+spatial/temporal layer selection.
+
+php-gd never calls `aom_codec_control` to set a layer id. `imageavif()` encodes
+with libaom's defaults, and `imagecreatefromavif()` is a **decode** path that
+none of the four reaches.
+
+**Disposition: no change to severity, no change to expiry.** The question in the
+issue — "if any is decode-reachable, `imagecreatefromavif()` on untrusted uploads
+becomes materially more serious, shorten the expiry" — is answered **no**. The
+compensating-control text on all five libaom records (the four plus
+`CVE-2023-39616`) is updated from "the flaws are described as ENCODER paths" to
+the confirmed finding, and the pointer to "triage unresolved Q5" is removed
+because it is no longer unresolved.
+
+The standing consumer advisory is unchanged and still correct: do not process
+untrusted AVIF on php-frankenphp until the base ships a fixed libaom. Removing
+AVIF support from the base remains the way to delete this class outright, and
+remains a consumer-visible change on the backlog.
