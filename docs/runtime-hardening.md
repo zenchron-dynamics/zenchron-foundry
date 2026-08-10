@@ -4,7 +4,16 @@ Defaults baked into images + enforced by `profiles/compose.security.yml`.
 
 ## Identity & filesystem
 
-- **Non-root**: deterministic `UID:GID = 10001:10001`, shell `/sbin/nologin`.
+- **Non-root**, per image. Nine of the ten images run as the platform identity
+  `UID:GID = 10001:10001` with shell `/sbin/nologin`. **nginx runs as `101:101`**
+  — it is built on the upstream `nginx-unprivileged` base, which owns
+  `/etc/nginx` and its temp paths as 101, so forcing 10001 makes mounted configs
+  and assets behave differently from the image's own expectations (#118).
+  The identity of each image is declared in
+  [`contracts/images/<image>.yaml`](../contracts/images) (`user:`), asserted
+  against the built image by `scripts/verify-image-contract.sh`, and matched
+  service-by-service in `profiles/compose.security.yml` — which no longer sets a
+  single global `user:` for everything.
 - **Read-only root filesystem** (`read_only: true`). Writable paths are
   externalized as tmpfs or volumes — never a writable rootfs.
 - **tmpfs** for scratch: `/tmp`, `/run` mounted `noexec,nosuid,nodev`.
@@ -140,8 +149,18 @@ Non-root cannot bind ports < 1024. Therefore:
 - **caddy / frankenphp**: **real HTTP readiness** — an always-on `:8081/healthz`
   site answers `200`, probed with the alpine base's `wget`. This proves the
   server is actually serving HTTP, not merely that the binary exists.
-- **nginx**: `nginx -t -q` (config validity); the hardened base serves no site
-  until an app config is mounted, so readiness is at the orchestrator/LB layer.
+- **nginx**: **real HTTP readiness** — the image ships its own always-on
+  `:8081/healthz` listener (`conf.d/00-readiness.conf`) and the healthcheck
+  performs a request against it, requiring `200` with body `ok`. The probe is
+  `/usr/local/bin/nginx-healthcheck`, using `IO::Socket::INET` from `perl-base`
+  so no HTTP client has to be re-added to an image that deliberately purged
+  `curl` (#102/#103).
+  This replaced `nginx -t -q`, which parsed the config and exited: it reported a
+  hung, unforked or non-listening nginx as healthy (#127). Verified
+  behaviourally in `scripts/smoke/smoke-nginx.sh`, which SIGSTOPs every nginx
+  process and asserts the config test still passes while the probe fails.
+  APPLICATION readiness — is the site config mounted, is php-fpm reachable —
+  remains the orchestrator's/LB's business, on the consumer's own `:8080` site.
 - Distroless-pure services: rely on orchestrator TCP/HTTP probes.
 
 ## Secrets

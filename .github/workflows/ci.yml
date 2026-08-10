@@ -53,6 +53,15 @@ jobs:
       - name: Assert no Wolfi/Chainguard/apk in active code
         run: bash scripts/assert-no-wolfi.sh
 
+      # Reference code is a distribution channel. examples/ and
+      # docs/consuming-images.md told readers to digest-pin and fail closed while
+      # using moving tags, `|| true`, and a build-time `config:cache` that bakes
+      # the environment into a layer (#108/#109). Same rules as images/, applied
+      # to the code we hand to consumers. Static and offline — the digest values
+      # are re-resolved against the registry by examples/refresh-digests.sh.
+      - name: Assert examples and consumer docs are pinned and fail closed
+        run: bash scripts/assert-examples-pinned.sh
+
       - name: Assert all GitHub Actions are immutable SHA pins
         run: bash scripts/assert-pinned-actions.sh
 

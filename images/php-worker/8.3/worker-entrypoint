@@ -16,21 +16,65 @@
 #
 # Works under a read-only root filesystem: the heartbeat lives in tmpfs /tmp.
 # Does not require curl/wget. Does not alter the worker command.
+#
+# #117. Configuration is validated BEFORE the worker starts, and the first
+# heartbeat must land on disk. Both used to be silently tolerated:
+#   * WORKER_HEARTBEAT_INTERVAL went straight into `sleep`, so `0` spun a busy
+#     loop against the worker and a non-numeric value made `sleep` fail on every
+#     iteration — in both cases the heartbeat stopped being refreshed while the
+#     container carried on looking normal.
+#   * `heartbeat() { ... || true; }` swallowed a failed write. On a read-only
+#     /tmp the worker ran with no heartbeat file at all, which the healthcheck
+#     then reported as a dead worker — a confusing failure a long way from its
+#     cause.
 # =============================================================================
 set -u
 
-HB="${WORKER_HEARTBEAT_FILE:-/tmp/worker-heartbeat}"
-AUTO="${WORKER_HEARTBEAT_AUTO:-1}"
-INTERVAL="${WORKER_HEARTBEAT_INTERVAL:-15}"
+# ${VAR-default}, not ${VAR:-default}: an explicitly EMPTY override must stay
+# empty and be refused below, not silently expand back to the default.
+HB="${WORKER_HEARTBEAT_FILE-/tmp/worker-heartbeat}"
+AUTO="${WORKER_HEARTBEAT_AUTO-1}"
+INTERVAL="${WORKER_HEARTBEAT_INTERVAL-15}"
 
-heartbeat() { date +%s > "$HB" 2>/dev/null || true; }
+die() { echo "worker-entrypoint: $*" >&2; exit 78; }   # EX_CONFIG
+
+[ -n "$HB" ] || die "WORKER_HEARTBEAT_FILE is empty"
+
+case "$AUTO" in
+    0|1) ;;
+    *) die "WORKER_HEARTBEAT_AUTO must be 0 or 1, got '$AUTO'" ;;
+esac
+
+case "$INTERVAL" in
+    ''|*[!0-9]*) die "WORKER_HEARTBEAT_INTERVAL must be a positive integer, got '$INTERVAL'" ;;
+esac
+# Lower bound 1: `sleep 0` is a busy loop that competes with the worker for CPU.
+# Upper bound 3600: an interval longer than any sane MAX_AGE guarantees the
+# healthcheck reports the worker dead even while it is running normally.
+if [ "$INTERVAL" -lt 1 ] || [ "$INTERVAL" -gt 3600 ]; then
+    die "WORKER_HEARTBEAT_INTERVAL '$INTERVAL' out of range 1..3600"
+fi
+
+# Atomic: write to a sibling temp file and rename. A healthcheck reading the
+# file mid-write would otherwise see a truncated timestamp and report the worker
+# unhealthy for no reason. rename(2) within one filesystem is atomic.
+heartbeat() {
+    if date +%s > "${HB}.tmp" 2>/dev/null && mv -f "${HB}.tmp" "$HB" 2>/dev/null; then
+        return 0
+    fi
+    rm -f "${HB}.tmp" 2>/dev/null || true
+    return 1
+}
 
 if [ "$#" -eq 0 ]; then
     echo "worker-entrypoint: no worker command supplied" >&2
     exit 64
 fi
 
-heartbeat   # initial beat so the start-period healthcheck can pass
+# Initial beat so the start-period healthcheck can pass. If this cannot be
+# written the heartbeat contract cannot be honoured at all — say so now, at
+# startup, rather than letting the healthcheck fail later with "no heartbeat".
+heartbeat || die "cannot write heartbeat '$HB' — is its directory a writable tmpfs?"
 
 # Start the worker in the background so we can trap signals and reap it.
 "$@" &
@@ -38,7 +82,14 @@ child=$!
 
 ticker=""
 if [ "$AUTO" = "1" ]; then
-    ( while kill -0 "$child" 2>/dev/null; do heartbeat; sleep "$INTERVAL"; done ) &
+    # A failed refresh mid-run is NOT fatal: the worker is doing real work and
+    # the healthcheck will age the stale heartbeat out on its own. Killing the
+    # worker over a transient tmpfs hiccup would be worse than reporting it
+    # unhealthy.
+    ( while kill -0 "$child" 2>/dev/null; do
+          heartbeat || echo "worker-entrypoint: heartbeat write failed" >&2
+          sleep "$INTERVAL"
+      done ) &
     ticker=$!
 fi
 

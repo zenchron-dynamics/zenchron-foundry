@@ -15,8 +15,22 @@ x-zenchron-hardening: &zenchron-hardening
     - no-new-privileges:true
   pids_limit: 256
   restart: unless-stopped
-  # Run as the platform's deterministic non-root identity.
-  user: "10001:10001"
+  # NO `user:` here, deliberately (#118).
+  #
+  # This block used to force user: "10001:10001" on every service it was spread
+  # into, including nginx — which runs as UID 101 in the image, because it is
+  # built on the upstream nginx-unprivileged base and every path it owns
+  # (/etc/nginx, its temp dirs) is chowned 101:101. Overriding it globally meant
+  # the image and the recommended Compose overlay disagreed about who the process
+  # is, so mounted configs and assets behaved differently depending on which one
+  # a consumer followed, and the platform's audit claim of a deterministic UID
+  # 10001 was not true of all ten images.
+  #
+  # The identity per image is declared in contracts/images/<image>.yaml (`user:`)
+  # and asserted against the built image by scripts/verify-image-contract.sh.
+  # That file is the source of truth; each service below states its identity
+  # explicitly to match, and tests/runtime/test_uid_contract.sh fails if the two
+  # ever drift apart.
   # Writable scratch only; noexec/nosuid/nodev.
   tmpfs:
     - /tmp:size=64m,noexec,nosuid,nodev
@@ -36,15 +50,28 @@ x-zenchron-hardening: &zenchron-hardening
 
 # Example application of the block to typical service names. Projects should
 # spread the anchor into their own services rather than rely on these names.
+#
+# Each service states its own identity. The value must equal the `user:` in that
+# image's runtime contract — see the note on the hardening block above.
 services:
   php-fpm:
     <<: *zenchron-hardening
+    user: "10001:10001"
   php-cli:
     <<: *zenchron-hardening
+    user: "10001:10001"
     restart: "no"          # one-off jobs should not auto-restart
   worker:
     <<: *zenchron-hardening
+    user: "10001:10001"
+  frankenphp:
+    <<: *zenchron-hardening
+    user: "10001:10001"
   nginx:
     <<: *zenchron-hardening
+    # NOT 10001. The upstream nginx-unprivileged base owns its files as 101:101;
+    # see contracts/images/nginx-prod.yaml.
+    user: "101:101"
   caddy:
     <<: *zenchron-hardening
+    user: "10001:10001"

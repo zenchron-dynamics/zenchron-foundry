@@ -1,0 +1,45 @@
+#!/bin/sh
+# =============================================================================
+# Zenchron Dynamics — nginx readiness healthcheck (#127).
+#
+# Performs a real HTTP request against the always-on readiness listener
+# (conf.d/00-readiness.conf) and requires a 200 with the expected body. This
+# replaces `nginx -t -q`, which only parsed the config and therefore reported a
+# hung, unforked or non-listening nginx as healthy.
+#
+# No curl and no wget: both were purged from this image on purpose (#102/#103),
+# and re-adding an HTTP client to run a healthcheck would undo that. perl-base
+# ships with the Debian base and provides IO::Socket::INET, so the probe costs no
+# new package. IO::Socket::INET's own Timeout bounds a half-open connection
+# rather than relying on the daemon to kill a wedged check.
+#
+# Exit 0 = serving, 1 = anything else. Every failure mode — refused connection,
+# timeout, non-200, wrong body, unreadable response — is unhealthy. There is no
+# path that turns "could not determine" into healthy.
+# =============================================================================
+set -u
+
+PORT="${NGINX_READINESS_PORT:-8081}"
+export PORT
+
+exec perl -MIO::Socket::INET -e '
+my $port = $ENV{PORT};
+$port =~ /^[0-9]{1,5}$/ or exit 1;
+# Bound the WHOLE probe, not just the connect. A wedged nginx accepts the
+# connection and never answers; IO::Socket Timeout does not cover that read, and
+# relying on the daemon HEALTHCHECK --timeout would leave a manual invocation
+# hanging forever. SIGALRM default action terminates -> non-zero -> unhealthy.
+alarm 3;
+my $s = IO::Socket::INET->new(
+    PeerAddr => "127.0.0.1", PeerPort => $port,
+    Proto    => "tcp",       Timeout  => 2,
+) or exit 1;
+print $s "GET /healthz HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+local $/;
+my $r = <$s>;
+close $s;
+defined $r or exit 1;
+# Both conditions: a 200 status line AND the body the readiness site returns.
+# Status alone would accept a 200 from something else bound to this port.
+exit(($r =~ m{^HTTP/1\.[01] 200\b} && $r =~ /\bok\b/) ? 0 : 1);
+'
