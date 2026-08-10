@@ -49,6 +49,41 @@ _gh_resolve() { # <owner/repo> <sha> -> prints the resolved sha, non-zero on any
 }
 resolve_commit() { "${GH_RESOLVE_FN:-_gh_resolve}" "$1" "$2"; }
 
+# The upstream verifier. This is the ONE implementation: the live CI mode and
+# the offline failure fixtures both call this function, so a mutation to its
+# verdict arithmetic (e.g. `-gt 0` -> `-lt 0`) breaks the self-test.
+verify_upstream_refs() { # <ref>... -> 0 all resolve exactly, 1 otherwise
+  local unresolved=0 ref sha repopath owner rest_ repo got
+  # Fail closed on an empty set: nothing checked is not a pass.
+  if [[ "$#" -eq 0 ]]; then
+    echo "ERROR: no pinned references collected; nothing was verified" >&2
+    echo "RESULT: FAIL (nothing was checked)"
+    return 1
+  fi
+  for ref in "$@"; do
+    sha="${ref##*@}"
+    repopath="${ref%@*}"
+    # owner/repo, discarding any sub-path: actions/foo/bar lives in actions/foo.
+    owner="${repopath%%/*}"; rest_="${repopath#*/}"; repo="${rest_%%/*}"
+    got="$(resolve_commit "${owner}/${repo}" "${sha}" || true)"
+    if [[ -z "${got}" ]]; then
+      printf 'UNRESOLVED %s (no commit found in %s/%s, or the lookup failed)\n' "${ref}" "${owner}" "${repo}" >&2
+      unresolved=$((unresolved + 1))
+    elif [[ "${got}" != "${sha}" ]]; then
+      printf 'MISMATCH   %s resolved to %s\n' "${ref}" "${got}" >&2
+      unresolved=$((unresolved + 1))
+    else
+      printf 'OK %s\n' "${ref}"
+    fi
+  done
+  if [[ "${unresolved}" -gt 0 ]]; then
+    printf 'RESULT: FAIL (%d pinned action(s) do not resolve upstream)\n' "${unresolved}"
+    return 1
+  fi
+  printf 'RESULT: PASS (%d unique immutable action pins resolve upstream)\n' "$#"
+  return 0
+}
+
 VERIFY_UPSTREAM=0
 [ "${1:-}" = "--verify-upstream" ] && VERIFY_UPSTREAM=1
 [ "${1:-}" = "--self-test" ] && VERIFY_UPSTREAM=0
@@ -122,35 +157,10 @@ if [[ "${violations}" -gt 0 ]]; then
 fi
 
 if [[ "${VERIFY_UPSTREAM}" -eq 1 ]]; then
-  # Fail closed on an empty set for the same reason discovery does above.
-  if [[ "${#UNIQUE_REFS[@]}" -eq 0 ]]; then
-    echo "ERROR: no pinned references collected; nothing was verified" >&2
-    echo "RESULT: FAIL (nothing was checked)"
-    exit 1
-  fi
-  unresolved=0
-  for ref in "${UNIQUE_REFS[@]}"; do
-    sha="${ref##*@}"
-    repopath="${ref%@*}"
-    # owner/repo, discarding any sub-path: actions/foo/bar lives in actions/foo.
-    owner="${repopath%%/*}"; rest_="${repopath#*/}"; repo="${rest_%%/*}"
-    got="$(resolve_commit "${owner}/${repo}" "${sha}" || true)"
-    if [[ -z "${got}" ]]; then
-      printf 'UNRESOLVED %s (no commit found in %s/%s, or the lookup failed)\n' "${ref}" "${owner}" "${repo}" >&2
-      unresolved=$((unresolved + 1))
-    elif [[ "${got}" != "${sha}" ]]; then
-      printf 'MISMATCH   %s resolved to %s\n' "${ref}" "${got}" >&2
-      unresolved=$((unresolved + 1))
-    else
-      printf 'OK %s\n' "${ref}"
-    fi
-  done
-  if [[ "${unresolved}" -gt 0 ]]; then
-    printf 'RESULT: FAIL (%d pinned action(s) do not resolve upstream)\n' "${unresolved}"
-    exit 1
-  fi
-  printf 'RESULT: PASS (%d unique immutable action pins resolve upstream)\n' "${#UNIQUE_REFS[@]}"
-  exit 0
+  # ${arr[@]+...} so an empty array survives `set -u` and reaches the function's
+  # own fail-closed empty check rather than aborting the shell.
+  verify_upstream_refs ${UNIQUE_REFS[@]+"${UNIQUE_REFS[@]}"}
+  exit $?
 fi
 echo "RESULT: PASS (all action references SHA-pinned)"
 
@@ -178,18 +188,36 @@ _apa_self_test() {
   _garbage_fn()  { echo "not-a-sha"; }                # malformed response
   _empty_fn()    { echo ""; }                         # empty body
 
-  check() { # check <resolver> <sha> -> 0 accept, 1 reject
-    local got; got="$("$1" actions/download-artifact "$2" || true)"
-    [ -n "$got" ] && [ "$got" = "$2" ]
+  # `v` drives the PRODUCTION verifier -- verify_upstream_refs, the same function
+  # the live CI mode calls -- with the transport swapped out. GH_RESOLVE_FN is a
+  # bash local, so dynamic scoping carries it into resolve_commit. There is no
+  # second copy of the accept/reject logic here: mutating the real verdict test
+  # (`-gt 0` -> `-lt 0`, `-z` -> `-n`, `!=` -> `=`) fails these cases.
+  v() { # v <resolver-fn> <sha> -> exit status of verify_upstream_refs
+    local GH_RESOLVE_FN="$1"
+    verify_upstream_refs "actions/download-artifact@$2" >/dev/null 2>&1
   }
+  v_multi() { # v_multi <resolver-fn> <ref>... -> exit status over several refs
+    local GH_RESOLVE_FN="$1"; shift
+    verify_upstream_refs "$@" >/dev/null 2>&1
+  }
+  v_empty() { local GH_RESOLVE_FN="_ok_fn"; verify_upstream_refs >/dev/null 2>&1; }
 
-  t "a resolvable pin is ACCEPTED"                 "check _ok_fn '$GOOD'"
-  t "the DEAD pin from run 31340810647 is REJECTED (404)" "! check _404_fn '$DEAD'"
-  t "a 422 'no commit for SHA' is REJECTED"        "! check _422_fn '$DEAD'"
-  t "a DIFFERENT resolved sha is REJECTED"         "! check _other_fn '$GOOD'"
-  t "a network failure is REJECTED, not assumed ok" "! check _netfail_fn '$GOOD'"
-  t "a malformed response is REJECTED"             "! check _garbage_fn '$GOOD'"
-  t "an empty response is REJECTED"                "! check _empty_fn '$GOOD'"
+  _mixed_fn() { [ "$2" = "$GOOD" ] && echo "$2" || return 1; }
+
+  t "a resolvable pin is ACCEPTED"                 "v _ok_fn '$GOOD'"
+  t "the DEAD pin from run 31340810647 is REJECTED (404)" "! v _404_fn '$DEAD'"
+  t "a 422 'no commit for SHA' is REJECTED"        "! v _422_fn '$DEAD'"
+  t "a DIFFERENT resolved sha is REJECTED"         "! v _other_fn '$GOOD'"
+  t "a network failure is REJECTED, not assumed ok" "! v _netfail_fn '$GOOD'"
+  t "a malformed response is REJECTED"             "! v _garbage_fn '$GOOD'"
+  t "an empty response is REJECTED"                "! v _empty_fn '$GOOD'"
+  # Counting: one bad reference must condemn the whole set, and a wholly good
+  # set must exit 0 -- together these pin both directions of the verdict test.
+  t "one dead pin in a set of three REJECTS the set" \
+    "! v_multi _mixed_fn \"a/b@\$GOOD\" \"c/d@\$DEAD\" \"e/f@\$GOOD\""
+  t "an all-resolvable set is ACCEPTED"            "v_multi _ok_fn \"a/b@\$GOOD\" \"c/d@\$GOOD\""
+  t "an EMPTY reference set FAILS closed"          "! v_empty"
 
   # Syntax rules are unchanged.
   local re='^[^@/]+/[^@]+@[0-9a-f]{40}$'
