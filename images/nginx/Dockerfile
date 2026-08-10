@@ -96,14 +96,44 @@ RUN set -eux; \
 RUN rm -f /etc/nginx/conf.d/default.conf /usr/share/nginx/html/index.html 2>/dev/null || true
 COPY nginx.conf       /etc/nginx/nginx.conf
 COPY conf.d/          /etc/nginx/conf.d/
-RUN chown -R 101:101 /etc/nginx
+COPY healthcheck      /usr/local/bin/nginx-healthcheck
+RUN set -eux; \
+    chown -R 101:101 /etc/nginx; \
+    chmod 0555 /usr/local/bin/nginx-healthcheck; \
+    # The probe uses IO::Socket::INET from perl-base. If a future layer drops
+    # perl, the healthcheck would fail on every interval and the image would
+    # look permanently unhealthy — catch that at build time, not in production.
+    perl -MIO::Socket::INET -e 'exit 0'; \
+    # 00-readiness.conf must really be included: nginx.conf globs *.conf, so a
+    # file renamed to .example or .disabled silently stops being served and the
+    # healthcheck below would have nothing to talk to.
+    # Written to a file rather than piped: the default RUN shell is /bin/sh with
+    # no `pipefail`, so `nginx -T | grep -q` would report success on grep alone
+    # even if nginx -T itself failed.
+    nginx -T > /tmp/nginx-conf.dump 2>/dev/null; \
+    grep -q 'listen 8081' /tmp/nginx-conf.dump; \
+    rm -f /tmp/nginx-conf.dump; \
+    # `nginx -T` runs as root and writes /tmp/nginx.pid plus the *_temp dirs from
+    # nginx.conf. Left behind, they are ROOT-OWNED files baked into the image, and
+    # nginx at runtime (uid 101) then cannot open its own pid file:
+    #   [emerg] open() "/tmp/nginx.pid" failed (13: Permission denied)
+    # Verified: without this cleanup the image starts under a tmpfs /tmp (which
+    # shadows them) but `nginx -t` fails on a plain run.
+    rm -rf /tmp/nginx.pid /tmp/client_temp /tmp/proxy_temp /tmp/fastcgi_temp \
+           /tmp/uwsgi_temp /tmp/scgi_temp
 
+# 8080 serves the consumer's site. 8081 is the internal readiness listener
+# (conf.d/00-readiness.conf) — give it to an orchestrator probe, never to the
+# internet.
 USER 101:101
-EXPOSE 8080
+EXPOSE 8080 8081
 
-# nginx -t style liveness; on read-only rootfs ensure tmpfs for temp paths.
+# A REAL request/response cycle against the always-on readiness listener, not a
+# config parse. `nginx -t -q` reported a hung or unforked nginx as healthy: it
+# proves the files parse, never that anything is being served (#127).
+# On a read-only rootfs ensure tmpfs for the temp paths in nginx.conf.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=3 \
-    CMD ["nginx", "-t", "-q"]
+    CMD ["/usr/local/bin/nginx-healthcheck"]
 
 STOPSIGNAL SIGQUIT
 ENTRYPOINT ["nginx", "-g", "daemon off;"]

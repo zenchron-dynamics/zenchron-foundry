@@ -4,25 +4,34 @@ How an application repo builds on these base images. The pattern is always:
 **multi-stage** — vendor/build in a builder stage, copy only artifacts into a
 platform runtime base. No Composer in the final app image.
 
-> Pin bases by digest in production. Tags shown for readability.
+> **Every reference below is digest-pinned, including in the snippets.** This
+> document used to say "pin by digest in production. Tags shown for readability"
+> and then show tag-only `FROM` lines — reference code that teaches the opposite
+> of what it asks for (#109). The checked-in examples under
+> [`examples/`](../examples) carry the same pins; refresh both with
+> [`examples/refresh-digests.sh`](../examples/refresh-digests.sh).
+>
+> The digests below are a snapshot. Re-resolve them for your own build rather
+> than trusting this page to be current — that is exactly what the refresh
+> script is for.
 
 ## 1. Laravel — php-fpm + nginx
 
 ```dockerfile
 # syntax=docker/dockerfile:1.7
 # --- builder: composer + assets (NOT shipped) ---
-FROM ghcr.io/zenchron-dynamics/php-cli:8.3-prod AS vendor
+FROM ghcr.io/zenchron-dynamics/php-cli:8.3-prod@sha256:1c75cf2f712f6fda66c9c624723032ff812eae2af9c9e43fa2724e91cc71cf35 AS vendor
 USER root
 WORKDIR /app
 # Composer provided here only (copy the binary from the official image).
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction --optimize-autoloader
 COPY . .
 RUN composer dump-autoload --optimize --classmap-authoritative
 
 # --- runtime: php-fpm (ships) ---
-FROM ghcr.io/zenchron-dynamics/php-fpm:8.3-prod AS app
+FROM ghcr.io/zenchron-dynamics/php-fpm:8.3-prod@sha256:2044d7b3aad61f234d949d8e406c14cdb6386e4735dbd87148a895304aaef038 AS app
 WORKDIR /app
 COPY --from=vendor --chown=10001:10001 /app /app
 # storage/ & bootstrap/cache are mounted writable at runtime (see compose).
@@ -50,18 +59,18 @@ site config copied from `images/caddy/conf.d/app.caddy.example`. Caddy's
 ## 3. Symfony — php-fpm + nginx
 
 ```dockerfile
-FROM ghcr.io/zenchron-dynamics/php-cli:8.3-prod AS vendor
+FROM ghcr.io/zenchron-dynamics/php-cli:8.3-prod@sha256:1c75cf2f712f6fda66c9c624723032ff812eae2af9c9e43fa2724e91cc71cf35 AS vendor
 USER root
 WORKDIR /app
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
 COPY composer.json composer.lock symfony.lock ./
 RUN composer install --no-dev --no-scripts --prefer-dist --no-interaction --optimize-autoloader
 COPY . .
 ENV APP_ENV=prod
-RUN composer dump-env prod || true \
+RUN composer dump-autoload --optimize --classmap-authoritative \
  && php bin/console cache:warmup --env=prod
 
-FROM ghcr.io/zenchron-dynamics/php-fpm:8.3-prod AS app
+FROM ghcr.io/zenchron-dynamics/php-fpm:8.3-prod@sha256:2044d7b3aad61f234d949d8e406c14cdb6386e4735dbd87148a895304aaef038 AS app
 WORKDIR /app
 COPY --from=vendor --chown=10001:10001 /app /app
 USER 10001:10001
@@ -73,15 +82,15 @@ See [examples/symfony](../examples/symfony).
 ## 4. FrankenPHP app
 
 ```dockerfile
-FROM ghcr.io/zenchron-dynamics/php-cli:8.3-prod AS vendor
+FROM ghcr.io/zenchron-dynamics/php-cli:8.3-prod@sha256:1c75cf2f712f6fda66c9c624723032ff812eae2af9c9e43fa2724e91cc71cf35 AS vendor
 USER root
 WORKDIR /app
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2@sha256:4d71c3c2109c61d5415544264b59ad4087e4c5b7244481723664138fd36d5040 /usr/bin/composer /usr/bin/composer
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
 COPY . .
 
-FROM ghcr.io/zenchron-dynamics/php-frankenphp:8.3-prod AS app
+FROM ghcr.io/zenchron-dynamics/php-frankenphp:8.3-prod@sha256:e12c84ed1349492240bec14ef7eb9748eecf5288867569c1ac93ebcbe2a77b58 AS app
 WORKDIR /app
 COPY --from=vendor --chown=10001:10001 /app /app
 USER 10001:10001

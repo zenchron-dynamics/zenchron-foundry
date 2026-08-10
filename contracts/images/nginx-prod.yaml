@@ -5,9 +5,14 @@ user: "101:101"
 non_root: true
 read_only_rootfs: true
 tmpfs: [/tmp, /var/cache/nginx, /var/run]
-ports: [8080]
+# 8080 = the consumer's site. 8081 = the image's own readiness listener.
+ports: [8080, 8081]
 healthcheck: true
+# Still available as a config-syntax check — but NOT the healthcheck any more.
+# `nginx -t -q` passed while a hung nginx served nothing (#127).
 config_test: "nginx -t -q"
+# The container healthcheck performs this request and requires 200 + body "ok".
+readiness: { path: /healthz, port: 8081, body: ok }
 health_path: /healthz
 oci_revision_label: required
 # Dynamic modules deliberately NOT shipped (#102/#103). Removing them deleted

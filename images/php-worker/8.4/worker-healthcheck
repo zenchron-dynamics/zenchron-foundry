@@ -5,13 +5,41 @@
 # No curl/wget. Pairs with worker-entrypoint (see its header for the honest
 # process- vs work-liveness distinction).
 #   WORKER_HEARTBEAT_FILE    default /tmp/worker-heartbeat
-#   WORKER_HEARTBEAT_MAX_AGE default 90 (seconds)
-# Exit 0 = healthy, 1 = stale/missing (unhealthy).
+#   WORKER_HEARTBEAT_MAX_AGE default 90 (seconds, 1..86400)
+# Exit 0 = healthy, 1 = stale/missing/misconfigured (unhealthy).
+#
+# #117. Every way this can fail to reach a verdict is UNHEALTHY. In particular:
+#   * a heartbeat timestamp in the FUTURE used to yield a negative age, which
+#     passed `age <= MAX` and reported a dead worker as healthy. Clock skew, a
+#     restored volume or a corrupted write were all enough to trigger it. It is
+#     now rejected outright rather than clamped, because a future stamp means the
+#     value cannot be trusted as a liveness signal at all.
+#   * a non-numeric or out-of-range MAX_AGE used to be interpolated straight into
+#     `[ "$age" -le "$MAX" ]`, where the shell's own error decided the verdict.
 # =============================================================================
 set -u
 
-HB="${WORKER_HEARTBEAT_FILE:-/tmp/worker-heartbeat}"
-MAX="${WORKER_HEARTBEAT_MAX_AGE:-90}"
+# ${VAR-default}, not ${VAR:-default}: an explicitly EMPTY override must stay
+# empty and be rejected below, not silently expand back to the default. An
+# operator who sets WORKER_HEARTBEAT_MAX_AGE="" has made a mistake; inheriting 90
+# would hide it.
+HB="${WORKER_HEARTBEAT_FILE-/tmp/worker-heartbeat}"
+MAX="${WORKER_HEARTBEAT_MAX_AGE-90}"
+
+[ -n "$HB" ] || { echo "WORKER_HEARTBEAT_FILE is empty" >&2; exit 1; }
+
+# Bounded positive integer. 86400 is an upper bound on a *health* signal: a
+# day-long tolerance is a misconfiguration, not a policy, and silently honouring
+# it would keep a dead worker in service for a day.
+case "$MAX" in
+    ''|*[!0-9]*)
+        echo "invalid WORKER_HEARTBEAT_MAX_AGE '$MAX': want a positive integer" >&2
+        exit 1 ;;
+esac
+if [ "$MAX" -lt 1 ] || [ "$MAX" -gt 86400 ]; then
+    echo "WORKER_HEARTBEAT_MAX_AGE '$MAX' out of range 1..86400" >&2
+    exit 1
+fi
 
 [ -f "$HB" ] || { echo "no heartbeat at $HB" >&2; exit 1; }
 
@@ -19,9 +47,25 @@ MAX="${WORKER_HEARTBEAT_MAX_AGE:-90}"
 # stops writing, so the stored timestamp ages out even if something else touches
 # the file. worker-entrypoint and app-level heartbeats both write `date +%s`.
 now=$(date +%s)
-mod=$(cat "$HB" 2>/dev/null || echo 0)
-case "$mod" in ''|*[!0-9]*) mod=0 ;; esac
+mod=$(cat "$HB" 2>/dev/null || true)
+
+# An unreadable, empty or non-numeric heartbeat is not "age zero" — it is no
+# signal. The previous code mapped it to 0, which happened to be unhealthy only
+# because 0 is far in the past; say so explicitly instead of relying on that.
+case "$mod" in
+    ''|*[!0-9]*)
+        echo "unreadable heartbeat in $HB" >&2
+        exit 1 ;;
+esac
+
 age=$(( now - mod ))
+
+# A stamp from the future cannot age out. Allow a couple of seconds of slack for
+# a heartbeat written in the same second the probe reads it.
+if [ "$age" -lt -2 ]; then
+    echo "heartbeat is $(( -age ))s in the FUTURE — refusing to treat as live" >&2
+    exit 1
+fi
 
 if [ "$age" -le "$MAX" ]; then
     exit 0

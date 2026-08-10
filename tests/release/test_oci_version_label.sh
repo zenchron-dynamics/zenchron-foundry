@@ -136,5 +136,40 @@ ck "only one workflow pushes what it builds" \
 ck "...and it is the stager" \
    "[ \"\$(grep -rlF 'push: true' .github/workflows/)\" = .github/workflows/stage-and-authorize.yml ]"
 
+# ---------------------------------------------------------------------------
+# STATIC Dockerfile <-> contract agreement, matrix-wide.
+#
+# scripts/release/verify-oci-metadata.sh already compares an image's FULL label
+# map against contracts/images/<image>.yaml, and the staging workflow runs it for
+# all ten images. But that only happens once an image has been BUILT AND STAGED —
+# a privileged run, minutes in. The drift it catches (a licence changed in the
+# Dockerfile and not in the contract, a base image bumped and not recorded) is
+# visible in the source, so it can be caught in a pull request instead.
+#
+# This is the source-level half of the same rule. It reads the required key set
+# from the verifier itself rather than restating it, so adding a required
+# dimension there cannot leave this check silently narrower.
+# ---------------------------------------------------------------------------
+required_keys() {
+  sed -n '/^REQUIRED_STATIC_KEYS=/,/^"$/p' scripts/release/verify-oci-metadata.sh \
+    | grep -E '^(org|com)\.' | tr -d '"'
+}
+ck "the required static key set is non-empty (it is read, not restated)" \
+   "[ \"\$(required_keys | grep -c .)\" -ge 6 ]"
+
+for c in contracts/images/*.yaml; do
+  fam="$(yq -r '.image' "$c")"; sel="$(yq -r '.selector' "$c")"
+  df="images/$fam/Dockerfile"; [ -f "$df" ] || df="images/$fam/$sel/Dockerfile"
+  ck "$fam/$sel: contract pins every required static label" \
+     "! comm -23 <(required_keys | sort) <(yq -r '.oci_static // {} | keys | .[]' '$c' | sort) | grep -q ."
+
+  while IFS= read -r key; do
+    want="$(yq -r ".oci_static.\"$key\"" "$c")"
+    # LABEL lines in these Dockerfiles are `key="value"`, one per line.
+    got="$(grep -oE "(^|[[:space:]])${key//./\\.}=\"[^\"]*\"" "$df" | head -1 | cut -d'"' -f2)"
+    ck "$fam/$sel: Dockerfile $key matches the contract" '[ "'"$got"'" = "'"$want"'" ]'
+  done < <(yq -r '.oci_static // {} | keys | .[]' "$c")
+done
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_oci_version_label: PASS" || echo "test_oci_version_label: FAIL"
 exit $fail

@@ -28,6 +28,7 @@ echo "== Zenchron Foundry — macro validation (offline) =="
 gate "repo structure"            bash scripts/check-structure.sh
 gate "action pinning"            bash scripts/assert-pinned-actions.sh
 gate "container pinning"         bash scripts/assert-pinned-containers.sh
+gate "examples pinned/fail-closed" bash scripts/assert-examples-pinned.sh
 gate "no wolfi/apk guard"        bash scripts/assert-no-wolfi.sh
 gate "image matrix (10/10)"      bash scripts/assert-image-matrix.sh
 gate "environment names"         bash scripts/assert-environment-names.sh
