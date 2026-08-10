@@ -37,13 +37,27 @@ compatibility, `cap_drop: ALL`, no-new-privileges, OCI labels, SBOM, scanning.
 
 ## Risk handling
 
-- CI **scans** legacy images (Trivy/Grype) but **does not gate** the build on
-  their CVEs — EOL CVEs frequently have no fix. Findings are recorded as
-  awareness artifacts, not blockers (`legacy: true` matrix flag).
-- Dependabot watches legacy bases **monthly** and PRs are reviewed manually.
-- Legacy images are owned jointly by platform + security (see `CODEOWNERS`).
-- Tags are kept on a separate line (`7.4-prod`, `8.0-prod`) and must never be
-  confused with supported tags.
+This section used to describe a CI scan behind a per-image legacy matrix flag, a
+monthly Dependabot watch on the legacy bases, and joint `CODEOWNERS` ownership.
+**None of those exist**, and the claim contradicted the "Frozen" section directly
+above it. What is true:
+
+- There is **no legacy matrix entry** and no per-image legacy flag anywhere in
+  `.github/workflows/`. `scripts/assert-image-matrix.sh` asserts the matrix is
+  exactly the ten supported images and **fails** if a `php-*/7.4` or `php-*/8.0`
+  directory reappears.
+- **Nothing scans them.** They are not built, so there is no image for
+  `scan-images.yml` to scan. Their CVE state is whatever it was on the day they
+  were last published, and it only gets worse.
+- **Dependabot does not watch them.** `.github/dependabot.yml` contains no legacy
+  entry, and `scripts/assert-dependabot-manifests.sh` requires every declared
+  directory to have a real manifest.
+- Tags remain on a separate line (`7.4-prod`, `8.0-prod`) and must never be
+  confused with supported tags. That part was, and remains, correct.
+
+The practical consequence for a consumer: pulling a legacy tag gets an image
+frozen at its last build, with no scan evidence, no rebuild and no update path.
+That is the risk the migration deadline exists to end.
 
 ## Migration expectation
 

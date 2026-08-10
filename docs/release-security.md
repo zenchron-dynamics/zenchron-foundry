@@ -112,7 +112,10 @@ first (RA-05).
 See `docs/vulnerability-exceptions.md`. The former Caddy CVE-2026-34986
 accepted-risk gate is **resolved** — the pinned base already ships the fixed
 `go-jose/v3 v3.0.5`, the exception is removed, and Caddy is a clean gate for it.
-Remaining exceptions are unfixed Debian distro CVEs behind `--ignore-unfixed`.
+Remaining exceptions are unfixed Debian distro CVEs. They are **not** filtered
+out by the scanner: since #102/#103 the gate reports every CRITICAL/HIGH and each
+one must carry its own scoped, dated record in
+`policies/vulnerability-exceptions.yaml` or the build fails.
 
 ## Protected environments
 
