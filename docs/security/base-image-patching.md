@@ -26,16 +26,22 @@ When Trivy/Grype report a CRITICAL/HIGH, classify it:
 |-------|--------|
 | Fixable, fix in a newer base digest | Bump the digest, rebuild, publish. |
 | Fixable, but upstream image hasn't rebuilt (e.g. `nginx`/`caddy` lag) | Track; the weekly cron picks up the upstream rebuild. Compensating controls below. Time-box an exception if it lingers. |
-| Unfixed distro CVE (no Debian fix; `perl-base`, `zlib1g`, `libsqlite3-0`, …) | Not actionable — document in `vulnerability-management.md`; the gate ignores unfixed. |
+| Unfixed distro CVE (no Debian fix; `perl-base`, `zlib1g`, `libsqlite3-0`, …) | Not remediable here, but **not ignored**: write a scoped, dated record in `policies/vulnerability-exceptions.yaml`, or the build fails. |
 | Build-only dependency | Verify it is absent from the final image (toolchain is stripped). |
-| False positive | Document evidence; add to `policies/.trivyignore` with rationale + review date. |
+| False positive | Add a `not_affected:` record with a version binding, so the determination self-invalidates when the package moves. `policies/.trivyignore` is gone — one global ignore file suppressed a CVE on all ten images (#102/#103). |
 
 ## Enforcing gate
 
-`scan-images.yml` fails the build on **fixable** CRITICAL/HIGH
-(`--ignore-unfixed`) for the PHP images. The edge images (`nginx`, `caddy`) are
-scan-and-report because we do not rebuild their binaries; their fixable findings
-are governed by upstream rebuild cadence.
+`scan-images.yml` reports the **complete** CRITICAL/HIGH finding set and fails
+the build on any finding that is not governed by a record in
+`policies/vulnerability-exceptions.yaml`. Fixed or unfixed makes no difference to
+whether a finding must be governed — only to what the record says.
+
+This applies to **all ten images on identical terms**, edge images included.
+There is no per-image gate flag and a report-only image cannot be expressed. The
+edge images were scan-and-report until #136; that is no longer true, and "we do
+not rebuild their binaries" is now the *content* of their exception records
+rather than a reason to skip the gate.
 
 ## Base rebuild cadence
 

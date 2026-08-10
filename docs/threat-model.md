@@ -32,15 +32,17 @@ risks. Consuming apps own their own application-layer threat models.
 | T8 | **Container escape / privilege** | Non-root 10001; cap_drop ALL; no-new-privileges; read-only rootfs; no privileged; no docker.sock; pids_limit | Kernel 0-day (host patching out of scope) |
 | T9 | **Legacy EOL PHP exploitation** (7.4/8.0) | Isolated, labeled high-risk; not internet-exposed; migration mandate; awareness scanning | **Accepted, temporary** — no upstream fixes exist |
 | T10 | **Supervisor masking crashes / signal mishandling** in workers | One-process-per-container; tini PID1; graceful SIGTERM; orchestrator restart | — |
-| T11 | **Healthcheck tooling as attack surface** | Minimal `cgi-fcgi` only; no curl/wget; prefer orchestrator probes | small busybox surface on FPM |
+| T11 | **Healthcheck tooling as attack surface** | **No** healthcheck client is shipped: no curl, no wget, no `cgi-fcgi`. Each family probes with something already in the image — php-fpm and php-frankenphp use the bundled `php` binary, nginx uses `IO::Socket::INET` from `perl-base`, php-worker reads a heartbeat file | probe code runs in-image, so a healthcheck defect is a container-local failure |
 | T12 | **Privileged port binding** forces root | High ports 8080/8443; NET_BIND_SERVICE only if needed; LB TLS termination | — |
 
 ## Accepted risks (explicit)
 
 - **Legacy 7.4/8.0 carry unpatched CVEs** (T9). Mitigated by isolation, no
   public exposure, and a migration deadline. Re-reviewed quarterly.
-- **Near-distroless, not fully shell-less FPM** (T11). busybox + cgi-fcgi remain
-  for the healthcheck; revisited if a static-binary healthcheck path matures.
+- **Near-distroless, not fully shell-less FPM** (T11). A shell remains for the
+  entrypoint; no healthcheck client does. `cgi-fcgi` was never shipped in the
+  Debian images and busybox is not present — the probe uses the bundled `php`
+  binary.
 - **Single-region GHCR dependency** (T4). Availability, not integrity, risk.
 
 ## Out of scope

@@ -141,11 +141,25 @@ is configured and tested for all contributors.
 
 ## Required reviews & ownership
 
-`CODEOWNERS` routes Dockerfiles/images, workflows, policies, profiles, and docs
-to owners. **No org teams exist yet**, so `CODEOWNERS` currently points at the
-repo admin handle as a working fallback. Create `platform` and `security` teams
-and migrate per [github-org-setup.md](github-org-setup.md), then raise the review
-count for security-sensitive paths.
+`CODEOWNERS` (repository root) routes Dockerfiles/images, workflows, policies,
+profiles, and security-sensitive docs to `@zenchron-dynamics/platform` and
+`@zenchron-dynamics/security`.
+
+**Both teams exist, and both have exactly one member — the same person.**
+Verified 2026-08-11: `platform` = `bogdaniel`, `security` = `bogdaniel`, and the
+organization has one member in total.
+
+So Code Owner routing here is a **change-notification and file-scoping**
+mechanism. It is **not** segregation of duties: no review it triggers can reach a
+second party, and raising the required review count for security-sensitive paths
+would not change that — it would only make the single maintainer approve twice.
+
+This paragraph used to say the organization had no teams and that `CODEOWNERS`
+pointed at a personal admin handle as a fallback, and sent the reader to
+[github-org-setup.md](github-org-setup.md) to migrate. That migration already
+happened. What did not happen — and cannot happen inside engineering — is a
+second reviewer. The operating model and its compensating controls are tracked
+in #112. Do not describe the current state as independent review.
 
 ## Dependabot
 

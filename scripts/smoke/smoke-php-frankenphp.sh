@@ -5,7 +5,8 @@
 #
 # Ground truth (images/php-frankenphp/8.{3,4}/Dockerfile + Caddyfile):
 #   ENTRYPOINT ["frankenphp"]; CMD ["run","--config","/etc/frankenphp/Caddyfile"].
-#   USER 10001:10001; SERVER_NAME=":8080"; root * /app/public; EXPOSE 8080 8443 8081.
+#   USER 10001:10001; SERVER_NAME=":8080"; root * /app/public; EXPOSE 8080 8081.
+#   (8443 went with TLS termination; this image terminates no TLS.)
 #   Readiness site :8081 responds /healthz "ok" 200. XDG_*HOME under /tmp/caddy-*,
 #   so a single tmpfs /tmp satisfies a read-only rootfs.
 # =============================================================================
