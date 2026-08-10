@@ -45,7 +45,7 @@ The php images cannot: `libcurl.so.4` is linked into the php binary and the
 
 Probed on `ghcr.io/zenchron-dynamics/php-cli:8.4-prod`:
 
-```
+```text
 dpkg-query -W curl libcurl4 libgssapi-krb5-2
   curl              7.88.1-10+deb12u15
   libcurl4          7.88.1-10+deb12u15
@@ -108,7 +108,7 @@ Confirmed on the shipped image rather than taken on Debian's word.
 actual shared object finds no trace of the RFC 8308 extension-negotiation code
 that CVE-2026-55199 requires:
 
-```
+```text
 grep -a -o -E 'ext-info-[cs]|server-sig-algs' /usr/lib/x86_64-linux-gnu/libssh2.so.1.0.1
   (no matches)
 
