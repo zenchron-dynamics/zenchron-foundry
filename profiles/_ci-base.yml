@@ -17,6 +17,10 @@ services:
     image: busybox:stable
   caddy:
     image: busybox:stable
+  # php-frankenphp ships as its own image family and the security profile names
+  # it, so the stub must declare it or the overlay fails to merge.
+  frankenphp:
+    image: busybox:stable
   scheduler:
     image: busybox:stable
   migrate:
