@@ -31,6 +31,8 @@ ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 #
 # tests/release/test_rc_identity.sh
 #   - publish-rc serializes signing (org-cosign-publish, never cancelled)
+#   - scheduled-rebuild joins the SAME org-cosign-publish group  [#82]
+#   - the signing matrix isolates cosign per job (HOME/COSIGN_* per job) [#82]
 #   - publish-ghcr computes immutable RC tag
 #   - publish-ghcr runs the immutability probe
 #   - publish-rc requires input: version / rc / expected_revision / confirmation
@@ -85,6 +87,48 @@ done
 
 ck "the reusable production publisher is gone from the tree" \
    "! test -f .github/workflows/publish-ghcr.yml"
+
+# --- #82: the ~/.cosign race, and why it cannot happen today ----------------
+# publish-rc and scheduled-rebuild both targeted the self-hosted ORG pool, which
+# has two slots and one shared $HOME/.cosign. With separate concurrency groups
+# they could run at once and race that directory — observed twice, once failing a
+# release mid-publish. The fix asked for was a shared `org-cosign-publish` group
+# plus per-job cosign isolation.
+#
+# Neither is implementable today and neither is needed today: both workflows are
+# refuse-only stubs on a GitHub-hosted runner that sign nothing. Asserting a
+# concurrency group on a workflow that cannot collide would be theatre. What IS
+# assertable is the precondition — that they cannot reach the shared home at all.
+for wf in publish-rc scheduled-rebuild; do
+  f=".github/workflows/$wf.yml"
+  ck "$wf runs GitHub-hosted (never the shared-cosign org pool)" \
+     "! grep -qE 'runs-on:.*(self-hosted|zenchron-dynamics)' $f"
+  # Comment lines are excluded on purpose: both headers DESCRIBE the deleted
+  # signing they used to do, and that prose is the record of what was removed.
+  ck "$wf signs nothing (no cosign outside the explanatory header)" \
+     "! grep -vE '^[[:space:]]*#' $f | grep -qiE 'cosign|COSIGN_'"
+done
+
+# The forward guard. When publication returns (#139) and either workflow regains
+# a signing step, the group is no longer optional — and this fails until BOTH
+# declare the same one. That is the guarantee the inventory above records, made
+# executable rather than left as a comment for someone to remember.
+ck "if either workflow signs again, both must share one concurrency group" \
+   'python3 -c "
+import sys, yaml
+files = {w: \".github/workflows/%s.yml\" % w for w in (\"publish-rc\", \"scheduled-rebuild\")}
+signs, groups = {}, {}
+for w, f in files.items():
+    raw = open(f).read()
+    code = \"\\n\".join(l for l in raw.splitlines() if not l.lstrip().startswith(\"#\"))
+    signs[w] = (\"cosign\" in code.lower())
+    groups[w] = ((yaml.safe_load(raw) or {}).get(\"concurrency\") or {}).get(\"group\")
+if not any(signs.values()):
+    sys.exit(0)                       # nothing signs yet: nothing to serialize
+if groups[\"publish-rc\"] is None or groups[\"publish-rc\"] != groups[\"scheduled-rebuild\"]:
+    print(\"a signing workflow reappeared without a shared concurrency group: %r\" % groups)
+    sys.exit(1)
+"' 
 INVENTORY_COUNT="$(grep -c '^#   - ' "$0")"
 ck "the inventory above is not empty (it is the restoration checklist)" \
    "[ \"$INVENTORY_COUNT\" -gt 20 ]"
