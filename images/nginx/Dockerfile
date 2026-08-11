@@ -9,7 +9,12 @@
 # Patch model: bump the pinned base digest to absorb CVEs — do NOT apt-get
 # upgrade inside the image (see docs/security/base-image-patching.md).
 # =============================================================================
-ARG NGINX_BASE="nginxinc/nginx-unprivileged:1.27-bookworm@sha256:f9dfa9c20b2b0b7c5cc830374f22f23dee3f750b6c5291ca7e0330b5c88e6403"
+# Upstream LINE POLICY: track the nginx STABLE line, not mainline (#104).
+# 1.27 was a mainline line and is no longer listed on nginx.org at all — it was
+# superseded by the 1.28 stable branch. `stable-bookworm` and `1.28-bookworm`
+# resolve to the same digest. Lifecycle state and the maximum permitted lag are
+# declared in policies/lifecycle.yaml and gated by scripts/assert-lifecycle.sh.
+ARG NGINX_BASE="nginxinc/nginx-unprivileged:1.28-bookworm@sha256:cd33960e98e93d4d63385790ff7f8f5bf2ca95184c581b7f42ae8aea1139fbfc"
 
 FROM ${NGINX_BASE} AS runtime
 
@@ -20,14 +25,15 @@ LABEL org.opencontainers.image.title="zenchron-nginx" \
       org.opencontainers.image.description="Hardened nginx for PHP-FPM upstream / static assets, Debian-based" \
       org.opencontainers.image.vendor="Zenchron Dynamics" \
       org.opencontainers.image.source="https://github.com/zenchron-dynamics/zenchron-foundry" \
-      org.opencontainers.image.base.name="docker.io/nginxinc/nginx-unprivileged:1.27-bookworm" \
+      org.opencontainers.image.base.name="docker.io/nginxinc/nginx-unprivileged:1.28-bookworm" \
       org.opencontainers.image.version="prod" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.licenses="LicenseRef-Zenchron-Internal" \
       com.zenchron.runtime="nginx" \
       com.zenchron.base="debian-bookworm" \
-      com.zenchron.support="supported"
+      com.zenchron.support="supported" \
+      com.zenchron.support_state="supported"
 
 # Already runs as uid 101 (nginx) in the upstream unprivileged image. Switch to
 # root only to install our hardened config / fix ownership, then drop back.

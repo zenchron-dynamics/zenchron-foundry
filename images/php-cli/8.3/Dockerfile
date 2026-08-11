@@ -63,7 +63,8 @@ LABEL org.opencontainers.image.title="zenchron-php-cli" \
       com.zenchron.runtime="php-cli" \
       com.zenchron.php="8.3" \
       com.zenchron.base="debian-bookworm" \
-      com.zenchron.support="supported"
+      com.zenchron.support="supported" \
+      com.zenchron.support_state="security-only"
 
 # Runtime shared libraries for the compiled extensions ONLY (no -dev), then strip
 # the compiler toolchain the official php base inherits from buildpack-deps so no

@@ -28,7 +28,8 @@ LABEL org.opencontainers.image.title="zenchron-caddy" \
       org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.licenses="LicenseRef-Zenchron-Internal" \
       com.zenchron.runtime="caddy" \
-      com.zenchron.support="supported"
+      com.zenchron.support="supported" \
+      com.zenchron.support_state="supported"
 
 COPY Caddyfile   /etc/caddy/Caddyfile
 COPY conf.d/     /etc/caddy/conf.d/

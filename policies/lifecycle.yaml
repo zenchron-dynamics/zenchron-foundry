@@ -1,0 +1,202 @@
+# =============================================================================
+# policies/lifecycle.yaml — upstream lifecycle state for every input we pin.
+# -----------------------------------------------------------------------------
+# WHY THIS FILE EXISTS (#104, #105, #106).
+#
+# Digest pinning fixes WHAT we build on. It says nothing about whether that
+# thing is still maintained. The nginx base sat on 1.27 — a mainline line that
+# upstream had already superseded and which nginx.org no longer lists at all —
+# while docs/base-image-strategy.md called it "nginx 1.27 stable". Nothing in the
+# repository could notice, because no file recorded what "supported" means for an
+# upstream line, and the vulnerability gate only sees CVEs that have already been
+# published against the version we ship.
+#
+# A pinned base going quietly unmaintained is not a CVE. It is the condition that
+# makes future CVEs unfixable, and it needs its own signal.
+#
+# WHAT THIS IS NOT. Not a vulnerability ledger — that is
+# policies/vulnerability-exceptions.yaml. Not a source of digests — the
+# Dockerfiles hold those and remain the single place a base is chosen. This file
+# records the LIFECYCLE FACTS about the lines those digests belong to, and the
+# lag we are prepared to accept before it becomes a decision.
+#
+# Enforced by scripts/assert-lifecycle.sh:
+#   * offline  — every entry is complete, internally consistent, and inside its
+#                declared support window and lag budget for TODAY.
+#   * --check-upstream — additionally re-resolves the tracked tag and reports
+#                drift between what upstream serves and what we pin.
+#
+# Dates are the authority's, not ours. Every one carries `source:` so a reviewer
+# can re-derive it rather than trust this file.
+# =============================================================================
+schema_version: 1
+
+# How stale an input may get before the gate stops warning and starts failing.
+# Deliberately short for a line that is ALREADY unsupported: at that point every
+# day is a day of accruing unfixable findings.
+policy:
+  # Warn this far ahead of a line's support end so a migration can be planned
+  # rather than performed under pressure.
+  warn_days_before_support_end: 180
+  # A line whose support has ended may be shipped for at most this long while a
+  # migration completes. Past it, the build fails.
+  grace_days_after_support_end: 90
+  # Review cadence for this file itself. A lifecycle inventory nobody re-reads is
+  # the same failure as a document nobody re-reads.
+  review_every_days: 90
+  last_reviewed: 2026-08-12
+  reviewed_by: Zenchron Dynamics / Platform Security
+
+lines:
+  # --- operating system -----------------------------------------------------
+  - id: debian-bookworm
+    kind: os
+    tracks: "Debian 12 (bookworm)"
+    upstream_state: oldstable
+    # Debian 12 left "stable" when Debian 13 (trixie) released. Regular security
+    # support runs to 2028-06-30, after which LTS takes over to 2030-06-30.
+    # docs/base-image-strategy.md called bookworm "the current Debian stable",
+    # which stopped being true at the trixie release.
+    support_ends: 2028-06-30
+    lts_ends: 2030-06-30
+    source: "https://www.debian.org/releases/ | https://wiki.debian.org/LTS"
+    used_by: [php-cli, php-fpm, php-worker, php-frankenphp, nginx]
+    support_state: supported
+    successor: debian-trixie
+    migration_plan: docs/migration/debian-13-trixie.md
+    note: >-
+      oldstable is a SUPPORTED state, not an expired one. The reason to migrate is
+      that the window closes on a schedule we do not control, and the PHP and
+      nginx images must move together with their upstream tags.
+
+  - id: debian-trixie
+    kind: os
+    tracks: "Debian 13 (trixie)"
+    upstream_state: stable
+    support_ends: 2030-06-30
+    source: "https://www.debian.org/releases/"
+    used_by: []
+    note: >-
+      Target of the migration in docs/migration/debian-13-trixie.md. Not yet used
+      by any shipped image. nginx-unprivileged already publishes trixie variants;
+      the PHP and FrankenPHP bases are the gating inputs.
+
+  # --- nginx ----------------------------------------------------------------
+  - id: nginx-1.28
+    kind: server
+    tracks: "nginx 1.28 (stable branch)"
+    upstream_state: supported
+    upstream_tag: "nginxinc/nginx-unprivileged:1.28-bookworm"
+    equivalent_tags: ["nginxinc/nginx-unprivileged:stable-bookworm"]
+    # nginx stable branches are maintained until the next stable branch has
+    # settled; there is no published calendar date. Reviewed on the cadence above
+    # against nginx.org rather than asserted here as a date we invented.
+    support_ends: null
+    support_ends_note: >-
+      nginx publishes no calendar EOL for stable branches. This entry is reviewed
+      against nginx.org/en/download.html on the cadence in `policy:` instead, and
+      `line_policy` below is what the gate actually enforces.
+    line_policy: stable
+    support_state: supported
+    source: "https://nginx.org/en/download.html"
+    used_by: [nginx]
+    superseded_lines: [nginx-1.27]
+    note: >-
+      As of 2026-08-12 nginx.org lists mainline 1.31.3 and stable 1.30.4, while
+      the nginx-unprivileged image's own `stable-bookworm` tag is 1.28.0. We track
+      the IMAGE's stable tag, because the image is the artefact we consume; that
+      the image lags nginx.org is itself a fact worth having written down.
+
+  - id: nginx-1.27
+    kind: server
+    tracks: "nginx 1.27 (mainline branch, superseded)"
+    upstream_state: unsupported
+    # 1.27 is not listed on nginx.org's download page at all — neither current nor
+    # legacy. It was a mainline line, superseded by the 1.28 stable branch.
+    support_ends: 2025-04-01
+    support_ends_note: >-
+      approximate: nginx does not publish per-branch EOL dates for mainline lines.
+      Dated to the 1.28 stable branch opening, after which 1.27 received nothing.
+    source: "https://nginx.org/en/download.html"
+    used_by: []
+    note: >-
+      RETIRED 2026-08-12 (#104). This entry is kept, not deleted: it is what makes
+      the gate able to say "you have moved back onto an unsupported line" if a
+      future digest bump lands on 1.27 again.
+
+  # --- PHP ------------------------------------------------------------------
+  # php.net publishes exact dates per branch. `active` = bug + security fixes;
+  # `security` = security fixes only. Shipping a security-only line is a policy
+  # choice, not a defect — but it must be a STATED one, and consumers must be able
+  # to see it. That is what com.zenchron.support_state carries on the image.
+  - id: php-8.3
+    kind: runtime
+    tracks: "PHP 8.3"
+    upstream_state: security-only
+    active_support_ended: 2025-12-31
+    support_ends: 2027-12-31
+    source: "https://www.php.net/supported-versions.php"
+    used_by: [php-cli, php-fpm, php-worker, php-frankenphp]
+    support_state: security-only
+    note: >-
+      Left active support on 2025-12-31. Still shipped deliberately, for consumers
+      who have not migrated. docs/php-version-policy.md carries the retirement
+      schedule and the notice period.
+
+  - id: php-8.4
+    kind: runtime
+    tracks: "PHP 8.4"
+    upstream_state: active
+    active_support_ends: 2026-12-31
+    support_ends: 2028-12-31
+    source: "https://www.php.net/supported-versions.php"
+    used_by: [php-cli, php-fpm, php-worker, php-frankenphp]
+    support_state: active
+    note: "The recommended line for new consumers until PHP 8.5 images exist."
+
+  - id: php-8.5
+    kind: runtime
+    tracks: "PHP 8.5"
+    upstream_state: active
+    active_support_ends: 2027-12-31
+    support_ends: 2029-12-31
+    source: "https://www.php.net/supported-versions.php"
+    used_by: []
+    support_state: not-yet-offered
+    note: >-
+      In active upstream support and NOT yet offered by Foundry (#106). Recorded
+      here so the gap is visible in the inventory rather than only in an issue.
+      Entry criteria and the blocking dependency are in docs/php-version-policy.md.
+
+  # --- other pinned runtimes ------------------------------------------------
+  - id: frankenphp-1.x
+    kind: server
+    tracks: "FrankenPHP 1.x"
+    upstream_state: supported
+    upstream_tag: "dunglas/frankenphp:1-php8.4-bookworm"
+    support_ends: null
+    support_ends_note: "FrankenPHP publishes no per-branch EOL calendar."
+    line_policy: latest-major
+    support_state: supported
+    source: "https://github.com/php/frankenphp/releases"
+    used_by: [php-frankenphp]
+    note: >-
+      Its bundled Go modules are a separate supply-chain input from its PHP line
+      and are NOT covered by a digest bump — see #79, where the newest 1.x base
+      still ships kin-openapi v0.140.0 and grpc v1.81.1.
+
+  - id: caddy-2.x
+    kind: server
+    tracks: "Caddy 2.x"
+    upstream_state: supported
+    upstream_tag: "caddy:2-alpine"
+    support_ends: null
+    support_ends_note: "Caddy publishes no per-branch EOL calendar."
+    line_policy: latest-major
+    support_state: supported
+    source: "https://github.com/caddyserver/caddy/releases"
+    used_by: [caddy]
+    note: >-
+      As of 2026-08-12 `2-alpine`, `2.11-alpine` and `2.11.4-alpine` all resolve to
+      the digest we pin — we are ON the current release, and its vendored
+      golang.org/x/text is still v0.37.0 (#140).

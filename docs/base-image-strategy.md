@@ -19,13 +19,13 @@ changing them. Decision record: `docs/adr/ADR-0001-remove-wolfi-chainguard.md`.
 
 | Family | Registry / repo | Tag | Platform(s) | License | Lifecycle |
 |--------|-----------------|-----|-------------|---------|-----------|
-| `php-cli` 8.4 | docker.io `library/php` | `8.4-cli-bookworm` | amd64, arm64 | PHP License + Debian (mixed) | PHP 8.4 active; Debian 12 supported to ~2028 |
-| `php-cli` 8.3 | docker.io `library/php` | `8.3-cli-bookworm` | amd64, arm64 | as above | PHP 8.3 active |
-| `php-fpm` 8.4 | docker.io `library/php` | `8.4-fpm-bookworm` | amd64, arm64 | as above | PHP 8.4 active |
-| `php-fpm` 8.3 | docker.io `library/php` | `8.3-fpm-bookworm` | amd64, arm64 | as above | PHP 8.3 active |
+| `php-cli` 8.4 | docker.io `library/php` | `8.4-cli-bookworm` | amd64, arm64 | PHP License + Debian (mixed) | PHP 8.4 **active** to 2026-12-31 |
+| `php-cli` 8.3 | docker.io `library/php` | `8.3-cli-bookworm` | amd64, arm64 | as above | PHP 8.3 **security-only** since 2025-12-31 |
+| `php-fpm` 8.4 | docker.io `library/php` | `8.4-fpm-bookworm` | amd64, arm64 | as above | PHP 8.4 **active** to 2026-12-31 |
+| `php-fpm` 8.3 | docker.io `library/php` | `8.3-fpm-bookworm` | amd64, arm64 | as above | PHP 8.3 **security-only** since 2025-12-31 |
 | `php-worker` 8.x | docker.io `library/php` | `8.x-cli-bookworm` | amd64, arm64 | as above | tracks the CLI base |
 | `php-frankenphp` 8.x | docker.io `dunglas/frankenphp` | `1-php8.x-bookworm` | amd64, arm64 | MIT (FrankenPHP) + Debian | FrankenPHP 1.x; PHP ≥ 8.2 |
-| `nginx` | docker.io `nginxinc/nginx-unprivileged` | `1.27-bookworm` | amd64, arm64 | BSD-2 (nginx) + Debian | nginx 1.27 stable |
+| `nginx` | docker.io `nginxinc/nginx-unprivileged` | `1.28-bookworm` | amd64, arm64 | BSD-2 (nginx) + Debian | nginx 1.28, the image's **stable** line (`stable-bookworm` resolves to the same digest) |
 | `caddy` | docker.io `library/caddy` | `2-alpine` | amd64, arm64 | Apache-2.0 (Caddy) + Alpine | Caddy 2.x |
 
 > The exact pinned digests live in each Dockerfile and in
@@ -34,11 +34,26 @@ changing them. Decision record: `docs/adr/ADR-0001-remove-wolfi-chainguard.md`.
 
 ## Why Debian bookworm
 
-- `php:*-bookworm` is the official, freshly-rebuilt PHP image on the current
-  Debian stable. We do **not** hardcode `bookworm` blindly — it is the supported
-  Debian stable that the chosen PHP tags publish against. When Debian 13
-  (`trixie`) becomes the PHP default, bump the tag + digest in one reviewed PR.
-- Debian stable, not testing/unstable: predictable security support.
+Bookworm is Debian **12**, and it is **oldstable** — Debian 13 (`trixie`) is the
+current stable. This section used to call bookworm "the current Debian stable";
+that stopped being true at the trixie release, and #105 exists because an
+outdated lifecycle assumption is how a migration becomes urgent instead of
+planned.
+
+- oldstable is a **supported** state, not an expired one: regular security
+  support to **2028-06-30**, then LTS to **2030-06-30**.
+- `php:*-bookworm` is the official, freshly-rebuilt PHP image on the line the
+  chosen PHP tags publish against. We do not hardcode `bookworm` blindly — we
+  follow what upstream PHP publishes, and moving is gated on upstream publishing
+  trixie variants for **every** family we ship.
+- Debian stable/oldstable, never testing/unstable: predictable security support.
+
+The migration is planned rather than pending-forever:
+[docs/migration/debian-13-trixie.md](migration/debian-13-trixie.md). Lifecycle
+state, dates and the lag budget live in
+[`policies/lifecycle.yaml`](../policies/lifecycle.yaml) and are enforced by
+`scripts/assert-lifecycle.sh`, which fails the build **before** a line we ship on
+goes unmaintained.
 
 ## The Caddy exception
 
@@ -50,6 +65,11 @@ when Caddy upstream rebuilds; the weekly scan surfaces drift.
 
 ## Rules for adding/changing a base
 
+0. Record the LINE in [`policies/lifecycle.yaml`](../policies/lifecycle.yaml)
+   with its upstream state, its support dates and the source they came from. A
+   base whose line is not in the inventory fails `scripts/assert-lifecycle.sh`,
+   because an untracked line is one that can go unmaintained unnoticed — which is
+   exactly what happened to nginx 1.27 (#104).
 1. Must be an official upstream image; otherwise write an ADR.
 2. Pin `tag@sha256:`. CI (`scripts/check-structure.sh`) fails unpinned or
    `latest`-only bases.
