@@ -34,11 +34,12 @@ oci_static:
   "org.opencontainers.image.description": "Hardened nginx for PHP-FPM upstream / static assets, Debian-based"
   "org.opencontainers.image.vendor": "Zenchron Dynamics"
   "org.opencontainers.image.source": "https://github.com/zenchron-dynamics/zenchron-foundry"
-  "org.opencontainers.image.base.name": "docker.io/nginxinc/nginx-unprivileged:1.27-bookworm"
+  "org.opencontainers.image.base.name": "docker.io/nginxinc/nginx-unprivileged:1.28-bookworm"
   "org.opencontainers.image.licenses": "LicenseRef-Zenchron-Internal"
   "com.zenchron.base": "debian-bookworm"
   "com.zenchron.runtime": "nginx"
   "com.zenchron.support": "supported"
+  "com.zenchron.support_state": "supported"
 
 # The version label this image must carry. `prod` stays `prod` — hardcoding
 # "<selector>-prod" is what produced "prod-prod" for the edge images.

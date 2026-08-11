@@ -35,6 +35,7 @@ oci_static:
   "org.opencontainers.image.licenses": "LicenseRef-Zenchron-Internal"
   "com.zenchron.runtime": "caddy"
   "com.zenchron.support": "supported"
+  "com.zenchron.support_state": "supported"
 
 # The version label this image must carry. `prod` stays `prod` — hardcoding
 # "<selector>-prod" is what produced "prod-prod" for the edge images.

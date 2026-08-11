@@ -60,7 +60,8 @@ LABEL org.opencontainers.image.title="zenchron-php-fpm" \
       com.zenchron.runtime="php-fpm" \
       com.zenchron.php="8.4" \
       com.zenchron.base="debian-bookworm" \
-      com.zenchron.support="supported"
+      com.zenchron.support="supported" \
+      com.zenchron.support_state="active"
 
 # Runtime shared libraries only, then strip the inherited compiler toolchain.
 # hadolint ignore=DL3008

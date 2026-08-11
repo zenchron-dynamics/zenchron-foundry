@@ -31,6 +31,7 @@ oci_static:
   "com.zenchron.php": "8.4"
   "com.zenchron.runtime": "php-fpm"
   "com.zenchron.support": "supported"
+  "com.zenchron.support_state": "active"
 
 # The version label this image must carry. `prod` stays `prod` — hardcoding
 # "<selector>-prod" is what produced "prod-prod" for the edge images.
