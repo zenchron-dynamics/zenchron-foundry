@@ -19,6 +19,57 @@
 	}
 }
 
+# Reusable PRIVACY-MINIMISED ACCESS LOG, imported by sites (#107).
+#
+# Caddy writes no access log unless a site asks for one, so this is opt-IN by
+# Caddy's design rather than ours. What we can control is what the opt-in
+# produces: importing `privacy_log` gives a log with no query string, no
+# credential headers and a truncated client address.
+#
+# All of it is Caddy's own `format filter` — `query`, `delete` and `ip_mask` are
+# built in. No hand-rolled hashing and no invented cryptography: IPv4 keeps the
+# /24 and IPv6 the /48, which is enough to see traffic shape and rate-limit
+# patterns and not enough to single out a subscriber.
+(privacy_log) {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				# The query string is where tokens and reset codes live. Caddy's
+				# `query` filter only acts on NAMED parameters, which would mean
+				# maintaining a list of every credential name an application might
+				# invent. `regexp` strips everything from the first `?` instead —
+				# name-independent, so a parameter nobody anticipated is still not
+				# logged. The path survives.
+				request>uri regexp "\?.*$" ""
+				# Credentials, not diagnostics. There is no operational case for
+				# writing these to disk, so they are dropped rather than hashed.
+				request>headers>Authorization delete
+				request>headers>Proxy-Authorization delete
+				request>headers>Cookie delete
+				request>headers>X-Api-Key delete
+				request>headers>X-Auth-Token delete
+				resp_headers>Set-Cookie delete
+				# Referer carries the previous URL, including its query string.
+				request>headers>Referer delete
+				# BOTH, deliberately. Caddy logs `remote_ip` (the peer) AND
+				# `client_ip` (the peer, or the trusted-proxy-resolved originator).
+				# Masking only remote_ip left the full address in client_ip — found
+				# by the canary run, not by reading the config.
+				request>remote_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+				request>client_ip ip_mask {
+					ipv4 24
+					ipv6 48
+				}
+			}
+		}
+	}
+}
+
 # Reusable hardened-headers snippet, imported by sites.
 (security_headers) {
 	header {

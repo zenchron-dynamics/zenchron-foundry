@@ -2,6 +2,25 @@
 
 Defaults baked into images + enforced by `profiles/compose.security.yml`.
 
+**The contract is declared once and executed once** (#110):
+[`policies/runtime-contract.yaml`](../policies/runtime-contract.yaml) holds the
+invariants and the profile; `scripts/runtime-contract.sh` runs **every** image
+under that profile and reads `/proc/1` — the real entrypoint process — to verify
+identity, capabilities, `NoNewPrivs`, seccomp mode, mount flags, listeners, the
+PID limit, healthcheck behaviour and graceful shutdown.
+
+Before it existed, each family's smoke test applied a *different subset* of the
+advertised hardening: the FrankenPHP smoke started with `--read-only --tmpfs /tmp`
+and omitted `cap_drop ALL`, no-new-privileges, PID limits and the
+noexec/nosuid/nodev flags entirely. An image could pass its smoke test and still
+fail under the profile this document tells you to deploy with.
+
+Latest full-matrix result: **10/10 images executed, 164 checks, 0 failures** —
+[`docs/audits/runtime-contract-2026-08-12.json`](audits/runtime-contract-2026-08-12.json).
+
+Syscall and mandatory-access-control confinement: [`security/`](../security)
+(#129). Access-log privacy: [logging-privacy.md](logging-privacy.md) (#107).
+
 ## Identity & filesystem
 
 - **Non-root**, per image. Nine of the ten images run as the platform identity

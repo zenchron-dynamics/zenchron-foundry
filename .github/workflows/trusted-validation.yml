@@ -326,7 +326,7 @@ jobs:
           load: true
           tags: zenchron-trusted/${{ matrix.target.fam }}:${{ matrix.target.ver }}
 
-      - name: Smoke test the built image (runtime contract)
+      - name: Smoke test the built image (family behaviour)
         id: smoke
         env:
           CAPABILITY_INVENTORY_DIR: capability-inventory
@@ -336,6 +336,33 @@ jobs:
           docker image inspect "$IMG" >/dev/null
           rm -rf capability-inventory
           bash "scripts/smoke/smoke-${{ matrix.target.fam }}.sh" "$IMG"
+
+      # THE hardened runtime contract (#110). The smoke script above proves what
+      # this family does; this proves the SAME declared security posture for
+      # every family, under the full profile a consumer is told to deploy with —
+      # cap_drop ALL, no-new-privileges, PID limits and noexec/nosuid/nodev
+      # tmpfs, none of which the per-family smokes applied consistently.
+      # It reads /proc/1: the real entrypoint process, not an exec'd shell.
+      - name: Hardened runtime contract
+        id: runtime_contract
+        env:
+          IMG: zenchron-trusted/${{ matrix.target.fam }}:${{ matrix.target.ver }}
+          SEL: ${{ matrix.target.ver }}
+          FAM: ${{ matrix.target.fam }}
+        run: |
+          set -euo pipefail
+          contract="contracts/images/${FAM}-${SEL}.yaml"
+          [ -f "$contract" ] || { echo "REFUSE: no contract at $contract" >&2; exit 1; }
+          bash scripts/runtime-contract.sh "$IMG" "$contract" \
+            --json "runtime-contract-${FAM}-${SEL}.json"
+
+      # Confinement profiles and the escape hatches that undo them (#129).
+      # The executed layer needs a built image, so it belongs here rather than
+      # in the offline suite.
+      - name: Runtime confinement profiles
+        env:
+          IMG: zenchron-trusted/${{ matrix.target.fam }}:${{ matrix.target.ver }}
+        run: bash scripts/assert-runtime-profiles.sh --executed "$IMG"
 
       # Trivy suppresses NOTHING: it reports the full CRITICAL/HIGH set as JSON
       # (exit 0, so the scan itself is not the gate), and

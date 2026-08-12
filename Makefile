@@ -165,6 +165,10 @@ build-test: ## Build all 10 images locally (load), no push
 smoke-all: ## Runtime smoke tests for all 10 images (fails if zero tested)
 	@bash scripts/smoke-all.sh
 
+.PHONY: runtime-contract
+runtime-contract: ## Hardened runtime contract across the whole matrix (#110)
+	@bash scripts/runtime-contract.sh --all --json runtime-contract-evidence.json
+
 scan-local: ## Trivy/Grype scan locally (SKIPPED if tools absent unless STRICT=1)
 	@if command -v trivy >/dev/null && command -v grype >/dev/null; then \
 	  bash scripts/scan-all.sh; \

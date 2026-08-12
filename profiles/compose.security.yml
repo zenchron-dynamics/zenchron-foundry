@@ -32,9 +32,14 @@ x-zenchron-hardening: &zenchron-hardening
   # explicitly to match, and tests/runtime/test_uid_contract.sh fails if the two
   # ever drift apart.
   # Writable scratch only; noexec/nosuid/nodev.
+  # mode=1777 matters: Docker special-cases /tmp to 1777 and mounts every OTHER
+  # tmpfs mode 755 owned by root, so a non-root image cannot write to it. Caddy's
+  # /data is exactly that case — without this it logs
+  # `open /data/caddy/instance.uuid: read-only file system` on every start, and
+  # the read-only rootfs gets the blame for a mount-mode problem.
   tmpfs:
-    - /tmp:size=64m,noexec,nosuid,nodev
-    - /run:size=8m,noexec,nosuid,nodev
+    - /tmp:size=64m,mode=1777,noexec,nosuid,nodev
+    - /run:size=8m,mode=1777,noexec,nosuid,nodev
   # Bound resources (tune per service/host).
   mem_limit: 512m
   memswap_limit: 512m

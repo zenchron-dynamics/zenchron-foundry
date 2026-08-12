@@ -1,0 +1,56 @@
+# =============================================================================
+# AppArmor reference profile for Zenchron Foundry images (#129).
+#
+# Load on an AppArmor host:   sudo apparmor_parser -r -W security/apparmor/zenchron-container
+# Use:                        docker run --security-opt apparmor=zenchron-container ...
+#
+# This is docker-default plus the things the runtime contract already promises,
+# stated as kernel policy rather than as convention. It is deliberately close to
+# docker-default: a profile that diverges far from it breaks on the next base
+# image change, and a profile nobody can keep loading is worse than the default
+# it replaced.
+#
+# NOT enforced on macOS or Windows hosts, and not on Kubernetes nodes without
+# AppArmor. scripts/assert-runtime-profiles.sh validates its SYNTAX everywhere
+# and executes it only where /sys/kernel/security/apparmor exists — and reports
+# which of the two it did.
+# =============================================================================
+#include <tunables/global>
+
+profile zenchron-container flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  network,
+  capability,
+  file,
+  umount,
+
+  # The images run read-only with a tmpfs for scratch; nothing should be
+  # remounting anything. cap_drop ALL already removes CAP_SYS_ADMIN, so this is
+  # defence in depth rather than the only control.
+  deny @{PROC}/* w,
+  deny @{PROC}/sys/[^k]** w,
+  deny @{PROC}/sys/kernel/{?,??,[^s][^h][^m]**} w,
+  deny @{PROC}/sysrq-trigger rwklx,
+  deny @{PROC}/mem rwklx,
+  deny @{PROC}/kmem rwklx,
+  deny @{PROC}/kcore rwklx,
+
+  deny mount,
+
+  deny /sys/[^f]*/** wklx,
+  deny /sys/f[^s]*/** wklx,
+  deny /sys/fs/[^c]*/** wklx,
+  deny /sys/fs/c[^g]*/** wklx,
+  deny /sys/fs/cg[^r]*/** wklx,
+  deny /sys/firmware/** rwklx,
+  deny /sys/kernel/security/** rwklx,
+
+  # Kernel module loading. Denied by seccomp too; both layers, on purpose.
+  deny /etc/modprobe.d/** wklx,
+  deny /lib/modules/** rwklx,
+
+  # Docker socket, if one is ever mounted by mistake.
+  deny /var/run/docker.sock rwklx,
+  deny /run/docker.sock rwklx,
+}
