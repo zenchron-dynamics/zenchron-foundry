@@ -15,6 +15,9 @@ ARG PHP_CLI_BASE="php:8.3-cli-bookworm@sha256:a4fcf31ffb94b8d19b84514926b5a2cddf
 FROM ${PHP_CLI_BASE} AS build
 
 ARG PHPREDIS_VERSION="6.1.0"
+# Integrity binding for the tarball above. Declared in
+# policies/supply-chain-inputs.yaml; a mismatch fails the build.
+ARG PHPREDIS_SHA256="f10405f639fe415e9ed4ec99538e72c90694d8dbd62868edcfcd6a453466b48c"
 
 # hadolint ignore=DL3008
 RUN set -eux; \
@@ -39,7 +42,23 @@ RUN set -eux; \
         sockets \
         zip \
         gd; \
-    pecl install "redis-${PHPREDIS_VERSION}"; \
+    # #101: fetch and VERIFY, then install from the verified file. `pecl install
+    # redis-X.Y.Z` pins the version but resolves and downloads the tarball
+    # itself, so the build trusted whatever pecl.php.net served at that instant —
+    # a version pin without an integrity binding. The checksum is declared in
+    # policies/supply-chain-inputs.yaml and asserted against this line by
+    # scripts/assert-supply-chain-inputs.sh, so the two cannot drift apart.
+    curl -fsSL -o /tmp/redis.tgz \
+        "https://pecl.php.net/get/redis-${PHPREDIS_VERSION}.tgz"; \
+    # Written to a file rather than piped into `sha256sum -c -`: a pipe in a RUN
+    # trips hadolint DL4006, and without `pipefail` a pipeline reports only its
+    # LAST command — which happens to be correct here, but "happens to be" is not
+    # how an integrity check should be written.
+    printf '%s  /tmp/redis.tgz\n' "${PHPREDIS_SHA256}" > /tmp/redis.sha256; \
+    sha256sum -c /tmp/redis.sha256; \
+    rm -f /tmp/redis.sha256; \
+    pecl install /tmp/redis.tgz; \
+    rm -f /tmp/redis.tgz; \
     docker-php-ext-enable redis; \
     rm -rf /tmp/pear /var/lib/apt/lists/*
 
@@ -83,6 +102,14 @@ RUN set -eux; \
     rm -f /usr/local/bin/phpize /usr/local/bin/docker-php-source; \
     rm -rf /usr/src/*; \
     rm -rf /var/lib/apt/lists/*; \
+    # #101: build RESIDUE, not image content. apt/dpkg logs record WHEN the
+    # build ran and ldconfig's aux-cache embeds timestamps, so two builds of the
+    # same commit differed in exactly these 8 files out of 3505 — enough to
+    # change a layer digest while the served content was identical. Removing
+    # them makes the layer reproducible, and also stops shipping a record of the
+    # build host's clock to consumers.
+    rm -rf /var/log/apt /var/log/dpkg.log /var/log/alternatives.log \
+           /var/cache/ldconfig/aux-cache; \
     groupadd -g 10001 app; \
     useradd  -u 10001 -g app -d /app -s /usr/sbin/nologin -M app; \
     mkdir -p /app; chown -R 10001:10001 /app

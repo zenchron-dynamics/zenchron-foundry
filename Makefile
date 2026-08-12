@@ -169,6 +169,17 @@ smoke-all: ## Runtime smoke tests for all 10 images (fails if zero tested)
 runtime-contract: ## Hardened runtime contract across the whole matrix (#110)
 	@bash scripts/runtime-contract.sh --all --json runtime-contract-evidence.json
 
+.PHONY: reproducibility
+reproducibility: ## Two --no-cache builds per representative family, compared (#101)
+	@bash scripts/reproducibility-check.sh images/nginx nginx
+	@bash scripts/reproducibility-check.sh images/caddy caddy
+	@bash scripts/reproducibility-check.sh images/php-cli/8.4 php-cli-8.4
+	@bash scripts/reproducibility-check.sh images/php-frankenphp/8.4 php-frankenphp-8.4
+
+.PHONY: supply-chain
+supply-chain: ## Inventory integrity + upstream drift for every embedded input (#123)
+	@bash scripts/assert-supply-chain-inputs.sh --check-upstream
+
 scan-local: ## Trivy/Grype scan locally (SKIPPED if tools absent unless STRICT=1)
 	@if command -v trivy >/dev/null && command -v grype >/dev/null; then \
 	  bash scripts/scan-all.sh; \

@@ -1,0 +1,116 @@
+name: dependency-drift
+
+# ---------------------------------------------------------------------------
+# The automated update signal for inputs Dependabot cannot see (#123).
+#
+# Dependabot parses Dockerfile `FROM` lines and GitHub Actions refs. It does not
+# parse `pecl install`, it has no opinion about the Trivy version that decides
+# whether a release ships, and it cannot tell that a FrankenPHP base bump left
+# the bundled Go modules untouched (#79).
+#
+# policies/supply-chain-inputs.yaml declares those inputs; this workflow is the
+# part that makes a stale one impossible to not notice. It reports into a SINGLE
+# tracking issue, updated in place — a new issue per week is how a signal becomes
+# noise and then becomes filtered.
+#
+# It never edits a pin. Choosing to move a scanner version is a decision with
+# release consequences and belongs in a reviewed pull request, not in a cron job.
+# ---------------------------------------------------------------------------
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"        # Mondays, after the weekly scan settles
+  workflow_dispatch:
+
+# issues: write is the ONLY write this workflow has. No packages, no id-token,
+# no contents:write — it cannot change a pin even if something tried to make it.
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dependency-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: embedded dependency drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Verify the inventory before trusting it
+        # An inventory that fails its own integrity check must not be used to
+        # decide anything, and the drift report would be reporting on a file
+        # nobody validated.
+        run: bash scripts/assert-supply-chain-inputs.sh
+
+      - name: Detect upstream drift
+        id: drift
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          # Deliberately NOT `set -e`: a non-zero exit here means drift was
+          # FOUND, which is the normal, expected outcome we want to report.
+          # Only an unreadable inventory is a failure, and the step above
+          # already established that it reads.
+          out="$(bash scripts/assert-supply-chain-inputs.sh --check-upstream 2>&1)"
+          rc=$?
+          printf '%s\n' "$out"
+          {
+            echo "found=$([ "$rc" -ne 0 ] && echo true || echo false)"
+            echo "report<<DRIFT_EOF"
+            printf '%s\n' "$out"
+            echo "DRIFT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the single tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FOUND: ${{ steps.drift.outputs.found }}
+          REPORT: ${{ steps.drift.outputs.report }}
+        run: |
+          set -euo pipefail
+          title="Embedded dependency drift (automated)"
+          # The body is written by python, not assembled in shell. It contains
+          # backticks and markdown fences; quoting those through printf or a
+          # heredoc inside a YAML block scalar is how a report ends up mangled,
+          # or a backtick ends up executed.
+          REPORT="$REPORT" RUN_ID="$GITHUB_RUN_ID" python3 - > /tmp/drift-body.md <<'PYBODY'
+          import os
+          print("Automated report from `.github/workflows/dependency-drift.yml`, "
+                "run %s." % os.environ["RUN_ID"])
+          print()
+          print("Source of truth: `policies/supply-chain-inputs.yaml`")
+          print()
+          print("```text")
+          print(os.environ["REPORT"].rstrip())
+          print("```")
+          print()
+          print("This workflow never edits a pin. Moving a scanner or tool version "
+                "has release consequences and belongs in a reviewed pull request.")
+          PYBODY
+
+          existing="$(gh issue list --state open --search "\"$title\" in:title" \
+                        --json number --jq '.[0].number // empty')"
+
+          if [ "$FOUND" != "true" ]; then
+            # Everything current. Close the tracking issue if one is open, so a
+            # stale red issue does not sit there after the drift was resolved.
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body "All tracked inputs are current as of run ${GITHUB_RUN_ID}. Closing."
+              gh issue close "$existing"
+            fi
+            echo "no drift; nothing to report"
+            exit 0
+          fi
+
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file /tmp/drift-body.md
+            gh issue comment "$existing" --body "Re-checked in run ${GITHUB_RUN_ID}; the report above is current."
+            echo "updated issue #$existing"
+          else
+            gh issue create --title "$title" --body-file /tmp/drift-body.md --label dependencies
+            echo "opened a new tracking issue"
+          fi
