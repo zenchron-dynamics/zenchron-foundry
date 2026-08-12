@@ -92,20 +92,36 @@ jobs:
               print("  " + l.rstrip())
           print()
 
+          # Measure the answer ON THE LINE that names the item, not the text
+          # after it. The first version took body[match.end():] — everything
+          # AFTER the matched line — which silently measured the NEXT item's
+          # answer, so items passed for the wrong reason and the last item
+          # always failed with zero characters. It also matched an incidental
+          # mention elsewhere in the body ("No control-plane mutation.") in
+          # preference to the real checklist entry.
+          #
+          # So: consider EVERY occurrence, take the remainder of that line, and
+          # accept the item if any occurrence carries real substance.
+          MIN_ANSWER = 40
+
+          def answer_for(item_id):
+              best = ""
+              for m in re.finditer(r"(?im)^.*?\b%s\b(?P<rest>.*)$" % re.escape(item_id), body):
+                  rest = re.sub(r"^[\s:\-—–*_`]+", "", m.group("rest")).strip()
+                  if len(rest) > len(best):
+                      best = rest
+              return best
+
           missing = []
           for it in items:
-              # Accept "- [x] <id>: answer" or a heading naming the id, followed
-              # by prose. What is required is the id AND some substance after it.
-              m = re.search(r"(?im)^[^\n]*\b%s\b[^\n]*$" % re.escape(it["id"]), body)
-              if not m:
+              if not re.search(r"(?im)^.*\b%s\b" % re.escape(it["id"]), body):
                   missing.append((it["id"], "not present in the pull request body"))
                   continue
-              tail = body[m.end():].strip()
-              answer = tail.split("\n\n")[0].strip() if tail else ""
-              # Strip a leading colon/dash so "id: answer" measures the answer.
-              answer = re.sub(r"^[:\-\s]+", "", answer)
-              if len(answer) < 20:
-                  missing.append((it["id"], "present but not answered (%d chars)" % len(answer)))
+              ans = answer_for(it["id"])
+              if len(ans) < MIN_ANSWER:
+                  missing.append((it["id"],
+                                  "present but not answered (%d chars; need %d)"
+                                  % (len(ans), MIN_ANSWER)))
 
           if missing:
               print("REFUSE: the security-sensitive checklist is incomplete.\n")
