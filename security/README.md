@@ -12,7 +12,7 @@ actually provides.
 
 | layer | file | enforced by | verified how |
 | --- | --- | --- | --- |
-| seccomp | [`seccomp/zenchron-default.json`](seccomp/zenchron-default.json) — moby v27.3.1 default, pinned | the container runtime, everywhere | **executed** — every image runs under it in `scripts/runtime-contract.sh` |
+| seccomp | [`seccomp/zenchron-default.json`](seccomp/zenchron-default.json) | the container runtime, everywhere | **executed** — every image runs under it |
 | AppArmor | [`apparmor/zenchron-container`](apparmor/zenchron-container) | the host kernel, Debian/Ubuntu hosts | **syntax-validated** always; **executed** only where the host enforces AppArmor |
 | SELinux | [`selinux/README.md`](selinux/README.md) | the host kernel, RHEL-family hosts | **documented**; the platform ships no custom policy module |
 
@@ -23,8 +23,8 @@ be produced must not be manufactured — see "What we do not claim" below.
 
 ## The seccomp profile is the runtime default, deliberately
 
-`seccomp/zenchron-default.json` is a pinned copy of the container runtime's
-default profile, not a hand-written per-image allowlist.
+`seccomp/zenchron-default.json` is a pinned copy of the moby v27.3.1 default
+profile, not a hand-written per-image allowlist.
 
 Writing a bespoke syscall allowlist for ten images would have produced a document
 that looks stronger and behaves worse. The measured requirement — from the
@@ -32,7 +32,9 @@ runtime contract harness, across all ten images — is that every image runs
 correctly under the default filter, with `Seccomp: 2` (`SECCOMP_MODE_FILTER`) on
 PID 1. A narrower profile has to be re-derived whenever PHP, nginx, Caddy or glibc
 changes which syscalls they use, and the failure mode of a stale allowlist is a
-container that dies in production on a syscall nobody predicted. The default profile is maintained upstream, tracks those changes, and is itself
+container that dies in production on a syscall nobody predicted.
+
+The default profile is maintained upstream, tracks those changes, and is itself
 **default-deny**: `defaultAction: SCMP_ACT_ERRNO` with an allowlist of 355
 unconditionally-permitted syscalls plus 22 capability-conditional groups. Anything
 outside that list returns `EPERM`. Measured against the pinned copy:
