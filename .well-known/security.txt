@@ -1,0 +1,22 @@
+# Zenchron Foundry — security contact information (RFC 9116)
+#
+# Served from the repository. If this project later publishes a website, this
+# file must be reachable at https://<host>/.well-known/security.txt as well;
+# RFC 9116 requires the well-known URI, and a copy in a git repository is not a
+# substitute for that. Recorded as a known limitation rather than implied away.
+
+Contact: mailto:security@zenchron.com
+Policy: https://github.com/zenchron-dynamics/zenchron-foundry/blob/master/SECURITY.md
+Preferred-Languages: en
+Canonical: https://github.com/zenchron-dynamics/zenchron-foundry/blob/master/.well-known/security.txt
+
+# Expires is REQUIRED by RFC 9116. Kept short deliberately: an expired
+# security.txt is a visible prompt to re-verify the contact, which is the
+# behaviour we want from a single-maintainer project.
+Expires: 2027-02-13T00:00:00.000Z
+
+# Deliberately absent:
+#   Encryption:  no PGP key is published for this project. SECURITY.md offers one
+#                "on request"; no key was invented here to fill this field.
+#   Hiring:      not applicable.
+#   Acknowledgments: none published yet.

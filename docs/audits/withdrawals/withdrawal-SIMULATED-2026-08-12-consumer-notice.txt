@@ -1,0 +1,17 @@
+SIMULATED CONSUMER NOTICE — NOT A REAL NOTICE
+=============================================
+
+Subject: [SIMULATED] Zenchron Foundry — release withdrawn, action required
+
+This is a tabletop artefact. Do not send it.
+
+We are withdrawing a release of the Zenchron Foundry container images.
+If you deploy any of the digests listed in the accompanying advisory, stop
+using them and re-pin to the corrective release.
+
+Channels this notice would go out on are listed in
+policies/support-policy.yaml (`channels:`). Any channel marked
+`status: unavailable` there is one this notice would NOT reach — which is
+the point of recording it.
+
+Contact: security@zenchron.com

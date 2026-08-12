@@ -10,9 +10,14 @@ so security issues are treated as high priority.
 
 **Do not open a public issue for security problems.**
 
-- Email: `security@zenchron.com` (PGP key on request).
-- Use GitHub **Private Vulnerability Reporting** (Security tab → Report a
-  vulnerability) if enabled.
+- **Email: `security@zenchron.com`** — this is the working channel. The domain
+  publishes MX records (verified 2026-08-13), so mail is delivered.
+- **GitHub Private Vulnerability Reporting is currently DISABLED** on this
+  repository (measured via the API, 2026-08-13). It was previously listed here
+  with an "if enabled" hedge, which tells a reporter nothing. Enabling it is a
+  tracked human action in `policies/support-policy.yaml`.
+- No PGP key is published. `SECURITY.md` previously offered one "on request";
+  none exists in this repository, and none was invented to fill the gap.
 - Include: affected image/tag, PHP version, CVE (if known), reproduction, and
   impact.
 
@@ -27,15 +32,25 @@ Target response times:
 
 ## Supported Images
 
-| Family | Versions | Status |
-|--------|----------|--------|
-| php-fpm / php-cli / php-worker | 8.3, 8.4 | Supported |
-| php-frankenphp | 8.3, 8.4 | Supported |
-| caddy / nginx | prod | Supported |
-| php-fpm / php-cli / php-worker | **7.4, 8.0** | **Legacy / EOL — best-effort only.** See [docs/legacy-php-policy.md](docs/legacy-php-policy.md) |
+The authoritative machine-readable source is
+[`policies/support-policy.yaml`](policies/support-policy.yaml), which derives its
+upstream dates from [`policies/lifecycle.yaml`](policies/lifecycle.yaml). This
+table is a summary of those files, not a second source.
 
-PHP 7.4 and 8.0 receive **no upstream security support**. They exist solely for
-legacy compatibility and carry accepted, documented risk.
+| Family | Selector | Upstream state | Foundry |
+|--------|----------|----------------|---------|
+| php-fpm / php-cli / php-worker / php-frankenphp | 8.4 | **active** to 2026-12-31 | supported — **recommended** |
+| php-fpm / php-cli / php-worker / php-frankenphp | 8.3 | **security-only** since 2025-12-31 | supported |
+| nginx | prod | supported (1.28 stable line) | supported |
+| caddy | prod | supported (2.x) | supported |
+
+**PHP 7.4 and 8.0 no longer exist in this repository.** Their source was removed
+and `scripts/assert-image-matrix.sh` fails if it reappears. Previously published
+images remain pullable, are never rebuilt or rescanned, and have no update path
+— see [docs/legacy-php-policy.md](docs/legacy-php-policy.md).
+
+Support periods, update commitments, deprecation and withdrawal are in
+[docs/product-support-policy.md](docs/product-support-policy.md).
 
 ## Security Controls in This Repository
 

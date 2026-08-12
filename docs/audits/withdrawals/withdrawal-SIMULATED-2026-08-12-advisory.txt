@@ -1,0 +1,37 @@
+SIMULATED SECURITY ADVISORY — NOT A REAL ADVISORY
+==================================================
+
+This is a tabletop artefact produced by scripts/exercise-withdrawal.sh.
+It describes a hypothetical compromised release and must never be
+published, sent, or quoted as a real Zenchron advisory.
+
+Summary
+-------
+A release of the Zenchron Foundry images is withdrawn. The digests below
+MUST NOT be used. Published digests are immutable and remain pullable;
+withdrawal is an instruction, not a technical recall.
+
+Affected digests
+----------------
+  ghcr.io/zenchron-dynamics/caddy:prod                   sha256:d28f1ead85d5a644e355f5f22f2fecbb97db6e01f93e72d79521f68dc72e86fc
+  ghcr.io/zenchron-dynamics/nginx:prod                   sha256:edd0fb3c76cdc5ddfcefeeb45d16b7923c5a7fe79dd4b34cba10ac499b6d432b
+  ghcr.io/zenchron-dynamics/php-cli:8.3-prod             sha256:1c75cf2f712f6fda66c9c624723032ff812eae2af9c9e43fa2724e91cc71cf35
+  ghcr.io/zenchron-dynamics/php-cli:8.4-prod             sha256:4df07e21257ba433f67fb25228a10719d379169f6e74315c4c5d6f359b0ca161
+  ghcr.io/zenchron-dynamics/php-fpm:8.3-prod             sha256:2044d7b3aad61f234d949d8e406c14cdb6386e4735dbd87148a895304aaef038
+  ghcr.io/zenchron-dynamics/php-fpm:8.4-prod             sha256:ca61437c7fab3408d50249c26c25421dff81c2e1b0d925bb2275d67e0d46e440
+  ghcr.io/zenchron-dynamics/php-frankenphp:8.3-prod      sha256:e12c84ed1349492240bec14ef7eb9748eecf5288867569c1ac93ebcbe2a77b58
+  ghcr.io/zenchron-dynamics/php-frankenphp:8.4-prod      sha256:f5c8372803cda923aad43deee7dc2621cf7197b716ddc753a48f03ebc8b4ff80
+  ghcr.io/zenchron-dynamics/php-worker:8.3-prod          sha256:ba178e63a34652f215888ff168b21c51b0f50334bebd7090e7f905c839ff28b3
+  ghcr.io/zenchron-dynamics/php-worker:8.4-prod          sha256:a1181801c7d4350125fb8d7d534d44a25be4173ddb53cee50cbb6e4f19f26836
+
+What to do
+----------
+1. Stop deploying the digests above.
+2. Re-pin to the corrective release named in the real advisory.
+3. If you cannot re-pin immediately, apply the mitigations in the real
+   advisory.
+
+Why digests and not tags
+------------------------
+This platform tells consumers to pin by digest. Those consumers are the
+ones a tag-only advisory would fail to reach.

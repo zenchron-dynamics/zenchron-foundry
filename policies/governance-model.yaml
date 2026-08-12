@@ -1,0 +1,192 @@
+# =============================================================================
+# policies/governance-model.yaml — how this project is actually governed.
+# -----------------------------------------------------------------------------
+# WHY THIS FILE EXISTS (#112).
+#
+# Zenchron Foundry has ONE maintainer who holds the platform, security,
+# repository-administration and release-management roles simultaneously. Genuine
+# segregation of duties is therefore unavailable, and the issue that produced
+# this file is explicit that it must not be manufactured — no secondary
+# accounts, no nominal teams whose only member is the same person, no AI
+# approvals standing in for human review.
+#
+# So this file states the model honestly and makes the compensating controls
+# ENFORCEABLE. It is consumed by scripts/assert-governance-model.sh, which also
+# cross-checks the live control plane where the API exposes it.
+#
+# THREE THINGS THIS FILE REFUSES TO CONFLATE. Each was, at some point, described
+# in this repository as if it provided independent review:
+#
+#   author ≠ independent reviewer   one person approving their own change is not
+#                                   review, whatever the UI records
+#   CI ≠ human approval             a green pipeline is evidence about the code,
+#                                   never a second party's judgement about risk
+#   CODEOWNERS ≠ segregation        routing a file to a team of one routes it
+#                                   back to the author
+# =============================================================================
+schema_version: 1
+
+model:
+  single_maintainer: true
+  # Verified against the org 2026-08-11: platform = [bogdaniel],
+  # security = [bogdaniel], organization members = 1.
+  maintainer_count: 1
+  independent_review_available: false
+  segregation_of_duties: unavailable
+
+  # The three conflations, as machine-readable assertions. The verifier proves
+  # each is FALSE in this repository rather than leaving them as prose.
+  not_equivalent:
+    - claim: "author approval is independent review"
+      holds: false
+      why: >-
+        GitHub forbids self-approval, so a required-reviewer rule would block
+        every change rather than add oversight. Requiring one would produce a
+        control that must be bypassed to work, which is worse than not having it.
+    - claim: "a green CI run is human approval"
+      holds: false
+      why: >-
+        CI proves properties of the code. It cannot weigh whether a risk is worth
+        taking, which is the judgement a second party would supply.
+    - claim: "CODEOWNERS routing is segregation of duties"
+      holds: false
+      why: >-
+        @zenchron-dynamics/platform and @zenchron-dynamics/security both have
+        exactly one member, the same person. Routing is change NOTIFICATION and
+        file scoping; it moves no decision to anyone else.
+
+# --- what a lone maintainer cannot bypass by mistake -------------------------
+# Not a claim of independence. A claim that the obvious errors are caught.
+compensating_controls:
+  - control: required status checks on master
+    enforced_by: "branch ruleset master-protection (live-verified)"
+    verified_by: scripts/verify-repo-governance.sh
+  - control: linear history, no force-push, no deletion
+    enforced_by: "branch ruleset master-protection"
+    verified_by: scripts/verify-repo-governance.sh
+  - control: immutable release tags
+    enforced_by: "tag ruleset release-tags-immutable"
+    verified_by: scripts/verify-repo-governance.sh
+  - control: production package writes are impossible for the repo token
+    enforced_by: "GHCR package ACLs"
+    verified_by: "docs/audits/package-acl-2026-08-03/ (run 30837370041)"
+  - control: no fork PR can reach a privileged runner
+    enforced_by: "org runner group restricted to repo + explicit workflow paths"
+    verified_by: scripts/assert-pr-workflows-github-hosted.sh
+  - control: every accepted vulnerability has an owner, evidence and a hard expiry
+    enforced_by: policies/vulnerability-exceptions.yaml
+    verified_by: scripts/validate-vulnerability-exceptions.sh
+  - control: a security-sensitive change carries a completed checklist
+    enforced_by: .github/workflows/sensitive-change.yml
+    verified_by: scripts/assert-governance-model.sh
+
+# --- what counts as a security-sensitive change ------------------------------
+# Touching any of these makes a pull request sensitive. The workflow detects it
+# from the diff — not from the author remembering — and requires the checklist
+# below to be completed in the PR body before the change can merge.
+sensitive_paths:
+  - ".github/workflows/**"
+  - "policies/**"
+  - "images/**/Dockerfile"
+  - "scripts/release/**"
+  - "scripts/admin/**"
+  - "scripts/ci/**"
+  - "scripts/verify-*.sh"
+  - "scripts/assert-*.sh"
+  - "scripts/sign-*.sh"
+  - "scripts/promote-*.sh"
+  - "contracts/**"
+  - "security/**"
+  - "CODEOWNERS"
+  - "SECURITY.md"
+
+# The checklist is deliberately short. A long one gets pattern-matched and
+# ticked; a short one that names the specific traps this repository has actually
+# fallen into gets read.
+sensitive_change_checklist:
+  - id: blast-radius
+    prompt: "What breaks if this is wrong, and how would we notice?"
+  - id: fail-direction
+    prompt: "Does every new check fail CLOSED? Name the failure path you tested."
+  - id: not-vacuous
+    prompt: >-
+      Was each new assertion shown to FAIL on the previous state? A check that
+      has never failed is indistinguishable from a check that cannot fail.
+  - id: control-plane
+    prompt: "Does this need a control-plane change a reviewer must make by hand?"
+  - id: reversibility
+    prompt: "How is this reverted, and does reverting leave anything behind?"
+  - id: external-review
+    prompt: >-
+      Does this cross an external_review_trigger below? If so, say so explicitly
+      rather than proceeding.
+
+# --- break-glass -------------------------------------------------------------
+# A single maintainer WILL occasionally need to bypass a control — a broken gate
+# blocking a security fix, for example. Pretending otherwise produces silent
+# bypasses. Making the bypass recordable produces evidence.
+break_glass:
+  record_dir: docs/audits/break-glass
+  required_fields:
+    - id                     # break-glass-YYYY-MM-DD-NN
+    - opened_at              # RFC3339 UTC
+    - opened_by
+    - control_bypassed       # the exact control, not "CI"
+    - why_now                # why it could not wait for the normal path
+    - blast_radius
+    - closed_at
+    - restored_at            # when the bypassed control was put back
+    - retrospective          # REQUIRED — see below
+  retrospective_required: true
+  retrospective_deadline_days: 7
+  retrospective_must_answer:
+    - "Why did the normal path not work?"
+    - "What would have to change for this not to recur?"
+    - "Was the bypassed control restored, and how was that verified?"
+  note: >-
+    An unclosed break-glass record older than the retrospective deadline fails
+    scripts/assert-governance-model.sh. The point is not to forbid the bypass; it
+    is to make an unexamined one impossible to leave lying around.
+
+# --- when this model stops being sufficient ----------------------------------
+# Named triggers, so "we should get review at some point" becomes a condition
+# somebody can check rather than an intention.
+external_review_triggers:
+  - trigger: "the first enterprise customer, or production use by an unrelated organization"
+    action: "external security review before the claim is made"
+  - trigger: "any enterprise-readiness, compliance or certification claim"
+    action: "external review; a self-assessment is not a certification"
+  - trigger: "CRA obligations attaching to this product (#113, #114)"
+    action: "legal determination of the economic role; not an engineering decision"
+  - trigger: "a second maintainer joins"
+    action: >-
+      revisit this entire file: required reviewers, environment reviewers and
+      genuine segregation all become possible, and single_maintainer must flip.
+  - trigger: "public RC or production publication is re-enabled (#139)"
+    action: "re-review the release-path controls under the restored publisher"
+
+# --- the residual risk, owned rather than resolved ---------------------------
+risk_register:
+  - id: RISK-001
+    risk: >-
+      One compromised account, one mistaken change or one incorrect security
+      decision can affect Dockerfiles, workflows, signing identities,
+      vulnerability exceptions, release scripts, tags and packages, with no
+      independent party positioned to catch it.
+    accepted: true
+    owner: Bogdan Olteanu / Zenchron Dynamics
+    accepted_at: 2026-08-13
+    review_date: 2026-11-13
+    review_interval_days: 92
+    exit_criteria:
+      - "A second maintainer with independent judgement and their own credentials."
+      - "OR an external reviewer contracted for security-sensitive changes."
+      - "OR the product is withdrawn from enterprise distribution."
+    explicitly_not_mitigations:
+      - "A second GitHub account held by the same person."
+      - "A team whose only member is the maintainer."
+      - "An AI review, including this one. It is a tool the author is using, not a second party."
+    note: >-
+      This risk is ACCEPTED, not solved. It is recorded here so that it is
+      visible in the same place as the controls that partially offset it, and so
+      the review date arrives as a scheduled obligation rather than a memory.

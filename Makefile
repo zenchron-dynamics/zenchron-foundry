@@ -180,6 +180,14 @@ reproducibility: ## Two --no-cache builds per representative family, compared (#
 supply-chain: ## Inventory integrity + upstream drift for every embedded input (#123)
 	@bash scripts/assert-supply-chain-inputs.sh --check-upstream
 
+.PHONY: incident-tabletop
+incident-tabletop: ## Simulated CRA incident, end to end (#114)
+	@bash scripts/incident.sh --tabletop
+
+.PHONY: withdrawal-exercise
+withdrawal-exercise: ## Simulated release withdrawal, end to end (#125)
+	@bash scripts/exercise-withdrawal.sh --simulate
+
 scan-local: ## Trivy/Grype scan locally (SKIPPED if tools absent unless STRICT=1)
 	@if command -v trivy >/dev/null && command -v grype >/dev/null; then \
 	  bash scripts/scan-all.sh; \

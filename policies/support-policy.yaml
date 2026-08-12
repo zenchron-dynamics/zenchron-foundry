@@ -1,0 +1,205 @@
+# =============================================================================
+# policies/support-policy.yaml — the product support contract (#125).
+# -----------------------------------------------------------------------------
+# WHAT THIS IS, AND WHAT IT IS NOT.
+#
+# policies/lifecycle.yaml records what UPSTREAM does — when PHP 8.3 leaves
+# security support, when Debian 12 stops getting fixes. Those dates are php.net's
+# and Debian's, not ours.
+#
+# This file records what ZENCHRON commits to on top of them: how long each image
+# line is supported, how fast a security update arrives, how a line is deprecated
+# and withdrawn, and how a consumer is told. Two different promises, from two
+# different parties, so two files — but the upstream dates are NOT copied here.
+# `derives_from` names the lifecycle line, and
+# scripts/assert-support-policy.sh reads the date from there. A second copy of
+# an EOL date is a second thing to forget to update.
+#
+# HONESTY CONSTRAINT. Every contact and channel below is one that actually
+# exists and was verified. Where a channel does NOT exist, it is recorded as
+# `status: unavailable` with the human action needed — not invented, not
+# aspirationally described in the present tense.
+# =============================================================================
+schema_version: 1
+
+policy:
+  owner: Zenchron Dynamics / Platform Security
+  # Single maintainer — see policies/governance-model.yaml. These commitments are
+  # what one maintainer can actually keep; they are deliberately not enterprise
+  # 24/7 numbers that would be fiction.
+  governance_model: policies/governance-model.yaml
+  last_reviewed: 2026-08-13
+  review_interval_days: 92
+
+# --- what "supported" buys a consumer, per state -----------------------------
+support_states:
+  active:
+    meaning: "upstream ships bug and security fixes; Foundry rebuilds for both"
+    security_update_target: "next scheduled rebuild, or emergency path for CRITICAL"
+    recommended_for: "new consumers"
+  security-only:
+    meaning: "upstream ships security fixes only; Foundry rebuilds for those"
+    security_update_target: "next scheduled rebuild, or emergency path for CRITICAL"
+    recommended_for: "existing consumers who have not yet migrated"
+  not-yet-offered:
+    meaning: "in upstream support; no Foundry image exists"
+    security_update_target: none
+    recommended_for: nobody
+  frozen:
+    meaning: "last build remains pullable; never rebuilt, never rescanned"
+    security_update_target: none
+    recommended_for: "nobody — migrate"
+  withdrawn:
+    meaning: "actively unrecommended; see the withdrawal record for why"
+    security_update_target: none
+    recommended_for: "nobody — act on the advisory"
+
+# --- update commitments ------------------------------------------------------
+# Times are from AWARENESS, and awareness is defined in
+# policies/incident-reporting.yaml so that a support promise and a regulatory
+# clock cannot start from two different moments.
+update_commitments:
+  scheduled_rebuild: weekly
+  emergency_path:
+    trigger: >-
+      a fixable CRITICAL, or a HIGH that is known-exploited, in a supported image
+    target_hours: 72
+    mechanism: "base digest bump + rebuild + rescan through the normal gates"
+    note: >-
+      72h is what one maintainer can commit to. It is not a 24/7 SLA and is not
+      described as one.
+  acknowledgement:
+    critical_hours: 24
+    high_hours: 48
+    source: SECURITY.md
+    note: "Kept identical to SECURITY.md; the assert script fails if they drift."
+
+# --- per-line support --------------------------------------------------------
+# `derives_from` points at policies/lifecycle.yaml. Support end dates are READ
+# from there, never restated.
+lines:
+  - image_lines: [php-cli, php-fpm, php-worker, php-frankenphp]
+    selector: "8.4"
+    derives_from: php-8.4
+    support_state: active
+    deprecation_notice_days: 180
+    withdrawal_notice_days: 90
+  - image_lines: [php-cli, php-fpm, php-worker, php-frankenphp]
+    selector: "8.3"
+    derives_from: php-8.3
+    support_state: security-only
+    deprecation_notice_days: 180
+    withdrawal_notice_days: 90
+  - image_lines: [nginx]
+    selector: prod
+    derives_from: nginx-1.28
+    support_state: active
+    deprecation_notice_days: 180
+    withdrawal_notice_days: 90
+  - image_lines: [caddy]
+    selector: prod
+    derives_from: caddy-2.x
+    support_state: active
+    deprecation_notice_days: 180
+    withdrawal_notice_days: 90
+
+# --- how a consumer hears from us -------------------------------------------
+# VERIFIED 2026-08-13. Nothing here is aspirational.
+channels:
+  - id: security-email
+    purpose: "vulnerability reports IN, and PSIRT correspondence"
+    endpoint: "security@zenchron.com"
+    status: available
+    verification: >-
+      Domain zenchron.com resolves and publishes MX (mx.zoho.eu, mx2.zoho.eu,
+      mx3.zoho.eu), checked 2026-08-13. Mail can be delivered. Whether it is
+      MONITORED, and by whom, is a human fact this repository cannot verify —
+      see required_human_actions.
+    declared_in: [SECURITY.md, .well-known/security.txt]
+
+  - id: github-security-advisories
+    purpose: "published advisories OUT, machine-readable, with CVE and CVSS"
+    endpoint: "https://github.com/zenchron-dynamics/zenchron-foundry/security/advisories"
+    status: available
+    verification: >-
+      The repository is public and has the Security tab. GitHub Security
+      Advisories are available on any public repository.
+
+  - id: github-private-vulnerability-reporting
+    purpose: "coordinated disclosure IN, without email"
+    endpoint: "Security tab -> Report a vulnerability"
+    status: unavailable
+    verification: >-
+      MEASURED 2026-08-13 via the API: private_vulnerability_reporting.enabled =
+      false. SECURITY.md previously advertised this channel with an 'if enabled'
+      hedge, which tells a reporter nothing. It is now described accurately.
+    required_human_action: >-
+      Enable it in repository Settings -> Code security. This is a control-plane
+      change and is deliberately not made by tooling.
+
+  - id: release-notifications
+    purpose: "release and deprecation notices OUT"
+    endpoint: "GitHub repository Watch -> Custom -> Releases"
+    status: available
+    verification: "Standard GitHub feature on a public repository."
+    note: >-
+      This is a self-serve subscription, not an authenticated push channel with
+      a delivery guarantee. #125 asked for authenticated advisory subscription;
+      GitHub Security Advisories plus repository watching is what exists today
+      without operating a mailing list. Recorded as a limitation, not as a
+      solved requirement.
+
+# --- deprecation and withdrawal ---------------------------------------------
+deprecation:
+  triggers:
+    - "the upstream line leaves active support (state -> security-only)"
+    - "180 days before upstream security support ends"
+    - "a lifecycle-gate warning (scripts/assert-lifecycle.sh) on a line in use"
+  actions:
+    - "flip support_state here and in policies/lifecycle.yaml"
+    - "publish a deprecation advisory"
+    - "recommend the successor line in docs/product-support-policy.md"
+
+withdrawal:
+  # Withdrawal is for a release that must stop being used — a compromised build,
+  # a mis-signed artefact, a critical defect with no fix.
+  triggers:
+    - "a release is found to be compromised or mis-built"
+    - "a critical vulnerability with no available fix and no viable mitigation"
+    - "a signing identity or key is compromised"
+  procedure: docs/release-withdrawal.md
+  required_actions:
+    - "identify every affected digest, per image, per architecture"
+    - "publish a security advisory naming the digests, not just the tags"
+    - "notify consumers through every available channel"
+    - "record the withdrawal in docs/audits/withdrawals/"
+    - "if a fixed release exists, name it in the same advisory"
+  constraint: >-
+    Published digests are IMMUTABLE and are not deleted. Withdrawal means
+    advertising that a digest must not be used; it cannot mean making it
+    unpullable, and this policy does not pretend it can. Consumers pinning by
+    digest — which this platform tells them to do — are exactly the ones who
+    must be reached by advisory.
+  exercise: scripts/exercise-withdrawal.sh
+
+# --- what only a human can supply -------------------------------------------
+required_human_actions:
+  - id: enable-private-vulnerability-reporting
+    what: "Enable GitHub Private Vulnerability Reporting"
+    why: "SECURITY.md offers it as a channel; it is currently disabled"
+    who: "repository admin"
+  - id: confirm-psirt-monitoring
+    what: >-
+      Confirm that security@zenchron.com is monitored, by whom, and with what
+      out-of-hours behaviour
+    why: >-
+      MX records prove mail can be DELIVERED. They prove nothing about anyone
+      reading it, and an acknowledgement target nobody is watching is worse than
+      no target.
+    who: "Bogdan Olteanu"
+  - id: publish-pgp-key
+    what: "Publish a PGP key, or drop the 'PGP key on request' offer"
+    why: >-
+      SECURITY.md offers one. No key is published in this repository and none was
+      invented here.
+    who: "Bogdan Olteanu"

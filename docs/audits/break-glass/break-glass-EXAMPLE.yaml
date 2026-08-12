@@ -1,0 +1,20 @@
+# EXAMPLE ONLY — not a real break-glass event. `example: true` keeps the
+# governance check from treating it as an open record.
+example: true
+id: break-glass-2026-01-01-01
+opened_at: "2026-01-01T09:00:00Z"
+opened_by: Bogdan Olteanu
+control_bypassed: >-
+  Name the EXACT control, not "CI". e.g. "required status check
+  'repo structure' on master-protection".
+why_now: >-
+  Why this could not wait for the normal path. "It was slow" is not an answer;
+  "a security fix was blocked by a gate that was itself broken" is.
+blast_radius: >-
+  What this bypass could have affected if the change had been wrong.
+closed_at: "2026-01-01T10:30:00Z"
+restored_at: "2026-01-01T10:35:00Z"
+retrospective: >-
+  Required within the deadline in policies/governance-model.yaml. Must answer:
+  why the normal path did not work; what would have to change for this not to
+  recur; whether the bypassed control was restored and how that was verified.

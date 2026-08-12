@@ -38,6 +38,7 @@ gate "vulnerability policy"      bash scripts/validate-vulnerability-exceptions.
 gate "upstream lifecycle"        bash scripts/assert-lifecycle.sh
 gate "confinement profiles"      bash scripts/assert-runtime-profiles.sh
 gate "supply-chain inputs"       bash scripts/assert-supply-chain-inputs.sh
+gate "governance model"          bash scripts/assert-governance-model.sh
 gate "self-test + unit suite"    bash tests/run-all.sh
 gate "release dry-run"           bash scripts/release-dry-run.sh
 

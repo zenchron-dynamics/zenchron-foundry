@@ -1,0 +1,45 @@
+simulated: true
+id: withdrawal-SIMULATED-2026-08-12
+title: SIMULATED withdrawal exercise
+opened_at: '2026-08-12T22:26:00+00:00'
+opened_by: scripts/exercise-withdrawal.sh
+reason: "tabletop exercise \u2014 hypothetical compromised release (#125)"
+images_in_matrix: 10
+digests_resolved: 10
+digests_unresolved: 0
+affected:
+- image: caddy:prod
+  digest: sha256:d28f1ead85d5a644e355f5f22f2fecbb97db6e01f93e72d79521f68dc72e86fc
+  status: resolved
+- image: nginx:prod
+  digest: sha256:edd0fb3c76cdc5ddfcefeeb45d16b7923c5a7fe79dd4b34cba10ac499b6d432b
+  status: resolved
+- image: php-cli:8.3-prod
+  digest: sha256:1c75cf2f712f6fda66c9c624723032ff812eae2af9c9e43fa2724e91cc71cf35
+  status: resolved
+- image: php-cli:8.4-prod
+  digest: sha256:4df07e21257ba433f67fb25228a10719d379169f6e74315c4c5d6f359b0ca161
+  status: resolved
+- image: php-fpm:8.3-prod
+  digest: sha256:2044d7b3aad61f234d949d8e406c14cdb6386e4735dbd87148a895304aaef038
+  status: resolved
+- image: php-fpm:8.4-prod
+  digest: sha256:ca61437c7fab3408d50249c26c25421dff81c2e1b0d925bb2275d67e0d46e440
+  status: resolved
+- image: php-frankenphp:8.3-prod
+  digest: sha256:e12c84ed1349492240bec14ef7eb9748eecf5288867569c1ac93ebcbe2a77b58
+  status: resolved
+- image: php-frankenphp:8.4-prod
+  digest: sha256:f5c8372803cda923aad43deee7dc2621cf7197b716ddc753a48f03ebc8b4ff80
+  status: resolved
+- image: php-worker:8.3-prod
+  digest: sha256:ba178e63a34652f215888ff168b21c51b0f50334bebd7090e7f905c839ff28b3
+  status: resolved
+- image: php-worker:8.4-prod
+  digest: sha256:a1181801c7d4350125fb8d7d534d44a25be4173ddb53cee50cbb6e4f19f26836
+  status: resolved
+advisory_published: false
+consumers_notified: false
+corrective_release: null
+note: Nothing was published or sent. This record exists to prove the machinery produces a complete, digest-level
+  withdrawal package.
