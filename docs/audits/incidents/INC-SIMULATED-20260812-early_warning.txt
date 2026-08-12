@@ -1,0 +1,20 @@
+*** SIMULATED — TABLETOP ARTEFACT, NOT A REAL SUBMISSION ***
+*** CRA APPLICABILITY UNDETERMINED (see issue 113) — DRAFT ONLY ***
+
+EARLY WARNING PACKET
+============================================================
+
+incident id      INC-SIMULATED-20260812
+awareness (t0)   2026-08-13T09:00:00+00:00
+classification   actively-exploited-vulnerability
+route            CRA Single Reporting Platform / CSIRT: undetermined
+
+awareness_at:                    2026-08-13T09:00:00+00:00
+summary:                         SIMULATED: hypothetical actively-exploited flaw in a shipped image.
+classification:                  actively-exploited-vulnerability
+suspected_affected_products:
+  - all ten Zenchron Foundry images
+known_exploitation:              SIMULATED: exploitation observed in the wild.
+
+*** SIMULATED — TABLETOP ARTEFACT, NOT A REAL SUBMISSION ***
+*** CRA APPLICABILITY UNDETERMINED (see issue 113) — DRAFT ONLY ***

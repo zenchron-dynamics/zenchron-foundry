@@ -1,0 +1,199 @@
+# =============================================================================
+# policies/incident-reporting.yaml — the CRA reporting state machine (#114).
+# -----------------------------------------------------------------------------
+# WHAT THIS IS. An executable definition of the reporting obligations, their
+# clocks and their evidence, consumed by scripts/incident.sh. Not an essay: the
+# deadlines below are computed from a recorded awareness timestamp, and the
+# tooling refuses to emit a packet whose required evidence is missing.
+#
+# WHAT THIS IS NOT, AND MUST NOT BECOME.
+#
+# This file does NOT determine that the CRA applies to Zenchron Foundry, and it
+# does not assign an economic role. That determination is a legal and business
+# decision tracked in #113. Everything here is conditional on it:
+# `applicability.status` is `undetermined`, and scripts/incident.sh prints that
+# on every artefact it produces.
+#
+# Building the machinery before the determination is deliberate. If the answer
+# comes back "the CRA applies", the reporting clocks start at 24 hours and there
+# is no time to build a process then. If it comes back "it does not apply", a
+# working incident process is still worth having and nothing was lost.
+#
+# TIMING. Reporting obligations commence 11 September 2026: an early warning
+# within 24 hours of awareness, a full notification within 72 hours, and a final
+# report whose deadline depends on the classification (see `classifications`).
+# =============================================================================
+schema_version: 1
+
+applicability:
+  status: undetermined
+  determined_by: null
+  determined_at: null
+  tracked_in: 113
+  note: >-
+    Whether the CRA applies to this product, and in which economic role
+    (manufacturer, importer, distributor, open-source steward), is a legal and
+    business determination. Nothing in this repository makes it. Until it is
+    made, every artefact produced by scripts/incident.sh is stamped
+    "CRA APPLICABILITY UNDETERMINED" and is a DRAFT for a human to decide upon.
+  obligations_commence: 2026-09-11
+
+reporting_route:
+  # The CRA Single Reporting Platform is the intended route; the specific
+  # national CSIRT endpoint depends on the member state and on the economic role
+  # above. Neither is asserted here.
+  platform: "CRA Single Reporting Platform"
+  csirt: undetermined
+  csirt_note: >-
+    The competent CSIRT depends on the member state of establishment. Zenchron
+    Dynamics' establishment and therefore its competent CSIRT is a human fact
+    this repository does not hold. See required_human_inputs.
+  submission_account: undetermined
+
+# --- the state machine -------------------------------------------------------
+# One linear path with one branch at classification. Every transition records
+# who, when and why; scripts/incident.sh refuses a transition whose required
+# evidence is absent.
+states:
+  - id: DISCOVERED
+    means: "something was noticed; it may or may not be reportable"
+    next: [AWARENESS_RECORDED]
+  - id: AWARENESS_RECORDED
+    means: >-
+      t0. The moment the organisation became aware. Every deadline is computed
+      from THIS, so it is recorded once, explicitly, and never back-dated
+      silently — a changed awareness_at is itself a decision-log entry.
+    requires: [awareness_at, recorded_by, summary]
+    next: [CLASSIFIED]
+    starts_clocks: [early_warning, full_notification]
+  - id: CLASSIFIED
+    means: "which obligation applies, if any"
+    requires: [classification, classification_rationale]
+    next: [EARLY_WARNING, NOT_REPORTABLE]
+  - id: NOT_REPORTABLE
+    means: >-
+      Assessed as outside the reporting obligations. This is a RECORDED decision
+      with a rationale, not an absence of one — 'we decided it did not qualify'
+      must be as auditable as a submission.
+    requires: [classification_rationale, decided_by]
+    terminal: true
+  - id: EARLY_WARNING
+    means: "the 24-hour early warning has been prepared/submitted"
+    requires: [early_warning_submitted_at, early_warning_packet]
+    next: [FULL_NOTIFICATION]
+  - id: FULL_NOTIFICATION
+    means: "the 72-hour notification has been prepared/submitted"
+    requires: [full_notification_submitted_at, full_notification_packet]
+    next: [CORRECTIVE_ACTION]
+  - id: CORRECTIVE_ACTION
+    means: "a corrective measure is available to users"
+    requires: [corrective_measure_available_at, corrective_release]
+    next: [FINAL_REPORT]
+    starts_clocks: [final_report]
+  - id: FINAL_REPORT
+    means: "the final report has been prepared/submitted"
+    requires: [final_report_submitted_at, final_report_packet]
+    next: [CLOSED]
+  - id: CLOSED
+    means: "all obligations discharged and evidence retained"
+    requires: [closed_at, retrospective]
+    terminal: true
+
+# --- the clocks --------------------------------------------------------------
+deadlines:
+  early_warning:
+    from: awareness_at
+    hours: 24
+    obligation: "early warning to the CSIRT / Single Reporting Platform"
+  full_notification:
+    from: awareness_at
+    hours: 72
+    obligation: "full notification, including corrective/mitigating measures taken"
+  final_report:
+    # The branch. Both are computed; which one BINDS depends on classification.
+    actively_exploited_vulnerability:
+      from: corrective_measure_available_at
+      days: 14
+      obligation: "final report, no later than 14 days after a corrective measure is available"
+    severe_incident:
+      from: full_notification_submitted_at
+      days: 30
+      obligation: "final report, within one month of the incident notification"
+
+classifications:
+  - id: actively-exploited-vulnerability
+    final_report_rule: actively_exploited_vulnerability
+    means: "a vulnerability in the product that is being actively exploited"
+  - id: severe-incident
+    final_report_rule: severe_incident
+    means: "a severe incident affecting the security of the product"
+  - id: not-reportable
+    final_report_rule: null
+    means: "assessed as outside the reporting obligations — rationale required"
+
+# --- evidence required before a packet may be produced ----------------------
+# scripts/incident.sh refuses to emit a packet with any of these missing. A
+# report assembled from whatever happened to be at hand is how the wrong digest
+# ends up in a regulatory filing.
+evidence_schema:
+  early_warning:
+    - awareness_at
+    - summary
+    - classification
+    - suspected_affected_products
+    - known_exploitation
+  full_notification:
+    - awareness_at
+    - summary
+    - classification
+    - classification_rationale
+    - affected_image_digests      # per image, per architecture
+    - affected_source_revisions
+    - sbom_references
+    - vex_status
+    - known_exploitation
+    - mitigations
+    - affected_distribution       # who received it, through which channel
+    - corrective_measures_taken
+  final_report:
+    - all_of_full_notification
+    - corrective_release
+    - corrective_measure_available_at
+    - root_cause
+    - customer_notifications      # what was sent, to whom, when
+    - decision_log
+    - retrospective
+
+retention:
+  # Evidence must outlive the incident, and outlive the workflow artefacts that
+  # would otherwise expire.
+  records_dir: docs/audits/incidents
+  retain_years: 10
+  note: >-
+    Ten years is chosen to cover a product support period plus a plausible
+    post-market audit window. The durable evidence-bundle work is #128; until it
+    lands these records live in git, which is itself durable and tamper-evident
+    via signed commits.
+
+# --- what only a human can supply -------------------------------------------
+required_human_inputs:
+  - id: cra-applicability
+    what: "Does the CRA apply to this product, and in which economic role?"
+    why: "Everything in this file is conditional on it."
+    who: "legal / business decision"
+    tracked_in: 113
+  - id: competent-csirt
+    what: "Which member state's CSIRT is competent, and what is the submission route?"
+    why: "Depends on establishment; not a fact this repository holds."
+    who: "legal"
+  - id: submission-account
+    what: "An account on the CRA Single Reporting Platform"
+    why: "No submission can be made without one. None is assumed to exist."
+    who: "Bogdan Olteanu"
+  - id: decision-roles
+    what: "Who decides classification, and who signs off a submission?"
+    why: >-
+      With one maintainer these roles collapse onto one person
+      (policies/governance-model.yaml). That must be stated in the filing rather
+      than implied by naming a role nobody else holds.
+    who: "Bogdan Olteanu"

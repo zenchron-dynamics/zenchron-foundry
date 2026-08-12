@@ -1,0 +1,146 @@
+name: sensitive-change
+
+# ---------------------------------------------------------------------------
+# Security-sensitive changes carry a completed checklist (#112).
+#
+# With one maintainer there is no second party to catch a bad security change,
+# and the repository must not pretend otherwise: a required reviewer would block
+# every change rather than add oversight, because GitHub forbids self-approval.
+#
+# What IS available is forcing the author to answer specific questions before
+# merging — questions naming the traps this repository has actually fallen into,
+# rather than a generic "did you think about security" box.
+#
+# The sensitive-path list and the checklist both come from
+# policies/governance-model.yaml. This workflow never restates them: a second
+# copy would drift, and the drifted copy would be the one people read.
+#
+# This is NOT independent review and does not claim to be. It is the author
+# being made to state their reasoning where it can be read later.
+# ---------------------------------------------------------------------------
+
+on:
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, edited]
+
+# Read-only. It reports a verdict through the check status; it does not edit the
+# pull request, label it, or comment as a bot.
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: sensitive-change-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checklist:
+    name: security-sensitive change checklist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether this change is sensitive
+        id: detect
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # From the DIFF, not from the author remembering to say so.
+          git diff --name-only "$BASE" "$HEAD" > /tmp/changed.txt
+          echo "changed files:"; sed 's/^/  /' /tmp/changed.txt
+
+          python3 - <<'PY' | tee /tmp/sensitive.txt
+          import fnmatch, yaml
+          paths = yaml.safe_load(open("policies/governance-model.yaml"))["sensitive_paths"]
+          changed = [l.strip() for l in open("/tmp/changed.txt") if l.strip()]
+          hits = sorted({f for f in changed for p in paths if fnmatch.fnmatch(f, p)})
+          for h in hits:
+              print(h)
+          PY
+
+          if [ -s /tmp/sensitive.txt ]; then
+            echo "sensitive=true" >> "$GITHUB_OUTPUT"
+            echo "This change touches security-sensitive paths."
+          else
+            echo "sensitive=false" >> "$GITHUB_OUTPUT"
+            echo "No security-sensitive path touched."
+          fi
+
+      - name: Require the checklist to be completed
+        if: steps.detect.outputs.sensitive == 'true'
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          # Every checklist item from the model must appear in the PR body with a
+          # non-empty answer. An unticked box, or a ticked box with nothing after
+          # it, is not an answer — the point is the reasoning, not the tick.
+          BODY="$BODY" python3 - <<'PY'
+          import os, re, sys, yaml
+
+          model = yaml.safe_load(open("policies/governance-model.yaml"))
+          items = model["sensitive_change_checklist"]
+          body  = os.environ.get("BODY") or ""
+
+          print("Security-sensitive paths touched:")
+          for l in open("/tmp/sensitive.txt"):
+              print("  " + l.rstrip())
+          print()
+
+          # Measure the answer ON THE LINE that names the item, not the text
+          # after it. The first version took body[match.end():] — everything
+          # AFTER the matched line — which silently measured the NEXT item's
+          # answer, so items passed for the wrong reason and the last item
+          # always failed with zero characters. It also matched an incidental
+          # mention elsewhere in the body ("No control-plane mutation.") in
+          # preference to the real checklist entry.
+          #
+          # So: consider EVERY occurrence, take the remainder of that line, and
+          # accept the item if any occurrence carries real substance.
+          MIN_ANSWER = 40
+
+          def answer_for(item_id):
+              best = ""
+              for m in re.finditer(r"(?im)^.*?\b%s\b(?P<rest>.*)$" % re.escape(item_id), body):
+                  rest = re.sub(r"^[\s:\-—–*_`]+", "", m.group("rest")).strip()
+                  if len(rest) > len(best):
+                      best = rest
+              return best
+
+          missing = []
+          for it in items:
+              if not re.search(r"(?im)^.*\b%s\b" % re.escape(it["id"]), body):
+                  missing.append((it["id"], "not present in the pull request body"))
+                  continue
+              ans = answer_for(it["id"])
+              if len(ans) < MIN_ANSWER:
+                  missing.append((it["id"],
+                                  "present but not answered (%d chars; need %d)"
+                                  % (len(ans), MIN_ANSWER)))
+
+          if missing:
+              print("REFUSE: the security-sensitive checklist is incomplete.\n")
+              for mid, why in missing:
+                  prompt = next(i["prompt"] for i in items if i["id"] == mid)
+                  print("  %-16s %s" % (mid, why))
+                  print("  %-16s %s\n" % ("", prompt))
+              print("Add each item to the pull request body with a real answer.")
+              print("Source of truth: policies/governance-model.yaml")
+              print()
+              print("This is not independent review — there is one maintainer and")
+              print("the repository does not pretend otherwise (#112). It is the")
+              print("author being made to state their reasoning where it can be")
+              print("read later.")
+              sys.exit(1)
+
+          print("checklist complete: %d item(s) answered" % len(items))
+          PY
+
+      - name: Not sensitive
+        if: steps.detect.outputs.sensitive != 'true'
+        run: echo "No security-sensitive path touched; checklist not required."
