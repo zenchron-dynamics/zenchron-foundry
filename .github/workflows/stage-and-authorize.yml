@@ -65,6 +65,7 @@ jobs:
       contents: read
     outputs:
       created: ${{ steps.stamp.outputs.created }}
+      source_date_epoch: ${{ steps.stamp.outputs.source_date_epoch }}
     steps:
       - name: Refuse a non-default ref
         env:
@@ -74,17 +75,32 @@ jobs:
           [ "$REF" = "refs/heads/master" ] \
             || { echo "REFUSE: dispatch from master only, got '${REF}'" >&2; exit 1; }
           echo "OK: running from ${REF}"
-      - name: Freeze the build timestamp for the whole run
+      - name: Derive the build timestamp from the SOURCE COMMIT
         id: stamp
         run: |
           set -euo pipefail
-          # ONE created timestamp for every child. github.event.repository.updated_at
-          # is repository metadata — when the repo record last changed — not
-          # evidence of when these images were built, and it drifts for reasons
-          # that have nothing to do with this run.
-          created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          echo "created=${created}" >> "$GITHUB_OUTPUT"
-          echo "build created: ${created}"
+          # SOURCE_DATE_EPOCH, from the commit being built (#101).
+          #
+          # This was a wall-clock `date -u`. github.event.repository.updated_at,
+          # which build-images.yml used, is worse still: it is repository
+          # metadata that drifts for reasons unrelated to any build. Both mean
+          # rebuilding the SAME COMMIT produces a different
+          # org.opencontainers.image.created, therefore a different image config,
+          # therefore a different digest — for reasons that have nothing to do
+          # with the code.
+          #
+          # The committer timestamp is a property OF the source: the same commit
+          # yields the same value forever, on any runner, at any time.
+          epoch="$(git log -1 --format=%ct "${GITHUB_SHA}")"
+          case "$epoch" in
+            ''|*[!0-9]*) echo "REFUSE: could not derive SOURCE_DATE_EPOCH from ${GITHUB_SHA}" >&2; exit 1 ;;
+          esac
+          created="$(date -u -d "@${epoch}" +%Y-%m-%dT%H:%M:%SZ)"
+          {
+            echo "created=${created}"
+            echo "source_date_epoch=${epoch}"
+          } >> "$GITHUB_OUTPUT"
+          echo "SOURCE_DATE_EPOCH=${epoch} (${created}) from commit ${GITHUB_SHA}"
 
   # -------------------------------------------------------------------------
   # One database for the whole run. Ten jobs each resolving their own snapshot
@@ -283,8 +299,18 @@ jobs:
           # the RC manifest.
           sbom: false
           provenance: false
+          # NOT WIRED HERE YET, deliberately (#101). Deterministic layer
+          # timestamps need `outputs: type=image,push=true,rewrite-timestamp=true`,
+          # and `outputs:` REPLACES the `push: true` shorthand above rather than
+          # adding to it — getting that wrong silently stops this workflow
+          # pushing, which is the one path that stages anything. It is proven
+          # locally (scripts/reproducibility-check.sh, byte-identical layers
+          # across two --no-cache builds) and must be verified on a real staging
+          # run before it lands here. SOURCE_DATE_EPOCH above is already wired
+          # and is safe on its own: it only fixes the `created` label.
           build-args: |
             BUILD_DATE=${{ needs.guard.outputs.created }}
+            SOURCE_DATE_EPOCH=${{ needs.guard.outputs.source_date_epoch }}
             VCS_REF=${{ github.sha }}
           labels: |
             org.opencontainers.image.created=${{ needs.guard.outputs.created }}

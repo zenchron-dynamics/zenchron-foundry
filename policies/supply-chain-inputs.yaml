@@ -1,0 +1,268 @@
+# =============================================================================
+# policies/supply-chain-inputs.yaml — every non-base external input, declared.
+# -----------------------------------------------------------------------------
+# WHY THIS FILE EXISTS (#101, #123).
+#
+# Base images are digest-pinned and their LINES are tracked in
+# policies/lifecycle.yaml. Neither covers the other things a build pulls in:
+# a PECL tarball fetched by version and never checksummed, a helper script
+# inherited from an upstream image, the scanner and linter images that decide
+# whether a release ships, and the Debian package index — which is a moving
+# target by design.
+#
+# Dependabot cannot see most of these. It parses Dockerfile `FROM` lines and
+# GitHub Actions refs; it does not parse `pecl install "redis-${VER}"`, and it
+# has no opinion about whether the Trivy that gated yesterday's release is the
+# Trivy gating today's.
+#
+# Two consumers, both in scripts/assert-supply-chain-inputs.sh:
+#
+#   INTEGRITY (offline)   every input is pinned to an exact version AND bound by
+#                         a checksum or digest, the pin in this file matches the
+#                         pin in the code, and nothing declared here is missing
+#                         from the tree. An input with no integrity binding is a
+#                         FAILURE, not a warning.
+#
+#   DRIFT (--check-upstream)  is there a newer version, is the pinned one past
+#                         its staleness SLA, and does the ledger owner need to
+#                         act. Network-backed, so it is not part of the offline
+#                         gate.
+#
+# `integrity: inherited-from-base` is a real binding, not an exemption: the
+# artefact is inside an image we pin by digest, so the base digest IS its
+# checksum. It is called out explicitly so nobody reads a blank field as "we
+# forgot".
+# =============================================================================
+schema_version: 1
+
+policy:
+  # How long a pinned security-critical input may sit at a version that upstream
+  # has superseded before the drift detector escalates from report to breach.
+  staleness_sla_days: 90
+  # Scanners and policy engines decide whether a release ships. A stale one is
+  # not a cosmetic lag: it is a gate making decisions on an old rule set.
+  staleness_sla_days_scanners: 45
+  review_every_days: 90
+  last_reviewed: 2026-08-12
+  reviewed_by: Zenchron Dynamics / Platform Security
+
+inputs:
+  # --- build inputs that end up INSIDE a shipped image ---------------------
+  - id: phpredis
+    kind: source-tarball
+    classification: ships-in-image
+    owner: Zenchron Dynamics / Platform Security
+    version: "6.1.0"
+    source: "https://pecl.php.net/get/redis-6.1.0.tgz"
+    integrity: "sha256:f10405f639fe415e9ed4ec99538e72c90694d8dbd62868edcfcd6a453466b48c"
+    integrity_verified_at: 2026-08-12
+    declared_in: ["images/php-cli/8.3/Dockerfile", "images/php-cli/8.4/Dockerfile",
+                  "images/php-fpm/8.3/Dockerfile", "images/php-fpm/8.4/Dockerfile",
+                  "images/php-worker/8.3/Dockerfile", "images/php-worker/8.4/Dockerfile"]
+    declared_as: PHPREDIS_VERSION
+    update_signal: "release-feed:https://pecl.php.net/rest/r/redis/allreleases.xml"
+    security_advisories: "https://github.com/phpredis/phpredis/security/advisories"
+    note: >-
+      Was `pecl install "redis-${VER}"`: version-pinned, integrity-unpinned. pecl
+      resolves and downloads the tarball itself, so the build trusted whatever
+      pecl.php.net served at that moment. Now downloaded explicitly, checksummed
+      against the value above, and only then handed to pecl.
+
+  - id: install-php-extensions
+    kind: helper-script
+    classification: ships-in-image
+    owner: Zenchron Dynamics / Platform Security
+    version: inherited
+    source: "https://github.com/mlocati/docker-php-extension-installer"
+    integrity: inherited-from-base
+    integrity_binding: "dunglas/frankenphp:1-php8.x-bookworm@sha256:… (images/php-frankenphp/*/Dockerfile)"
+    declared_in: ["images/php-frankenphp/8.3/Dockerfile", "images/php-frankenphp/8.4/Dockerfile"]
+    update_signal: base-digest
+    note: >-
+      Shipped INSIDE the FrankenPHP base image, not downloaded by our build, so
+      the base digest pin is its integrity binding — a different helper version
+      means a different base digest. It is listed because the helper's BEHAVIOUR
+      (which extension source it fetches, and from where) is an unpinned input we
+      inherit rather than control. See `pinned_behaviour` below.
+    pinned_behaviour:
+      recorded_at: 2026-08-12
+      recorded_from: "images/php-frankenphp/8.4/Dockerfile base digest"
+      extensions: [bcmath, intl, opcache, pcntl, pdo_pgsql, pgsql, pdo_mysql, sockets, zip, gd, redis]
+      how_verified: >-
+        The extension set the image ends up with is asserted per image by
+        contracts/php-extensions/, so a helper that silently changed what it
+        installs fails that contract rather than shipping quietly.
+
+  # --- inputs that DECIDE whether a release ships --------------------------
+  # These never enter an image, which is exactly why they are easy to forget —
+  # and a stale scanner is a gate making decisions on an old rule set.
+  - id: trivy
+    kind: container-image
+    classification: release-gate
+    owner: Zenchron Dynamics / Platform Security
+    version: "0.71.0"
+    source: "docker.io/aquasec/trivy"
+    integrity: "sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500"
+    declared_in: [".github/workflows/scan-images.yml"]
+    update_signal: "github-releases:aquasecurity/trivy"
+    sla: scanners
+
+  - id: hadolint
+    kind: container-image
+    classification: release-gate
+    owner: Zenchron Dynamics / Platform Security
+    version: "2.12.0-debian"
+    source: "docker.io/hadolint/hadolint"
+    integrity: "sha256:27173fe25e062448490a32de410c08491c626a0bef360aa2ce5d5bdd9384b50d"
+    declared_in: [".github/workflows/ci.yml"]
+    update_signal: "github-releases:hadolint/hadolint"
+
+  - id: shellcheck
+    kind: container-image
+    classification: release-gate
+    owner: Zenchron Dynamics / Platform Security
+    version: "v0.10.0"
+    source: "docker.io/koalaman/shellcheck"
+    integrity: "sha256:2097951f02e735b613f4a34de20c40f937a6c8f18ecb170612c88c34517221fb"
+    declared_in: [".github/workflows/ci.yml"]
+    update_signal: "github-releases:koalaman/shellcheck"
+
+  - id: semgrep
+    kind: container-image
+    classification: release-gate
+    owner: Zenchron Dynamics / Platform Security
+    version: "1.86.0"
+    source: "docker.io/semgrep/semgrep"
+    integrity: "sha256:a9ea2d5621c29d815d90c2a3b2f9571da8972ef4ff855c9e4902681730240e35"
+    declared_in: [".github/workflows/ci.yml"]
+    update_signal: "github-releases:semgrep/semgrep"
+    sla: scanners
+
+  - id: gitleaks
+    kind: container-image
+    classification: release-gate
+    owner: Zenchron Dynamics / Platform Security
+    version: "v8.21.2"
+    source: "docker.io/zricethezav/gitleaks"
+    integrity: "sha256:0e99e8821643ea5b235718642b93bb32486af9c8162c8b8731f7cbdc951a7f46"
+    declared_in: [".github/workflows/ci.yml"]
+    update_signal: "github-releases:gitleaks/gitleaks"
+    sla: scanners
+
+  - id: yamllint
+    kind: container-image
+    classification: release-gate
+    owner: Zenchron Dynamics / Platform Security
+    version: pinned-by-digest-only
+    source: "docker.io/pipelinecomponents/yamllint"
+    integrity: "sha256:5ab5eb7da0ed5e606b07c1723fc8b275e925189f70ac259b26b7329cb5f8f44d"
+    declared_in: [".github/workflows/ci.yml"]
+    update_signal: registry-tag
+    note: "Upstream publishes no semantic tag we track; the digest is the version."
+
+  # --- release tooling fetched onto the runner -----------------------------
+  - id: gh-cli
+    kind: released-binary
+    classification: release-gate
+    owner: Zenchron Dynamics / Platform Security
+    version: "2.63.2"
+    source: "https://github.com/cli/cli/releases"
+    integrity: "sha256:912fdb1ca29cb005fb746fc5d2b787a289078923a29d0f9ec19a0b00272ded00 (amd64)"
+    declared_in: ["scripts/ci/ensure-release-tools.sh"]
+    update_signal: "github-releases:cli/cli"
+
+  - id: jq
+    kind: released-binary
+    classification: release-gate
+    owner: Zenchron Dynamics / Platform Security
+    version: "1.7.1"
+    source: "https://github.com/jqlang/jq/releases"
+    integrity: "sha256:5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5 (amd64)"
+    declared_in: ["scripts/ci/ensure-release-tools.sh"]
+    update_signal: "github-releases:jqlang/jq"
+
+  - id: yq
+    kind: released-binary
+    classification: release-gate
+    owner: Zenchron Dynamics / Platform Security
+    version: "4.44.6"
+    source: "https://github.com/mikefarah/yq/releases"
+    integrity: "sha256:0c2b24e645b57d8e7c0566d18643a6d4f5580feeea3878127354a46f2a1e4598 (amd64)"
+    declared_in: ["scripts/ci/ensure-release-tools.sh"]
+    update_signal: "github-releases:mikefarah/yq"
+
+  # --- bundled third-party code we do NOT build ----------------------------
+  # #79 lives here. The FrankenPHP binary statically links Go modules that no
+  # base-digest bump has fixed; the drift detector reports them from the ledger
+  # so "is upstream fixed yet" stops being a manual question.
+  - id: frankenphp-go-modules
+    kind: bundled-binary-modules
+    classification: ships-in-image
+    owner: Zenchron Dynamics / Platform Security
+    version: inherited
+    source: "https://github.com/php/frankenphp"
+    integrity: inherited-from-base
+    integrity_binding: "dunglas/frankenphp:1-php8.x-bookworm base digest"
+    declared_in: ["images/php-frankenphp/8.3/Dockerfile", "images/php-frankenphp/8.4/Dockerfile"]
+    update_signal: base-digest
+    tracked_findings: ["GHSA-r277-6w6q-xmqw", "GHSA-hrxh-6v49-42gf"]
+    tracked_issue: 79
+    note: >-
+      A base digest bump does NOT necessarily update these. Measured 2026-08-11:
+      the newest 1.x base still ships kin-openapi v0.140.0 and grpc v1.81.1,
+      identical to the pinned one. That is precisely why they need their own
+      inventory entry — the usual "bump the base" signal is not the signal here.
+
+  # --- the input we do NOT control ----------------------------------------
+  - id: debian-package-index
+    kind: package-index
+    classification: ships-in-image
+    owner: Zenchron Dynamics / Platform Security
+    version: floating
+    source: "http://deb.debian.org/debian (bookworm, bookworm-security, bookworm-updates)"
+    integrity: none
+    integrity_gap: true
+    declared_in: ["images/nginx/Dockerfile", "images/php-cli/8.3/Dockerfile",
+                  "images/php-cli/8.4/Dockerfile", "images/php-fpm/8.3/Dockerfile",
+                  "images/php-fpm/8.4/Dockerfile", "images/php-worker/8.3/Dockerfile",
+                  "images/php-worker/8.4/Dockerfile"]
+    update_signal: continuous
+    note: >-
+      THE remaining reproducibility gap, declared rather than hidden.
+      `apt-get update` resolves a live index, so two builds of the same source
+      commit can install different package versions the moment Debian publishes a
+      point release. Recording the resolved package set in provenance makes the
+      difference VISIBLE and attributable; it does not make the build hermetic.
+      Closing it needs snapshot.debian.org or a committed package lock, which is
+      an architectural change and is tracked in #101, not pretended away here.
+    partial_mitigation: >-
+      scripts/record-package-index.sh captures the exact resolved package set and
+      the archive's InRelease timestamps per build, so a digest difference between
+      two builds can be attributed to a specific package rather than left as an
+      unexplained mismatch.
+
+# --- build determinism ------------------------------------------------------
+build_determinism:
+  source_date_epoch:
+    derived_from: source-commit
+    expression: "git log -1 --format=%ct <commit>"
+    note: >-
+      Was `github.event.repository.updated_at` in build-images.yml and a wall
+      clock `date -u` in stage-and-authorize.yml. Both change independently of
+      the source: rebuilding the same commit produced a different
+      org.opencontainers.image.created, and therefore a different image config
+      and a different digest, for reasons that had nothing to do with the code.
+      The commit timestamp is a property OF the source, so the same commit gives
+      the same value forever.
+  known_nondeterminism:
+    - field: "buildkit attestation manifest"
+      deterministic: false
+      excluded_from_claim: true
+      reason: >-
+        BuildKit embeds build-time metadata in its attestation manifest. The
+        staging build sets sbom:false and provenance:false, so the shipped object
+        is a plain platform manifest — but a local `docker build` without those
+        flags produces an index whose digest differs run to run. The
+        reproducibility claim is therefore made about the IMAGE CONFIGURATION and
+        FILESYSTEM CONTENT, not the index digest, and the comparison script
+        compares those.

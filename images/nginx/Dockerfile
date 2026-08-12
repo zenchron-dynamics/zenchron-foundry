@@ -58,6 +58,14 @@ RUN set -eux; \
         nginx-module-image-filter nginx-module-xslt nginx-module-njs nginx-module-geoip \
         libtiff6 libexpat1; \
     rm -rf /var/lib/apt/lists/*; \
+    # #101: build RESIDUE, not image content. apt/dpkg logs record WHEN the
+    # build ran and ldconfig's aux-cache embeds timestamps, so two builds of the
+    # same commit differed in exactly these 8 files out of 3505 — enough to
+    # change a layer digest while the served content was identical. Removing
+    # them makes the layer reproducible, and also stops shipping a record of the
+    # build host's clock to consumers.
+    rm -rf /var/log/apt /var/log/dpkg.log /var/log/alternatives.log \
+           /var/cache/ldconfig/aux-cache; \
     if command -v curl >/dev/null 2>&1; then \
         echo "REFUSE: curl survived removal" >&2; exit 1; \
     fi; \
