@@ -18,6 +18,27 @@ oci_revision_label: required
 tls_termination: forbidden
 tls_ports_exposed: []
 
+# --- hardened runtime contract (#110) ---------------------------------------
+# Only the facts the harness cannot DERIVE. Identity (`user`), the writable set
+# (`tmpfs`) and the expected listeners (`ports`) are declared above and are read
+# from there — restating them here would create a second place to drift.
+#   mode                  server  = long-running; the probe runs via docker exec
+#                                   and reads /proc/1, the REAL entrypoint process
+#                         oneshot = the probe itself runs as PID 1
+#   run_args              command needed to keep the image running, when its own
+#                         default CMD exits
+#   stop_signal           the signal PID 1 must handle gracefully
+#   graceful_stop_seconds how long it may take to exit after that signal
+runtime:
+  # EXPOSEd ports are a declaration of intent; this is what the shipped
+  # Caddyfile actually binds. :8080 is the CONSUMER's site, activated by
+  # mounting a config under conf.d — absent by default, so it is neither a
+  # missing listener nor an unexpected one.
+  listeners_default: [8081]
+  mode: server
+  stop_signal: SIGTERM
+  graceful_stop_seconds: 10
+
 # Expected STATIC OCI metadata (#126). Checked against the label map read
 # from the staged image. Dynamic values (version, created, revision,
 # ref.name) are supplied by the run and compared against the run itself,

@@ -1,0 +1,130 @@
+# =============================================================================
+# policies/runtime-contract.yaml — the hardened runtime contract, once.
+# -----------------------------------------------------------------------------
+# WHY THIS FILE EXISTS (#110).
+#
+# The platform advertises zero capabilities, a read-only root filesystem,
+# no-new-privileges, bounded PIDs and hardened tmpfs. The smoke tests proved a
+# SUBSET of that, and a different subset per family: the FrankenPHP smoke started
+# with `--read-only --tmpfs /tmp` and omitted `--cap-drop ALL`, NNP, PID limits
+# and the noexec/nosuid/nodev flags entirely. An image could pass its smoke test
+# and still fail under the profile the documentation tells consumers to use.
+#
+# So the contract is declared ONCE, here, and one harness
+# (scripts/runtime-contract.sh) executes it against every image. Per-image facts
+# — who it runs as, what it listens on, what must be writable — stay in
+# contracts/images/<image>.yaml, which was already the source of truth for them.
+# Nothing is restated in two places: the harness reads both and merges.
+#
+# #107 (logging privacy) and #129 (seccomp / MAC profiles) plug in here rather
+# than growing their own harnesses.
+# =============================================================================
+schema_version: 1
+
+# --- the invariants every image must satisfy, under the profile below --------
+invariants:
+  non_root: true                 # PID 1 must not be uid 0
+  capabilities_empty: true       # CapEff/CapPrm/CapBnd all zero for PID 1
+  no_new_privileges: true        # /proc/1/status NoNewPrivs: 1
+  seccomp_filtered: true         # /proc/1/status Seccomp: 2 (SECCOMP_MODE_FILTER)
+  read_only_rootfs: true         # a write outside the declared tmpfs must fail
+  writable_paths_usable: true    # ...and a write INSIDE them must succeed
+  tmpfs_hardened: true           # every tmpfs carries noexec,nosuid,nodev
+  pids_limited: true             # cgroup pids.max equals the declared limit
+  no_unexpected_listeners: true  # only the ports the image's contract declares
+  healthcheck_reports_healthy: true
+  graceful_shutdown: true        # SIGTERM/STOPSIGNAL ends PID 1 in time
+
+# --- the profile the harness runs every image under --------------------------
+# These are the same values as profiles/compose.security.yml. They are repeated
+# here as the CONTRACT rather than referenced, because the compose file is an
+# example a consumer edits, and the contract must not be editable by editing an
+# example. tests/runtime/test_runtime_contract.sh asserts the two agree.
+profile:
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 256
+  tmpfs_flags: [noexec, nosuid, nodev]
+  tmpfs_size: 64m
+  # Docker special-cases /tmp to 1777 and mounts every OTHER tmpfs mode 755 owned
+  # by root. A non-root image then cannot write a path its own contract declares
+  # writable — caddy's /data was exactly that, failing with
+  # `open /data/caddy/instance.uuid: read-only file system` while the read-only
+  # rootfs took the blame for a mount-mode problem. Found by the harness (#110).
+  tmpfs_mode: "1777"
+  # Runtime default seccomp. #129 deliberately does NOT hand-write a per-image
+  # syscall allowlist: the measured requirement is that the images run correctly
+  # under the runtime's default filter, and a bespoke profile that drifts from
+  # the binaries it constrains is worse than the default it replaced.
+  seccomp: runtime-default
+
+# --- configurations that must be REJECTED, not merely discouraged (#129) -----
+# Each is a documented escape hatch that undoes a control above. The harness
+# proves the first two behaviourally by running the image with them and showing
+# the posture assertion fails; the rest are asserted against the shipped compose
+# profiles and examples, which is where a consumer would copy them from.
+forbidden_runtime_options:
+  - option: "--security-opt seccomp=unconfined"
+    undoes: seccomp_filtered
+    behavioural: true
+  - option: "--security-opt apparmor=unconfined"
+    undoes: mandatory access control confinement
+    behavioural: false
+    note: "AppArmor is not enforced on every host; see security/apparmor/README.md"
+  - option: "--privileged"
+    undoes: capabilities_empty, seccomp_filtered, read_only_rootfs
+    behavioural: true
+  - option: "--pid host"
+    undoes: process isolation
+    behavioural: false
+  - option: "--ipc host"
+    undoes: IPC isolation
+    behavioural: false
+  - option: "--network host"
+    undoes: network isolation and no_unexpected_listeners
+    behavioural: false
+  - option: "-v /var/run/docker.sock:/var/run/docker.sock"
+    undoes: the container boundary entirely
+    behavioural: false
+  - option: "--cap-add"
+    undoes: capabilities_empty
+    behavioural: false
+
+# --- ports that must never be open in any shipped image ----------------------
+# Not an exhaustive scan — a bounded, meaningful denylist. The harness prefers a
+# COMPLETE enumeration from /proc/net/tcp when the environment provides one, and
+# records which method it used so the evidence never claims more than it measured.
+sensitive_ports_denylist: [22, 23, 25, 80, 443, 2375, 2376, 3306, 5432, 6379, 8443, 9001, 11211, 27017]
+
+# --- logging privacy (#107) --------------------------------------------------
+# Applies to the images that emit access logs. The canaries are what the harness
+# actually sends; asserting on config text would prove only that a directive is
+# present, not that the field never reaches the log.
+logging_privacy:
+  applies_to: [nginx, caddy]
+  profiles: [default, privacy-eu]
+  default_profile: privacy-eu
+  default_profile_rationale: >-
+    The privacy-minimised profile is the DEFAULT, not an opt-in. A field that is
+    only redacted when someone remembers to select a profile is a field that gets
+    logged. The full profile remains selectable for operators who have a lawful
+    basis and a retention policy for it.
+  must_never_appear_in_logs:
+    - query strings (the value of any URI parameter)
+    - Authorization header
+    - Cookie header
+    - Set-Cookie header
+    - Proxy-Authorization header
+    - X-Api-Key / X-Auth-Token style credential headers
+  canaries:
+    query_param: "ZENCHRON_QUERY_CANARY"
+    authorization: "ZENCHRON_AUTH_CANARY"
+    cookie: "ZENCHRON_COOKIE_CANARY"
+    api_key: "ZENCHRON_APIKEY_CANARY"
+  client_ip:
+    default_profile_behaviour: truncated
+    note: >-
+      IPv4 is truncated to /24 and IPv6 to /48 by nginx's own map directive — no
+      hand-rolled hashing, no invented cryptography. An operator who needs full
+      addresses selects the `default` profile and owns the retention decision.

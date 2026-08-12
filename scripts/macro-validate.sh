@@ -36,6 +36,7 @@ gate "actionlint"                actionlint
 gate "shellcheck (scripts)"      bash -c 'shellcheck -S warning $(find scripts -name "*.sh")'
 gate "vulnerability policy"      bash scripts/validate-vulnerability-exceptions.sh
 gate "upstream lifecycle"        bash scripts/assert-lifecycle.sh
+gate "confinement profiles"      bash scripts/assert-runtime-profiles.sh
 gate "self-test + unit suite"    bash tests/run-all.sh
 gate "release dry-run"           bash scripts/release-dry-run.sh
 
