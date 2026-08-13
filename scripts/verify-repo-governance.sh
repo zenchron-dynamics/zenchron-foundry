@@ -233,6 +233,20 @@ verify_all() {
     && pass "visibility is '${want_vis}' as declared" \
     || fail "visibility is '$(jq -r '.visibility' <<<"$repo_json")', declared '${want_vis}'"
 
+  # Inbound coordinated-disclosure channel (#125). SECURITY.md and
+  # policies/support-policy.yaml both advertise it to reporters, so the live
+  # setting and those documents must not drift. Reading it needs an admin token,
+  # which is why this lives here — with the other live checks — and not in the
+  # offline suite.
+  local want_pvr live_pvr
+  want_pvr="$(pol repository.private_vulnerability_reporting)"
+  live_pvr="$(api "repos/${REPO}/private-vulnerability-reporting" | jq -r '.enabled')"
+  if [ "$live_pvr" = "$want_pvr" ]; then
+    pass "private vulnerability reporting is '${want_pvr}' as declared"
+  else
+    fail "private vulnerability reporting is '${live_pvr}', declared '${want_pvr}'"
+  fi
+
   want_branch="$(pol repository.default_branch)"
   [ "$(jq -r '.default_branch' <<<"$repo_json")" = "$want_branch" ] \
     && pass "default branch is '${want_branch}'" \

@@ -87,6 +87,30 @@ if c[\"status\"] == \"available\":
 else:
     assert \"disabled\" in line or \"not enabled\" in line, line
 "'
+# The LIVE cross-check does not belong here: tests/ is offline by construction,
+# and reading private-vulnerability-reporting needs an admin token the pull
+# request context does not have. It lives in scripts/verify-repo-governance.sh,
+# which is the existing home for "live control plane equals declared policy".
+ck "no PGP key is claimed that does not exist" \
+   "! grep -qE '^Encryption:' .well-known/security.txt"
+# Derived, not hardcoded. The first version asserted "SECURITY.md says PVR is
+# DISABLED", which was true when written and became a false assertion the moment
+# the setting was enabled. What must hold is that the two AGREE — whichever way
+# the fact goes.
+ck "SECURITY.md agrees with the policy about private vulnerability reporting" \
+   'python3 -c "
+import re, yaml
+sp = yaml.safe_load(open(\"policies/support-policy.yaml\"))
+c = [x for x in sp[\"channels\"] if x[\"id\"] == \"github-private-vulnerability-reporting\"][0]
+txt = open(\"SECURITY.md\").read()
+m = re.search(r\"(?im)^.*private vulnerability reporting.*$\", txt)
+assert m, \"SECURITY.md does not mention private vulnerability reporting at all\"
+line = m.group(0).lower()
+if c[\"status\"] == \"available\":
+    assert \"disabled\" not in line and \"not enabled\" not in line, line
+else:
+    assert \"disabled\" in line or \"not enabled\" in line, line
+"'
 ck "the policy status for PVR matches the live control plane" \
    'test -z "${SKIP_LIVE:-}" && command -v gh >/dev/null 2>&1 && python3 -c "
 import json, subprocess, yaml
