@@ -141,6 +141,23 @@ jobs:
       - name: Assert every workflow reset block matches the canonical text (SC-02)
         run: bash scripts/ci/assert-canonical-reset-block.sh
 
+      # Kubernetes admission policies (#124). Deliberately folded into this
+      # ALREADY-REQUIRED job rather than added as a new required check: a new
+      # required check means editing the branch ruleset, which is a control-plane
+      # change. This gets the same enforcement without one.
+      #
+      # Regenerate and diff first — the policies are generated from
+      # cosign-identities.yaml and runtime-contract.yaml, and a hand-edited
+      # admission policy makes a CONSUMER enforce something this platform does not.
+      - name: Assert the admission policies match their sources
+        run: python3 scripts/generate-admission-policy.py --check
+
+      # Then EVALUATE with the real Kyverno engine. The compliant fixture must be
+      # ADMITTED before any rejection counts: a policy that denies everything
+      # passes every negative test and is worthless.
+      - name: Evaluate the admission policies against real fixtures
+        run: bash scripts/test-admission-policy.sh
+
   lint:
     name: lint (shell / yaml / md / dockerfile)
     runs-on: ubuntu-latest

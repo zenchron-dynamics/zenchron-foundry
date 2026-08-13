@@ -1,0 +1,67 @@
+# GENERATED — do not edit by hand.
+#
+# Produced by scripts/generate-admission-policy.py from:
+#   policies/cosign-identities.yaml      (issuer, per-role identity regexps)
+#   policies/runtime-contract.yaml       (the hardened runtime posture)
+#
+# Those files are the source of truth and are enforced at build and release time
+# as well. Editing this file by hand makes a consumer enforce something the
+# platform itself does not; tests/governance/test_admission_policy.sh regenerates
+# and diffs, so a hand edit fails CI.
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: zenchron-foundry-signatures
+  annotations:
+    policies.kyverno.io/title: Zenchron Foundry supply chain
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: Admits only digest-pinned Zenchron Foundry images signed by a PRODUCTION
+      identity and carrying SBOM and provenance attestations. A scheduled-rebuild candidate signature
+      does not satisfy it.
+spec:
+  validationFailureAction: Enforce
+  background: false
+  rules:
+  - name: images-must-be-signed-by-a-production-identity
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    verifyImages:
+    - imageReferences:
+      - ghcr.io/zenchron-dynamics/*
+      mutateDigest: false
+      required: true
+      attestors:
+      - entries:
+        - keyless:
+            issuer: https://token.actions.githubusercontent.com
+            subject: ^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$
+        - keyless:
+            issuer: https://token.actions.githubusercontent.com
+            subject: ^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/release\.yml@refs/tags/v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$
+  - name: images-must-carry-sbom-and-provenance
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    verifyImages:
+    - imageReferences:
+      - ghcr.io/zenchron-dynamics/*
+      required: true
+      attestations:
+      - type: https://spdx.dev/Document
+        attestors:
+        - entries:
+          - keyless:
+              issuer: https://token.actions.githubusercontent.com
+              subject: ^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$
+      - type: https://slsa.dev/provenance/v1
+        attestors:
+        - entries:
+          - keyless:
+              issuer: https://token.actions.githubusercontent.com
+              subject: ^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$

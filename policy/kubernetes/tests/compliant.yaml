@@ -1,0 +1,25 @@
+# A Pod that satisfies the whole runtime contract. If the policy rejects THIS,
+# the policy is wrong — a rule set that denies everything passes every negative
+# test and is worthless.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: compliant
+spec:
+  hostPID: false
+  hostIPC: false
+  hostNetwork: false
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: app
+      image: ghcr.io/zenchron-dynamics/php-fpm@sha256:2044d7b3aad61f234d949d8e406c14cdb6386e4735dbd87148a895304aaef038
+      securityContext:
+        runAsNonRoot: true
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        privileged: false
+        capabilities:
+          drop: [ALL]
