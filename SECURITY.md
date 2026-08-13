@@ -12,10 +12,9 @@ so security issues are treated as high priority.
 
 - **Email: `security@zenchron.com`** — this is the working channel. The domain
   publishes MX records (verified 2026-08-13), so mail is delivered.
-- **GitHub Private Vulnerability Reporting is currently DISABLED** on this
-  repository (measured via the API, 2026-08-13). It was previously listed here
-  with an "if enabled" hedge, which tells a reporter nothing. Enabling it is a
-  tracked human action in `policies/support-policy.yaml`.
+- **GitHub Private Vulnerability Reporting** — Security tab → *Report a
+  vulnerability*. Enabled and verified 2026-08-13. Use this if you would rather
+  not send email; it opens a private thread with the maintainer.
 - No PGP key is published. `SECURITY.md` previously offered one "on request";
   none exists in this repository, and none was invented to fill the gap.
 - Include: affected image/tag, PHP version, CVE (if known), reproduction, and

@@ -69,8 +69,34 @@ for m in re.findall(r\"^Contact: mailto:(.+)$\", txt, re.M):
 "'
 ck "no PGP key is claimed that does not exist" \
    "! grep -qE '^Encryption:' .well-known/security.txt"
-ck "SECURITY.md states that private vulnerability reporting is disabled" \
-   "grep -qi 'Private Vulnerability Reporting is currently DISABLED' SECURITY.md"
+# Derived, not hardcoded. The first version asserted "SECURITY.md says PVR is
+# DISABLED", which was true when written and became a false assertion the moment
+# the setting was enabled. What must hold is that the two AGREE — whichever way
+# the fact goes.
+ck "SECURITY.md agrees with the policy about private vulnerability reporting" \
+   'python3 -c "
+import re, yaml
+sp = yaml.safe_load(open(\"policies/support-policy.yaml\"))
+c = [x for x in sp[\"channels\"] if x[\"id\"] == \"github-private-vulnerability-reporting\"][0]
+txt = open(\"SECURITY.md\").read()
+m = re.search(r\"(?im)^.*private vulnerability reporting.*$\", txt)
+assert m, \"SECURITY.md does not mention private vulnerability reporting at all\"
+line = m.group(0).lower()
+if c[\"status\"] == \"available\":
+    assert \"disabled\" not in line and \"not enabled\" not in line, line
+else:
+    assert \"disabled\" in line or \"not enabled\" in line, line
+"'
+ck "the policy status for PVR matches the live control plane" \
+   'test -z "${SKIP_LIVE:-}" && command -v gh >/dev/null 2>&1 && python3 -c "
+import json, subprocess, yaml
+live = json.loads(subprocess.check_output([
+    \"gh\", \"api\", \"repos/zenchron-dynamics/zenchron-foundry/private-vulnerability-reporting\"]))
+sp = yaml.safe_load(open(\"policies/support-policy.yaml\"))
+c = [x for x in sp[\"channels\"] if x[\"id\"] == \"github-private-vulnerability-reporting\"][0]
+want = \"available\" if live[\"enabled\"] else \"unavailable\"
+assert c[\"status\"] == want, (\"policy says %s, live says enabled=%s\" % (c[\"status\"], live[\"enabled\"]))
+" || { [ -n "${SKIP_LIVE:-}" ] && echo "  (live check skipped)" && true; }'
 ck "SECURITY.md no longer lists 7.4/8.0 as shipped images" \
    "! grep -qE '^\| php-fpm / php-cli / php-worker \| \*\*7\.4' SECURITY.md"
 ck "the withdrawal exercise self-test passes" \

@@ -128,14 +128,14 @@ channels:
   - id: github-private-vulnerability-reporting
     purpose: "coordinated disclosure IN, without email"
     endpoint: "Security tab -> Report a vulnerability"
-    status: unavailable
+    status: available
     verification: >-
-      MEASURED 2026-08-13 via the API: private_vulnerability_reporting.enabled =
-      false. SECURITY.md previously advertised this channel with an 'if enabled'
-      hedge, which tells a reporter nothing. It is now described accurately.
-    required_human_action: >-
-      Enable it in repository Settings -> Code security. This is a control-plane
-      change and is deliberately not made by tooling.
+      ENABLED 2026-08-13 and verified via the API:
+      private_vulnerability_reporting.enabled = true. It had been measured as
+      false the same day, and SECURITY.md advertised it with an 'if enabled'
+      hedge that told a reporter nothing. The setting change was made
+      separately, under explicit authorisation, and this record is the
+      truth-sync of that external fact — not a claim made ahead of it.
 
   - id: release-notifications
     purpose: "release and deprecation notices OUT"
@@ -184,10 +184,6 @@ withdrawal:
 
 # --- what only a human can supply -------------------------------------------
 required_human_actions:
-  - id: enable-private-vulnerability-reporting
-    what: "Enable GitHub Private Vulnerability Reporting"
-    why: "SECURITY.md offers it as a channel; it is currently disabled"
-    who: "repository admin"
   - id: confirm-psirt-monitoring
     what: >-
       Confirm that security@zenchron.com is monitored, by whom, and with what
