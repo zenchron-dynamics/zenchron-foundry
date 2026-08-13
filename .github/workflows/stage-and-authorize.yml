@@ -165,32 +165,30 @@ jobs:
             n=$((n+1)); [ "$n" -ge 3 ] && { echo "REFUSE: cannot download the vulnerability database"; exit 1; }
             echo "db download attempt $n failed; retrying in 15s"; sleep 15
           done
-          # The JAVA database is a SEPARATE download that --download-db-only does
-          # not fetch. Every child scans with --skip-java-db-update, so whether a
-          # scan worked depended on whether the runner happened to have a Java DB
-          # in its ambient cache — which is exactly the non-hermetic condition
-          # this freeze exists to remove. nginx/prod hit it in run 31701249058:
+          # NO JAVA DATABASE IS FETCHED, deliberately.
           #
-          #   FATAL  Unable to initialize the Java DB: Java DB update failed:
-          #          '--skip-java-db-update' cannot be specified on the first run
+          # Trivy initialises the java-db only when its jar analyzer finds a Java
+          # artifact. No Foundry image ships one: the four gettext-base libintl
+          # jars that used to sit in nginx are deleted at build time, and the
+          # Dockerfile REFUSEs if any jar/war/ear/par/jmod survives.
           #
-          # The scan produced no report, so reconciliation correctly refused to
-          # run and the child was refused. Fail-closed held; the run was still
-          # unable to complete. Both databases are frozen together now.
-          n=0
-          until docker run --rm -v "$PWD/trivy-cache:/root/.cache/trivy" \
-                  "${TRIVY_IMAGE}" image --download-java-db-only; do
-            n=$((n+1)); [ "$n" -ge 3 ] && { echo "REFUSE: cannot download the Java database"; exit 1; }
-            echo "java db download attempt $n failed; retrying in 15s"; sleep 15
-          done
-
+          # The previous attempt at this froze the java-db alongside the
+          # vulnerability DB. That was the wrong fix. The java-db is 905 MiB
+          # compressed and 1.5 GB unpacked, so freezing it means pushing a ~1 GB
+          # artifact through all ten stage jobs on a 2 vCPU / 4 GB runner with a
+          # history of disk exhaustion — and run 31749810234 never even got that
+          # far, because mirror.gcr.io/aquasec/trivy-java-db:1 returned 404 on
+          # the layer fetch three times running. Removing the four files that
+          # create the requirement is cheaper than shipping a database to scan
+          # them.
+          #
+          # This still fails CLOSED. If an image ever does ship a Java artifact,
+          # the build refuses it; if one slipped past the build, the child's scan
+          # would FATAL under --skip-java-db-update, produce no report, and
+          # reconciliation would refuse rather than treat a missing scan as
+          # clean. Neither path can silently pass.
           meta=trivy-cache/db/metadata.json
           [ -s "$meta" ] || { echo "REFUSE: no database metadata after download"; exit 1; }
-          # Assert the Java DB is actually present rather than trusting the exit
-          # status of the download above: a missing java-db only shows up much
-          # later, as a FATAL inside one child's scan.
-          jmeta=trivy-cache/java-db/metadata.json
-          [ -s "$jmeta" ] || { echo "REFUSE: no Java database after download"; exit 1; }
           # Canonical identity: the fields that describe the SNAPSHOT. DownloadedAt
           # is deliberately excluded — it records when we fetched it, not which
           # database it is, and including it would make every job disagree.
@@ -460,12 +458,34 @@ jobs:
           echo "::group::scan against the frozen database"
           # --skip-db-update: the snapshot is fixed for the whole run. Without it
           # a long matrix would silently roll onto a newer database mid-record.
+          #
+          # --skip-dirs: /usr/share/java and /usr/share/maven-repo hold four
+          # gettext-base libintl jars that arrive in the nginx BASE layer. This
+          # image deletes them and REFUSEs to build if any survive, so they are
+          # not in the shipped filesystem — but Trivy analyses layers, so it
+          # still finds them in the base layer and initialises its Java database
+          # to look them up. That database is 905 MiB compressed / 1.5 GB on
+          # disk, and fetching it is what broke run 31701249058 (scan FATAL, no
+          # report) and run 31749810234 (mirror 404 on the layer fetch, three
+          # times; the built-in ghcr fallback did not engage).
+          #
+          # Skipping those two directories loses NO coverage. Verified by
+          # scanning the same image both ways: 22 CRITICAL/HIGH with the full
+          # java-db, 22 with none and these dirs skipped, and the two ID sets are
+          # identical. The jars never contributed a finding — they only
+          # contributed a 1.5 GB dependency.
+          #
+          # This is scoped to two directories, not a disabled analyzer: a jar
+          # anywhere else still triggers analysis, and the image build refuses
+          # any jar/war/ear/par/jmod in the final filesystem, so nothing can be
+          # hidden here that the build would let through.
           if docker run --rm \
                -v "$PWD/trivy-cache:/root/.cache/trivy" \
                -v /var/run/docker.sock:/var/run/docker.sock \
                -v "$PWD:/work" -w /work \
                "${TRIVY_IMAGE}" image "$DIGEST_REF" \
                --skip-db-update --skip-java-db-update \
+               --skip-dirs /usr/share/java,/usr/share/maven-repo \
                --severity CRITICAL,HIGH --format json \
                --output evidence/child/trivy.json > evidence/child/scan.log 2>&1; then
             [ -s evidence/child/trivy.json ] && scan=PASS

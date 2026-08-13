@@ -68,29 +68,30 @@ out="$(arch_defects "$ROOT")"
 ck "every reconcile-vulnerabilities.sh call passes a full linux/<arch> platform" '[ -z "$out" ]'
 
 # --- 2. skipping the java db update requires freezing the java db ------------
-java_defects() {
-  python3 - "$1" <<'PY'
-import glob, os, sys, yaml
-root = sys.argv[1]
-for f in sorted(glob.glob(os.path.join(root, ".github/workflows/*.yml"))):
-    src = open(f).read()
-    if "--skip-java-db-update" not in src:
-        continue
-    if "--download-java-db-only" not in src:
-        print("%s: scans with --skip-java-db-update but never downloads the java db"
-              % os.path.basename(f))
-        continue
-    # The download must also be asserted, not merely attempted: a silent
-    # failure only surfaces as a FATAL inside one child's scan much later.
-    if "java-db/metadata.json" not in src:
-        print("%s: downloads the java db but never asserts it is present"
-              % os.path.basename(f))
-PY
-}
-
-jout="$(java_defects "$ROOT")"
-[ -n "$jout" ] && printf '%s\n' "$jout" | sed 's/^/     /'
-ck "a workflow that skips the java db update freezes and asserts the java db" '[ -z "$jout" ]'
+# Scanning with --skip-java-db-update is only safe because no image ships a
+# Java artifact. That precondition is enforced where it can actually be
+# enforced — at build time, in the image that had them — not by downloading a
+# 1.5 GB database to scan four files nothing can execute.
+ck "the nginx image deletes the gettext-base Java bindings" \
+   'grep -q "rm -rf /usr/share/java /usr/share/maven-repo" images/nginx/Dockerfile'
+ck "the nginx build REFUSEs if any Java artifact survives" \
+   'grep -q "REFUSE: Java artifacts survived removal" images/nginx/Dockerfile &&
+    grep -q -- "-name .\*\.jar" images/nginx/Dockerfile'
+ck "no workflow ships the 1.5 GB java-db through the stage matrix" \
+   '! grep -rq -- "--download-java-db-only" .github/workflows/'
+# Deleting the jars is not enough on its own: Trivy analyses LAYERS, and these
+# arrive in the nginx base layer, so a scan still finds them there and demands
+# the java-db. Any scan that skips the java-db update must also skip the two
+# directories that hold them, or it FATALs and produces no report at all.
+ck "a scan that skips the java-db update also skips the jar directories" \
+   'python3 -c "
+import glob, sys
+bad = [f for f in sorted(glob.glob(\".github/workflows/*.yml\"))
+       if \"--skip-java-db-update\" in open(f).read()
+       and \"--skip-dirs\" not in open(f).read()]
+print(*bad, sep=chr(10)) if bad else None
+sys.exit(1 if bad else 0)
+"'
 
 # --- 3. the nginx wedge must actually wedge ----------------------------------
 # The old wedge matched "daemon off" in the first 40 bytes of cmdline. The
@@ -115,9 +116,12 @@ if git cat-file -e "${BROKEN}^{commit}" 2>/dev/null; then
   git archive "$BROKEN" .github/workflows | tar -x -C "$tmp"
   ck "the --arch scan DOES flag ${BROKEN:0:8}" \
      'printf "%s" "$(arch_defects "$tmp")" | grep -q "not a linux/-qualified"'
-  ck "the java-db scan DOES flag ${BROKEN:0:8}" \
-     'printf "%s" "$(java_defects "$tmp")" | grep -q "never downloads the java db"'
   rm -rf "$tmp"
+  # The Java artifacts really were in the image before this change: prove it
+  # from the Dockerfile at the revision that shipped them, so "we removed them"
+  # is not a claim about a file that never contained anything.
+  ck "${BROKEN:0:8} did NOT delete the Java bindings" \
+     '! git show '"$BROKEN"':images/nginx/Dockerfile | grep -q "/usr/share/maven-repo"'
   ck "the old nginx wedge is gone from ${BROKEN:0:8} onwards" \
      'git show '"$BROKEN"':'"$W"' | grep -q "head -c40"'
 else
