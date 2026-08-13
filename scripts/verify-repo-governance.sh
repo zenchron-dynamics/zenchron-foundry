@@ -611,6 +611,7 @@ write_evidence() { # write_evidence <path> <verdict>
     --arg verdict "$verdict" \
     --arg revision "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)" \
     --argjson repo_json "$(api "repos/${REPO}" | jq '{visibility,private,default_branch,allow_forking,license:.license.spdx_id}')" \
+    --argjson pvr "$(api "repos/${REPO}/private-vulnerability-reporting" | jq '{enabled}')" \
     --argjson rulesets "$(api "repos/${REPO}/rulesets")" \
     --argjson applied_to_default "$(api "repos/${REPO}/rules/branches/$(pol repository.default_branch)")" \
     --argjson environments "$(api "repos/${REPO}/environments" | jq '[.environments[]? | {name, protection_rules: [.protection_rules[]?.type]}]')" \
@@ -621,7 +622,8 @@ write_evidence() { # write_evidence <path> <verdict>
       binding_note:"content_binding is the durable security binding; source_revision is PROVENANCE ONLY and is rewritten by squash/rebase merges",
       content_binding:$content_binding,
       source_revision:$revision, verdict:$verdict,
-      settings:$repo_json, rulesets:$rulesets, rules_applied_to_default_branch:$applied_to_default,
+      settings:($repo_json + {private_vulnerability_reporting: $pvr.enabled}),
+      rulesets:$rulesets, rules_applied_to_default_branch:$applied_to_default,
       environments:$environments,
       pr_required_checks:$pr_required_checks,
       release_required_checks:$release_required_checks,
