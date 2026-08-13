@@ -1,0 +1,59 @@
+# GENERATED — do not edit by hand.
+#
+# Produced by scripts/generate-admission-policy.py from:
+#   policies/cosign-identities.yaml      (issuer, per-role identity regexps)
+#   policies/runtime-contract.yaml       (the hardened runtime posture)
+#
+# Those files are the source of truth and are enforced at build and release time
+# as well. Editing this file by hand makes a consumer enforce something the
+# platform itself does not; tests/governance/test_admission_policy.sh regenerates
+# and diffs, so a hand edit fails CI.
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: zenchron-foundry-image-provenance
+  annotations:
+    policies.kyverno.io/title: Zenchron Foundry image provenance
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: Digest pinning and repository scope. Evaluable without a registry,
+      so CI can prove these rules actually fire.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: images-must-be-digest-pinned
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: Zenchron Foundry images must be referenced by digest. A tag is mutable; every guarantee
+        this platform makes is about a digest.
+      foreach:
+      - list: request.object.spec.containers
+        deny:
+          conditions:
+            all:
+            - key: '{{ element.image }}'
+              operator: AnyIn
+              value:
+              - '*ghcr.io/zenchron-dynamics/*'
+            - key: '{{ element.image }}'
+              operator: AnyNotIn
+              value:
+              - '*@sha256:*'
+  - name: images-must-come-from-the-declared-repository
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: Only ghcr.io/zenchron-dynamics images are admitted by this policy. An image from another
+        repository has none of this platform's guarantees.
+      pattern:
+        spec:
+          containers:
+          - image: ghcr.io/zenchron-dynamics/*

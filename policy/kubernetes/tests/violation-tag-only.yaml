@@ -1,0 +1,24 @@
+# VIOLATING FIXTURE — a mutable tag instead of a digest
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tag-only
+spec:
+  hostPID: false
+  hostIPC: false
+  hostNetwork: false
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: ghcr.io/zenchron-dynamics/php-fpm:8.4-prod
+    securityContext:
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      privileged: false
+      capabilities:
+        drop:
+        - ALL

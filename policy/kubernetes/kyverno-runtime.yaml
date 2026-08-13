@@ -1,0 +1,141 @@
+# GENERATED — do not edit by hand.
+#
+# Produced by scripts/generate-admission-policy.py from:
+#   policies/cosign-identities.yaml      (issuer, per-role identity regexps)
+#   policies/runtime-contract.yaml       (the hardened runtime posture)
+#
+# Those files are the source of truth and are enforced at build and release time
+# as well. Editing this file by hand makes a consumer enforce something the
+# platform itself does not; tests/governance/test_admission_policy.sh regenerates
+# and diffs, so a hand edit fails CI.
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: zenchron-foundry-runtime
+  annotations:
+    policies.kyverno.io/title: Zenchron Foundry runtime posture
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: The same hardened runtime contract scripts/runtime-contract.sh proves
+      on every image, expressed as admission rules.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: must-run-as-non-root
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: 'Containers must run as non-root (runAsNonRoot: true).'
+      pattern:
+        spec:
+          =(securityContext):
+            =(runAsNonRoot): true
+          containers:
+          - =(securityContext):
+              =(runAsNonRoot): true
+  - name: root-filesystem-must-be-read-only
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: readOnlyRootFilesystem must be true; writable paths are tmpfs.
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              readOnlyRootFilesystem: true
+  - name: privilege-escalation-must-be-disabled
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: allowPrivilegeEscalation must be false (no-new-privileges).
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              allowPrivilegeEscalation: false
+  - name: must-not-be-privileged
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: privileged containers are not admitted.
+      pattern:
+        spec:
+          containers:
+          - =(securityContext):
+              =(privileged): false
+  - name: all-capabilities-must-be-dropped
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: capabilities.drop must include ALL; no capability may be added.
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              capabilities:
+                drop:
+                - ALL
+                X(add): 'null'
+  - name: seccomp-must-be-the-runtime-default
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: seccompProfile.type must be RuntimeDefault or Localhost; Unconfined removes the syscall
+        filter.
+      pattern:
+        spec:
+          =(securityContext):
+            =(seccompProfile):
+              type: RuntimeDefault | Localhost
+  - name: host-namespaces-must-not-be-shared
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: hostPID, hostIPC and hostNetwork are not admitted.
+      pattern:
+        spec:
+          =(hostPID): false
+          =(hostIPC): false
+          =(hostNetwork): false
+  - name: the-container-runtime-socket-must-not-be-mounted
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: Mounting the container runtime socket defeats the boundary.
+      foreach:
+      - list: request.object.spec.volumes[]
+        deny:
+          conditions:
+            any:
+            - key: '{{ element.hostPath.path || '''' }}'
+              operator: AnyIn
+              value:
+              - /var/run/docker.sock
+              - /run/docker.sock
+              - /var/run/containerd/containerd.sock
+              - /run/containerd/containerd.sock

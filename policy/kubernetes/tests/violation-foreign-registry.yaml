@@ -1,0 +1,24 @@
+# VIOLATING FIXTURE — an image from a repository this platform makes no guarantees about
+apiVersion: v1
+kind: Pod
+metadata:
+  name: foreign-registry
+spec:
+  hostPID: false
+  hostIPC: false
+  hostNetwork: false
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: docker.io/library/nginx@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    securityContext:
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      privileged: false
+      capabilities:
+        drop:
+        - ALL

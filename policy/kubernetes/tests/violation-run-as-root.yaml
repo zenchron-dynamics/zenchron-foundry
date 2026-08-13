@@ -1,0 +1,24 @@
+# VIOLATING FIXTURE — running as root
+apiVersion: v1
+kind: Pod
+metadata:
+  name: run-as-root
+spec:
+  hostPID: false
+  hostIPC: false
+  hostNetwork: false
+  securityContext:
+    runAsNonRoot: false
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: ghcr.io/zenchron-dynamics/php-fpm@sha256:2044d7b3aad61f234d949d8e406c14cdb6386e4735dbd87148a895304aaef038
+    securityContext:
+      runAsNonRoot: false
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      privileged: false
+      capabilities:
+        drop:
+        - ALL

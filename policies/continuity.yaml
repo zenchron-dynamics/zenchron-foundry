@@ -1,0 +1,102 @@
+# =============================================================================
+# policies/continuity.yaml — registry outage, compromise and account loss (#116).
+# -----------------------------------------------------------------------------
+# THE HONEST HEADLINE, FIRST.
+#
+# Foundry has ONE registry: GHCR, under one GitHub organization. There is no
+# independent second registry today, and a second GHCR package under the same
+# account is NOT one — it shares the outage domain, the account, the billing
+# relationship and the suspension risk that this file exists to survive.
+#
+# So the acceptance criterion "a customer can pull and verify an approved release
+# during GHCR unavailability" is NOT met, and #116 stays open. What is built here
+# is everything that does not require a second provider: export, digest-equality
+# verification, evidence backup, a restore procedure, RTO/RPO targets, and an
+# exercise that runs against a LOCAL registry so the mechanism is proven before
+# anyone pays for a mirror.
+#
+# Building the mechanism first is deliberate. Standing up a mirror is a
+# procurement decision; proving that a mirror would actually restore a verifiable
+# release is engineering, and it is the part that fails silently if nobody tries
+# it.
+# =============================================================================
+schema_version: 1
+
+current_state:
+  registries:
+    - id: ghcr-primary
+      endpoint: ghcr.io/zenchron-dynamics
+      provider: GitHub
+      account: zenchron-dynamics
+      role: primary
+      status: in-use
+  independent_mirror: none
+  independent_mirror_note: >-
+    A second package, organization or repository on GHCR would NOT be
+    independent. Independence here means a different provider and a different
+    account, so that a GitHub outage, an organization suspension, a billing
+    failure or a credential compromise does not take both.
+  acceptance_gap: >-
+    #116 requires that a customer can pull and verify an approved release while
+    GHCR is unavailable. With one registry that is impossible, and no amount of
+    tooling in this repository changes it.
+
+# --- targets, stated so a restore can be judged against something ------------
+objectives:
+  rto_hours: 24
+  rto_note: >-
+    Time from declaring a registry-loss incident to a consumer being able to pull
+    a verifiable release from an alternate location. Achievable ONLY once a
+    mirror exists; recorded now so the mirror is specified against a number
+    rather than chosen and then justified.
+  rpo_releases: 0
+  rpo_note: >-
+    Zero released digests may be unrecoverable. Every released digest, its
+    signature, SBOM and provenance must exist outside the primary registry.
+  scope:
+    - "every digest of every currently supported release"
+    - "cosign signatures and attestations for those digests"
+    - "the signed release manifest and its evidence bundle"
+
+# --- what is exportable today ------------------------------------------------
+export:
+  tool: scripts/continuity-export.sh
+  format: OCI layout
+  format_note: >-
+    An OCI layout directory preserves the manifest and its digest exactly, so a
+    restored image is byte-identical and verifies against the same signature. A
+    `docker save` tarball does not preserve the registry manifest digest, which
+    would break every digest-pinned consumer reference and every signature.
+  includes:
+    - image manifests and layers, by digest
+    - the digest list, as the restore's own integrity check
+  excludes:
+    - cosign signatures and attestations
+  excludes_note: >-
+    NOT because they do not matter — they matter most — but because nothing is
+    signed yet: publication and signing are closed pending #139. The exporter
+    fails closed if asked for signatures that do not exist rather than producing
+    a bundle that looks complete.
+
+restore:
+  procedure: docs/continuity.md
+  verification: scripts/continuity-verify.sh
+  must_prove:
+    - "every exported digest is present in the restore target"
+    - "each restored digest EQUALS the source digest, byte for byte"
+    - "the restored image runs under the hardened runtime contract"
+  exercise: "scripts/continuity-export.sh --exercise (local registry)"
+
+required_human_decisions:
+  - id: choose-mirror-provider
+    what: "Select and fund an independent registry with a separate account"
+    why: "The only thing that closes the outage/account-loss threat"
+    who: "Bogdan Olteanu"
+    blocks: 116
+  - id: mirror-credentials
+    what: "Provision credentials for it, held outside the GitHub account"
+    why: >-
+      Credentials stored only in GitHub secrets share the failure domain with the
+      thing they are meant to survive.
+    who: "Bogdan Olteanu"
+    blocks: 116

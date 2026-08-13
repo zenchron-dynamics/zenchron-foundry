@@ -1,0 +1,32 @@
+# GENERATED — do not edit by hand.
+#
+# Produced by scripts/generate-admission-policy.py from:
+#   policies/cosign-identities.yaml      (issuer, per-role identity regexps)
+#   policies/runtime-contract.yaml       (the hardened runtime posture)
+#
+# Those files are the source of truth and are enforced at build and release time
+# as well. Editing this file by hand makes a consumer enforce something the
+# platform itself does not; tests/governance/test_admission_policy.sh regenerates
+# and diffs, so a hand edit fails CI.
+
+apiVersion: policy.sigstore.dev/v1beta1
+kind: ClusterImagePolicy
+metadata:
+  name: zenchron-foundry-signed
+spec:
+  images:
+  - glob: ghcr.io/zenchron-dynamics/**
+  authorities:
+  - name: production-identities
+    keyless:
+      url: https://fulcio.sigstore.dev
+      identities:
+      - issuer: https://token.actions.githubusercontent.com
+        subjectRegExp: ^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/publish-(ghcr|rc)\.yml@refs/heads/master$
+      - issuer: https://token.actions.githubusercontent.com
+        subjectRegExp: ^https://github\.com/zenchron-dynamics/zenchron-foundry/\.github/workflows/release\.yml@refs/tags/v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$
+    attestations:
+    - name: must-have-sbom
+      predicateType: https://spdx.dev/Document
+    - name: must-have-provenance
+      predicateType: https://slsa.dev/provenance/v1

@@ -1,0 +1,24 @@
+# VIOLATING FIXTURE — host network shared
+apiVersion: v1
+kind: Pod
+metadata:
+  name: host-network
+spec:
+  hostPID: false
+  hostIPC: false
+  hostNetwork: true
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: app
+    image: ghcr.io/zenchron-dynamics/php-fpm@sha256:2044d7b3aad61f234d949d8e406c14cdb6386e4735dbd87148a895304aaef038
+    securityContext:
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      privileged: false
+      capabilities:
+        drop:
+        - ALL

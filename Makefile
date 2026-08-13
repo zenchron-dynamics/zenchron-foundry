@@ -184,6 +184,15 @@ supply-chain: ## Inventory integrity + upstream drift for every embedded input (
 incident-tabletop: ## Simulated CRA incident, end to end (#114)
 	@bash scripts/incident.sh --tabletop
 
+.PHONY: admission-policy
+admission-policy: ## Regenerate, diff and EVALUATE the K8s admission policies (#124)
+	@python3 scripts/generate-admission-policy.py --check
+	@bash scripts/test-admission-policy.sh
+
+.PHONY: continuity-exercise
+continuity-exercise: ## Export + restore every digest to a local registry (#116)
+	@bash scripts/continuity-export.sh --exercise
+
 .PHONY: withdrawal-exercise
 withdrawal-exercise: ## Simulated release withdrawal, end to end (#125)
 	@bash scripts/exercise-withdrawal.sh --simulate
