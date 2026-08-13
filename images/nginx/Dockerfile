@@ -66,6 +66,27 @@ RUN set -eux; \
     # build host's clock to consumers.
     rm -rf /var/log/apt /var/log/dpkg.log /var/log/alternatives.log \
            /var/cache/ldconfig/aux-cache; \
+    # gettext-base ships optional Java bindings for libintl:
+    #   /usr/share/java/libintl{,-0.21}.jar plus two under /usr/share/maven-repo.
+    # The package stays for envsubst (config templating), which is a C binary and
+    # does not use them. There is no JVM in this image, so nothing can execute a
+    # jar — they are pure dead weight.
+    #
+    # They are also the sole reason a scan of this image demanded a Java
+    # vulnerability database. Trivy's jar analyzer finds them and initialises the
+    # java-db: 905 MiB compressed, 1.5 GB on disk. That database is what broke
+    # run 31701249058 (scan FATAL, no report) and then run 31749810234 (the
+    # mirror 404'd on download). Even with a working mirror, freezing it would
+    # mean pushing a ~1 GB artifact into all ten stage jobs on a 2 vCPU / 4 GB
+    # runner with a history of disk exhaustion. Deleting four unusable files is
+    # cheaper and more honest than scanning them.
+    rm -rf /usr/share/java /usr/share/maven-repo; \
+    jars="$(find / -xdev \( -name '*.jar' -o -name '*.war' -o -name '*.ear' \
+                          -o -name '*.par' -o -name '*.jmod' \) -print 2>/dev/null)"; \
+    if [ -n "$jars" ]; then \
+        echo "REFUSE: Java artifacts survived removal:" >&2; \
+        echo "$jars" >&2; exit 1; \
+    fi; \
     if command -v curl >/dev/null 2>&1; then \
         echo "REFUSE: curl survived removal" >&2; exit 1; \
     fi; \
