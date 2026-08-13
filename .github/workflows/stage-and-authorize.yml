@@ -165,8 +165,32 @@ jobs:
             n=$((n+1)); [ "$n" -ge 3 ] && { echo "REFUSE: cannot download the vulnerability database"; exit 1; }
             echo "db download attempt $n failed; retrying in 15s"; sleep 15
           done
+          # The JAVA database is a SEPARATE download that --download-db-only does
+          # not fetch. Every child scans with --skip-java-db-update, so whether a
+          # scan worked depended on whether the runner happened to have a Java DB
+          # in its ambient cache — which is exactly the non-hermetic condition
+          # this freeze exists to remove. nginx/prod hit it in run 31701249058:
+          #
+          #   FATAL  Unable to initialize the Java DB: Java DB update failed:
+          #          '--skip-java-db-update' cannot be specified on the first run
+          #
+          # The scan produced no report, so reconciliation correctly refused to
+          # run and the child was refused. Fail-closed held; the run was still
+          # unable to complete. Both databases are frozen together now.
+          n=0
+          until docker run --rm -v "$PWD/trivy-cache:/root/.cache/trivy" \
+                  "${TRIVY_IMAGE}" image --download-java-db-only; do
+            n=$((n+1)); [ "$n" -ge 3 ] && { echo "REFUSE: cannot download the Java database"; exit 1; }
+            echo "java db download attempt $n failed; retrying in 15s"; sleep 15
+          done
+
           meta=trivy-cache/db/metadata.json
           [ -s "$meta" ] || { echo "REFUSE: no database metadata after download"; exit 1; }
+          # Assert the Java DB is actually present rather than trusting the exit
+          # status of the download above: a missing java-db only shows up much
+          # later, as a FATAL inside one child's scan.
+          jmeta=trivy-cache/java-db/metadata.json
+          [ -s "$jmeta" ] || { echo "REFUSE: no Java database after download"; exit 1; }
           # Canonical identity: the fields that describe the SNAPSHOT. DownloadedAt
           # is deliberately excluded — it records when we fetched it, not which
           # database it is, and including it would make every job disagree.
@@ -453,8 +477,21 @@ jobs:
           if [ "$scan" = PASS ]; then
             args=(evidence/child/trivy.json "$FAM")
             [ "$VER" != prod ] && args+=("$VER")
+            # --arch takes the FULL platform (linux/amd64), not the bare machine
+            # name. An exception authorises only the architectures it was
+            # reconciled on, so a bare "amd64" matches no ledger entry and every
+            # finding reads as ungoverned. In run 31701249058 that turned 1 real
+            # ungoverned finding into 37 across every image, and 0 governed:
+            #
+            #   --arch amd64        -> 37 ungoverned, matched_exception_ids: []
+            #   --arch linux/amd64  ->  1 ungoverned
+            #
+            # It failed CLOSED, so nothing was wrongly authorised — but it made
+            # the gate unusable and buried the one finding that was real.
+            # scan-images.yml always passed the full platform; only this
+            # workflow, which nothing but a dispatch executes, did not.
             if bash scripts/reconcile-vulnerabilities.sh "${args[@]}" \
-                 --arch "$ARCH" --json evidence/child/reconcile.json \
+                 --arch "linux/${ARCH}" --json evidence/child/reconcile.json \
                  > evidence/child/reconcile.log 2>&1; then recon=PASS; fi
             tail -20 evidence/child/reconcile.log
           else

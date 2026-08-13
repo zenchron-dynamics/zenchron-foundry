@@ -70,11 +70,36 @@ check "the shipped healthcheck reports a serving nginx as healthy" \
     docker exec "$NAME" /usr/local/bin/nginx-healthcheck
 
 # ...and it must NOT accept a wedged server. SIGSTOP every nginx process: the
-# config still parses (the old check returned 0 here), but nothing answers.
-# `head -c40` on cmdline keeps this from matching the probing shell itself.
+# config still parses, but nothing answers.
+#
+# Match on /proc/<pid>/comm — the executable name, exactly "nginx" for the
+# master AND every worker, and "sh" for the shell running this probe. The
+# previous version matched "daemon off" within the first 40 bytes of cmdline
+# and stopped NOTHING: the master's cmdline is
+#
+#     nginx: master process nginx -g daemon off;
+#
+# which head -c40 truncates to "...daemon of", and the workers are
+# "nginx: worker process", which never contained the string at all. The workers
+# kept serving, so the healthcheck correctly reported healthy and this
+# assertion failed in run 31701249058 — the first time the image had been built
+# since the check was written. It had never wedged anything, so it had never
+# tested what it claims to test.
+#
+# The WORKERS are the whole point: they answer requests, and the master does
+# not. PID 1 is deliberately skipped — the master runs as PID 1 and the kernel
+# ignores SIGSTOP sent to PID 1 from inside its own PID namespace, so trying to
+# stop it silently does nothing. Stopping every worker leaves connections
+# sitting in the listen backlog unanswered, which is precisely a wedged server:
+# nginx -t still parses the config, nothing serves.
+#
+# The precondition asserts at least two workers were found AND that every one
+# of them is really in state T, so this can never go back to proving nothing.
 check "a WEDGED nginx is reported UNHEALTHY (nginx -t said healthy)" \
     sh -c "
-      docker exec '$NAME' sh -c 'me=\$\$; for d in /proc/[0-9]*; do p=\${d#/proc/}; [ \"\$p\" = \"\$me\" ] && continue; c=\$(head -c40 \$d/cmdline 2>/dev/null | tr \"\\0\" \" \"); case \"\$c\" in *\"daemon off\"*) kill -STOP \"\$p\" 2>/dev/null;; esac; done' >/dev/null 2>&1
+      docker exec '$NAME' sh -c 'for d in /proc/[0-9]*; do p=\${d#/proc/}; [ \"\$p\" = 1 ] && continue; [ \"\$(cat \$d/comm 2>/dev/null)\" = nginx ] && kill -STOP \"\$p\" 2>/dev/null; done; exit 0' >/dev/null 2>&1
+      docker exec '$NAME' sh -c 'n=0; for d in /proc/[0-9]*; do p=\${d#/proc/}; [ \"\$p\" = 1 ] && continue; [ \"\$(cat \$d/comm 2>/dev/null)\" = nginx ] || continue; n=\$((n+1)); grep -q \"^State:[[:space:]]*T\" \$d/status 2>/dev/null || exit 1; done; [ \"\$n\" -ge 2 ]' \
+        || { echo 'precondition failed: expected >=2 nginx workers, all in state T' >&2; exit 1; }
       docker exec '$NAME' nginx -t -q >/dev/null 2>&1 || { echo 'precondition failed: nginx -t did not pass on the wedged server' >&2; exit 1; }
       ! docker exec '$NAME' /usr/local/bin/nginx-healthcheck >/dev/null 2>&1
     "
