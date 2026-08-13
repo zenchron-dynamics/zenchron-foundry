@@ -18,7 +18,7 @@ fail=0
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
 POLICY=policies/repository-governance.yaml
-EVIDENCE=docs/audits/governance-verification-2026-08-02.json
+EVIDENCE=docs/audits/governance-verification-2026-08-13.json
 
 ck "governance policy exists"          "test -f $POLICY"
 ck "verifier comparators self-test"    "bash scripts/verify-repo-governance.sh --self-test >/dev/null"
@@ -71,6 +71,12 @@ ck "evidence shows the rules LIVE on master" "python3 -c \"
 import json;t={r['type'] for r in json.load(open('$EVIDENCE'))['rules_applied_to_default_branch']}
 assert {'deletion','non_fast_forward','required_linear_history','pull_request','required_status_checks'} <= t, t\""
 ck "evidence records visibility public"    "python3 -c \"import json;assert json.load(open('$EVIDENCE'))['settings']['visibility']=='public'\""
+ck "evidence records the PVR state it was verified against" \
+   "python3 -c \"
+import json,yaml
+e=json.load(open('$EVIDENCE'))['settings']['private_vulnerability_reporting']
+p=yaml.safe_load(open('policies/repository-governance.yaml'))['repository']['private_vulnerability_reporting']
+assert e == p, (e, p)\""
 
 # --- truth-sync -------------------------------------------------------------
 # Scoped deliberately: a bare repo-wide grep cannot tell a live claim from
