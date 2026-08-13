@@ -75,6 +75,23 @@ jobs:
           [ "$REF" = "refs/heads/master" ] \
             || { echo "REFUSE: dispatch from master only, got '${REF}'" >&2; exit 1; }
           echo "OK: running from ${REF}"
+
+      # The stamp step below reads the commit with git, so this job needs a work
+      # tree. It did not have one: the guard was a pure ref-string check, and the
+      # SOURCE_DATE_EPOCH step was added to it without a checkout. Every dispatch
+      # died here with `fatal: not a git repository` (run 31696927539) before any
+      # image was built — fail-closed, but the workflow could never run at all.
+      #
+      # Nothing caught it because this workflow is workflow_dispatch-only, so no
+      # push CI run ever executes this job. tests/release/test_workflow_git_needs_checkout.sh
+      # is the standing check for the class.
+      #
+      # fetch-depth: 1 is enough — the stamp reads exactly one commit, the one
+      # being built.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+
       - name: Derive the build timestamp from the SOURCE COMMIT
         id: stamp
         run: |
