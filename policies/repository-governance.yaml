@@ -48,6 +48,10 @@ repository:
   # confidential, which is a live conflict tracked in issue #98 and NOT resolved
   # by this policy. Read: world-readable source under a confidential licence.
   visibility: public
+  # Inbound coordinated-disclosure channel. Enabled 2026-08-13 under explicit
+  # authorisation; SECURITY.md and policies/support-policy.yaml advertise it, so
+  # the live setting and those documents must not drift apart.
+  private_vulnerability_reporting: true
   default_branch: master
 
   # Verified applied 2026-07-28 (GET /actions/permissions/workflow).
