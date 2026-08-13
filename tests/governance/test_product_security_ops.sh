@@ -69,6 +69,12 @@ for m in re.findall(r\"^Contact: mailto:(.+)$\", txt, re.M):
 "'
 ck "no PGP key is claimed that does not exist" \
    "! grep -qE '^Encryption:' .well-known/security.txt"
+# The LIVE cross-check deliberately does NOT live here: tests/ is offline by
+# construction, and reading private-vulnerability-reporting needs an admin token
+# a pull-request context does not have. It is in scripts/verify-repo-governance.sh
+# with the other live comparisons. What IS checkable offline is that the two
+# documents agree with each other.
+#
 # Derived, not hardcoded. The first version asserted "SECURITY.md says PVR is
 # DISABLED", which was true when written and became a false assertion the moment
 # the setting was enabled. What must hold is that the two AGREE — whichever way
@@ -87,12 +93,14 @@ if c[\"status\"] == \"available\":
 else:
     assert \"disabled\" in line or \"not enabled\" in line, line
 "'
-# The LIVE cross-check does not belong here: tests/ is offline by construction,
-# and reading private-vulnerability-reporting needs an admin token the pull
-# request context does not have. It lives in scripts/verify-repo-governance.sh,
-# which is the existing home for "live control plane equals declared policy".
 ck "no PGP key is claimed that does not exist" \
    "! grep -qE '^Encryption:' .well-known/security.txt"
+# The LIVE cross-check deliberately does NOT live here: tests/ is offline by
+# construction, and reading private-vulnerability-reporting needs an admin token
+# a pull-request context does not have. It is in scripts/verify-repo-governance.sh
+# with the other live comparisons. What IS checkable offline is that the two
+# documents agree with each other.
+#
 # Derived, not hardcoded. The first version asserted "SECURITY.md says PVR is
 # DISABLED", which was true when written and became a false assertion the moment
 # the setting was enabled. What must hold is that the two AGREE — whichever way
@@ -111,16 +119,6 @@ if c[\"status\"] == \"available\":
 else:
     assert \"disabled\" in line or \"not enabled\" in line, line
 "'
-ck "the policy status for PVR matches the live control plane" \
-   'test -z "${SKIP_LIVE:-}" && command -v gh >/dev/null 2>&1 && python3 -c "
-import json, subprocess, yaml
-live = json.loads(subprocess.check_output([
-    \"gh\", \"api\", \"repos/zenchron-dynamics/zenchron-foundry/private-vulnerability-reporting\"]))
-sp = yaml.safe_load(open(\"policies/support-policy.yaml\"))
-c = [x for x in sp[\"channels\"] if x[\"id\"] == \"github-private-vulnerability-reporting\"][0]
-want = \"available\" if live[\"enabled\"] else \"unavailable\"
-assert c[\"status\"] == want, (\"policy says %s, live says enabled=%s\" % (c[\"status\"], live[\"enabled\"]))
-" || { [ -n "${SKIP_LIVE:-}" ] && echo "  (live check skipped)" && true; }'
 ck "SECURITY.md no longer lists 7.4/8.0 as shipped images" \
    "! grep -qE '^\| php-fpm / php-cli / php-worker \| \*\*7\.4' SECURITY.md"
 ck "the withdrawal exercise self-test passes" \
