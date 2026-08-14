@@ -40,10 +40,28 @@ assert r['workflow_run_id']==$RUN, r['workflow_run_id']
 assert r['workflow_run_attempt']==1, r['workflow_run_attempt']
 assert r['source_revision']=='$SHA', r['source_revision']\""
 
-# The whole point of an acceptance is that it is per-revision. If the record
-# ever names a commit git does not have, it has been edited or rebased away.
-ck "the accepted revision exists in this repository" \
-   "git cat-file -e '${SHA}^{commit}' 2>/dev/null"
+# NOT a git-membership check. The first version ran `git cat-file -e` on the
+# accepted commit, which failed in CI: GitHub checks out the synthetic PR merge
+# commit at fetch-depth 1, so an August-14 object is simply absent. Deepening
+# the checkout to satisfy an audit test would be the wrong trade, and a network
+# lookup does not belong in the offline suite.
+#
+# It was also wrong as a permanent invariant: any future shallow checkout of
+# master lacks that object too, so the assertion would rot into a false alarm.
+#
+# Repository membership was established independently when the run was accepted,
+# by the API and the registry. What this suite can own is that the recorded
+# revision is a well-formed full SHA and that the record agrees with itself —
+# ongoing membership verification belongs in #128's durable evidence verifier.
+ck "the accepted revision is a full 40-hex SHA, consistent across the record" \
+   "python3 -c \"
+import json, re
+r = json.load(open('$R'))
+top = r['source_revision']
+assert re.fullmatch(r'[0-9a-f]{40}', top), top
+assert top == '$SHA', top
+drift = [c['image_label'] for c in r['children'] if c['source_revision'] != top]
+assert not drift, ('children disagree with the record revision', drift)\""
 
 ck "ten children, no duplicates, all amd64 and private" \
    "python3 -c \"

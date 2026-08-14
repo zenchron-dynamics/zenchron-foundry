@@ -134,19 +134,26 @@ if git cat-file -e "${BROKEN}^{commit}" 2>/dev/null; then
   # is not a claim about a file that never contained anything.
   ck "${BROKEN:0:8} did NOT delete the Java bindings" \
      '! git show '"$BROKEN"':images/nginx/Dockerfile | grep -q "/usr/share/maven-repo"'
+  ck "the old nginx wedge really was in ${BROKEN:0:8}" \
+     'git show '"$BROKEN"':'"$W"' | grep -q "head -c40"'
+else
+  echo "skip - ${BROKEN:0:8} not in this checkout (shallow clone); historical"
+  echo "       non-vacuity proofs not run. The forward assertions above still did."
 fi
 
 # The matrix-wide invariant is newer than the acceptance run. Prove the gap was
 # real at the accepted revision rather than asserting it in prose.
+#
+# Guarded for the same reason the block above is: CI checks out the synthetic
+# merge commit at fetch-depth 1, so historical objects are absent. These degrade
+# to a printed skip, never to a silent pass.
 ACCEPTED=47609df75736a5860651be98177cfe8f9388f496
 if git cat-file -e "${ACCEPTED}^{commit}" 2>/dev/null; then
   ck "the accepted revision ${ACCEPTED:0:8} skipped matrix-wide but asserted nginx-only" \
      'git show '"$ACCEPTED"':.github/workflows/stage-and-authorize.yml | grep -q -- "--skip-dirs" &&
       ! git show '"$ACCEPTED"':.github/workflows/stage-and-authorize.yml | grep -q "assert-no-java-artifacts"'
-  ck "the old nginx wedge is gone from ${BROKEN:0:8} onwards" \
-     'git show '"$BROKEN"':'"$W"' | grep -q "head -c40"'
 else
-  echo "skip - ${BROKEN:0:8} not present locally; cannot prove the scans are non-vacuous"
+  echo "skip - ${ACCEPTED:0:8} not in this checkout (shallow clone)"
 fi
 
 echo "----"
