@@ -330,7 +330,6 @@ jobs:
         with:
           context: ${{ matrix.ctx }}
           platforms: ${{ steps.id.outputs.platform }}
-          push: true
           tags: ${{ steps.id.outputs.ref }}
           # Both OFF on purpose: either one makes buildx push an index with an
           # attestation manifest, and then the digest names the index rather than
@@ -338,15 +337,28 @@ jobs:
           # the RC manifest.
           sbom: false
           provenance: false
-          # NOT WIRED HERE YET, deliberately (#101). Deterministic layer
-          # timestamps need `outputs: type=image,push=true,rewrite-timestamp=true`,
-          # and `outputs:` REPLACES the `push: true` shorthand above rather than
-          # adding to it — getting that wrong silently stops this workflow
-          # pushing, which is the one path that stages anything. It is proven
-          # locally (scripts/reproducibility-check.sh, byte-identical layers
-          # across two --no-cache builds) and must be verified on a real staging
-          # run before it lands here. SOURCE_DATE_EPOCH above is already wired
-          # and is safe on its own: it only fixes the `created` label.
+          # DETERMINISTIC LAYER TIMESTAMPS (#101).
+          #
+          # `push: true` is GONE from this step on purpose — it is not missing.
+          # `outputs:` REPLACES that shorthand rather than adding to it, so
+          # `push=true` here IS the push, and leaving both would be the
+          # contradiction. Getting this wrong stops the workflow pushing while it
+          # still reports success, which is why it was left unwired until it
+          # could be driven against a real registry.
+          #
+          # SOURCE_DATE_EPOCH alone only fixes the config `created` field;
+          # rewrite-timestamp is what rewrites layer mtimes, and without it two
+          # builds of one commit differ in every layer for no reason in the
+          # source.
+          #
+          # Proven by scripts/verify-staging-export.sh against a disposable
+          # registry, driving this exact exporter string: the tag resolves, the
+          # resolved object is an image manifest and not an index, it is pullable
+          # by digest, the config architecture matches, `created` is
+          # epoch-derived, and two isolated --no-cache builds are byte-identical.
+          # tests/release/test_staging_exporter.sh fails CI if rewrite-timestamp
+          # is ever set without push semantics.
+          outputs: type=image,push=true,rewrite-timestamp=true
           build-args: |
             BUILD_DATE=${{ needs.guard.outputs.created }}
             SOURCE_DATE_EPOCH=${{ needs.guard.outputs.source_date_epoch }}
