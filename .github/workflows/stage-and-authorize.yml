@@ -445,14 +445,25 @@ jobs:
           # checks user/ports/healthcheck and exactly one label; on its own it
           # would report PASS while licence, source, base image, support status
           # and created timestamp went unchecked.
-          runtime_ok=0; oci_ok=0
+          runtime_ok=0; oci_ok=0; nojava_ok=0
           bash scripts/verify-image-contract.sh "$DIGEST_REF" "$contract" > evidence/child/contract.log 2>&1 && runtime_ok=1
           EXPECT_REVISION="$GITHUB_SHA" EXPECT_CREATED="$BUILD_CREATED" EXPECT_REF_NAME="$TAG" \
             bash scripts/release/verify-oci-metadata.sh "$DIGEST_REF" "$contract" \
               evidence/child/oci-labels.json > evidence/child/oci-metadata.log 2>&1 && oci_ok=1
-          [ "$runtime_ok" = 1 ] && [ "$oci_ok" = 1 ] && meta=PASS
+          # The precondition the scan's --skip-dirs depends on, asserted for
+          # EVERY child rather than only for nginx. Checked from OUTSIDE the
+          # image (docker export | tar -t), so it needs no shell or find inside
+          # and cannot be fooled by a broken interpreter; an image that cannot be
+          # inspected is REFUSED, not skipped.
+          #
+          # It belongs to the metadata contract because a jar here means the scan
+          # skipped a path that mattered — the finding would be about the
+          # evaluation being unsound, not about the image being vulnerable.
+          bash scripts/assert-no-java-artifacts.sh "$DIGEST_REF" > evidence/child/no-java.log 2>&1 && nojava_ok=1
+          [ "$runtime_ok" = 1 ] && [ "$oci_ok" = 1 ] && [ "$nojava_ok" = 1 ] && meta=PASS
           tail -20 evidence/child/contract.log; tail -20 evidence/child/oci-metadata.log
-          echo "metadata_contract=$meta (runtime=$runtime_ok oci=$oci_ok)"
+          cat evidence/child/no-java.log
+          echo "metadata_contract=$meta (runtime=$runtime_ok oci=$oci_ok nojava=$nojava_ok)"
           echo "::endgroup::"
 
           echo "::group::scan against the frozen database"
@@ -476,9 +487,15 @@ jobs:
           # contributed a 1.5 GB dependency.
           #
           # This is scoped to two directories, not a disabled analyzer: a jar
-          # anywhere else still triggers analysis, and the image build refuses
-          # any jar/war/ear/par/jmod in the final filesystem, so nothing can be
-          # hidden here that the build would let through.
+          # anywhere else still triggers analysis.
+          #
+          # The invariant the skip depends on — no Java artifact in the final
+          # filesystem — is asserted for EVERY child by
+          # scripts/assert-no-java-artifacts.sh below, not just for nginx. The
+          # skip is matrix-wide, so the guarantee has to be matrix-wide too;
+          # until run 31792482449 it was enforced only in images/nginx/Dockerfile
+          # and a php image could have acquired a jar under a skipped path with
+          # nothing to catch it.
           if docker run --rm \
                -v "$PWD/trivy-cache:/root/.cache/trivy" \
                -v /var/run/docker.sock:/var/run/docker.sock \
@@ -492,6 +509,7 @@ jobs:
           fi
           tail -10 evidence/child/scan.log; echo "scan=$scan"
           echo "::endgroup::"
+
 
           echo "::group::reconcile against the exception ledger"
           if [ "$scan" = PASS ]; then
