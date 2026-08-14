@@ -92,6 +92,18 @@ bad = [f for f in sorted(glob.glob(\".github/workflows/*.yml\"))
 print(*bad, sep=chr(10)) if bad else None
 sys.exit(1 if bad else 0)
 "'
+# The skip is applied to the whole matrix, so the invariant it relies on must be
+# enforced for the whole matrix. Until run 31792482449 it was enforced only in
+# images/nginx/Dockerfile, which left every other family free to acquire a jar
+# under a skipped path with nothing to catch it.
+ck "the no-Java-artifact invariant is asserted for EVERY staged child" \
+   'grep -qE "assert-no-java-artifacts\.sh .*DIGEST_REF" .github/workflows/stage-and-authorize.yml'
+ck "that assertion gates the child, not just logs" \
+   'grep -qE "nojava_ok.* = 1 .*&& meta=PASS" .github/workflows/stage-and-authorize.yml'
+ck "the assertion script self-tests clean" \
+   'bash scripts/assert-no-java-artifacts.sh --self-test >/dev/null 2>&1'
+ck "an uninspectable image is REFUSED, not skipped" \
+   '! bash scripts/assert-no-java-artifacts.sh zenchron-no-such-image:nope >/dev/null 2>&1'
 
 # --- 3. the nginx wedge must actually wedge ----------------------------------
 # The old wedge matched "daemon off" in the first 40 bytes of cmdline. The
@@ -122,6 +134,15 @@ if git cat-file -e "${BROKEN}^{commit}" 2>/dev/null; then
   # is not a claim about a file that never contained anything.
   ck "${BROKEN:0:8} did NOT delete the Java bindings" \
      '! git show '"$BROKEN"':images/nginx/Dockerfile | grep -q "/usr/share/maven-repo"'
+fi
+
+# The matrix-wide invariant is newer than the acceptance run. Prove the gap was
+# real at the accepted revision rather than asserting it in prose.
+ACCEPTED=47609df75736a5860651be98177cfe8f9388f496
+if git cat-file -e "${ACCEPTED}^{commit}" 2>/dev/null; then
+  ck "the accepted revision ${ACCEPTED:0:8} skipped matrix-wide but asserted nginx-only" \
+     'git show '"$ACCEPTED"':.github/workflows/stage-and-authorize.yml | grep -q -- "--skip-dirs" &&
+      ! git show '"$ACCEPTED"':.github/workflows/stage-and-authorize.yml | grep -q "assert-no-java-artifacts"'
   ck "the old nginx wedge is gone from ${BROKEN:0:8} onwards" \
      'git show '"$BROKEN"':'"$W"' | grep -q "head -c40"'
 else
