@@ -82,8 +82,8 @@ start_registry() {
   docker buildx create --name "$BUILDER" --driver docker-container \
     --driver-opt network=host --use >/dev/null 2>&1 \
     || { echo "REFUSE: could not create the proof builder" >&2; return 1; }
-  local i
-  for i in $(seq 1 30); do
+  local _
+  for _ in $(seq 1 30); do
     curl -fsS "http://${REG}/v2/" >/dev/null 2>&1 && return 0
     sleep 1
   done
@@ -134,7 +134,8 @@ run_proof() {
   trap cleanup EXIT
   start_registry || return 1
 
-  local repo="proof/$(basename "$ctx")"
+  local repo
+  repo="proof/$(basename "$ctx")"
   local refA="${REG}/${repo}:a" refB="${REG}/${repo}:b"
 
   build_to_registry "$ctx" "$refA" "$platform" "$epoch" \
