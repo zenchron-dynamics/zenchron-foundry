@@ -60,6 +60,7 @@ emit() { # emit <workdir> [META] -> emits into <workdir>/evidence/out
     DIGEST="$DIG" RESOLVED="$DIG" MTYPE="$MT" \
     VIS="private" CARCH="amd64" DB="db@2026-08-06" \
     SMOKE="PASS" SCAN="PASS" RECON="PASS" META="$meta" \
+    EXEC_MODE="native" HOST_ARCH="amd64" \
     GITHUB_SHA="$(printf 'a%.0s' {1..40})" \
     GITHUB_REPOSITORY="zenchron-dynamics/zenchron-foundry" \
     GITHUB_RUN_ID=7 GITHUB_RUN_ATTEMPT=1 \

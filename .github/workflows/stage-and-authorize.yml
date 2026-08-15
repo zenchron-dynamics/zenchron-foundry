@@ -30,7 +30,14 @@ on:
   workflow_dispatch:
     inputs:
       platforms:
-        description: "Platforms to stage. Only architectures with reconciliation evidence can be authorized; linux/arm64 refuses the whole matrix until #139 lands."
+        description: >-
+          One platform per run. Only architectures with reconciliation evidence
+          can be AUTHORIZED, and today that is linux/amd64 only. linux/arm64 is
+          accepted as input and will build, stage, scan and record all ten
+          children, then be REFUSED by the authorizer for lack of evidence —
+          that refusal is the point of the #139 evidence-acquisition run, not a
+          malfunction. Its per-child records are what the ledger decision is
+          made from.
         type: string
         default: "linux/amd64"
 
@@ -305,6 +312,19 @@ jobs:
             *) echo "REFUSE: '$PLATFORMS' is not a linux/<arch> platform"; exit 1 ;;
           esac
           arch="${PLATFORMS#linux/}"
+          # EXECUTION MODE (#139). Whether the target architecture is the
+          # runner's own or reached through binfmt/QEMU is a property of the
+          # evidence, not a footnote: "built for arm64" and "built ON arm64" are
+          # different claims, and #111's native-arm64 runtime concern is NOT
+          # satisfied by emulation. Derived from the runner rather than declared,
+          # so it cannot drift from what actually happened.
+          case "$(uname -m)" in
+            x86_64|amd64) host_arch=amd64 ;;
+            aarch64|arm64) host_arch=arm64 ;;
+            *) host_arch="$(uname -m)" ;;
+          esac
+          if [ "$host_arch" = "$arch" ]; then exec_mode=native; else exec_mode=qemu; fi
+          echo "target=${arch} host=${host_arch} execution=${exec_mode}"
           label="$(image_label "$FAM" "$VER")"          # e.g. php-fpm/8.3, nginx/prod
           slug="${label//\//-}"
           tag="${slug}-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}-s${GITHUB_SHA:0:7}-${arch}"
@@ -322,6 +342,8 @@ jobs:
             echo "tag=${tag}"
             echo "ref=${STAGING_PACKAGE}:${tag}"
             echo "version_label=${version_label}"
+            echo "exec_mode=${exec_mode}"
+            echo "host_arch=${host_arch}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Build the exact platform child and stage it
@@ -515,11 +537,45 @@ jobs:
                "${TRIVY_IMAGE}" image "$DIGEST_REF" \
                --skip-db-update --skip-java-db-update \
                --skip-dirs /usr/share/java,/usr/share/maven-repo \
+               --list-all-pkgs \
                --severity CRITICAL,HIGH --format json \
                --output evidence/child/trivy.json > evidence/child/scan.log 2>&1; then
             [ -s evidence/child/trivy.json ] && scan=PASS
           fi
           tail -10 evidence/child/scan.log; echo "scan=$scan"
+          echo "::endgroup::"
+
+          echo "::group::package inventory"
+          # --list-all-pkgs above makes the scan report EVERY installed package,
+          # not only the vulnerable ones, and this derives a stable sorted
+          # inventory from it (#139).
+          #
+          # Needed because reconciling a second architecture is a comparison
+          # problem: deciding whether an amd64 exception transfers to arm64
+          # requires the arm64 INSTALLED VERSION of that package, and a finding
+          # that simply does not exist on arm64 must not be granted an approval.
+          # The vulnerability list alone cannot answer either question — it says
+          # nothing about packages that are present and not vulnerable.
+          #
+          # Derived from the scan rather than by running dpkg/apk inside the
+          # image: under emulation that would execute foreign-architecture
+          # binaries, and an inventory that depends on the image being runnable
+          # is one more thing that can fail for reasons unrelated to content.
+          if [ "$scan" = PASS ]; then
+            jq -r '[.Results[]? | .Target as $t | (.Packages // [])[]
+                    | "\(.Name)\t\(.Version)\t\($t)"] | sort | .[]' \
+               evidence/child/trivy.json > evidence/child/packages.tsv 2>/dev/null || true
+          fi
+          : > evidence/child/packages.tsv.missing
+          if [ -s evidence/child/packages.tsv ]; then
+            rm -f evidence/child/packages.tsv.missing
+            printf 'packages inventoried: %s\n' "$(wc -l < evidence/child/packages.tsv | tr -d ' ')"
+            head -5 evidence/child/packages.tsv
+          else
+            # Do not silently ship an empty inventory: an absent package list
+            # would make an arm64 comparison look like "no differences".
+            echo "WARNING: no package inventory derived; arm64 reconciliation cannot use this child"
+          fi
           echo "::endgroup::"
 
 
@@ -566,6 +622,8 @@ jobs:
           MTYPE: ${{ steps.resolve.outputs.media_type }}
           VIS: ${{ steps.vis.outputs.visibility }}
           CARCH: ${{ steps.eval.outputs.carch }}
+          EXEC_MODE: ${{ steps.id.outputs.exec_mode }}
+          HOST_ARCH: ${{ steps.id.outputs.host_arch }}
           DB: ${{ needs.freeze-db.outputs.identity }}
           SMOKE: ${{ steps.eval.outputs.smoke }}
           SCAN: ${{ steps.eval.outputs.scan }}
@@ -582,12 +640,18 @@ jobs:
           esum="$(bash scripts/release/evidence-checksum.sh evidence/child)"
           slug="${LABEL//\//-}"
           mkdir -p evidence/out
+          # Package count is recorded, not just the file: a child whose inventory
+          # failed to derive must be visibly unusable for cross-architecture
+          # reconciliation rather than looking like an image with no packages.
+          pkgs=0
+          [ -s evidence/child/packages.tsv ] && pkgs="$(wc -l < evidence/child/packages.tsv | tr -d ' ')"
           jq -n --arg l "$LABEL" --arg p "$PLATFORM" --arg t "$TAG" \
                 --arg dr "$DIGEST_REF" --arg d "$DIGEST" --arg rd "$RESOLVED" \
                 --arg v "$VIS" --arg ca "$CARCH" --arg db "$DB" --arg mtype "$MTYPE" \
                 --arg rev "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" \
                 --argjson rid "$GITHUB_RUN_ID" --argjson ratt "$GITHUB_RUN_ATTEMPT" \
                 --arg sm "$SMOKE" --arg sc "$SCAN" --arg rc "$RECON" --arg meta "$META" \
+                --arg em "$EXEC_MODE" --arg ha "$HOST_ARCH" --argjson pk "$pkgs" \
                 --arg es "$esum" '{
             image_label:$l, platform:$p, staging_tag:$t,
             digest_reference:$dr, manifest_digest:$d, manifest_media_type:$mtype,
@@ -595,7 +659,9 @@ jobs:
             visibility:$v, config_architecture:$ca, trivy_db_identity:$db,
             source_revision:$rev, workflow_run_id:$rid, workflow_run_attempt:$ratt,
             repository:$repo, smoke_test:$sm, scan:$sc, reconciliation:$rc,
-            metadata_contract:$meta, evidence_sha256:$es}' > "evidence/out/${slug}.json"
+            metadata_contract:$meta,
+            execution_mode:$em, host_architecture:$ha, packages_inventoried:$pk,
+            evidence_sha256:$es}' > "evidence/out/${slug}.json"
           cp -r evidence/child "evidence/out/${slug}-evidence"
           jq . "evidence/out/${slug}.json"
 
