@@ -257,6 +257,23 @@
             "application/vnd.docker.distribution.manifest.v2+json"
           ],
           "description": "Read from the registry object itself. An index digest is REFUSED: an index can still be pulled with --platform, inspected and scanned, so every downstream check would pass while the record described the wrong object. Disabling sbom/provenance makes an index unlikely, not impossible."
+        },
+        "execution_mode": {
+          "enum": [
+            "native",
+            "qemu"
+          ],
+          "description": "Whether the target architecture was the runner's own or reached through binfmt/QEMU. Emulation yields genuine image/package/reconciliation evidence but is NOT native-arm64 runtime evidence (#111)."
+        },
+        "host_architecture": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Architecture of the runner that built this child."
+        },
+        "packages_inventoried": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of packages in the derived inventory. 0 means the inventory could not be derived, so this child cannot support a cross-architecture comparison."
         }
       }
     }
