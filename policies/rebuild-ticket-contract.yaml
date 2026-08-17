@@ -1,0 +1,119 @@
+# =============================================================================
+# policies/rebuild-ticket-contract.yaml — what a rebuild ticket must contain,
+# and when it must NOT be created at all.
+# -----------------------------------------------------------------------------
+# WHY THIS EXISTS. The scheduled-rebuild automation opened one issue per image
+# whose entire content was:
+#
+#   "Candidate <digest> reports fixable CRITICAL/HIGH the current stable may not."
+#
+# #88-#95 were eight of those for one root cause. None named a CVE, a package, an
+# installed or fixed version, a scanner or database identity, or an owner — and
+# none said whether rebuilding could change the finding. #79 has carried the
+# title "rebuild requested" since July for two Go modules that NO rebuild can
+# move, because they are statically linked into an upstream binary.
+#
+# THIS IS A CONTRACT, NOT A LIVE PIPELINE. The generating automation was deleted
+# with the production publication path it fed; .github/workflows/scheduled-rebuild.yml
+# is now a refusal stub. Scheduled rebuild returns only once staging and
+# authorization can feed a protected exposure path (#139). This file, the
+# classifier and its tests exist so that when it returns it cannot regress to the
+# old shape. Contract first, automation later — deliberately.
+#
+# Executable classifier: scripts/classify-remediation-owner.sh
+# Ownership model:       docs/ownership-boundary.md
+# =============================================================================
+schema_version: 1
+
+policy:
+  owner: Zenchron Dynamics / Platform Security
+  last_reviewed: 2026-08-17
+  status: contract-only
+  status_note: >-
+    No automation currently creates rebuild tickets. This constrains the next
+    implementation rather than describing a running one; saying otherwise would
+    be documenting intent as if it were enforced behaviour.
+  gated_on: 139
+
+# --- every rebuild ticket must state ALL of these ---------------------------
+# A ticket missing any of these cannot be acted on without redoing the
+# investigation that produced it, which is how #88-#95 became eight dead ends.
+required_fields:
+  - id: cve
+    what: "the exact advisory identifier (CVE-… or GHSA-…)"
+  - id: package
+    what: "the exact package or module name as the scanner reports it"
+  - id: installed_version
+    what: "the version actually present in the artifact"
+  - id: fixed_version
+    what: "the version that carries the fix, or an explicit 'none available'"
+  - id: image_digest
+    what: "the immutable child manifest digest the finding was observed in"
+  - id: platform
+    what: "the architecture, because evidence never transfers between them"
+  - id: scanner_identity
+    what: "scanner version AND frozen vulnerability database identity"
+  - id: remediation_owner
+    what: >-
+      one of: foundry-dockerfile, foundry-extension, upstream-base,
+      upstream-vendor-binary, consumer-application, not-affected
+  - id: rebuild_can_remediate
+    what: >-
+      yes or no, with the named input a rebuild would change. "Rebuild
+      requested" without such an input is not an acceptable value.
+  - id: root_cause_key
+    what: "deduplication key: owner:package:installed_version"
+  - id: supersession
+    what: "the condition under which this ticket auto-closes"
+
+# --- when a ticket must NOT be created --------------------------------------
+refuse_to_create_when:
+  - condition: rebuild_can_remediate == no
+    why: >-
+      A ticket that asks someone to rebuild when rebuilding cannot change the
+      vulnerable component wastes the reader's time and, worse, looks actionable.
+      Track the upstream dependency or govern it in the ledger instead.
+    example: >-
+      #79 — kin-openapi and grpc are statically linked into the upstream
+      FrankenPHP binary. Verified 2026-08-17 that the pinned digests ARE the
+      current upstream digests, so no rebuild changes them.
+  - condition: the finding is already governed by an unexpired ledger entry for that image and architecture
+    why: "The decision exists; a second ticket duplicates it and will rot."
+  - condition: the referenced candidate digest is no longer the current candidate
+    why: >-
+      A ticket about a superseded artifact describes something nobody will ship.
+      #88-#95 were all in this state by the time they were read.
+
+# --- grouping ---------------------------------------------------------------
+grouping:
+  rule: >-
+    ONE ticket per root_cause_key, listing every affected image and platform.
+    Not one per image: eight tickets for one vendored module is eight times the
+    reading for none of the information.
+  affected_images_field_required: true
+  example:
+    root_cause_key: "upstream-vendor-binary:google.golang.org/grpc:v1.81.1"
+    affected_images: [php-frankenphp/8.3, php-frankenphp/8.4]
+    tickets_that_should_exist: 1
+
+# --- automatic closure ------------------------------------------------------
+supersession:
+  close_when:
+    - "the finding is absent from the current candidate for every affected image and platform"
+    - "the referenced candidate digest is superseded and the finding does not recur"
+    - "a ledger entry now governs it for every affected image and platform"
+  must_state_evidence: true
+  must_not_close_when: >-
+    The finding is still present and ungoverned. Closing to reduce a count is
+    how a live vulnerability becomes invisible.
+
+# --- the model this depends on ---------------------------------------------
+ownership_model:
+  document: docs/ownership-boundary.md
+  classifier: scripts/classify-remediation-owner.sh
+  test: tests/vulnerability-policy/test_rebuild_ticket_contract.sh
+  source_compilation: >-
+    Compiling FrankenPHP or Caddy from source would remove the
+    upstream-vendor-binary class entirely, and is a product-architecture decision
+    requiring an ADR — never an implementation detail inside a rebuild ticket.
+    Proposal: docs/decisions/vendor-binary-source-build-proposal.md
