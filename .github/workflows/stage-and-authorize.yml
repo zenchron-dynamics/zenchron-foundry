@@ -68,11 +68,16 @@ jobs:
   guard:
     name: refuse any ref but the default branch
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     outputs:
       created: ${{ steps.stamp.outputs.created }}
       source_date_epoch: ${{ steps.stamp.outputs.source_date_epoch }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      expected_children: ${{ steps.plan.outputs.expected_children }}
+      platform_count: ${{ steps.plan.outputs.platform_count }}
+      started_at: ${{ steps.plan.outputs.started_at }}
     steps:
       - name: Refuse a non-default ref
         env:
@@ -126,6 +131,49 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "SOURCE_DATE_EPOCH=${epoch} (${created}) from commit ${GITHUB_SHA}"
 
+      # -----------------------------------------------------------------------
+      # CHEAP PREFLIGHT, then the matrix. Both before any builder exists.
+      #
+      # The acceptance matrix is enumerated by
+      # scripts/release/build-acceptance-matrix.sh — ONE implementation, shared
+      # with the tests, deriving images from MATRIX_IMAGES. The ten hardcoded
+      # entries this replaces were a second source of truth for the shipping
+      # matrix with nothing asserting the two agreed, and they had no platform
+      # axis at all, which is why a two-platform dispatch could not produce 20
+      # children.
+      #
+      # A malformed platform list now costs seconds here instead of a matrix of
+      # refusals. Platform AUTHORIZATION is deliberately NOT checked here: that
+      # stays in the authorizer, after the children, so an unevidenced
+      # architecture still builds and records evidence before being refused —
+      # which is how #139's arm64 evidence was acquired. Shape early, authority
+      # late, on purpose.
+      # -----------------------------------------------------------------------
+      - name: Validate the request and plan the matrix
+        id: plan
+        env:
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          set -euo pipefail
+          m="$(bash scripts/release/build-acceptance-matrix.sh "$PLATFORMS")"
+          n="$(printf '%s' "$m" | jq '.include|length')"
+          np="$(printf '%s' "$m" | jq -r '[.include[].platform]|unique|length')"
+          # Belt and braces: the authorizer computes expected_children the same
+          # way from EXPECTED_PLATFORMS, and a disagreement between the plan and
+          # the judge would be the kind of arithmetic drift that produces a PASS
+          # over the wrong number of children.
+          images="$(bash -c '. scripts/lib/common.sh; matrix_images | wc -l' | tr -d ' ')"
+          [ "$n" -eq $(( images * np )) ] \
+            || { echo "REFUSE: planned $n children != ${images} images x ${np} platforms" >&2; exit 1; }
+          {
+            echo "matrix=${m}"
+            echo "expected_children=${n}"
+            echo "platform_count=${np}"
+            echo "started_at=$(date -u +%s)"
+          } >> "$GITHUB_OUTPUT"
+          echo "planned ${n} children = ${images} images x ${np} platform(s)"
+          printf '%s' "$m" | jq -r '.include[]|"  \(.fam):\(.ver) \(.platform)"'
+
   # -------------------------------------------------------------------------
   # One database for the whole run. Ten jobs each resolving their own snapshot
   # would let a single authorization record combine findings judged against
@@ -135,6 +183,9 @@ jobs:
     name: freeze the vulnerability database
     needs: guard
     runs-on: [self-hosted, linux, x64, zenchron]
+    # One ~107 MB download plus a tar. Observed under two minutes; 30 caps a
+    # hung mirror instead of holding a trusted runner for six hours.
+    timeout-minutes: 30
     permissions:
       contents: read
     outputs:
@@ -219,29 +270,32 @@ jobs:
   # Build the exact platform child, stage it, then evaluate THAT DIGEST.
   # -------------------------------------------------------------------------
   stage:
-    name: stage ${{ matrix.fam }}/${{ matrix.ver }}
+    name: stage ${{ matrix.fam }}/${{ matrix.ver }} (${{ matrix.platform }})
     needs: [guard, freeze-db]
     runs-on: [self-hosted, linux, x64, zenchron]
+    # A hung QEMU child would otherwise sit until GitHub's 360-minute default.
+    # The slowest observed emulated child (php-frankenphp on arm64) ran ~53
+    # minutes in run 31941819983, so 150 leaves ample headroom while capping a
+    # wedged job at a quarter of the old ceiling. Serialised, that is the
+    # difference between a lost afternoon and a lost day of runner time.
+    timeout-minutes: 150
     permissions:
       contents: read
       packages: write        # staging package only; production is denied by ACL
     strategy:
       fail-fast: false
       # Serialized: the host is 2 vCPU / 4 GB and buildkit + Trivy resident twice
-      # over is an OOM, not a speedup.
+      # over is an OOM, not a speedup. Raising this for the 20-child run was
+      # considered and REJECTED without a resource model — see
+      # docs/ci-cost-baseline.md; it is recorded as a measured optimisation
+      # target rather than guessed at.
       max-parallel: 1
-      matrix:
-        include:
-          - { fam: php-fpm,        ver: "8.3",  ctx: "images/php-fpm/8.3" }
-          - { fam: php-fpm,        ver: "8.4",  ctx: "images/php-fpm/8.4" }
-          - { fam: php-cli,        ver: "8.3",  ctx: "images/php-cli/8.3" }
-          - { fam: php-cli,        ver: "8.4",  ctx: "images/php-cli/8.4" }
-          - { fam: php-worker,     ver: "8.3",  ctx: "images/php-worker/8.3" }
-          - { fam: php-worker,     ver: "8.4",  ctx: "images/php-worker/8.4" }
-          - { fam: php-frankenphp, ver: "8.3",  ctx: "images/php-frankenphp/8.3" }
-          - { fam: php-frankenphp, ver: "8.4",  ctx: "images/php-frankenphp/8.4" }
-          - { fam: caddy,          ver: "prod", ctx: "images/caddy" }
-          - { fam: nginx,          ver: "prod", ctx: "images/nginx" }
+      # ONE enumeration, produced by the guard from
+      # scripts/release/build-acceptance-matrix.sh and shared with the tests.
+      # This replaces ten hardcoded entries that duplicated MATRIX_IMAGES and
+      # carried no platform axis — the reason a two-platform dispatch could not
+      # produce 20 children.
+      matrix: ${{ fromJSON(needs.guard.outputs.matrix) }}
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
@@ -299,15 +353,26 @@ jobs:
         env:
           FAM: ${{ matrix.fam }}
           VER: ${{ matrix.ver }}
-          PLATFORMS: ${{ inputs.platforms }}
+          # THE PER-CHILD PLATFORM, from the matrix — not the raw dispatch input.
+          #
+          # This was `inputs.platforms`, so a two-platform dispatch handed every
+          # child "linux/amd64,linux/arm64" and every child refused below. The
+          # guard below is unchanged and still correct; what changed is that the
+          # value it guards is now a single platform by construction, because the
+          # matrix has a platform axis.
+          PLATFORMS: ${{ matrix.platform }}
         run: |
           set -euo pipefail
           . scripts/lib/common.sh
-          # Exactly one platform per child. The record is about specific child
-          # digests, so a comma-separated build would produce an index and the
-          # digest would identify the wrong object.
+          # Exactly one platform per child, enforced at the CHILD boundary.
+          # The record is about specific child digests, so a comma-separated
+          # build would produce a multi-platform INDEX and the recorded digest
+          # would identify the wrong object. With the matrix supplying one
+          # platform per entry this should be unreachable — it is kept precisely
+          # so that a future change which reintroduces a list fails here instead
+          # of silently staging an index.
           case "$PLATFORMS" in
-            *,*) echo "REFUSE: stage one platform per run; got '$PLATFORMS'"; exit 1 ;;
+            *,*) echo "REFUSE: one platform per child; got '$PLATFORMS'"; exit 1 ;;
             linux/*) : ;;
             *) echo "REFUSE: '$PLATFORMS' is not a linux/<arch> platform"; exit 1 ;;
           esac
@@ -325,6 +390,13 @@ jobs:
           esac
           if [ "$host_arch" = "$arch" ]; then exec_mode=native; else exec_mode=qemu; fi
           echo "target=${arch} host=${host_arch} execution=${exec_mode}"
+          # COST TELEMETRY (CI-COST-01). The child's own clock, so the cost
+          # baseline comes from the evidence rather than from scraping job
+          # timestamps out of the API after the fact. Emulated children are the
+          # critical path — ~53 min each versus ~5 for native — and that ratio is
+          # the single biggest lever on a 20-child run, so it has to be measured
+          # per child rather than estimated.
+          child_started_at="$(date -u +%s)"
           label="$(image_label "$FAM" "$VER")"          # e.g. php-fpm/8.3, nginx/prod
           slug="${label//\//-}"
           tag="${slug}-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}-s${GITHUB_SHA:0:7}-${arch}"
@@ -344,6 +416,7 @@ jobs:
             echo "version_label=${version_label}"
             echo "exec_mode=${exec_mode}"
             echo "host_arch=${host_arch}"
+            echo "child_started_at=${child_started_at}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Build the exact platform child and stage it
@@ -624,6 +697,8 @@ jobs:
           CARCH: ${{ steps.eval.outputs.carch }}
           EXEC_MODE: ${{ steps.id.outputs.exec_mode }}
           HOST_ARCH: ${{ steps.id.outputs.host_arch }}
+          CHILD_STARTED_AT: ${{ steps.id.outputs.child_started_at }}
+          RUNNER_NAME_OBSERVED: ${{ runner.name }}
           DB: ${{ needs.freeze-db.outputs.identity }}
           SMOKE: ${{ steps.eval.outputs.smoke }}
           SCAN: ${{ steps.eval.outputs.scan }}
@@ -645,6 +720,15 @@ jobs:
           # reconciliation rather than looking like an image with no packages.
           pkgs=0
           [ -s evidence/child/packages.tsv ] && pkgs="$(wc -l < evidence/child/packages.tsv | tr -d ' ')"
+          # Wall time for THIS child, from its own clock (CI-COST-01). Recorded
+          # in the evidence so the cost baseline is derived from the run itself
+          # rather than reconstructed from API timestamps that do not survive
+          # artifact retention.
+          child_seconds=0
+          if [ -n "${CHILD_STARTED_AT:-}" ]; then
+            child_seconds=$(( $(date -u +%s) - CHILD_STARTED_AT ))
+            [ "$child_seconds" -ge 0 ] || child_seconds=0
+          fi
           jq -n --arg l "$LABEL" --arg p "$PLATFORM" --arg t "$TAG" \
                 --arg dr "$DIGEST_REF" --arg d "$DIGEST" --arg rd "$RESOLVED" \
                 --arg v "$VIS" --arg ca "$CARCH" --arg db "$DB" --arg mtype "$MTYPE" \
@@ -652,6 +736,7 @@ jobs:
                 --argjson rid "$GITHUB_RUN_ID" --argjson ratt "$GITHUB_RUN_ATTEMPT" \
                 --arg sm "$SMOKE" --arg sc "$SCAN" --arg rc "$RECON" --arg meta "$META" \
                 --arg em "$EXEC_MODE" --arg ha "$HOST_ARCH" --argjson pk "$pkgs" \
+                --argjson cs "$child_seconds" --arg rn "${RUNNER_NAME_OBSERVED:-unknown}" \
                 --arg es "$esum" '{
             image_label:$l, platform:$p, staging_tag:$t,
             digest_reference:$dr, manifest_digest:$d, manifest_media_type:$mtype,
@@ -661,6 +746,7 @@ jobs:
             repository:$repo, smoke_test:$sm, scan:$sc, reconciliation:$rc,
             metadata_contract:$meta,
             execution_mode:$em, host_architecture:$ha, packages_inventoried:$pk,
+            child_wall_seconds:$cs, runner_name:$rn,
             evidence_sha256:$es}' > "evidence/out/${slug}.json"
           cp -r evidence/child "evidence/out/${slug}-evidence"
           jq . "evidence/out/${slug}.json"
@@ -709,6 +795,8 @@ jobs:
           && needs.freeze-db.result == 'success' }}
     needs: [guard, freeze-db, stage]
     runs-on: [self-hosted, linux, x64, zenchron]
+    # Collect, judge, checksum, upload. No builds, no scans.
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: read         # deliberately NOT write, and no id-token
@@ -846,4 +934,28 @@ jobs:
             echo "| database snapshot | \`$(jq -r .trivy_db_snapshot.identity "$f")\` |"
             echo
             echo "Staged only to \`$(jq -r .staging_package "$f")\`. No production package, no public tag, no index, no signature."
+            # --- COST BASELINE (CI-COST-01) --------------------------------
+            # Derived from the children's own recorded wall time, so it survives
+            # artifact retention and does not depend on scraping the API later.
+            # Split by execution mode because emulation is the critical path and
+            # a single average would hide it.
+            echo
+            echo "### Cost baseline"
+            echo
+            echo "| metric | value |"
+            echo "|---|---|"
+            jq -r '
+              [.children[] | select((.child_wall_seconds // 0) > 0)] as $c
+              | ($c | map(.child_wall_seconds) | add // 0) as $tot
+              | [$c[] | select(.execution_mode=="native")] as $nat
+              | [$c[] | select(.execution_mode=="qemu")]   as $emu
+              | "| children with timing | \($c|length) / \(.children|length) |",
+                "| total child wall time | \(($tot/60)|floor) min |",
+                "| native children | \($nat|length), \((( ($nat|map(.child_wall_seconds)|add // 0) / (if ($nat|length)>0 then ($nat|length) else 1 end))/60)|floor) min avg |",
+                "| emulated children | \($emu|length), \((( ($emu|map(.child_wall_seconds)|add // 0) / (if ($emu|length)>0 then ($emu|length) else 1 end))/60)|floor) min avg |",
+                "| slowest child | \(($c|max_by(.child_wall_seconds)|.image_label) // "n/a") (\((($c|map(.child_wall_seconds)|max // 0)/60)|floor) min) |",
+                "| runners used | \([$c[].runner_name]|unique|join(", ")) |"
+            ' "$f"
+            echo
+            echo "Emulated children dominate the critical path; \`max-parallel: 1\` is preserved deliberately (2 vCPU / 4 GB host). See \`docs/ci-cost-baseline.md\`."
           } >> "$GITHUB_STEP_SUMMARY"
