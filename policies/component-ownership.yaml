@@ -1,0 +1,258 @@
+# =============================================================================
+# policies/component-ownership.yaml — WHO OWNS EACH COMPONENT, and therefore
+# which remediations are even possible.
+# -----------------------------------------------------------------------------
+# THE AUTHORITATIVE MACHINE-READABLE BOUNDARY. Enforced by
+# scripts/assert-upstream-ownership.sh; the prose in docs/ownership-boundary.md
+# and AGENTS.md derives from this file rather than restating it, because a second
+# copy of an authoritative fact is a second thing to forget to update.
+#
+# THE ONE-LINE RULE. Zenchron Foundry builds Zenchron golden images from official
+# upstream bases. It does not fork, patch, vendor, or compile upstream-owned
+# runtime/server binaries unless an explicitly approved ADR changes that
+# ownership model.
+#
+# "Foundry does not rebuild upstream software" does NOT mean "Foundry never runs
+# docker build". Foundry builds its own golden images constantly, and must keep
+# doing so. The prohibition is on forking, patching, vendoring or compiling
+# upstream-OWNED binaries inside this repository.
+#
+# WHY THIS FILE EXISTS. #79 sat for weeks titled "rebuild requested" for two Go
+# modules statically linked into the upstream FrankenPHP binary — an action that
+# cannot work. The tempting "fix" is to compile FrankenPHP with upgraded modules.
+# That is a new product with new maintenance, provenance and reproducibility
+# obligations, and it must never be reachable as an implementation detail.
+# =============================================================================
+schema_version: 1
+
+policy:
+  owner: Zenchron Dynamics / Platform Security
+  last_reviewed: 2026-08-17
+  enforced_by: scripts/assert-upstream-ownership.sh
+  derived_documents:
+    - docs/ownership-boundary.md
+    - AGENTS.md
+
+# --- owner classes -----------------------------------------------------------
+owner_classes:
+  foundry:
+    means: "Foundry authors it; Foundry can change it directly"
+    foundry_may_compile: true
+  foundry-selected-extension:
+    means: >-
+      Foundry chooses and compiles it, but through the OFFICIAL upstream
+      toolchain (docker-php-ext-*, pecl) inside the official base image. The
+      selection and pinned version are Foundry decisions; the toolchain is not.
+    foundry_may_compile: true
+  upstream-base:
+    means: "distro packages and files inherited from the official base image"
+    foundry_may_compile: false
+  upstream-binary:
+    means: >-
+      an executable built and shipped by the upstream project. Foundry consumes
+      it; nothing in a Foundry layer can change its contents or its statically
+      linked modules.
+    foundry_may_compile: false
+
+# --- the ADR gate ------------------------------------------------------------
+ownership_change:
+  requires_adr: true
+  approved_adrs: []          # EMPTY. No source-build exception is authorized.
+  proposal: docs/decisions/vendor-binary-source-build-proposal.md
+  note: >-
+    An entry here is the ONLY way `foundry_may_compile: false` becomes true for
+    an upstream-owned binary. Adding one is a product-architecture decision:
+    threat analysis, reproducibility design, dependency automation,
+    signing/provenance ownership, lifecycle responsibility and long-term
+    maintenance sign-off. Do NOT create an ADR to bypass this policy; if source
+    ownership looks necessary, stop and present the decision.
+
+# --- components --------------------------------------------------------------
+# Every shipped image family and every relevant embedded component. The
+# enforcement script fails if a shipped family has no entry here.
+components:
+  - component: php-official-base
+    owner_class: upstream-base
+    image_families: [php-cli, php-fpm, php-worker]
+    source_type: official-image
+    upstream_repository: https://github.com/docker-library/php
+    consumption_mode: digest-pinned-official-image
+    upstream_line: "php:8.3-* / php:8.4-* (cli, fpm) on bookworm"
+    foundry_may_compile: false
+    permitted_remediation: [pin-digest-bump, upstream-tracking, scoped-expiring-exception, image-family-suspension]
+    forbidden_remediation: [compile-from-source, fork, vendor-modules, replace-binary]
+    upstream_tracking_required: true
+    release_adoption_path: "digest bump -> rebuild -> scan -> reconcile -> sign -> publish -> notify"
+
+  - component: frankenphp-binary
+    owner_class: upstream-binary
+    image_families: [php-frankenphp]
+    source_type: official-image
+    upstream_repository: https://github.com/dunglas/frankenphp
+    consumption_mode: digest-pinned-official-image
+    upstream_line: "dunglas/frankenphp:1-php8.3-bookworm / 1-php8.4-bookworm"
+    foundry_may_compile: false
+    permitted_remediation: [pin-digest-bump, upstream-tracking, scoped-expiring-exception, image-family-suspension]
+    forbidden_remediation: [compile-from-source, fork, vendor-modules, replace-binary, xcaddy-build, go-module-override]
+    upstream_tracking_required: true
+    release_adoption_path: "digest bump -> rebuild -> scan -> reconcile -> sign -> publish -> notify"
+    known_embedded_modules_are_upstream_owned: true
+    evidence: >-
+      GHSA-r277-6w6q-xmqw (kin-openapi v0.140.0) and GHSA-hrxh-6v49-42gf (grpc
+      v1.81.1) are statically linked into this binary. Verified 2026-08-17 that
+      the pinned digests ARE the current upstream digests, so no rebuild changes
+      them. Tracked in #79.
+
+  - component: caddy-embedded-in-frankenphp
+    owner_class: upstream-binary
+    image_families: [php-frankenphp]
+    source_type: embedded-in-upstream-binary
+    upstream_repository: https://github.com/caddyserver/caddy
+    consumption_mode: inherited-inside-frankenphp-binary
+    upstream_line: "whatever the pinned FrankenPHP release embeds"
+    foundry_may_compile: false
+    permitted_remediation: [pin-digest-bump, upstream-tracking, scoped-expiring-exception]
+    forbidden_remediation: [compile-from-source, xcaddy-build, replace-binary, go-module-override]
+    upstream_tracking_required: true
+    release_adoption_path: "adopt a FrankenPHP release embedding a patched Caddy"
+    note: >-
+      Not separately pinnable. Its version is a property of the FrankenPHP
+      release, so it cannot be remediated independently of that binary.
+
+  - component: caddy-standalone
+    owner_class: upstream-binary
+    image_families: [caddy]
+    source_type: official-image
+    upstream_repository: https://github.com/caddyserver/caddy
+    consumption_mode: digest-pinned-official-image
+    upstream_line: "caddy:2-alpine"
+    foundry_may_compile: false
+    permitted_remediation: [pin-digest-bump, upstream-tracking, scoped-expiring-exception, image-family-suspension]
+    forbidden_remediation: [compile-from-source, xcaddy-build, replace-binary, go-module-override, fork]
+    upstream_tracking_required: true
+    release_adoption_path: "digest bump -> rebuild -> scan -> reconcile -> sign -> publish -> notify"
+    evidence: >-
+      Ten Go findings (x/net, x/text, and six stdlib CVEs) are compiled into this
+      binary. Latest upstream release remains v2.11.4; the pinned digest is the
+      current one. Governed to 2026-08-31.
+
+  - component: nginx-binary
+    owner_class: upstream-binary
+    image_families: [nginx]
+    source_type: official-image
+    upstream_repository: https://github.com/nginxinc/docker-nginx-unprivileged
+    consumption_mode: digest-pinned-official-image
+    upstream_line: "nginxinc/nginx-unprivileged:1.28-bookworm"
+    foundry_may_compile: false
+    permitted_remediation: [pin-digest-bump, upstream-tracking, scoped-expiring-exception, image-family-suspension]
+    forbidden_remediation: [compile-from-source, fork, replace-binary, custom-module-build]
+    upstream_tracking_required: true
+    release_adoption_path: "digest bump -> rebuild -> scan -> reconcile -> sign -> publish -> notify"
+
+  - component: php-extensions
+    owner_class: foundry-selected-extension
+    image_families: [php-cli, php-fpm, php-worker, php-frankenphp]
+    source_type: compiled-by-foundry-with-official-toolchain
+    upstream_repository: https://pecl.php.net
+    consumption_mode: pinned-version-plus-checksum
+    upstream_line: "phpredis pinned via PHPREDIS_VERSION + sha256"
+    foundry_may_compile: true
+    compilation_scope: >-
+      ONLY through the official toolchain shipped in the base image
+      (docker-php-ext-configure, docker-php-ext-install, pecl install) against a
+      pinned, checksum-verified source archive. This is APPROVED and must not be
+      caught by the source-build prohibition — it compiles an extension, never a
+      replacement runtime or server binary.
+    permitted_remediation: [bump-pinned-extension-version, drop-extension, upstream-tracking, scoped-expiring-exception]
+    forbidden_remediation: [compile-replacement-runtime, unpinned-source-fetch, unverified-archive]
+    upstream_tracking_required: true
+    release_adoption_path: "bump pinned version + checksum -> rebuild -> scan -> reconcile -> sign -> publish"
+
+  - component: distro-packages
+    owner_class: upstream-base
+    image_families: [php-cli, php-fpm, php-worker, php-frankenphp, nginx, caddy]
+    source_type: distro-repository
+    upstream_repository: "Debian bookworm / Alpine"
+    consumption_mode: inherited-from-base-image
+    upstream_line: "whatever the pinned base ships"
+    foundry_may_compile: false
+    permitted_remediation: [pin-digest-bump, purge-package, upstream-tracking, scoped-expiring-exception]
+    forbidden_remediation: [compile-from-source, vendor-package, pin-to-unofficial-repository]
+    upstream_tracking_required: true
+    release_adoption_path: "digest bump to a base carrying the fixed package"
+    note: >-
+      Purging a package Foundry does not need IS a Foundry-owned remediation and
+      has been used: curl, libssh2 and the gettext Java bindings were removed
+      from images that had no use for them.
+
+  - component: zenchron-scripts-and-config
+    owner_class: foundry
+    image_families: [php-cli, php-fpm, php-worker, php-frankenphp, nginx, caddy]
+    source_type: authored-in-this-repository
+    upstream_repository: null
+    consumption_mode: authored
+    upstream_line: null
+    foundry_may_compile: true
+    permitted_remediation: [fix-directly]
+    forbidden_remediation: []
+    upstream_tracking_required: false
+    release_adoption_path: "fix -> rebuild -> scan -> sign -> publish"
+
+# --- what a rebuild can and cannot do ---------------------------------------
+rebuild_semantics:
+  can_remediate:
+    - owner_class: foundry
+    - owner_class: foundry-selected-extension
+      only_if: "the pinned version or checksum changed"
+    - owner_class: upstream-base
+      only_if: "the pinned base digest changed to one carrying the fixed package"
+  cannot_remediate:
+    - owner_class: upstream-binary
+      why: >-
+        A rebuild re-runs Foundry's layers against the SAME upstream digest. A
+        module statically linked into an upstream binary is unchanged by that.
+        Claiming otherwise is the specific false statement this policy exists to
+        prevent.
+  forbidden_claim: >-
+    "rebuilt, therefore the embedded CVE is fixed" — for an upstream-binary
+    component this is false unless the pinned digest changed.
+
+# --- downstream reporting contract ------------------------------------------
+downstream_reports:
+  accepted_from: [php-app-template, any consumer of a published Foundry image]
+  may_provide:
+    - affected Foundry digest
+    - scanner and vulnerability database identity
+    - CVE or GHSA
+    - package or embedded module
+    - installed and fixed versions
+    - architecture
+    - downstream impact and urgency
+    - reproduction evidence
+  may_not_dictate: >-
+    the implementation method. A downstream report is EVIDENCE, not a work
+    order: it cannot require Foundry to fork, patch, vendor or compile an
+    upstream-owned binary.
+  triage_owner: Zenchron Dynamics / Platform Security
+  rule: >-
+    Fix centrally in Foundry when the defect is in a Foundry-published artifact
+    AND within Foundry's ownership scope. Otherwise route to upstream tracking,
+    a scoped exception, consumer action, or family suspension — and say which.
+
+# --- exception discipline for upstream findings ------------------------------
+exception_requirements:
+  must_be:
+    - narrowly scoped to the named image families
+    - bound to the exact installed version where the scanner reports one
+    - bound to the architectures it was reconciled on
+    - expiring, with a review date
+  must_record: [owner, approver, evidence, upstream_reference, expiry, compensating_controls, exit_condition]
+  must_fail_closed_when:
+    - "the expiry passes"
+    - "the installed version changes"
+    - "the architecture was not reconciled"
+  must_be_removed_when: "a patched official upstream image is adopted"
+  unacceptable_risk_path: >-
+    Suspend, withdraw or mark the image family unavailable. Do NOT conceal it
+    behind a broader exception.
+  no_unevidenced_reachability_claims: true
