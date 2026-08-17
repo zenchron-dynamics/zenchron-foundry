@@ -56,7 +56,7 @@ control-plane change and outside this batch. It is also what #111 actually needs
 
 Any future reuse of **vulnerability evidence** must key on *all* of:
 
-```
+```text
 source SHA
 build inputs (Dockerfile + context digest)
 base image digests
@@ -99,7 +99,7 @@ also advances an open issue.
 
 ## What the run summary now reports
 
-```
+```text
 children with timing, total child wall time,
 native children (count, mean), emulated children (count, mean),
 slowest child, runners used
