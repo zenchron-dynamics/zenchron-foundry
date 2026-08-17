@@ -44,6 +44,7 @@ ck "the arm64 authorization is traceable to committed evidence" \
 #
 # Captured once into a variable: running the self-test inside a multi-line eval'd
 # pipeline is both slower and fragile.
+# shellcheck disable=SC2034  # consumed inside the eval'd ck assertions below
 AUTHZ_SELFTEST="$(bash scripts/release/authorize-staged-candidates.sh --self-test 2>&1 || true)"
 ck "the authorizer does NOT refuse an evidenced platform" \
    'grep -q "an evidenced architecture is NOT refused" <<<"$AUTHZ_SELFTEST"'
