@@ -1,0 +1,2887 @@
+{
+  "amd64_db_identity": "v2+updated:2026-08-14T07:14:31.886440784Z+next:2026-08-15T07:14:31.886440524Z",
+  "arm64_db_identity": "v2+updated:2026-08-16T06:57:04.97066803Z+next:2026-08-17T06:57:04.970667859Z",
+  "arm64_only": [
+    {
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-33818",
+      "image": "caddy-prod",
+      "note": "needs its own decision",
+      "package": "stdlib"
+    },
+    {
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-56853",
+      "image": "caddy-prod",
+      "note": "needs its own decision",
+      "package": "stdlib"
+    },
+    {
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-56858",
+      "image": "caddy-prod",
+      "note": "needs its own decision",
+      "package": "stdlib"
+    },
+    {
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-56859",
+      "image": "caddy-prod",
+      "note": "needs its own decision",
+      "package": "stdlib"
+    },
+    {
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-56860",
+      "image": "caddy-prod",
+      "note": "needs its own decision",
+      "package": "stdlib"
+    },
+    {
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-56862",
+      "image": "caddy-prod",
+      "note": "needs its own decision",
+      "package": "stdlib"
+    }
+  ],
+  "execution_modes": {
+    "caddy-prod": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 178,
+      "platform": "linux/arm64"
+    },
+    "nginx-prod": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 94,
+      "platform": "linux/arm64"
+    },
+    "php-cli-8.3": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 127,
+      "platform": "linux/arm64"
+    },
+    "php-cli-8.4": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 127,
+      "platform": "linux/arm64"
+    },
+    "php-fpm-8.3": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 127,
+      "platform": "linux/arm64"
+    },
+    "php-fpm-8.4": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 127,
+      "platform": "linux/arm64"
+    },
+    "php-frankenphp-8.3": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 364,
+      "platform": "linux/arm64"
+    },
+    "php-frankenphp-8.4": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 364,
+      "platform": "linux/arm64"
+    },
+    "php-worker-8.3": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 128,
+      "platform": "linux/arm64"
+    },
+    "php-worker-8.4": {
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "packages_inventoried": 128,
+      "platform": "linux/arm64"
+    }
+  },
+  "images_only_amd64": [],
+  "images_only_arm64": [],
+  "labels": {
+    "arm64_only": "UNMATCHED-IN-AMD64-BASELINE",
+    "not_present": "NOT-OBSERVED-IN-ARM64-SNAPSHOT"
+  },
+  "not_present_on_arm64": [],
+  "same_database_snapshot": false,
+  "transferable": [
+    {
+      "amd64_version": "v1.26.3",
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-27145",
+      "image": "caddy-prod",
+      "package": "stdlib"
+    },
+    {
+      "amd64_version": "1.34.6-r0",
+      "arm64_version": "1.34.6-r0",
+      "cve": "CVE-2026-33630",
+      "image": "caddy-prod",
+      "package": "c-ares"
+    },
+    {
+      "amd64_version": "v1.26.3",
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-39821",
+      "image": "caddy-prod",
+      "package": "stdlib"
+    },
+    {
+      "amd64_version": "v1.26.3",
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-39822",
+      "image": "caddy-prod",
+      "package": "stdlib"
+    },
+    {
+      "amd64_version": "v1.26.3",
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-42504",
+      "image": "caddy-prod",
+      "package": "stdlib"
+    },
+    {
+      "amd64_version": "v0.55.0",
+      "arm64_version": "v0.55.0",
+      "cve": "CVE-2026-46600",
+      "image": "caddy-prod",
+      "package": "golang.org/x/net"
+    },
+    {
+      "amd64_version": "v1.26.3",
+      "arm64_version": "v1.26.3",
+      "cve": "CVE-2026-46600",
+      "image": "caddy-prod",
+      "package": "stdlib"
+    },
+    {
+      "amd64_version": "v0.37.0",
+      "arm64_version": "v0.37.0",
+      "cve": "CVE-2026-56852",
+      "image": "caddy-prod",
+      "package": "golang.org/x/text"
+    },
+    {
+      "amd64_version": "8.19.0-r0",
+      "arm64_version": "8.19.0-r0",
+      "cve": "CVE-2026-5773",
+      "image": "caddy-prod",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "8.19.0-r0",
+      "arm64_version": "8.19.0-r0",
+      "cve": "CVE-2026-5773",
+      "image": "caddy-prod",
+      "package": "libcurl"
+    },
+    {
+      "amd64_version": "8.19.0-r0",
+      "arm64_version": "8.19.0-r0",
+      "cve": "CVE-2026-6276",
+      "image": "caddy-prod",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "8.19.0-r0",
+      "arm64_version": "8.19.0-r0",
+      "cve": "CVE-2026-6276",
+      "image": "caddy-prod",
+      "package": "libcurl"
+    },
+    {
+      "amd64_version": "v1.81.0",
+      "arm64_version": "v1.81.0",
+      "cve": "GHSA-hrxh-6v49-42gf",
+      "image": "caddy-prod",
+      "package": "google.golang.org/grpc"
+    },
+    {
+      "amd64_version": "1:1.2.13.dfsg-1",
+      "arm64_version": "1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image": "nginx-prod",
+      "package": "zlib1g"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "nginx-prod",
+      "package": "libtinfo6"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "nginx-prod",
+      "package": "ncurses-base"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "nginx-prod",
+      "package": "ncurses-bin"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "nginx-prod",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.12-1",
+      "arm64_version": "1.12-1",
+      "cve": "CVE-2026-41992",
+      "image": "nginx-prod",
+      "package": "gzip"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "nginx-prod",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "nginx-prod",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "nginx-prod",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1:2.38.1-5+deb12u3",
+      "arm64_version": "1:2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "nginx-prod",
+      "package": "bsdutils"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "nginx-prod",
+      "package": "libblkid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "nginx-prod",
+      "package": "libmount1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "nginx-prod",
+      "package": "libsmartcols1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "nginx-prod",
+      "package": "libuuid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "nginx-prod",
+      "package": "mount"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "nginx-prod",
+      "package": "util-linux"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "nginx-prod",
+      "package": "util-linux-extra"
+    },
+    {
+      "amd64_version": "2.3.1-3",
+      "arm64_version": "2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image": "nginx-prod",
+      "package": "libacl1"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "nginx-prod",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "nginx-prod",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "nginx-prod",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "nginx-prod",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "2.5.13+dfsg-5",
+      "arm64_version": "2.5.13+dfsg-5",
+      "cve": "CVE-2023-2953",
+      "image": "php-cli-8.3",
+      "package": "libldap-2.5-0"
+    },
+    {
+      "amd64_version": "1:1.2.13.dfsg-1",
+      "arm64_version": "1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image": "php-cli-8.3",
+      "package": "zlib1g"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-cli-8.3",
+      "package": "libtinfo6"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-cli-8.3",
+      "package": "ncurses-base"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-cli-8.3",
+      "package": "ncurses-bin"
+    },
+    {
+      "amd64_version": "3.40.1-2+deb12u2",
+      "arm64_version": "3.40.1-2+deb12u2",
+      "cve": "CVE-2025-7458",
+      "image": "php-cli-8.3",
+      "package": "libsqlite3-0"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-cli-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-cli-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-cli-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.12-1",
+      "arm64_version": "1.12-1",
+      "cve": "CVE-2026-41992",
+      "image": "php-cli-8.3",
+      "package": "gzip"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-cli-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-cli-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-cli-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1:2.38.1-5+deb12u3",
+      "arm64_version": "1:2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.3",
+      "package": "bsdutils"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.3",
+      "package": "libblkid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.3",
+      "package": "libmount1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.3",
+      "package": "libsmartcols1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.3",
+      "package": "libuuid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.3",
+      "package": "mount"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.3",
+      "package": "util-linux"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.3",
+      "package": "util-linux-extra"
+    },
+    {
+      "amd64_version": "2.3.1-3",
+      "arm64_version": "2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image": "php-cli-8.3",
+      "package": "libacl1"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-cli-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-cli-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-58050",
+      "image": "php-cli-8.3",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-cli-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-cli-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "arm64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "cve": "CVE-2026-6653",
+      "image": "php-cli-8.3",
+      "package": "libxml2"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-7598",
+      "image": "php-cli-8.3",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-cli-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-cli-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-cli-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-cli-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-cli-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-cli-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-cli-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-cli-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "2.5.13+dfsg-5",
+      "arm64_version": "2.5.13+dfsg-5",
+      "cve": "CVE-2023-2953",
+      "image": "php-cli-8.4",
+      "package": "libldap-2.5-0"
+    },
+    {
+      "amd64_version": "1:1.2.13.dfsg-1",
+      "arm64_version": "1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image": "php-cli-8.4",
+      "package": "zlib1g"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-cli-8.4",
+      "package": "libtinfo6"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-cli-8.4",
+      "package": "ncurses-base"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-cli-8.4",
+      "package": "ncurses-bin"
+    },
+    {
+      "amd64_version": "3.40.1-2+deb12u2",
+      "arm64_version": "3.40.1-2+deb12u2",
+      "cve": "CVE-2025-7458",
+      "image": "php-cli-8.4",
+      "package": "libsqlite3-0"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-cli-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-cli-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-cli-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.12-1",
+      "arm64_version": "1.12-1",
+      "cve": "CVE-2026-41992",
+      "image": "php-cli-8.4",
+      "package": "gzip"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-cli-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-cli-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-cli-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1:2.38.1-5+deb12u3",
+      "arm64_version": "1:2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.4",
+      "package": "bsdutils"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.4",
+      "package": "libblkid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.4",
+      "package": "libmount1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.4",
+      "package": "libsmartcols1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.4",
+      "package": "libuuid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.4",
+      "package": "mount"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.4",
+      "package": "util-linux"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-cli-8.4",
+      "package": "util-linux-extra"
+    },
+    {
+      "amd64_version": "2.3.1-3",
+      "arm64_version": "2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image": "php-cli-8.4",
+      "package": "libacl1"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-cli-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-cli-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-58050",
+      "image": "php-cli-8.4",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-cli-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-cli-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "arm64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "cve": "CVE-2026-6653",
+      "image": "php-cli-8.4",
+      "package": "libxml2"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-7598",
+      "image": "php-cli-8.4",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-cli-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-cli-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-cli-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-cli-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-cli-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-cli-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-cli-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-cli-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "2.5.13+dfsg-5",
+      "arm64_version": "2.5.13+dfsg-5",
+      "cve": "CVE-2023-2953",
+      "image": "php-fpm-8.3",
+      "package": "libldap-2.5-0"
+    },
+    {
+      "amd64_version": "1:1.2.13.dfsg-1",
+      "arm64_version": "1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image": "php-fpm-8.3",
+      "package": "zlib1g"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-fpm-8.3",
+      "package": "libtinfo6"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-fpm-8.3",
+      "package": "ncurses-base"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-fpm-8.3",
+      "package": "ncurses-bin"
+    },
+    {
+      "amd64_version": "3.40.1-2+deb12u2",
+      "arm64_version": "3.40.1-2+deb12u2",
+      "cve": "CVE-2025-7458",
+      "image": "php-fpm-8.3",
+      "package": "libsqlite3-0"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-fpm-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-fpm-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-fpm-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.12-1",
+      "arm64_version": "1.12-1",
+      "cve": "CVE-2026-41992",
+      "image": "php-fpm-8.3",
+      "package": "gzip"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-fpm-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-fpm-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-fpm-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1:2.38.1-5+deb12u3",
+      "arm64_version": "1:2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.3",
+      "package": "bsdutils"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.3",
+      "package": "libblkid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.3",
+      "package": "libmount1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.3",
+      "package": "libsmartcols1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.3",
+      "package": "libuuid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.3",
+      "package": "mount"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.3",
+      "package": "util-linux"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.3",
+      "package": "util-linux-extra"
+    },
+    {
+      "amd64_version": "2.3.1-3",
+      "arm64_version": "2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image": "php-fpm-8.3",
+      "package": "libacl1"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-fpm-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-fpm-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-58050",
+      "image": "php-fpm-8.3",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-fpm-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-fpm-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "arm64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "cve": "CVE-2026-6653",
+      "image": "php-fpm-8.3",
+      "package": "libxml2"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-7598",
+      "image": "php-fpm-8.3",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-fpm-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-fpm-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-fpm-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-fpm-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-fpm-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-fpm-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-fpm-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-fpm-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "2.5.13+dfsg-5",
+      "arm64_version": "2.5.13+dfsg-5",
+      "cve": "CVE-2023-2953",
+      "image": "php-fpm-8.4",
+      "package": "libldap-2.5-0"
+    },
+    {
+      "amd64_version": "1:1.2.13.dfsg-1",
+      "arm64_version": "1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image": "php-fpm-8.4",
+      "package": "zlib1g"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-fpm-8.4",
+      "package": "libtinfo6"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-fpm-8.4",
+      "package": "ncurses-base"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-fpm-8.4",
+      "package": "ncurses-bin"
+    },
+    {
+      "amd64_version": "3.40.1-2+deb12u2",
+      "arm64_version": "3.40.1-2+deb12u2",
+      "cve": "CVE-2025-7458",
+      "image": "php-fpm-8.4",
+      "package": "libsqlite3-0"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-fpm-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-fpm-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-fpm-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.12-1",
+      "arm64_version": "1.12-1",
+      "cve": "CVE-2026-41992",
+      "image": "php-fpm-8.4",
+      "package": "gzip"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-fpm-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-fpm-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-fpm-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1:2.38.1-5+deb12u3",
+      "arm64_version": "1:2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.4",
+      "package": "bsdutils"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.4",
+      "package": "libblkid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.4",
+      "package": "libmount1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.4",
+      "package": "libsmartcols1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.4",
+      "package": "libuuid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.4",
+      "package": "mount"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.4",
+      "package": "util-linux"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-fpm-8.4",
+      "package": "util-linux-extra"
+    },
+    {
+      "amd64_version": "2.3.1-3",
+      "arm64_version": "2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image": "php-fpm-8.4",
+      "package": "libacl1"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-fpm-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-fpm-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-58050",
+      "image": "php-fpm-8.4",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-fpm-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-fpm-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "arm64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "cve": "CVE-2026-6653",
+      "image": "php-fpm-8.4",
+      "package": "libxml2"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-7598",
+      "image": "php-fpm-8.4",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-fpm-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-fpm-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-fpm-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-fpm-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-fpm-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-fpm-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-fpm-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-fpm-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "2.5.13+dfsg-5",
+      "arm64_version": "2.5.13+dfsg-5",
+      "cve": "CVE-2023-2953",
+      "image": "php-frankenphp-8.3",
+      "package": "libldap-2.5-0"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2023-39616",
+      "image": "php-frankenphp-8.3",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "1:1.2.13.dfsg-1",
+      "arm64_version": "1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image": "php-frankenphp-8.3",
+      "package": "zlib1g"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2023-6879",
+      "image": "php-frankenphp-8.3",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-frankenphp-8.3",
+      "package": "libtinfo6"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-frankenphp-8.3",
+      "package": "ncurses-base"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-frankenphp-8.3",
+      "package": "ncurses-bin"
+    },
+    {
+      "amd64_version": "3.40.1-2+deb12u2",
+      "arm64_version": "3.40.1-2+deb12u2",
+      "cve": "CVE-2025-7458",
+      "image": "php-frankenphp-8.3",
+      "package": "libsqlite3-0"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-frankenphp-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-frankenphp-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-frankenphp-8.3",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-frankenphp-8.3",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "1.12-1",
+      "arm64_version": "1.12-1",
+      "cve": "CVE-2026-41992",
+      "image": "php-frankenphp-8.3",
+      "package": "gzip"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-frankenphp-8.3",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-frankenphp-8.3",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-frankenphp-8.3",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-frankenphp-8.3",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-frankenphp-8.3",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-frankenphp-8.3",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "1:2.38.1-5+deb12u3",
+      "arm64_version": "1:2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.3",
+      "package": "bsdutils"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.3",
+      "package": "libblkid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.3",
+      "package": "libmount1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.3",
+      "package": "libsmartcols1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.3",
+      "package": "libuuid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.3",
+      "package": "mount"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.3",
+      "package": "util-linux"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.3",
+      "package": "util-linux-extra"
+    },
+    {
+      "amd64_version": "2.3.1-3",
+      "arm64_version": "2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image": "php-frankenphp-8.3",
+      "package": "libacl1"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56208",
+      "image": "php-frankenphp-8.3",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56209",
+      "image": "php-frankenphp-8.3",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56210",
+      "image": "php-frankenphp-8.3",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56211",
+      "image": "php-frankenphp-8.3",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-frankenphp-8.3",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-frankenphp-8.3",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-frankenphp-8.3",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-frankenphp-8.3",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-58050",
+      "image": "php-frankenphp-8.3",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-frankenphp-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-frankenphp-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "arm64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "cve": "CVE-2026-6653",
+      "image": "php-frankenphp-8.3",
+      "package": "libxml2"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-7598",
+      "image": "php-frankenphp-8.3",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-frankenphp-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-frankenphp-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-frankenphp-8.3",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-frankenphp-8.3",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-frankenphp-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-frankenphp-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-frankenphp-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-frankenphp-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-frankenphp-8.3",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-frankenphp-8.3",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-frankenphp-8.3",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "v1.81.1",
+      "arm64_version": "v1.81.1",
+      "cve": "GHSA-hrxh-6v49-42gf",
+      "image": "php-frankenphp-8.3",
+      "package": "google.golang.org/grpc"
+    },
+    {
+      "amd64_version": "v0.140.0",
+      "arm64_version": "v0.140.0",
+      "cve": "GHSA-r277-6w6q-xmqw",
+      "image": "php-frankenphp-8.3",
+      "package": "github.com/getkin/kin-openapi"
+    },
+    {
+      "amd64_version": "2.5.13+dfsg-5",
+      "arm64_version": "2.5.13+dfsg-5",
+      "cve": "CVE-2023-2953",
+      "image": "php-frankenphp-8.4",
+      "package": "libldap-2.5-0"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2023-39616",
+      "image": "php-frankenphp-8.4",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "1:1.2.13.dfsg-1",
+      "arm64_version": "1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image": "php-frankenphp-8.4",
+      "package": "zlib1g"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2023-6879",
+      "image": "php-frankenphp-8.4",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-frankenphp-8.4",
+      "package": "libtinfo6"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-frankenphp-8.4",
+      "package": "ncurses-base"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-frankenphp-8.4",
+      "package": "ncurses-bin"
+    },
+    {
+      "amd64_version": "3.40.1-2+deb12u2",
+      "arm64_version": "3.40.1-2+deb12u2",
+      "cve": "CVE-2025-7458",
+      "image": "php-frankenphp-8.4",
+      "package": "libsqlite3-0"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-frankenphp-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-frankenphp-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-frankenphp-8.4",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-frankenphp-8.4",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "1.12-1",
+      "arm64_version": "1.12-1",
+      "cve": "CVE-2026-41992",
+      "image": "php-frankenphp-8.4",
+      "package": "gzip"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-frankenphp-8.4",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-frankenphp-8.4",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-frankenphp-8.4",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-frankenphp-8.4",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-frankenphp-8.4",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-frankenphp-8.4",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "1:2.38.1-5+deb12u3",
+      "arm64_version": "1:2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.4",
+      "package": "bsdutils"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.4",
+      "package": "libblkid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.4",
+      "package": "libmount1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.4",
+      "package": "libsmartcols1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.4",
+      "package": "libuuid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.4",
+      "package": "mount"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.4",
+      "package": "util-linux"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-frankenphp-8.4",
+      "package": "util-linux-extra"
+    },
+    {
+      "amd64_version": "2.3.1-3",
+      "arm64_version": "2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image": "php-frankenphp-8.4",
+      "package": "libacl1"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56208",
+      "image": "php-frankenphp-8.4",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56209",
+      "image": "php-frankenphp-8.4",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56210",
+      "image": "php-frankenphp-8.4",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "3.6.0-1+deb12u2",
+      "arm64_version": "3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56211",
+      "image": "php-frankenphp-8.4",
+      "package": "libaom3"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-frankenphp-8.4",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-frankenphp-8.4",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-frankenphp-8.4",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-frankenphp-8.4",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-58050",
+      "image": "php-frankenphp-8.4",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-frankenphp-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-frankenphp-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "arm64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "cve": "CVE-2026-6653",
+      "image": "php-frankenphp-8.4",
+      "package": "libxml2"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-7598",
+      "image": "php-frankenphp-8.4",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-frankenphp-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-frankenphp-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-frankenphp-8.4",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-frankenphp-8.4",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-frankenphp-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-frankenphp-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-frankenphp-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-frankenphp-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-frankenphp-8.4",
+      "package": "libperl5.36"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-frankenphp-8.4",
+      "package": "perl"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-frankenphp-8.4",
+      "package": "perl-modules-5.36"
+    },
+    {
+      "amd64_version": "v1.81.1",
+      "arm64_version": "v1.81.1",
+      "cve": "GHSA-hrxh-6v49-42gf",
+      "image": "php-frankenphp-8.4",
+      "package": "google.golang.org/grpc"
+    },
+    {
+      "amd64_version": "v0.140.0",
+      "arm64_version": "v0.140.0",
+      "cve": "GHSA-r277-6w6q-xmqw",
+      "image": "php-frankenphp-8.4",
+      "package": "github.com/getkin/kin-openapi"
+    },
+    {
+      "amd64_version": "2.5.13+dfsg-5",
+      "arm64_version": "2.5.13+dfsg-5",
+      "cve": "CVE-2023-2953",
+      "image": "php-worker-8.3",
+      "package": "libldap-2.5-0"
+    },
+    {
+      "amd64_version": "1:1.2.13.dfsg-1",
+      "arm64_version": "1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image": "php-worker-8.3",
+      "package": "zlib1g"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-worker-8.3",
+      "package": "libtinfo6"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-worker-8.3",
+      "package": "ncurses-base"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-worker-8.3",
+      "package": "ncurses-bin"
+    },
+    {
+      "amd64_version": "3.40.1-2+deb12u2",
+      "arm64_version": "3.40.1-2+deb12u2",
+      "cve": "CVE-2025-7458",
+      "image": "php-worker-8.3",
+      "package": "libsqlite3-0"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-worker-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-worker-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-worker-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.12-1",
+      "arm64_version": "1.12-1",
+      "cve": "CVE-2026-41992",
+      "image": "php-worker-8.3",
+      "package": "gzip"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-worker-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-worker-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-worker-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1:2.38.1-5+deb12u3",
+      "arm64_version": "1:2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.3",
+      "package": "bsdutils"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.3",
+      "package": "libblkid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.3",
+      "package": "libmount1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.3",
+      "package": "libsmartcols1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.3",
+      "package": "libuuid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.3",
+      "package": "mount"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.3",
+      "package": "util-linux"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.3",
+      "package": "util-linux-extra"
+    },
+    {
+      "amd64_version": "2.3.1-3",
+      "arm64_version": "2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image": "php-worker-8.3",
+      "package": "libacl1"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-worker-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-worker-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-58050",
+      "image": "php-worker-8.3",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-worker-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-worker-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "arm64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "cve": "CVE-2026-6653",
+      "image": "php-worker-8.3",
+      "package": "libxml2"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-7598",
+      "image": "php-worker-8.3",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-worker-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-worker-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-worker-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-worker-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-worker-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-worker-8.3",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-worker-8.3",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-worker-8.3",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "2.5.13+dfsg-5",
+      "arm64_version": "2.5.13+dfsg-5",
+      "cve": "CVE-2023-2953",
+      "image": "php-worker-8.4",
+      "package": "libldap-2.5-0"
+    },
+    {
+      "amd64_version": "1:1.2.13.dfsg-1",
+      "arm64_version": "1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image": "php-worker-8.4",
+      "package": "zlib1g"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-worker-8.4",
+      "package": "libtinfo6"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-worker-8.4",
+      "package": "ncurses-base"
+    },
+    {
+      "amd64_version": "6.4-4",
+      "arm64_version": "6.4-4",
+      "cve": "CVE-2025-69720",
+      "image": "php-worker-8.4",
+      "package": "ncurses-bin"
+    },
+    {
+      "amd64_version": "3.40.1-2+deb12u2",
+      "arm64_version": "3.40.1-2+deb12u2",
+      "cve": "CVE-2025-7458",
+      "image": "php-worker-8.4",
+      "package": "libsqlite3-0"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-worker-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image": "php-worker-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-13221",
+      "image": "php-worker-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.12-1",
+      "arm64_version": "1.12-1",
+      "cve": "CVE-2026-41992",
+      "image": "php-worker-8.4",
+      "package": "gzip"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image": "php-worker-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image": "php-worker-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image": "php-worker-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1:2.38.1-5+deb12u3",
+      "arm64_version": "1:2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.4",
+      "package": "bsdutils"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.4",
+      "package": "libblkid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.4",
+      "package": "libmount1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.4",
+      "package": "libsmartcols1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.4",
+      "package": "libuuid1"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.4",
+      "package": "mount"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.4",
+      "package": "util-linux"
+    },
+    {
+      "amd64_version": "2.38.1-5+deb12u3",
+      "arm64_version": "2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image": "php-worker-8.4",
+      "package": "util-linux-extra"
+    },
+    {
+      "amd64_version": "2.3.1-3",
+      "arm64_version": "2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image": "php-worker-8.4",
+      "package": "libacl1"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image": "php-worker-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image": "php-worker-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-58050",
+      "image": "php-worker-8.4",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-worker-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image": "php-worker-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "arm64_version": "2.9.14+dfsg-1.3~deb12u6",
+      "cve": "CVE-2026-6653",
+      "image": "php-worker-8.4",
+      "package": "libxml2"
+    },
+    {
+      "amd64_version": "1.10.0-3+b1",
+      "arm64_version": "1.10.0-3+b1",
+      "cve": "CVE-2026-7598",
+      "image": "php-worker-8.4",
+      "package": "libssh2-1"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-worker-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image": "php-worker-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image": "php-worker-8.4",
+      "package": "perl-base"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-worker-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image": "php-worker-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-worker-8.4",
+      "package": "curl"
+    },
+    {
+      "amd64_version": "7.88.1-10+deb12u15",
+      "arm64_version": "7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image": "php-worker-8.4",
+      "package": "libcurl4"
+    },
+    {
+      "amd64_version": "5.36.0-7+deb12u3",
+      "arm64_version": "5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image": "php-worker-8.4",
+      "package": "perl-base"
+    }
+  ],
+  "unusable_children_zero_inventory": [],
+  "version_differs": []
+}

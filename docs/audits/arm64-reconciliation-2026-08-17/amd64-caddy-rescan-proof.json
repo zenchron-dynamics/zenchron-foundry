@@ -1,0 +1,59 @@
+{
+  "what": "rescan of the ACCEPTED amd64 caddy digest with current vulnerability data",
+  "digest": "sha256:9f0632b2303dcd3c8a99a268beec8c76cf861fb453beb7e541369e65cec2f3b3",
+  "source_run": 31792482449,
+  "rescanned_at": "2026-08-17",
+  "total_critical_high_now": 19,
+  "total_critical_high_at_acceptance": 10,
+  "purpose": "prove the six findings are database timing, not an architectural difference",
+  "findings": [
+    {
+      "VulnerabilityID": "CVE-2026-33818",
+      "PkgName": "stdlib",
+      "InstalledVersion": "v1.26.3",
+      "FixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "Severity": "HIGH",
+      "PublishedDate": "2026-08-13T22:17:19.84Z"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-56853",
+      "PkgName": "stdlib",
+      "InstalledVersion": "v1.26.3",
+      "FixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "Severity": "HIGH",
+      "PublishedDate": "2026-08-13T22:17:22.093Z"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-56858",
+      "PkgName": "stdlib",
+      "InstalledVersion": "v1.26.3",
+      "FixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "Severity": "HIGH",
+      "PublishedDate": "2026-08-13T22:17:22.207Z"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-56859",
+      "PkgName": "stdlib",
+      "InstalledVersion": "v1.26.3",
+      "FixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "Severity": "HIGH",
+      "PublishedDate": "2026-08-13T22:17:22.32Z"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-56860",
+      "PkgName": "stdlib",
+      "InstalledVersion": "v1.26.3",
+      "FixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "Severity": "HIGH",
+      "PublishedDate": "2026-08-13T22:17:22.44Z"
+    },
+    {
+      "VulnerabilityID": "CVE-2026-56862",
+      "PkgName": "stdlib",
+      "InstalledVersion": "v1.26.3",
+      "FixedVersion": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "Severity": "HIGH",
+      "PublishedDate": "2026-08-13T22:17:22.55Z"
+    }
+  ]
+}

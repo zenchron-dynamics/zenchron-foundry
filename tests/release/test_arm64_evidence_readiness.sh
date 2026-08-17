@@ -21,18 +21,37 @@ ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 W=.github/workflows/stage-and-authorize.yml
 A=scripts/release/authorize-staged-candidates.sh
 
-# --- arm64 must still be unauthorized -------------------------------------
-ck "arm64 is NOT in the authorized platforms" \
-   'grep -q "AUTHORIZED_PLATFORMS=\"\${AUTHORIZED_PLATFORMS:-linux/amd64}\"" '"$A"
+# --- arm64 is now authorized, FROM EVIDENCE -------------------------------
+# These two assertions previously required arm64 to be UNauthorized. Execution A2
+# (run 31941819983) produced the evidence and the ledger was reconciled from it,
+# so the invariant flipped: arm64 must be authorized, and the authorization must
+# be traceable to committed evidence rather than asserted.
+ck "arm64 is in the authorized platforms" \
+   'grep -qE "AUTHORIZED_PLATFORMS:-linux/amd64,linux/arm64" '"$A"
 
-ck "no ledger entry claims linux/arm64 yet" \
-   'python3 -c "
-import yaml
-d=yaml.safe_load(open(\"policies/vulnerability-exceptions.yaml\"))
-bad=[e[\"cve\"] for sec in (\"exceptions\",\"not_affected\")
-     for e in (d.get(sec) or [])
-     if \"linux/arm64\" in (e.get(\"verified_architectures\") or [])]
-assert not bad, (\"arm64 claimed without evidence\", bad)"'
+ck "the authorization records which run evidenced arm64" \
+   'grep -q "31941819983" '"$A"
+
+ck "the arm64 authorization is traceable to committed evidence" \
+   'test -s docs/audits/arm64-reconciliation-2026-08-17/comparison.json &&
+    test -s docs/audits/arm64-reconciliation-2026-08-17/arm64-execution-a2-authorization.json &&
+    test -s docs/audits/arm64-reconciliation-2026-08-17/amd64-caddy-rescan-proof.json'
+
+# The platform membership test is comma-vs-space sensitive: the first version of
+# this change padded the list with spaces and searched for " linux/amd64 ",
+# which stopped matching the moment a second platform was appended and refused
+# EVERY platform. Assert both directions rather than trusting the string.
+#
+# Captured once into a variable: running the self-test inside a multi-line eval'd
+# pipeline is both slower and fragile.
+# shellcheck disable=SC2034  # consumed inside the eval'd ck assertions below
+AUTHZ_SELFTEST="$(bash scripts/release/authorize-staged-candidates.sh --self-test 2>&1 || true)"
+ck "the authorizer does NOT refuse an evidenced platform" \
+   'grep -q "an evidenced architecture is NOT refused" <<<"$AUTHZ_SELFTEST"'
+ck "the authorizer still refuses an unevidenced platform" \
+   'grep -q "an unevidenced architecture refuses the WHOLE matrix" <<<"$AUTHZ_SELFTEST"'
+ck "...naming the architecture rather than refusing for an unrelated reason" \
+   'grep -q "and says so, rather than refusing for an unrelated reason" <<<"$AUTHZ_SELFTEST"'
 
 # --- the refusal must come AFTER the evidence ------------------------------
 # The platform check lives in the authorizer, which runs in the post-build job.
