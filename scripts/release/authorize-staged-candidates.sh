@@ -49,15 +49,38 @@ _d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../lib/common.sh
 . "$_d/../lib/common.sh"
 
-# Architectures this repository has reconciliation evidence for. PR A is
-# architecture-generic, but it authorizes only what has actually been evidenced:
-# the exception ledger records the architectures each acceptance was judged
-# against, and arm64 has no such evidence yet (#139).
+# Architectures this repository has reconciliation evidence for. It authorizes
+# only what has actually been evidenced: the exception ledger records the
+# architectures each acceptance was judged against.
+#
+# linux/arm64 was added 2026-08-17 from MEASURED evidence, not assertion. #139
+# Execution A2 (run 31941819983) built, staged, scanned and recorded all ten
+# images on linux/arm64 from source 25669a3c under one frozen database, and
+# every governed finding was compared against the accepted linux/amd64 baseline
+# (run 31792482449) using the tool at master a027b7e6:
+#
+#   395 transferable — same CVE, package AND installed version on both
+#     0 version differences
+#     0 findings absent from arm64
+#     0 excluded children, 0 missing images
+#     6 rows present only in the newer database, subsequently proven present on
+#       the accepted amd64 digest by rescanning it — database timing, not
+#       architecture — and governed as their own two-architecture entries
+#
+# EXECUTION MODE. That evidence was produced under QEMU emulation on a trusted
+# linux/x64 runner, because no arm64 runner exists in the trusted boundary. It
+# is genuine image, package and reconciliation evidence. It is NOT native-arm64
+# runtime evidence and does not satisfy #111.
+#
+# This permits arm64 to be JUDGED; it is not permission to publish arm64.
+# public_exposure_authorized stays false, and every ledger entry still governs
+# only the architectures it lists — an unevidenced finding on either
+# architecture still refuses the whole matrix.
 #
 # The check is on the REQUESTED MATRIX, not per child. Staging an arm64 child
 # and marking it unauthorized inside an otherwise passing record would produce a
 # PASS that a careless consumer reads as covering everything present.
-AUTHORIZED_PLATFORMS="${AUTHORIZED_PLATFORMS:-linux/amd64}"
+AUTHORIZED_PLATFORMS="${AUTHORIZED_PLATFORMS:-linux/amd64,linux/arm64}"
 
 SCOPE="immutable-rc-manifest-input"
 
@@ -109,9 +132,16 @@ authorize() { # authorize <evidence-dir> <out.json>
     || refusals+=("workflow_ref '$WORKFLOW_REF' is not the canonical producer '$CANONICAL_WORKFLOW_REF'")
 
   # --- architecture policy, on the requested matrix ------------------------
-  local plat
+  # Both sides are comma-separated, so BOTH are normalised to spaces before the
+  # membership test. The first version padded AUTHORIZED_PLATFORMS with spaces
+  # and searched for " $plat ", which worked only while the list held exactly one
+  # platform: once it became "linux/amd64,linux/arm64" the match needed a space
+  # where a comma sat, and EVERY platform was refused — including amd64. Caught
+  # by this file's own self-test, which is why the happy path is asserted here
+  # and not only the refusals.
+  local plat authorized_spaced="${AUTHORIZED_PLATFORMS//,/ }"
   for plat in ${EXPECTED_PLATFORMS//,/ }; do
-    case " $AUTHORIZED_PLATFORMS " in
+    case " $authorized_spaced " in
       *" $plat "*) : ;;
       *) refusals+=("unsupported architecture '$plat': no reconciliation evidence exists for it (#139); the whole matrix is refused, not just this platform") ;;
     esac
@@ -474,12 +504,29 @@ _asc_self_test() {
   d="$tmp/badjson"; _mk "$d"; printf 'not json' > "$d/child-1.json"
   t "malformed evidence refuses" fail "$d"
 
-  # architecture policy is on the REQUESTED MATRIX
+  # Architecture policy is on the REQUESTED MATRIX. This used linux/arm64, which
+  # stopped proving anything once arm64 gained evidence (#139) — it would still
+  # have refused, but on the child-count mismatch, so the assertion would have
+  # passed for the wrong reason. It now uses a platform that genuinely has no
+  # evidence, and checks the refusal REASON rather than just the exit status.
   d="$tmp/arm"; _mk "$d"
-  ( export EXPECTED_PLATFORMS="linux/amd64,linux/arm64"
+  ( export EXPECTED_PLATFORMS="linux/s390x"
     ! authorize "$d" "$d/out.json" >/dev/null 2>&1 ) \
     && { echo "ok   - an unevidenced architecture refuses the WHOLE matrix"; ok=$((ok+1)); } \
-    || { echo "FAIL - arm64 matrix"; bad=$((bad+1)); }
+    || { echo "FAIL - unevidenced-architecture matrix"; bad=$((bad+1)); }
+  if [ -s "$d/out.json" ] && jq -e '.refusals[]?|select(contains("unsupported architecture"))' "$d/out.json" >/dev/null 2>&1; then
+    echo "ok   - ...and says so, rather than refusing for an unrelated reason"; ok=$((ok+1))
+  else
+    echo "FAIL - unevidenced architecture refused without naming the architecture"; bad=$((bad+1))
+  fi
+
+  # The evidenced architectures must NOT be refused — the inverse mistake, and
+  # the one that would silently block every release.
+  d="$tmp/bothplats"; _mk "$d"
+  ( export EXPECTED_PLATFORMS="linux/amd64"
+    authorize "$d" "$d/out.json" >/dev/null 2>&1 ) \
+    && { echo "ok   - an evidenced architecture is NOT refused"; ok=$((ok+1)); } \
+    || { echo "FAIL - evidenced architecture was refused"; bad=$((bad+1)); }
 
   # a FAIL record is still written
   d="$tmp/writefail"; _mk "$d"; rm -f "$d/child-1.json"

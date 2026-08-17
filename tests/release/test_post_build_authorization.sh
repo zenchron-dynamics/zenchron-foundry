@@ -269,7 +269,11 @@ ck "an unrecognised media type is classified as unknown, not as an index" \
    "grep -q 'unknown media type' '$D/stderr' && ! grep -q 'refusing an INDEX' '$D/stderr'"
 
 # --- 5. architecture policy applies to the requested matrix ----------------
-D="$TMP/arm"; mk "$D"; RC="$(run "$D" EXPECTED_PLATFORMS="linux/amd64,linux/arm64")"
+# linux/arm64 was the example here until #139 evidenced it (run 31941819983).
+# It would still refuse — on the child-count mismatch — so this assertion would
+# have kept passing for the wrong reason. linux/s390x has no evidence, so the
+# refusal can only come from the architecture policy itself.
+D="$TMP/arm"; mk "$D"; RC="$(run "$D" EXPECTED_PLATFORMS="linux/s390x")"
 ck "an unevidenced architecture refuses the whole matrix" "[ '$RC' != 0 ]"
 ck "...and says so, citing the missing evidence" \
    "grep -q 'unsupported architecture' '$D/stderr'"
