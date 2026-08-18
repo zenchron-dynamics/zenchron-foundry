@@ -284,6 +284,68 @@
           "type": "string",
           "minLength": 1,
           "description": "Runner that executed this child. Contention between the two trusted runners is visible only if this is recorded."
+        },
+        "phase_timing": {
+          "type": "object",
+          "description": "Per-phase wall time for this child (CI-COST-01). OPTIONAL: records written before 2026-08-18 have no timing and must report it as unavailable rather than as zero-duration work.",
+          "required": [
+            "timing_available"
+          ],
+          "properties": {
+            "timing_available": {
+              "type": "boolean"
+            },
+            "phases": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "description": "phase name -> non-negative whole seconds"
+            },
+            "measured_phase_seconds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "child_wall_seconds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "uninstrumented_overhead_seconds": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "wall time minus measured phases. Non-negative by construction: the timer refuses to emit when phases exceed wall time, which would mean overlap or a broken stopwatch."
+            },
+            "slowest_phase": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "slowest_phase_seconds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "incomplete_phases": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "timing_complete": {
+              "type": "boolean"
+            },
+            "queue_seconds": {
+              "type": "null",
+              "description": "ALWAYS null. An in-job clock cannot observe time before the job started; reporting 0 would be a fabricated measurement."
+            },
+            "queue_seconds_note": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
         }
       }
     }

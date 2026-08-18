@@ -58,7 +58,16 @@ owner_classes:
 ownership_change:
   requires_adr: true
   approved_adrs: []          # EMPTY. No source-build exception is authorized.
-  proposal: docs/decisions/vendor-binary-source-build-proposal.md
+  # The upstream-only model is DECIDED (ADR-0001, accepted 2026-08-18). That ADR
+  # approves consuming official binaries; it does NOT approve an ownership
+  # change, so it deliberately does not appear in approved_adrs. Listing it there
+  # would be the exact confusion the field exists to prevent, and
+  # tests/release/test_upstream_ownership.sh asserts it never is.
+  decision_record: docs/decisions/adr-0001-upstream-only-binary-consumption.md
+  decision_status: accepted-upstream-only
+  expiry_does_not_authorize_compilation: true
+  upstream_lag_does_not_transfer_ownership: true
+  escalation_when_risk_unacceptable: suspend-or-remove-image-family
   note: >-
     An entry here is the ONLY way `foundry_may_compile: false` becomes true for
     an upstream-owned binary. Adding one is a product-architecture decision:

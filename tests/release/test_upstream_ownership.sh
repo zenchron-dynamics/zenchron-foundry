@@ -152,6 +152,64 @@ ck "the exempt files are the enforcement script and its own test" \
    'grep -m1 "^SELF_EXCLUDE=" '"$ENF"' | grep -q "scripts/assert-upstream-ownership.sh" &&
     grep -m1 "^SELF_EXCLUDE=" '"$ENF"' | grep -q "tests/release/test_upstream_ownership.sh"'
 
+# --- the maintainer decision is recorded, and cannot be mistaken for an ADR --
+ADR=docs/decisions/adr-0001-upstream-only-binary-consumption.md
+ck "the upstream-only decision is recorded as ACCEPTED" \
+   'test -s "$ADR" && grep -q "Status: ACCEPTED" "$ADR"'
+ck "it states source compilation is NOT approved" \
+   'grep -qi "Source compilation: NOT APPROVED" "$ADR"'
+ck "it states expiry does not authorize compilation" \
+   'grep -qi "does not authorize source compilation" "$ADR"'
+ck "it states upstream lag does not transfer ownership" \
+   'grep -qi "does not make Foundry the upstream maintainer" "$ADR"'
+ck "it names suspension as the escalation" \
+   'grep -qi "suspension of the affected image family" "$ADR"'
+ck "it requires a NEW separately approved ADR to reverse" \
+   'grep -qi "separately approved ADR" "$ADR"'
+ck "the old open-question proposal file is gone" \
+   '! test -e docs/decisions/vendor-binary-source-build-proposal.md'
+
+# THE test the audit asked for: an accepted DECISION document must not be
+# mistaken for an approved OWNERSHIP-CHANGE ADR. ADR-0001 approves consuming
+# upstream binaries; it approves no ownership change, so it must never appear in
+# approved_adrs while upstream binaries stay non-compilable.
+ck "the decision record does NOT satisfy the ownership-change ADR requirement" \
+   'python3 -c "
+import yaml
+d=yaml.safe_load(open(\"$POL\"))
+o=d[\"ownership_change\"]
+assert o[\"approved_adrs\"] == [], o[\"approved_adrs\"]
+assert o[\"decision_record\"] not in (o[\"approved_adrs\"] or [])
+assert o[\"decision_status\"] == \"accepted-upstream-only\""'
+ck "the policy records that expiry never authorizes compilation" \
+   'python3 -c "
+import yaml
+o=yaml.safe_load(open(\"$POL\"))[\"ownership_change\"]
+assert o[\"expiry_does_not_authorize_compilation\"] is True
+assert o[\"upstream_lag_does_not_transfer_ownership\"] is True
+assert \"suspend\" in o[\"escalation_when_risk_unacceptable\"]"'
+
+# SABOTAGE: listing the decision record as an approved ownership ADR must be
+# caught. It is the most plausible way this boundary gets quietly reversed.
+ck "SABOTAGE: promoting the decision record into approved_adrs is DETECTED" \
+   'tmp="$(mktemp -d)";
+    python3 -c "
+import yaml,sys
+d=yaml.safe_load(open(\"$POL\"))
+d[\"ownership_change\"][\"approved_adrs\"]=[d[\"ownership_change\"][\"decision_record\"]]
+for c in d[\"components\"]:
+    if c[\"component\"]==\"frankenphp-binary\": c[\"foundry_may_compile\"]=True
+yaml.safe_dump(d,open(\"$tmp/p.yaml\",\"w\"),sort_keys=False)";
+    python3 -c "
+import yaml,sys
+d=yaml.safe_load(open(\"$tmp/p.yaml\"))
+o=d[\"ownership_change\"]
+bad=[c[\"component\"] for c in d[\"components\"]
+     if c[\"owner_class\"]==\"upstream-binary\" and c.get(\"foundry_may_compile\")]
+# The decision record must never be what unlocks compilation.
+sys.exit(0 if (bad and o[\"decision_record\"] in o[\"approved_adrs\"]) else 1)";
+    rc=$?; rm -rf "$tmp"; [ $rc -eq 0 ]'
+
 echo "----"
 [ "$fail" -eq 0 ] && echo "test_upstream_ownership: PASS" || echo "test_upstream_ownership: FAIL"
 exit $fail

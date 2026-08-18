@@ -282,6 +282,11 @@ jobs:
     permissions:
       contents: read
       packages: write        # staging package only; production is denied by ACL
+    env:
+      # CI-COST-01 phase telemetry. One log per child job; the timer refuses to
+      # run without it, so a missing log fails loudly rather than reporting
+      # silent zero-duration work.
+      PHASE_LOG: ${{ github.workspace }}/phase-timings.tsv
     strategy:
       fail-fast: false
       # Serialized: the host is 2 vCPU / 4 GB and buildkit + Trivy resident twice
@@ -320,6 +325,8 @@ jobs:
       - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
+      - name: phase start db_acquire
+        run: bash scripts/ci/phase-timer.sh start db_acquire
       - name: Download the frozen database
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
@@ -341,6 +348,8 @@ jobs:
             || { echo "REFUSE: restored database '$got' != frozen '$EXPECTED_DB'"; exit 1; }
           echo "using frozen database: $got"
 
+      - name: phase end db_acquire
+        run: bash scripts/ci/phase-timer.sh end db_acquire
       - name: Login to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
@@ -419,6 +428,8 @@ jobs:
             echo "child_started_at=${child_started_at}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: phase start build_and_push
+        run: bash scripts/ci/phase-timer.sh start build_and_push
       - name: Build the exact platform child and stage it
         id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -465,6 +476,10 @@ jobs:
             org.opencontainers.image.ref.name=${{ steps.id.outputs.tag }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
+      - name: phase end build_and_push
+        run: bash scripts/ci/phase-timer.sh end build_and_push
+      - name: phase start digest_resolve
+        run: bash scripts/ci/phase-timer.sh start digest_resolve
       - name: Resolve the staged digest independently
         id: resolve
         env:
@@ -514,6 +529,10 @@ jobs:
                  --jq '.visibility' 2>/dev/null)" || v=""
           echo "visibility=${v:-unreadable}" >> "$GITHUB_OUTPUT"
 
+      - name: phase end digest_resolve
+        run: bash scripts/ci/phase-timer.sh end digest_resolve
+      - name: phase start pull_by_digest
+        run: bash scripts/ci/phase-timer.sh start pull_by_digest
       - name: Pull the staged child by digest
         env:
           DIGEST_REF: ${{ steps.resolve.outputs.digest_ref }}
@@ -522,6 +541,8 @@ jobs:
           # Everything below evaluates THIS object, not a local rebuild.
           docker pull --platform "${{ steps.id.outputs.platform }}" "$DIGEST_REF"
 
+      - name: phase end pull_by_digest
+        run: bash scripts/ci/phase-timer.sh end pull_by_digest
       - name: Evaluate the staged child
         id: eval
         env:
@@ -541,11 +562,14 @@ jobs:
           # architecture actually baked into the config
           carch="$(docker image inspect "$DIGEST_REF" --format '{{.Architecture}}' 2>/dev/null || echo "")"
 
+          bash scripts/ci/phase-timer.sh start smoke
           echo "::group::smoke"
           if bash "scripts/smoke/smoke-${FAM}.sh" "$DIGEST_REF" > evidence/child/smoke.log 2>&1; then smoke=PASS; fi
           tail -20 evidence/child/smoke.log; echo "smoke=$smoke"
+          bash scripts/ci/phase-timer.sh end smoke
           echo "::endgroup::"
 
+          bash scripts/ci/phase-timer.sh start metadata_contract
           echo "::group::metadata contract (#126)"
           contract="contracts/images/${FAM}-${VER}.yaml"
           # Runtime posture AND the full OCI label map. verify-image-contract.sh
@@ -571,8 +595,10 @@ jobs:
           tail -20 evidence/child/contract.log; tail -20 evidence/child/oci-metadata.log
           cat evidence/child/no-java.log
           echo "metadata_contract=$meta (runtime=$runtime_ok oci=$oci_ok nojava=$nojava_ok)"
+          bash scripts/ci/phase-timer.sh end metadata_contract
           echo "::endgroup::"
 
+          bash scripts/ci/phase-timer.sh start vulnerability_scan
           echo "::group::scan against the frozen database"
           # --skip-db-update: the snapshot is fixed for the whole run. Without it
           # a long matrix would silently roll onto a newer database mid-record.
@@ -616,8 +642,10 @@ jobs:
             [ -s evidence/child/trivy.json ] && scan=PASS
           fi
           tail -10 evidence/child/scan.log; echo "scan=$scan"
+          bash scripts/ci/phase-timer.sh end vulnerability_scan
           echo "::endgroup::"
 
+          bash scripts/ci/phase-timer.sh start package_inventory
           echo "::group::package inventory"
           # --list-all-pkgs above makes the scan report EVERY installed package,
           # not only the vulnerable ones, and this derives a stable sorted
@@ -652,6 +680,8 @@ jobs:
           echo "::endgroup::"
 
 
+          bash scripts/ci/phase-timer.sh end package_inventory
+          bash scripts/ci/phase-timer.sh start reconciliation
           echo "::group::reconcile against the exception ledger"
           if [ "$scan" = PASS ]; then
             args=(evidence/child/trivy.json "$FAM")
@@ -677,6 +707,7 @@ jobs:
             echo "scan did not produce a report; reconciliation cannot run" > evidence/child/reconcile.log
           fi
           echo "reconciliation=$recon"
+          bash scripts/ci/phase-timer.sh end reconciliation
           echo "::endgroup::"
 
           {
@@ -684,6 +715,8 @@ jobs:
             echo "meta=$meta"; echo "carch=${carch:-unknown}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: phase start evidence_emit
+        run: bash scripts/ci/phase-timer.sh start evidence_emit
       - name: Emit child evidence
         env:
           LABEL: ${{ steps.id.outputs.label }}
@@ -712,7 +745,6 @@ jobs:
           # The SHARED script, not an inline copy. The authorizer recomputes this
           # AFTER the directory has been collected under a different prefix, and
           # a path-dependent hash would differ every time for no real reason.
-          esum="$(bash scripts/release/evidence-checksum.sh evidence/child)"
           slug="${LABEL//\//-}"
           mkdir -p evidence/out
           # Package count is recorded, not just the file: a child whose inventory
@@ -729,6 +761,27 @@ jobs:
             child_seconds=$(( $(date -u +%s) - CHILD_STARTED_AT ))
             [ "$child_seconds" -ge 0 ] || child_seconds=0
           fi
+          # PHASE TELEMETRY (CI-COST-01). Written into evidence/child BEFORE the
+          # checksum is computed, so the timing is covered by evidence_sha256
+          # exactly like every other artifact — a cost claim that is not bound to
+          # the evidence it describes is a number anyone can edit.
+          #
+          # A timing failure is NOT fatal to the child: the vulnerability and
+          # runtime verdicts are the release-relevant facts, and losing a
+          # stopwatch must not refuse an otherwise sound image. It is recorded as
+          # unavailable rather than fabricated as zero.
+          timing='{"timing_available": false, "reason": "phase log missing or inconsistent"}'
+          if bash scripts/ci/phase-timer.sh emit "$child_seconds" > evidence/child/phases.json 2>/dev/null; then
+            timing="$(jq -c '. + {timing_available: true}' evidence/child/phases.json)"
+          else
+            printf '%s' "$timing" > evidence/child/phases.json
+            echo "WARNING: phase timing unavailable for this child"
+          fi
+          # CHECKSUM LAST. It was computed before phases.json existed, which
+          # would have left the timing outside the very binding this comment
+          # claims covers it. Everything written into evidence/child must exist
+          # before the directory is hashed.
+          esum="$(bash scripts/release/evidence-checksum.sh evidence/child)"
           jq -n --arg l "$LABEL" --arg p "$PLATFORM" --arg t "$TAG" \
                 --arg dr "$DIGEST_REF" --arg d "$DIGEST" --arg rd "$RESOLVED" \
                 --arg v "$VIS" --arg ca "$CARCH" --arg db "$DB" --arg mtype "$MTYPE" \
@@ -737,6 +790,7 @@ jobs:
                 --arg sm "$SMOKE" --arg sc "$SCAN" --arg rc "$RECON" --arg meta "$META" \
                 --arg em "$EXEC_MODE" --arg ha "$HOST_ARCH" --argjson pk "$pkgs" \
                 --argjson cs "$child_seconds" --arg rn "${RUNNER_NAME_OBSERVED:-unknown}" \
+                --argjson tm "$timing" \
                 --arg es "$esum" '{
             image_label:$l, platform:$p, staging_tag:$t,
             digest_reference:$dr, manifest_digest:$d, manifest_media_type:$mtype,
@@ -746,11 +800,13 @@ jobs:
             repository:$repo, smoke_test:$sm, scan:$sc, reconciliation:$rc,
             metadata_contract:$meta,
             execution_mode:$em, host_architecture:$ha, packages_inventoried:$pk,
-            child_wall_seconds:$cs, runner_name:$rn,
+            child_wall_seconds:$cs, runner_name:$rn, phase_timing:$tm,
             evidence_sha256:$es}' > "evidence/out/${slug}.json"
           cp -r evidence/child "evidence/out/${slug}-evidence"
           jq . "evidence/out/${slug}.json"
 
+      - name: phase end evidence_emit
+        run: bash scripts/ci/phase-timer.sh end evidence_emit
       - name: Upload child evidence
         # Uploaded even on failure: a refused child is exactly what the operator
         # needs to see.
@@ -955,6 +1011,33 @@ jobs:
                 "| emulated children | \($emu|length), \((( ($emu|map(.child_wall_seconds)|add // 0) / (if ($emu|length)>0 then ($emu|length) else 1 end))/60)|floor) min avg |",
                 "| slowest child | \(($c|max_by(.child_wall_seconds)|.image_label) // "n/a") (\((($c|map(.child_wall_seconds)|max // 0)/60)|floor) min) |",
                 "| runners used | \([$c[].runner_name]|unique|join(", ")) |"
+            ' "$f"
+            # PHASE BREAKDOWN (CI-COST-01). Derived from the children's own
+            # recorded phases, so it survives artifact retention. Children whose
+            # timing is unavailable are counted separately rather than folded in
+            # as zero-duration work.
+            echo
+            echo "### Phase breakdown"
+            echo
+            jq -r '
+              [.children[] | select(.phase_timing.timing_available == true)] as $t
+              | if ($t|length) == 0 then
+                  "No child reported phase timing (records predate CI-COST-01)."
+                else
+                  "| phase | total s | share of measured |",
+                  "|---|---|---|",
+                  ( [$t[].phase_timing.phases | to_entries[]]
+                    | group_by(.key)
+                    | map({k: .[0].key, v: (map(.value) | add)})
+                    | (map(.v) | add) as $sum
+                    | sort_by(-.v)[]
+                    | "| \(.k) | \(.v) | \(((.v * 100) / (if $sum > 0 then $sum else 1 end)) | floor)% |"
+                  ),
+                  "",
+                  "children with timing: \($t|length) / \(.children|length)",
+                  "uninstrumented overhead: \([$t[].phase_timing.uninstrumented_overhead_seconds] | add) s",
+                  "queue time: unavailable (not observable from inside a job)"
+                end
             ' "$f"
             echo
             echo "Emulated children dominate the critical path; \`max-parallel: 1\` is preserved deliberately (2 vCPU / 4 GB host). See \`docs/ci-cost-baseline.md\`."
