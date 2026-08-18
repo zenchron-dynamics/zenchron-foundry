@@ -129,6 +129,41 @@ ck "SABOTAGE: disconnecting timing from evidence is detectable" \
 ck "SABOTAGE: disconnecting evidence from the summary is detectable" \
    'sab "s|phase_timing.timing_available|removed|g" "phase_timing.timing_available"'
 
+# --- THE CLOCK BOUNDARY (root cause of the 32123758374 telemetry failure) ---
+# child_started_at used to be set in the "Staging identity" step, which runs
+# AFTER db_acquire. Correct phase measurements then summed to more than the wall
+# time they were nested in, the one-directional invariant refused, and every
+# child recorded timing_available:false. The invariant was right; the clock was
+# started too late.
+clock_before_first_phase() {
+  python3 - "${1:-$W}" <<'CLKPY'
+import sys
+s = open(sys.argv[1]).read()
+i_clock = s.index("CHILD_STARTED_AT=$(date -u +%s)")
+i_phase = s.index("phase-timer.sh start db_acquire")
+assert i_clock < i_phase, ("child clock starts after the first measured phase", i_clock, i_phase)
+CLKPY
+}
+ck "the child wall clock starts BEFORE db_acquire" 'clock_before_first_phase'
+ck "the clock is set in the job's FIRST executable step"    'python3 -c "
+import yaml
+d=yaml.safe_load(open(\"$W\"))
+first=[x for x in d[\"jobs\"][\"stage\"][\"steps\"] if \"run\" in x][0]
+assert \"CHILD_STARTED_AT\" in first[\"run\"], first.get(\"name\")"'
+ck "the identity step no longer redefines the clock (it would overwrite it)"    '! grep -q "child_started_at=\"\$(date -u" '"$W"
+ck "SABOTAGE: moving the clock after db_acquire is DETECTED"    'tmp="$(mktemp -d)";
+    python3 -c "
+import sys
+s=open(\"$W\").read()
+s=s.replace(\"echo \\\"CHILD_STARTED_AT=\$(date -u +%s)\\\" >> \\\"\$GITHUB_ENV\\\"\n\",\"\",1)
+open(\"$tmp/w.yml\",\"w\").write(s)";
+    ! clock_before_first_phase "$tmp/w.yml" >/dev/null 2>&1; rc=$?; rm -rf "$tmp"; [ $rc -eq 0 ]'
+
+# A cancelled child must never look like a complete cost record.
+ck "a cancelled child cannot report complete timing"    'out="$(emit_with "a\tstart\t0\na\tend\t5\nb\tstart\t5\n" 100)";
+    [ "$(jq -r .timing_complete <<<"$out")" = false ] &&
+    [ "$(jq -r ".incomplete_phases|length" <<<"$out")" -ge 1 ]'
+
 echo "----"
 [ "$fail" -eq 0 ] && echo "test_phase_telemetry: PASS" || echo "test_phase_telemetry: FAIL"
 exit $fail

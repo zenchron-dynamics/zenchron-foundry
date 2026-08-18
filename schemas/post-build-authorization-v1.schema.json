@@ -346,6 +346,11 @@
               "type": "string"
             }
           }
+        },
+        "child_key": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+/linux/[a-z0-9]+$",
+          "description": "Canonical platform-bound child identity, e.g. php-fpm/8.3/linux/amd64. OPTIONAL: records written before 2026-08-18 identify a child by image_label plus platform, which was unique in the record but NOT in the evidence filenames or artifact names \u2014 the collision that cancelled run 32123758374."
         }
       }
     }

@@ -99,9 +99,16 @@ child_platform_ok() { # child_platform_ok [workflow-file]
   python3 - "${1:-$W}" <<'PY'
 import sys
 s = open(sys.argv[1]).read()
-i = s.index("Staging identity")
-seg = s[i:i + 1400]
-env = seg.split("run: |")[0]
+# Anchor on the STEP DECLARATION, not the bare phrase: another step's comment
+# now explains that the clock used to live in "Staging identity", and matching
+# that prose put the window on the wrong step entirely. Third time this class of
+# bug has appeared here — a check must never match its own explanation.
+i = s.index("- name: Staging identity")
+# Slice to the step's own `run:` rather than a fixed byte window — the identity
+# step grew when the platform-bound slug was added, and a 1400-char window
+# silently stopped covering the env block.
+seg = s[i:s.index("run: |", i) + 6]
+env = seg
 # COMMENTS STRIPPED FIRST. The step's own comment explains that this value used
 # to be `inputs.platforms`, so a naive substring search matches the explanation
 # and reports the defect as still present — exactly how the first version of
