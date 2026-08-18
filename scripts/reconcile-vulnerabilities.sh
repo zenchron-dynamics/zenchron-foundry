@@ -204,9 +204,22 @@ def version_binding_holds(e, f):
 
     `not_affected_below` pins the upstream version below which the finding does
     not apply; `installed_version` pins an exact package build."""
+    # `installed_version` is an EXACT build string, or an explicit finite list of
+    # exact build strings. A list exists for one real case: an advisory against a
+    # source package whose binaries carry different Debian epochs — CVE-2026-53615
+    # covers util-linux, where bsdutils is 1:2.38.1-5+deb12u3 and the other seven
+    # binaries are 2.38.1-5+deb12u3. Splitting that into two entries would break
+    # the source-package grouping the ledger deliberately uses.
+    #
+    # A list is membership, never a range: no wildcards, no prefixes, no
+    # comparison. Anything not literally observed does not match, so a package
+    # moving to a NEW vulnerable version leaves the finding ungoverned and the
+    # build refuses. That is the whole point of binding the version.
     want = e.get("installed_version")
-    if want and want != f["installed_version"]:
-        return False
+    if want:
+        allowed = want if isinstance(want, list) else [want]
+        if f["installed_version"] not in allowed:
+            return False
     below = e.get("not_affected_below")
     if below:
         if not _upstream(f["installed_version"]) or not _upstream(below):

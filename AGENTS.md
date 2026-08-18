@@ -94,7 +94,7 @@ remedy within its ownership boundary.
 **Stop and ask.** Do not create an ADR to get around this policy. Present the
 strategic decision, costs, alternatives and maintenance burden. The options are
 already written up, with no recommendation, in
-`docs/decisions/vendor-binary-source-build-proposal.md`.
+`docs/decisions/adr-0001-upstream-only-binary-consumption.md`.
 
 ## Other standing rules
 
@@ -121,6 +121,6 @@ already written up, with no recommendation, in
 | rebuild-ticket contract | `policies/rebuild-ticket-contract.yaml` |
 | vulnerability ledger | `policies/vulnerability-exceptions.yaml` |
 | CI cost baseline and reuse contract | `docs/ci-cost-baseline.md` |
-| source-build decision (undecided) | `docs/decisions/vendor-binary-source-build-proposal.md` |
+| source-build decision (undecided) | `docs/decisions/adr-0001-upstream-only-binary-consumption.md` |
 
 Do not restate authoritative facts in a second document. Derive or validate.

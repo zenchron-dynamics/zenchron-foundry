@@ -116,4 +116,4 @@ ownership_model:
     Compiling FrankenPHP or Caddy from source would remove the
     upstream-vendor-binary class entirely, and is a product-architecture decision
     requiring an ADR — never an implementation detail inside a rebuild ticket.
-    Proposal: docs/decisions/vendor-binary-source-build-proposal.md
+    Proposal: docs/decisions/adr-0001-upstream-only-binary-consumption.md
