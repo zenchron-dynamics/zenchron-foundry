@@ -302,6 +302,25 @@ jobs:
       # produce 20 children.
       matrix: ${{ fromJSON(needs.guard.outputs.matrix) }}
     steps:
+      # CHILD WALL CLOCK — the job's FIRST executable step, before any measured
+      # phase. Its own step on purpose: the reset block below is byte-identical
+      # across 12 workflows and scripts/ci/assert-canonical-reset-block.sh fails
+      # on any drift, so carrying the clock inside it would trade one guard for
+      # another.
+      #
+      # The clock used to start in "Staging identity", which runs AFTER
+      # db_acquire. Correct phase measurements then summed to more than the wall
+      # time they were nested in, the timer's one-directional invariant refused,
+      # and every child in run 32123758374 recorded timing_available:false. The
+      # invariant was right; the clock was started too late.
+      #
+      # This is IN-JOB time only. Queue time and runner provisioning before this
+      # step are not observable from here and remain unavailable, never zero.
+      - name: Start the child wall clock
+        run: |
+          set -euo pipefail
+          echo "CHILD_STARTED_AT=$(date -u +%s)" >> "$GITHUB_ENV"
+
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
         # guards). Inline because it must run BEFORE checkout puts that script on
@@ -399,16 +418,18 @@ jobs:
           esac
           if [ "$host_arch" = "$arch" ]; then exec_mode=native; else exec_mode=qemu; fi
           echo "target=${arch} host=${host_arch} execution=${exec_mode}"
-          # COST TELEMETRY (CI-COST-01). The child's own clock, so the cost
-          # baseline comes from the evidence rather than from scraping job
-          # timestamps out of the API after the fact. Emulated children are the
-          # critical path — ~53 min each versus ~5 for native — and that ratio is
-          # the single biggest lever on a 20-child run, so it has to be measured
-          # per child rather than estimated.
-          child_started_at="$(date -u +%s)"
           label="$(image_label "$FAM" "$VER")"          # e.g. php-fpm/8.3, nginx/prod
-          slug="${label//\//-}"
-          tag="${slug}-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}-s${GITHUB_SHA:0:7}-${arch}"
+          # PLATFORM-BOUND child identity. `label` answers "which image"; it is
+          # NOT a child identity, because one image yields one child per
+          # platform. See child_slug() in scripts/lib/common.sh.
+          slug="$(child_slug "$FAM" "$VER" "$PLATFORMS")"
+          ckey="$(child_key "$FAM" "$VER" "$PLATFORMS")"
+          # The staging TAG keeps using the image-derived slug and appends the
+          # arch itself. Feeding it the platform-bound child slug would produce
+          # php-fpm-8.3-linux-amd64-...-amd64 — the architecture twice, and a tag
+          # format every downstream identity check already asserts.
+          tagslug="${label//\//-}"
+          tag="${tagslug}-r${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}-s${GITHUB_SHA:0:7}-${arch}"
           # The OCI version label is NOT the canonical identity (#126). Each
           # Dockerfile declares org.opencontainers.image.version itself — "prod"
           # for the edge images, "<ver>-prod" for the PHP families — and a build
@@ -418,6 +439,8 @@ jobs:
           if [ "$VER" = prod ]; then version_label="prod"; else version_label="${VER}-prod"; fi
           {
             echo "label=${label}"
+            echo "slug=${slug}"
+            echo "child_key=${ckey}"
             echo "arch=${arch}"
             echo "platform=${PLATFORMS}"
             echo "tag=${tag}"
@@ -425,7 +448,6 @@ jobs:
             echo "version_label=${version_label}"
             echo "exec_mode=${exec_mode}"
             echo "host_arch=${host_arch}"
-            echo "child_started_at=${child_started_at}"
           } >> "$GITHUB_OUTPUT"
 
       - name: phase start build_and_push
@@ -720,6 +742,8 @@ jobs:
       - name: Emit child evidence
         env:
           LABEL: ${{ steps.id.outputs.label }}
+          CHILD_SLUG: ${{ steps.id.outputs.slug }}
+          CHILD_KEY: ${{ steps.id.outputs.child_key }}
           PLATFORM: ${{ steps.id.outputs.platform }}
           TAG: ${{ steps.id.outputs.tag }}
           DIGEST_REF: ${{ steps.resolve.outputs.digest_ref }}
@@ -745,7 +769,10 @@ jobs:
           # The SHARED script, not an inline copy. The authorizer recomputes this
           # AFTER the directory has been collected under a different prefix, and
           # a path-dependent hash would differ every time for no real reason.
-          slug="${LABEL//\//-}"
+          # The PLATFORM-BOUND slug, from the identity step. Recomputing it from
+          # LABEL here is what produced the collision: LABEL has no platform, so
+          # amd64 and arm64 wrote the same filename.
+          slug="${CHILD_SLUG:?child slug missing}"
           mkdir -p evidence/out
           # Package count is recorded, not just the file: a child whose inventory
           # failed to derive must be visibly unusable for cross-architecture
@@ -782,7 +809,7 @@ jobs:
           # claims covers it. Everything written into evidence/child must exist
           # before the directory is hashed.
           esum="$(bash scripts/release/evidence-checksum.sh evidence/child)"
-          jq -n --arg l "$LABEL" --arg p "$PLATFORM" --arg t "$TAG" \
+          jq -n --arg l "$LABEL" --arg ck "$CHILD_KEY" --arg p "$PLATFORM" --arg t "$TAG" \
                 --arg dr "$DIGEST_REF" --arg d "$DIGEST" --arg rd "$RESOLVED" \
                 --arg v "$VIS" --arg ca "$CARCH" --arg db "$DB" --arg mtype "$MTYPE" \
                 --arg rev "$GITHUB_SHA" --arg repo "$GITHUB_REPOSITORY" \
@@ -792,7 +819,7 @@ jobs:
                 --argjson cs "$child_seconds" --arg rn "${RUNNER_NAME_OBSERVED:-unknown}" \
                 --argjson tm "$timing" \
                 --arg es "$esum" '{
-            image_label:$l, platform:$p, staging_tag:$t,
+            image_label:$l, child_key:$ck, platform:$p, staging_tag:$t,
             digest_reference:$dr, manifest_digest:$d, manifest_media_type:$mtype,
             tag_resolved_digest:$rd,
             visibility:$v, config_architecture:$ca, trivy_db_identity:$db,
@@ -813,7 +840,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: child-${{ matrix.fam }}-${{ matrix.ver }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # PLATFORM-BOUND artifact name. Without it, php-fpm/8.3 on amd64 and on
+          # arm64 both uploaded `child-php-fpm-8.3-<run>-<attempt>`, and the
+          # authorizer's `merge-multiple: true` download flattened them onto one
+          # another — 20 planned children, at most 10 distinct records.
+          name: child-${{ steps.id.outputs.slug }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: evidence/out/
           if-no-files-found: error
 

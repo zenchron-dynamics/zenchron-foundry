@@ -61,6 +61,7 @@ emit() { # emit <workdir> [META] -> emits into <workdir>/evidence/out
     VIS="private" CARCH="amd64" DB="db@2026-08-06" \
     SMOKE="PASS" SCAN="PASS" RECON="PASS" META="$meta" \
     EXEC_MODE="native" HOST_ARCH="amd64" \
+    CHILD_SLUG="php-fpm-8.3-linux-amd64" CHILD_KEY="php-fpm/8.3/linux/amd64" \
     GITHUB_SHA="$(printf 'a%.0s' {1..40})" \
     GITHUB_REPOSITORY="zenchron-dynamics/zenchron-foundry" \
     GITHUB_RUN_ID=7 GITHUB_RUN_ATTEMPT=1 \
@@ -69,7 +70,7 @@ emit() { # emit <workdir> [META] -> emits into <workdir>/evidence/out
 
 W="$TMP/w1"; emit "$W"; rc=$?
 ck "the emit step runs to completion under bash -e" "[ $rc -eq 0 ]"
-J="$W/evidence/out/php-fpm-8.3.json"
+J="$W/evidence/out/php-fpm-8.3-linux-amd64.json"
 ck "it writes the child record at the slugged path" "test -s '$J'"
 
 # --- THE defect: two fields, two values -------------------------------------
@@ -82,7 +83,7 @@ ck "the two fields are not aliased to one value" \
 
 # and they move independently
 W2="$TMP/w2"; emit "$W2" FAIL
-J2="$W2/evidence/out/php-fpm-8.3.json"
+J2="$W2/evidence/out/php-fpm-8.3-linux-amd64.json"
 ck "metadata_contract follows META, not the media type" \
    "[ \"\$(jq -r .metadata_contract '$J2')\" = FAIL ]"
 ck "...while manifest_media_type is unchanged" \
@@ -106,7 +107,7 @@ done
 
 # --- the evidence bundle travels with it ------------------------------------
 ck "the evidence directory is copied beside the record" \
-   "test -d '$W/evidence/out/php-fpm-8.3-evidence'"
+   "test -d '$W/evidence/out/php-fpm-8.3-linux-amd64-evidence'"
 
 # --- relocation: the exact transition the workflow performs -----------------
 # Produce under evidence/child, collect into authorization/child-evidence/, then
@@ -116,8 +117,8 @@ SUM="$(jq -r .evidence_sha256 "$J")"
 ck "the recorded checksum is 64-hex" "printf '%s' '$SUM' | grep -Eq '^[0-9a-f]{64}$'"
 
 mkdir -p "$TMP/collected/authorization/child-evidence"
-cp -r "$W/evidence/out/php-fpm-8.3-evidence" "$TMP/collected/authorization/child-evidence/"
-REL="$TMP/collected/authorization/child-evidence/php-fpm-8.3-evidence"
+cp -r "$W/evidence/out/php-fpm-8.3-linux-amd64-evidence" "$TMP/collected/authorization/child-evidence/"
+REL="$TMP/collected/authorization/child-evidence/php-fpm-8.3-linux-amd64-evidence"
 ck "the checksum survives relocation to the collection directory" \
    "[ \"\$(bash scripts/release/evidence-checksum.sh '$REL')\" = '$SUM' ]"
 

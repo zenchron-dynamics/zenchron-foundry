@@ -120,3 +120,43 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     *) echo "usage: common.sh --self-test" >&2; exit 2 ;;
   esac
 fi
+
+# --- canonical child identity (platform-bound) -------------------------------
+# ONE definition of what identifies an acceptance child, used by the workflow,
+# the authorizer and the tests.
+#
+# WHY. image_label() answers "which image" — php-fpm/8.3 — and is correct for
+# that. It is NOT an identity for a CHILD, because one image produces one child
+# per platform. When the platform axis was added, the artifact name and the
+# evidence filename kept using the image label, so php-fpm/8.3 on amd64 and on
+# arm64 both wrote `php-fpm-8.3.json` and both uploaded
+# `child-php-fpm-8.3-<run>-<attempt>`. With `merge-multiple: true` the second
+# overwrites the first: 20 planned children could yield at most 10 distinct
+# evidence records, and the authorizer would refuse for a defect rather than a
+# finding. Cancelled run 32123758374 is the record of that.
+#
+# child_key  <fam> <ver> <platform>  -> php-fpm/8.3/linux/amd64   (canonical)
+# child_slug <fam> <ver> <platform>  -> php-fpm-8.3-linux-amd64   (fs/artifact safe)
+#
+# The slug is deliberately NOT a blind character substitution: it is built from
+# validated components, so two different keys cannot normalise onto one slug.
+child_key() {
+  local fam="${1:?child_key: family required}" ver="${2:-}" plat="${3:?child_key: platform required}"
+  printf '%s/%s\n' "$(image_label "$fam" "$ver")" "$plat"
+}
+
+child_slug() {
+  local fam="${1:?child_slug: family required}" ver="${2:-}" plat="${3:?child_slug: platform required}"
+  # Refuse anything that could collide or escape a path. A slug is an identity,
+  # and an identity that can be produced two ways is not one.
+  case "$fam" in ""|*[!a-zA-Z0-9._-]*) die "child_slug: invalid family '$fam'" ;; esac
+  case "$ver" in *[!a-zA-Z0-9._-]*)    die "child_slug: invalid selector '$ver'" ;; esac
+  case "$plat" in
+    linux/*) : ;;
+    *) die "child_slug: platform must be linux/<arch>, got '$plat'" ;;
+  esac
+  local arch="${plat#linux/}"
+  case "$arch" in ""|*[!a-zA-Z0-9]*) die "child_slug: invalid architecture '$arch'" ;; esac
+  local label; label="$(image_label "$fam" "$ver")"
+  printf '%s-linux-%s\n' "${label//\//-}" "$arch"
+}
