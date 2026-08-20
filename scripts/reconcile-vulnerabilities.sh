@@ -215,6 +215,24 @@ def version_binding_holds(e, f):
     # comparison. Anything not literally observed does not match, so a package
     # moving to a NEW vulnerable version leaves the finding ungoverned and the
     # build refuses. That is the whole point of binding the version.
+    #
+    # `package_versions` is the STRICTER, per-package form: {package: [versions]}.
+    # The flat list above is membership across the WHOLE entry, so for the
+    # util-linux epoch case it also accepts bsdutils at the non-epoch string and
+    # libmount1 at the epoch string — tuples that do not exist in Debian. That is
+    # harmless today but it governs combinations nobody evidenced. When an entry
+    # supplies `package_versions`, each package is bound to its OWN observed
+    # versions and a cross-matched tuple refuses. Fail-closed: a package absent
+    # from the mapping matches nothing.
+    pv = e.get("package_versions")
+    if pv:
+        allowed_for_pkg = pv.get(f["package"])
+        if not allowed_for_pkg:
+            return False
+        if f["installed_version"] not in allowed_for_pkg:
+            return False
+        return True
+
     want = e.get("installed_version")
     if want:
         allowed = want if isinstance(want, list) else [want]
