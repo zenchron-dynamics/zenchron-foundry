@@ -255,16 +255,43 @@ authorize() { # authorize <evidence-dir> <out.json>
     [ "$recon" = PASS ] || refusals+=("$id: reconciliation is '$recon' — an ungoverned vulnerability finding")
     [ "$meta"  = PASS ] || refusals+=("$id: metadata_contract is '$meta' (#126)")
 
+    # --- CANONICAL CHILD IDENTITY -------------------------------------------
+    # The producer names the artifact, the JSON record and the evidence
+    # directory with child_slug() from scripts/lib/common.sh, which BINDS THE
+    # PLATFORM. This consumer used to rebuild the slug locally as
+    # "${label//\//-}" — the image_label form, which has no platform — so it
+    # looked for 'caddy-prod-evidence' while the producer had written
+    # 'caddy-prod-linux-amd64-evidence'. In run 32150666171 all twenty children
+    # refused for that reason alone, with every image otherwise sound.
+    #
+    # There is now exactly ONE implementation of child identity. This consumer
+    # recovers (family, selector) from the record's own image_label, recomputes
+    # the canonical key and slug through the shared helper, and refuses when the
+    # record's child_key disagrees with them. A record-supplied path is never
+    # trusted, and a filename is never treated as identity.
+    local fam ver ckey_rec ckey_canon cslug
+    fam="${label%%/*}"; ver="${label#*/}"
+    ckey_rec="$(jq -r '.child_key // ""' <<<"$c")"
+    ckey_canon=""; cslug=""
+    if ! ckey_canon="$(child_key  "$fam" "$ver" "$platform" 2>/dev/null)" ||
+       ! cslug="$(child_slug "$fam" "$ver" "$platform" 2>/dev/null)"; then
+      ckey_canon=""; cslug=""
+      refusals+=("$id: cannot derive a canonical child identity from image_label '$label' and platform '$platform'")
+    elif [ "$ckey_rec" != "$ckey_canon" ]; then
+      refusals+=("$id: child_key '${ckey_rec:-<missing>}' disagrees with its family/selector/platform (canonical '$ckey_canon')")
+    fi
+
     # The checksum is RECOMPUTED, not merely shape-checked. A well-formed but
     # invented 64-hex value used to pass, which made the binding decorative.
     if ! printf '%s' "$esum" | grep -Eq '^[0-9a-f]{64}$'; then
       refusals+=("$id: evidence_sha256 is missing or malformed")
+    elif [ -z "$cslug" ]; then
+      : # identity already refused above; a checksum without an identity is meaningless
     else
-      local slug edir actual
-      slug="${label//\//-}"
-      edir="${EVIDENCE_ROOT}/${slug}-evidence"
+      local edir actual
+      edir="${EVIDENCE_ROOT}/${cslug}-evidence"
       if [ ! -d "$edir" ]; then
-        refusals+=("$id: no evidence directory at '${slug}-evidence' to check the checksum against")
+        refusals+=("$id: no evidence directory at '${cslug}-evidence' to check the checksum against")
       else
         actual="$(evidence_checksum "$edir")"
         [ "$actual" = "$esum" ] \
@@ -367,36 +394,50 @@ _asc_self_test() {
 
   export EXPECTED_REPOSITORY="zenchron-dynamics/zenchron-foundry" \
          EXPECTED_REVISION="$REV" EXPECTED_RUN_ID=1 EXPECTED_RUN_ATTEMPT=1 \
-         EXPECTED_PLATFORMS="linux/amd64" EXPECTED_STAGING_PACKAGE="$PKG" \
+         EXPECTED_PLATFORMS="linux/amd64,linux/arm64" EXPECTED_STAGING_PACKAGE="$PKG" \
          EXPECTED_TRIVY_DB="db@2026-08-05" BUILD_CREATED="2026-08-06T00:00:00Z" \
          WORKFLOW_REF="$CANONICAL_WORKFLOW_REF" GENERATED_AT="2026-08-05T00:00:00Z"
 
-  # writes a full evidence set; $1 = dir, $2 = jq mutation applied to ONE child
+  # Writes a full TWO-PLATFORM evidence set. $2/$3 mutate ONE child (the amd64
+  # one) so "exactly one bad child" semantics survive the platform doubling.
+  #
+  # This fixture used to be single-platform, with platform:"linux/amd64" hard
+  # coded and the evidence directory rebuilt as "${lbl//\//-}" — the SAME wrong
+  # derivation the authorizer itself used. Producer and fixture agreed with each
+  # other and both disagreed with reality, so the suite passed while every real
+  # child refused. A single-platform fixture structurally cannot detect a
+  # platform-collision defect; that is why this is now two-platform.
   _mk() { # _mk <dir> [label-to-mutate] [jq-filter]
-    local d="$1" target="${2:-}" filt="${3:-.}" lbl i=0
+    local d="$1" target="${2:-}" filt="${3:-.}" lbl plat i=0
     mkdir -p "$d"
     export EVIDENCE_ROOT="$d"
     while IFS= read -r lbl; do
-      i=$((i+1))
-      local base slug edir
-      slug="${lbl//\//-}"; edir="$d/${slug}-evidence"
-      mkdir -p "$edir"; printf 'evidence for %s\n' "$lbl" > "$edir/log.txt"
-      SUM="$(evidence_checksum "$edir")"
-      base="$(jq -nc --arg l "$lbl" --arg d "$DIG" --arg s "$SUM" --arg p "$PKG" \
-                --arg rev "$REV" --arg repo "$EXPECTED_REPOSITORY" '{
-        image_label:$l, platform:"linux/amd64",
-        staging_tag:(($l|gsub("/";"-"))+"-r1-a1-saaaaaaa-amd64"),
-        digest_reference:($p+"@"+$d), manifest_digest:$d, tag_resolved_digest:$d,
-        visibility:"private", config_architecture:"amd64",
-        manifest_media_type:"application/vnd.oci.image.manifest.v1+json",
-        trivy_db_identity:"db@2026-08-05", source_revision:$rev,
-        workflow_run_id:1, workflow_run_attempt:1, repository:$repo,
-        smoke_test:"PASS", scan:"PASS", reconciliation:"PASS",
-        metadata_contract:"PASS", evidence_sha256:$s}')"
-      if [ -n "$target" ] && [ "$lbl" = "$target" ]; then
-        base="$(jq -c "$filt" <<<"$base")"
-      fi
-      printf '%s' "$base" > "$d/child-$i.json"
+      local fam="${lbl%%/*}" ver="${lbl#*/}"
+      for plat in linux/amd64 linux/arm64; do
+        i=$((i+1))
+        local arch="${plat#linux/}" base slug edir ckey
+        slug="$(child_slug "$fam" "$ver" "$plat")"
+        ckey="$(child_key  "$fam" "$ver" "$plat")"
+        edir="$d/${slug}-evidence"
+        mkdir -p "$edir"; printf 'evidence for %s on %s\n' "$lbl" "$plat" > "$edir/log.txt"
+        SUM="$(evidence_checksum "$edir")"
+        base="$(jq -nc --arg l "$lbl" --arg ck "$ckey" --arg pl "$plat" --arg a "$arch" \
+                  --arg d "$DIG" --arg s "$SUM" --arg p "$PKG" \
+                  --arg rev "$REV" --arg repo "$EXPECTED_REPOSITORY" '{
+          image_label:$l, child_key:$ck, platform:$pl,
+          staging_tag:(($l|gsub("/";"-"))+"-r1-a1-saaaaaaa-"+$a),
+          digest_reference:($p+"@"+$d), manifest_digest:$d, tag_resolved_digest:$d,
+          visibility:"private", config_architecture:$a,
+          manifest_media_type:"application/vnd.oci.image.manifest.v1+json",
+          trivy_db_identity:"db@2026-08-05", source_revision:$rev,
+          workflow_run_id:1, workflow_run_attempt:1, repository:$repo,
+          smoke_test:"PASS", scan:"PASS", reconciliation:"PASS",
+          metadata_contract:"PASS", evidence_sha256:$s}')"
+        if [ -n "$target" ] && [ "$lbl" = "$target" ] && [ "$plat" = "linux/amd64" ]; then
+          base="$(jq -c "$filt" <<<"$base")"
+        fi
+        printf '%s' "$base" > "$d/child-$i.json"
+      done
     done < <(matrix_image_labels)
   }
 
@@ -486,10 +527,10 @@ _asc_self_test() {
   d="$tmp/badsum"; _mk "$d" "nginx/prod" '.evidence_sha256="'"$(printf 'e%.0s' {1..64})"'"'
   t "a well-formed but INCORRECT evidence checksum refuses" fail "$d"
 
-  d="$tmp/nodir"; _mk "$d"; rm -rf "$d/nginx-prod-evidence"
+  d="$tmp/nodir"; _mk "$d"; rm -rf "$d/nginx-prod-linux-amd64-evidence"
   t "a checksum with no evidence directory to check against refuses" fail "$d"
 
-  d="$tmp/tampered"; _mk "$d"; printf 'tampered\n' >> "$d/nginx-prod-evidence/log.txt"
+  d="$tmp/tampered"; _mk "$d"; printf 'tampered\n' >> "$d/nginx-prod-linux-amd64-evidence/log.txt"
   t "evidence altered after the checksum was taken refuses" fail "$d"
 
   d="$tmp/wfref"; _mk "$d"
@@ -522,11 +563,27 @@ _asc_self_test() {
 
   # The evidenced architectures must NOT be refused — the inverse mistake, and
   # the one that would silently block every release.
-  d="$tmp/bothplats"; _mk "$d"
+  # The fixture is two-platform, so narrowing the expectation to one platform
+  # must also narrow the evidence — otherwise this asserts "extras are refused",
+  # which is a different test that already exists.
+  d="$tmp/amd64only"; _mk "$d"
+  rm -rf "$d"/*-linux-arm64-evidence
+  for _f in "$d"/child-*.json; do
+    [ "$(jq -r .platform "$_f")" = "linux/arm64" ] && rm -f "$_f"
+  done
   ( export EXPECTED_PLATFORMS="linux/amd64"
     authorize "$d" "$d/out.json" >/dev/null 2>&1 ) \
     && { echo "ok   - an evidenced architecture is NOT refused"; ok=$((ok+1)); } \
     || { echo "FAIL - evidenced architecture was refused"; bad=$((bad+1)); }
+  d="$tmp/arm64only"; _mk "$d"
+  rm -rf "$d"/*-linux-amd64-evidence
+  for _f in "$d"/child-*.json; do
+    [ "$(jq -r .platform "$_f")" = "linux/amd64" ] && rm -f "$_f"
+  done
+  ( export EXPECTED_PLATFORMS="linux/arm64"
+    authorize "$d" "$d/out.json" >/dev/null 2>&1 ) \
+    && { echo "ok   - linux/arm64 alone is also evidenced, not refused"; ok=$((ok+1)); } \
+    || { echo "FAIL - linux/arm64 was refused"; bad=$((bad+1)); }
 
   # a FAIL record is still written
   d="$tmp/writefail"; _mk "$d"; rm -f "$d/child-1.json"

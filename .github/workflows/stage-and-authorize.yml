@@ -754,7 +754,6 @@ jobs:
           CARCH: ${{ steps.eval.outputs.carch }}
           EXEC_MODE: ${{ steps.id.outputs.exec_mode }}
           HOST_ARCH: ${{ steps.id.outputs.host_arch }}
-          CHILD_STARTED_AT: ${{ steps.id.outputs.child_started_at }}
           RUNNER_NAME_OBSERVED: ${{ runner.name }}
           DB: ${{ needs.freeze-db.outputs.identity }}
           SMOKE: ${{ steps.eval.outputs.smoke }}
@@ -783,8 +782,16 @@ jobs:
           # in the evidence so the cost baseline is derived from the run itself
           # rather than reconstructed from API timestamps that do not survive
           # artifact retention.
-          child_seconds=0
-          if [ -n "${CHILD_STARTED_AT:-}" ]; then
+          # CHILD_STARTED_AT arrives from the JOB environment, written by the
+          # first step of this job ("Start the child wall clock") via $GITHUB_ENV.
+          # It is deliberately NOT a step output: a step-level env: mapping
+          # shadows the job environment, and binding it to a step output that no
+          # step emits is what zeroed the clock for all twenty children in run
+          # 32150666171. Do not reintroduce such a mapping.
+          if [ -z "${CHILD_STARTED_AT:-}" ]; then
+            echo "::error::CHILD_STARTED_AT is empty at the evidence step — the child wall clock never reached it. Phase telemetry will be recorded as unavailable, not as zero."
+            child_seconds=0
+          else
             child_seconds=$(( $(date -u +%s) - CHILD_STARTED_AT ))
             [ "$child_seconds" -ge 0 ] || child_seconds=0
           fi
@@ -797,13 +804,25 @@ jobs:
           # runtime verdicts are the release-relevant facts, and losing a
           # stopwatch must not refuse an otherwise sound image. It is recorded as
           # unavailable rather than fabricated as zero.
+          # The timer's stderr used to be sent to /dev/null, which turned its
+          # deliberate refusal into a silent timing_available:false. The refusal
+          # IS the diagnostic — it names which invariant failed (a phase total
+          # exceeding wall time, an end before its start, a missing log) — so it
+          # is captured and surfaced. Timing stays non-fatal, but never silent.
           timing='{"timing_available": false, "reason": "phase log missing or inconsistent"}'
-          if bash scripts/ci/phase-timer.sh emit "$child_seconds" > evidence/child/phases.json 2>/dev/null; then
+          timer_err="$(mktemp)"
+          if timer_out="$(bash scripts/ci/phase-timer.sh emit "$child_seconds" 2>"$timer_err")"; then
+            printf '%s' "$timer_out" > evidence/child/phases.json
             timing="$(jq -c '. + {timing_available: true}' evidence/child/phases.json)"
           else
+            # Written from the captured value, not from a partially-redirected
+            # stream: a half-written phases.json would be hashed into the
+            # evidence checksum as if it were a real measurement.
             printf '%s' "$timing" > evidence/child/phases.json
-            echo "WARNING: phase timing unavailable for this child"
+            echo "::warning::phase timing unavailable for this child: $(tr '\n' ' ' < "$timer_err")"
+            cat "$timer_err" >&2
           fi
+          rm -f "$timer_err"
           # CHECKSUM LAST. It was computed before phases.json existed, which
           # would have left the timing outside the very binding this comment
           # claims covers it. Everything written into evidence/child must exist

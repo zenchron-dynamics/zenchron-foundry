@@ -49,12 +49,17 @@ mk() { # mk <dir> [label] [jq-filter]
   while IFS= read -r lbl; do
     i=$((i+1))
     local b slug edir
-    slug="${lbl//\//-}"; edir="$d/${slug}-evidence"
+    # LITERAL platform-bound name, exactly as the producer's child_slug() emits.
+    # This fixture used to write the unplatformed "${lbl//\//-}-evidence", which
+    # is the same wrong assumption the authorizer itself carried — fixture and
+    # production agreed with each other and both disagreed with disk, so run
+    # 32150666171 refused all twenty children with a green test suite.
+    slug="${lbl//\//-}-linux-amd64"; edir="$d/${slug}-evidence"
     mkdir -p "$edir"; printf 'evidence for %s\n' "$lbl" > "$edir/log.txt"
     SUM="$(esum_of "$edir")"
     b="$(jq -nc --arg l "$lbl" --arg dg "$DIG" --arg s "$SUM" --arg p "$PKG" \
            --arg rev "$REV" --arg repo "$REPO" '{
-      image_label:$l, platform:"linux/amd64",
+      image_label:$l, child_key:($l+"/linux/amd64"), platform:"linux/amd64",
       staging_tag:(($l|gsub("/";"-"))+"-r1-a1-saaaaaaa-amd64"),
       digest_reference:($p+"@"+$dg), manifest_digest:$dg, tag_resolved_digest:$dg,
       visibility:"private", config_architecture:"amd64",
@@ -193,7 +198,7 @@ D="$TMP/badsum"; mk "$D" "nginx/prod" '.evidence_sha256="'"$(printf 'e%.0s' {1..
 ck "a well-formed but INCORRECT evidence checksum refuses" "[ '$RC' != 0 ]"
 ck "...naming the recomputation" "grep -q 'does not match the evidence directory' '$D/stderr'"
 
-D="$TMP/tampered"; mk "$D"; printf 'tampered\n' >> "$D/nginx-prod-evidence/log.txt"; RC="$(run "$D")"
+D="$TMP/tampered"; mk "$D"; printf 'tampered\n' >> "$D/nginx-prod-linux-amd64-evidence/log.txt"; RC="$(run "$D")"
 ck "evidence altered after the checksum was taken refuses" "[ '$RC' != 0 ]"
 
 D="$TMP/wfref"; mk "$D"; RC="$(run "$D" WORKFLOW_REF="zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/attacker")"
