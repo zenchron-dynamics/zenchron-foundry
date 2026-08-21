@@ -22,6 +22,8 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
 fail=0
+NIMG="$(bash -c '. scripts/lib/common.sh; matrix_image_labels' | grep -c .)"
+NCHILD=$(( NIMG * 2 ))
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
 W=.github/workflows/stage-and-authorize.yml
@@ -35,10 +37,10 @@ M2="$(bash "$B" 'linux/amd64,linux/arm64' 2>/dev/null)"
 # shellcheck disable=SC2034
 M1="$(bash "$B" 'linux/amd64' 2>/dev/null)"
 
-ck "two platforms x ten images yields exactly 20 children" \
-   '[ "$(printf "%s" "$M2" | jq ".include|length")" = 20 ]'
-ck "one platform yields exactly 10 children" \
-   '[ "$(printf "%s" "$M1" | jq ".include|length")" = 10 ]'
+ck "two platforms x $NIMG images yields exactly $NCHILD children" \
+   '[ "$(printf "%s" "$M2" | jq ".include|length")" = "$NCHILD" ]'
+ck "one platform yields exactly $NIMG children" \
+   '[ "$(printf "%s" "$M1" | jq ".include|length")" = "$NIMG" ]'
 ck "every child carries exactly one platform, never the raw list" \
    '! printf "%s" "$M2" | jq -e ".include[]|select(.platform|contains(\",\"))" >/dev/null'
 ck "every child platform is a linux/<arch> value" \
@@ -49,11 +51,11 @@ ck "every child platform is a linux/<arch> value" \
 # overwrite each other's staged image and the record would describe the wrong
 # object. Reconstructed exactly as the workflow builds it.
 ck "child labels are unique per platform and repeat across platforms" \
-   '[ "$(printf "%s" "$M2" | jq -r "[.include[]|\"\(.fam):\(.ver):\(.platform)\"]|unique|length")" = 20 ] &&
-    [ "$(printf "%s" "$M2" | jq -r "[.include[]|\"\(.fam):\(.ver)\"]|unique|length")" = 10 ]'
-ck "reconstructed staging tags are unique across all 20 children" \
+   '[ "$(printf "%s" "$M2" | jq -r "[.include[]|\"\(.fam):\(.ver):\(.platform)\"]|unique|length")" = "$NCHILD" ] &&
+    [ "$(printf "%s" "$M2" | jq -r "[.include[]|\"\(.fam):\(.ver)\"]|unique|length")" = "$NIMG" ]'
+ck "reconstructed staging tags are unique across all $NCHILD children" \
    'n=$(printf "%s" "$M2" | jq -r ".include[]|\"\(.fam)-\(.ver)-r1-a1-sabc1234-\(.platform|sub(\"^linux/\";\"\"))\"" | sort -u | wc -l | tr -d " ");
-    [ "$n" = 20 ]'
+    [ "$n" = "$NCHILD" ]'
 
 # --- the workflow actually consumes it -------------------------------------
 wf_check() { python3 - "$1" "${2:-$W}" <<'WFPY'

@@ -1,0 +1,2 @@
+# Required PHP extensions — php-fpm 8.4 (CLI set minus pcntl, by design)
+bcmath ctype curl dom fileinfo gd intl mbstring opcache openssl pdo pdo_mysql pdo_pgsql pgsql redis simplexml sockets sodium sqlite3 tokenizer xml zip
