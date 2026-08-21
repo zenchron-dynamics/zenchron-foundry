@@ -30,6 +30,9 @@ fail=0
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
 . scripts/lib/common.sh
+set +e
+NIMG="$(matrix_image_labels | grep -c .)"
+NCHILD=$(( NIMG * 2 ))
 
 # --- the canonical helpers behave --------------------------------------------
 ck "child_slug binds the platform"        "[ \"\$(child_slug php-fpm 8.3 linux/amd64)\" = php-fpm-8.3-linux-amd64 ]"
@@ -58,8 +61,8 @@ allslugs="$( { while IFS= read -r l; do
                  f="${l%%/*}"; v="${l#*/}"
                  for a in amd64 arm64; do child_slug "$f" "$v" "linux/$a"; done
                done < <(matrix_image_labels); } | sort )"
-ck "the whole 20-child matrix yields 20 DISTINCT slugs" \
-   "[ \"\$(printf '%s\n' \"\$allslugs\" | sort -u | wc -l | tr -d ' ')\" -eq 20 ]"
+ck "the whole $NCHILD-child matrix yields $NCHILD DISTINCT slugs" \
+   "[ \"\$(printf '%s\n' \"\$allslugs\" | sort -u | wc -l | tr -d ' ')\" -eq "$NCHILD" ]"
 
 # --- SABOTAGE 4: artifact name and evidence dir must not diverge -------------
 # Both derive from the SAME slug string in the workflow. If one were rebuilt

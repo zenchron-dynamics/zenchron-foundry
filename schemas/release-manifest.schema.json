@@ -22,11 +22,11 @@
     "created_at": { "type": "string", "format": "date-time" },
     "images": {
       "type": "object",
-      "minProperties": 10,
-      "maxProperties": 10,
+      "minProperties": 14,
+      "maxProperties": 14,
       "additionalProperties": false,
       "patternProperties": {
-        "^(php-(cli|fpm|worker|frankenphp)-8\\.[34]|nginx|caddy)$": {
+        "^(php-(cli|fpm|worker|frankenphp)-8\\.[345]|nginx|caddy)$": {
           "type": "object",
           "additionalProperties": false,
           "required": ["repository", "immutable_tag", "digest", "reference", "revision", "platforms"],

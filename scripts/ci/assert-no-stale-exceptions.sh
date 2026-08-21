@@ -310,8 +310,13 @@ PYD
   t "an empty canonical matrix fails closed" \
     "! CANONICAL_IMAGES='' check '$tmp/full' '$tmp/led.yaml' >/dev/null 2>&1"
 
-  t "the canonical matrix really is the 10 shipping images" \
-    "[ \"\$(canonical_images | grep -c .)\" = 10 ] && canonical_images | grep -qx nginx/prod && canonical_images | grep -qx php-cli/8.3"
+  # Derived from MATRIX_IMAGES, never a literal: this asserted "= 10" and broke
+  # the moment PHP 8.5 entered the matrix — the same hardcoded-count assumption
+  # tests/matrix/test_php_lifecycle_and_selectors.sh now hunts for.
+  t "the canonical matrix equals the shipping image set" \
+    "[ \"\$(canonical_images | grep -c .)\" = \"\$(bash -c '. scripts/lib/common.sh; matrix_image_labels' | grep -c .)\" ] &&
+     canonical_images | grep -qx nginx/prod && canonical_images | grep -qx php-cli/8.3 &&
+     canonical_images | grep -qx php-cli/8.5"
 
   # INTEGRATION: the labels the reconciler ACTUALLY emits must equal the
   # canonical set. The unit fixtures above generate their files FROM

@@ -36,11 +36,16 @@ TMP="$(mktemp -d)"
 SAB="$ROOT/scripts/release/.sabotage-asc-$$.sh"
 trap 'rm -rf "$TMP"; rm -f "$SAB"' EXIT
 DIG="sha256:$(printf 'c%.0s' {1..64})"
+# Derived, never a literal: the matrix grew from 10 images to 14 when PHP 8.5
+# landed, and every hardcoded 20 in this suite became wrong on the same day.
+NIMG="$(bash -c '. scripts/lib/common.sh; matrix_image_labels' | grep -c .)"
+NCHILD=$(( NIMG * 2 ))
+NPER="$NIMG"
 REV="$(printf 'a%.0s' {1..40})"
 PKG="ghcr.io/zenchron-dynamics/foundry-staging"
 
 # The matrix the authorizer expects. Two images keeps fixtures readable; the
-# real 20-child replay in test_authorizer_replay.sh covers the full matrix.
+# real full-matrix replay covers every child; counts here derive from MATRIX_IMAGES.
 run_auth() { # run_auth <evidence-dir> <out.json> [platforms] [script]
   local d="$1" out="$2" plats="${3:-linux/amd64,linux/arm64}" scr="${4:-$ASC}"
   EVIDENCE_ROOT="$d" \
@@ -86,11 +91,11 @@ D="$TMP/ok"; mkfull "$D"
 OUT="$(run_auth "$D" "$D/out.json")"; rc=$?
 ck "a full two-platform matrix is authorized" "[ $rc -eq 0 ]"
 ck "...verdict is PASS" "[ \"\$(jq -r .verdict '$D/out.json')\" = PASS ]"
-ck "...all 20 children are consumed" "[ \"\$(jq -r '.children|length' '$D/out.json')\" -eq 20 ]"
-ck "...10 are linux/amd64" \
-   "[ \"\$(jq -r '[.children[]|select(.platform==\"linux/amd64\")]|length' '$D/out.json')\" -eq 10 ]"
-ck "...10 are linux/arm64" \
-   "[ \"\$(jq -r '[.children[]|select(.platform==\"linux/arm64\")]|length' '$D/out.json')\" -eq 10 ]"
+ck "...all $NCHILD children are consumed" "[ \"\$(jq -r '.children|length' '$D/out.json')\" -eq $NCHILD ]"
+ck "...$NPER are linux/amd64" \
+   "[ \"\$(jq -r '[.children[]|select(.platform==\"linux/amd64\")]|length' '$D/out.json')\" -eq $NPER ]"
+ck "...$NPER are linux/arm64" \
+   "[ \"\$(jq -r '[.children[]|select(.platform==\"linux/arm64\")]|length' '$D/out.json')\" -eq $NPER ]"
 
 # BOTH platform-bound directories are really on disk under LITERAL names, and
 # both were checksum-verified (mutating either must refuse — proven below).
@@ -168,8 +173,8 @@ ck "SABOTAGE: the OLD unplatformed derivation refuses the same good fixture" \
    "! jq -e '.verdict==\"PASS\"' '$TMP/sab-out.json' >/dev/null 2>&1"
 ck "...and it fails specifically on the missing platform-bound directory" \
    "grep -q 'no evidence directory' <<<\"\$O\""
-ck "...for all 20 children, which is the run-32150666171 signature" \
-   "[ \"\$(grep -c 'no evidence directory' <<<\"\$O\")\" -eq 20 ]"
+ck "...for EVERY child, which is the run-32150666171 signature" \
+   "[ \"\$(grep -c 'no evidence directory' <<<\"\$O\")\" -eq $NCHILD ]"
 OK8="$(run_auth "$D8" "$TMP/sab-ok.json")"; rc8=$?
 if [ $rc8 -ne 0 ]; then echo "--- corrected-authorizer output on the sabotage fixture ---"; printf '%s\n' "$OK8" | head -8; fi
 ck "...while the CORRECTED authorizer passes that identical fixture" \

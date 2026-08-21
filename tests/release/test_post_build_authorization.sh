@@ -25,6 +25,8 @@ cd "$ROOT" || exit 1
 SCRIPT="scripts/release/authorize-staged-candidates.sh"
 SCHEMA="schemas/post-build-authorization-v1.schema.json"
 fail=0
+NIMG="$(bash -c '. scripts/lib/common.sh; matrix_image_labels' | grep -c .)"
+NCHILD=$(( NIMG * 2 ))
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
 ck "the aggregator exists and is executable by bash" "test -f $SCRIPT"
@@ -125,9 +127,9 @@ ck "a complete consistent matrix exits 0" "[ '$RC' = 0 ]"
 ck "...and writes a record" "test -s '$D/out.json'"
 ck "...that validates against the published schema" "validate '$D/out.json'"
 ck "...with verdict PASS" "[ \"\$(jq -r .verdict '$D/out.json')\" = PASS ]"
-ck "...covering all 10 images" "[ \"\$(jq '.children|length' '$D/out.json')\" = 10 ]"
+ck "...covering all $NIMG images" "[ \"\$(jq '.children|length' '$D/out.json')\" = "$NIMG" ]"
 ck "...declaring expected_children explicitly" \
-   "[ \"\$(jq -r .expected_matrix.expected_children '$D/out.json')\" = 10 ]"
+   "[ \"\$(jq -r .expected_matrix.expected_children '$D/out.json')\" = "$NIMG" ]"
 
 # The record must not be able to claim more than it proved.
 ck "the record never authorizes public exposure" \
@@ -137,7 +139,7 @@ ck "the record carries exactly one authorization scope" \
 ck "the record contains no generic 'authorized' flag to misread" \
    "! jq -e 'has(\"authorized\")' '$D/out.json' >/dev/null"
 ck "every child is bound by digest, not by tag" \
-   "[ \"\$(jq '[.children[]|select(.digest_reference|test(\"@sha256:[0-9a-f]{64}\$\"))]|length' '$D/out.json')\" = 10 ]"
+   "[ \"\$(jq '[.children[]|select(.digest_reference|test(\"@sha256:[0-9a-f]{64}\$\"))]|length' '$D/out.json')\" = "$NIMG" ]"
 ck "the frozen database snapshot is recorded once for the run" \
    "[ \"\$(jq -r .trivy_db_snapshot.identity '$D/out.json')\" = 'db@2026-08-05' ]"
 ck "every child names that same snapshot" \
@@ -210,7 +212,7 @@ ck "the record pins the canonical workflow identity" \
 ck "the record carries one frozen build timestamp" \
    "[ \"\$(jq -r .build_created '$D/out.json')\" = '2026-08-06T00:00:00Z' ]"
 ck "every child records an image-manifest media type" \
-   "[ \"\$(jq '[.children[]|select(.manifest_media_type|test(\"manifest\"))]|length' '$D/out.json')\" = 10 ]"
+   "[ \"\$(jq '[.children[]|select(.manifest_media_type|test(\"manifest\"))]|length' '$D/out.json')\" = "$NIMG" ]"
 
 # --- 4c. the schema now ties the verdict to the child gates ----------------
 ck "the schema rejects PASS alongside a failed child gate" \

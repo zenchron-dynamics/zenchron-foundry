@@ -144,7 +144,8 @@ EOF
       bash "$ROOT/scripts/generate-release-manifest.sh" v2026.07.03 --rc rc1 \
         --revision "$R" --created-at 2026-07-03T12:00:00Z ) > "$tmp/m.yaml" 2>/dev/null
   _t "generation succeeds with mock resolvers" "[ $? -eq 0 ]"
-  _t "manifest lists 10 images" '[ "$(yq -r ".images | keys | length" "$tmp/m.yaml")" = 10 ]'
+  _t "manifest lists every matrix image" \
+     '[ "$(yq -r ".images | keys | length" "$tmp/m.yaml")" = "$MATRIX_COUNT" ]'
   _t "manifest revision bound"  '[ "$(yq -r ".revision" "$tmp/m.yaml")" = "$R" ]'
   _t "digests are anchored"     '! yq -r ".images[].digest" "$tmp/m.yaml" | grep -Ev "^sha256:[0-9a-f]{64}$" | grep -q .'
   _t "manifest schema-validates" 'bash "$ROOT/scripts/validate-release-manifest.sh" "$tmp/m.yaml" >/dev/null 2>&1'

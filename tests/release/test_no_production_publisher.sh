@@ -221,7 +221,7 @@ ck "...and both the runtime and OCI checks must pass" \
 ck "the OCI verifier self-test passes" \
    "bash scripts/release/verify-oci-metadata.sh --self-test >/dev/null 2>&1"
 ck "every contract pins its static OCI metadata" \
-   "[ \"\$(grep -l 'oci_static:' contracts/images/*.yaml | wc -l | tr -d ' ')\" = 10 ]"
+   "[ \"\$(grep -l 'oci_static:' contracts/images/*.yaml | wc -l | tr -d ' ')\" = \"\$(bash -c '. scripts/lib/common.sh; echo \$MATRIX_COUNT')\" ]"
 
 # --- the producer validates its own output at run time --------------------
 ck "the workflow validates the record against schema v1" \

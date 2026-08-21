@@ -24,9 +24,12 @@ PY"
 done
 
 # 3. contracts parse and cover the full matrix
-ck "10 image contracts exist" 'test "$(ls contracts/images/*.yaml | wc -l | tr -d " ")" = 10'
+ck "an image contract exists for every matrix image" \
+   'test "$(ls contracts/images/*.yaml | wc -l | tr -d " ")" = "$(bash -c ". scripts/lib/common.sh; echo \$MATRIX_COUNT")"'
 for f in contracts/images/*.yaml; do ck "yaml valid: $f" "yq -e '.' '$f' >/dev/null"; done
-ck "4 extension contracts"    'test "$(ls contracts/php-extensions/*.txt | wc -l | tr -d " ")" = 4'
+ck "an extension contract exists for every declaring image contract" \
+   'test "$(ls contracts/php-extensions/*.txt | wc -l | tr -d " ")" \
+      = "$(grep -h "^extensions_contract:" contracts/images/*.yaml | sort -u | wc -l | tr -d " ")"'
 
 # 4. MATRIX DRIFT GUARD — common.sh is the source of truth; the existing
 #    consumers must not diverge from it. A common.sh that fails to source must
