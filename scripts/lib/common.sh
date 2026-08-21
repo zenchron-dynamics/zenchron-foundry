@@ -48,7 +48,7 @@ require_hex40()   { is_hex40   "${1:-}" || die "revision '${1:-}' is not 40 lowe
 # for PHP families, or "prod" for the versionless edge images. This is the ONE
 # place the matrix is defined; assert-image-matrix.sh, smoke-all.sh, ci.yml and
 # the manifest/promotion tooling all derive from it.
-MATRIX_IMAGES="php-cli:8.3 php-cli:8.4 php-fpm:8.3 php-fpm:8.4 php-worker:8.3 php-worker:8.4 php-frankenphp:8.3 php-frankenphp:8.4 nginx:prod caddy:prod"
+MATRIX_IMAGES="php-cli:8.3 php-cli:8.4 php-cli:8.5 php-fpm:8.3 php-fpm:8.4 php-fpm:8.5 php-worker:8.3 php-worker:8.4 php-worker:8.5 php-frankenphp:8.3 php-frankenphp:8.4 php-frankenphp:8.5 nginx:prod caddy:prod"
 MATRIX_COUNT=10
 
 matrix_images() { printf '%s\n' $MATRIX_IMAGES; }   # one token per line

@@ -28,7 +28,7 @@
 #
 # Scope matching (a finding is governed only if ALL hold):
 #   * advisory id equal (CVE-… or GHSA-…);
-#   * ledger `image` scope covers this image — exact family, the `php-all`
+#   * ledger `image` scope covers this image — exact family, a version-bounded
 #     family group, or `all`;
 #   * if the entry pins `package`, it equals the finding's package;
 #   * if the entry pins `installed_version`, it equals the finding's version;
@@ -170,12 +170,60 @@ for r in results:
 # --- scope ------------------------------------------------------------------
 PHP_FAMILIES = {"php-cli", "php-fpm", "php-worker", "php-frankenphp"}
 
-def in_scope(entry_image, fam):
+# --- VERSION-BOUNDED SELECTORS ----------------------------------------------
+# `php-all` used to mean "every PHP family, any version". That is a MOVING
+# selector: the moment a new PHP version entered MATRIX_IMAGES, every historical
+# php-all risk decision would silently start governing it — decisions made from
+# evidence that never included that version.
+#
+# Selectors touching a PHP family must now name the version cohort they were
+# evidenced on. `php-8.3-8.4` is immutable by construction: adding PHP 8.5 to the
+# matrix cannot widen it, so 8.5 begins UNGOVERNED and must earn its own entries
+# from its own evidence.
+#
+# Bare PHP family selectors (`php-frankenphp`) have the same defect and are
+# refused with a diagnostic naming the cohort form to use.
+PHP_COHORTS = {
+    "php-8.3-8.4": {"8.3", "8.4"},
+    "php-frankenphp-8.3-8.4": {"8.3", "8.4"},
+    "php-cli-8.3-8.4": {"8.3", "8.4"},
+    "php-fpm-8.3-8.4": {"8.3", "8.4"},
+    "php-worker-8.3-8.4": {"8.3", "8.4"},
+}
+
+
+def _cohort_family(sel):
+    """php-frankenphp-8.3-8.4 -> php-frankenphp ; php-8.3-8.4 -> any PHP family."""
+    base = sel.rsplit("-8.3-8.4", 1)[0]
+    return None if base == "php" else base
+
+
+def in_scope(entry_image, fam, ver):
     if entry_image == "all":
+        # `all` must not silently absorb a newly added PHP version either.
+        if fam in PHP_FAMILIES:
+            return ver in {"8.3", "8.4"}
         return True
     if entry_image == "php-all":
-        return fam in PHP_FAMILIES
-    return entry_image == fam
+        die("exception selector 'php-all' is no longer accepted: it is a MOVING "
+            "selector that would silently govern any newly added PHP version. "
+            "Use the version-bounded cohort 'php-8.3-8.4', or an explicit "
+            "affected_images list.")
+    if entry_image in PHP_COHORTS:
+        want = PHP_COHORTS[entry_image]
+        cf = _cohort_family(entry_image)
+        if cf is not None and fam != cf:
+            return False
+        if cf is None and fam not in PHP_FAMILIES:
+            return False
+        return ver in want
+    if entry_image == fam:
+        if fam in PHP_FAMILIES:
+            die("exception selector %r is a bare PHP family selector and is not "
+                "version-bounded: it would silently govern a newly added PHP "
+                "version. Use %r instead." % (entry_image, entry_image + "-8.3-8.4"))
+        return True
+    return False
 
 def _upstream(v):
     """Upstream version from a Debian version: 5.36.0-7+deb12u3 -> (5,36,0).
@@ -250,7 +298,7 @@ def version_binding_holds(e, f):
 def covers(e, f):
     if e.get("cve") != f["id"]:
         return False
-    if not in_scope(e.get("image", ""), family):
+    if not in_scope(e.get("image", ""), family, version):
         return False
     # `package` may be a single binary package or the SET of binary packages
     # built from one source package (util-linux -> libblkid1, libmount1, …).
@@ -455,9 +503,13 @@ PY
 
   # #102: the same entry must NOT cover another image.
   t "caddy exception does not cover nginx"     "! reconcile '$tmp/unfixed.json' nginx >/dev/null 2>&1"
+  _led "${BASE/image: caddy/image: php-8.3-8.4}"
+  t "php-8.3-8.4 covers php-fpm 8.4"           "reconcile '$tmp/unfixed.json' php-fpm 8.4 >/dev/null"
+  t "php-8.3-8.4 does NOT cover caddy"         "! reconcile '$tmp/unfixed.json' caddy prod >/dev/null 2>&1"
+  # The whole point of the cohort: a NEW PHP version is not silently absorbed.
+  t "php-8.3-8.4 does NOT cover php-fpm 8.5"   "! reconcile '$tmp/unfixed.json' php-fpm 8.5 >/dev/null 2>&1"
   _led "${BASE/image: caddy/image: php-all}"
-  t "php-all covers php-fpm"                   "reconcile '$tmp/unfixed.json' php-fpm >/dev/null"
-  t "php-all does NOT cover caddy"             "! reconcile '$tmp/unfixed.json' caddy >/dev/null 2>&1"
+  t "the retired php-all selector is REFUSED"  "! reconcile '$tmp/unfixed.json' php-fpm 8.4 >/dev/null 2>&1"
   _led "${BASE/image: caddy/image: all}"
   t "explicit 'all' scope covers any image"    "reconcile '$tmp/unfixed.json' nginx >/dev/null"
 
