@@ -1,0 +1,3103 @@
+{
+  "schema_version": 1,
+  "record_type": "post-acceptance-evidence",
+  "acceptance": {
+    "verdict": "PASS",
+    "workflow": ".github/workflows/stage-and-authorize.yml",
+    "workflow_run_id": 32395890071,
+    "workflow_run_attempt": 1,
+    "workflow_ref": "zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master",
+    "run_url": "https://github.com/zenchron-dynamics/zenchron-foundry/actions/runs/32395890071",
+    "concluded": "success"
+  },
+  "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+  "scope_note": "This acceptance applies ONLY to source revision 7061caafb3ea09bd5b2342a1daf022151b33f822. It does not authorize any later master commit, and it is not a publication, signing, promotion or release authorization. Any subsequent commit requires its own acceptance run.",
+  "scanner": {
+    "image": "aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500",
+    "flags": [
+      "--skip-db-update",
+      "--skip-java-db-update",
+      "--skip-dirs",
+      "/usr/share/java,/usr/share/maven-repo"
+    ]
+  },
+  "frozen_vulnerability_database": {
+    "identity": "v2+updated:2026-08-20T13:14:11.601761173Z+next:2026-08-21T13:14:11.601760892Z",
+    "frozen": true
+  },
+  "matrix": {
+    "image_definitions": 10,
+    "expected_children": 20,
+    "observed_children": 20,
+    "platforms": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "platform_split": {
+      "linux/amd64": 10,
+      "linux/arm64": 10
+    }
+  },
+  "execution_disclosure": {
+    "native_children": 10,
+    "qemu_children": 10,
+    "statement": "Ten linux/arm64 children executed under QEMU emulation on X64 runners. QEMU is explicitly acceptable for #139 multi-architecture build/scan/reconciliation evidence. It is NOT native-arm64 runtime evidence and does not satisfy #111, which remains open."
+  },
+  "timing": {
+    "native_total_seconds": 2543,
+    "native_avg_seconds": 254.3,
+    "qemu_total_seconds": 23508,
+    "qemu_avg_seconds": 2350.8,
+    "in_job_child_total_hours": 7.24,
+    "queue_seconds": null,
+    "queue_note": "not observable from inside a job; never recorded as zero"
+  },
+  "authorization_record": {
+    "authorization_scope": "immutable-rc-manifest-input",
+    "public_exposure_authorized": false,
+    "generated_at": "2026-08-21T00:33:10Z",
+    "build_created": "2026-08-20T17:06:31Z"
+  },
+  "issue_linkage": {
+    "closes": [
+      139
+    ],
+    "does_not_close": {
+      "111": "QEMU is not native-arm64 runtime evidence"
+    },
+    "governance_applied": [
+      "CVE-2026-14456",
+      "CVE-2026-53613"
+    ]
+  },
+  "children": [
+    {
+      "child_key": "caddy/prod/linux/amd64",
+      "image_label": "caddy/prod",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd8",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd8",
+      "config_architecture": "amd64",
+      "staging_tag": "caddy-prod-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "2201a41689aaba36e375d20518535532d432730e059fcf231c363307184c71cc",
+      "child_wall_seconds": 93,
+      "phase_timing": {
+        "child_wall_seconds": 93,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 71,
+        "phases": {
+          "build_and_push": 20,
+          "db_acquire": 27,
+          "digest_resolve": 4,
+          "metadata_contract": 1,
+          "package_inventory": 0,
+          "pull_by_digest": 5,
+          "reconciliation": 0,
+          "smoke": 9,
+          "vulnerability_scan": 5
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "db_acquire",
+        "slowest_phase_seconds": 27,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 22,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 178,
+        "sha256": "bdfa46b0607e01903cfd629718a317c655609ca02ca110409449fc60786db3a4"
+      },
+      "severity_counts": {
+        "HIGH": 19
+      },
+      "governed_findings": {
+        "CVE-2026-27145": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-33630": [
+          "c-ares@1.34.6-r0"
+        ],
+        "CVE-2026-33818": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-39821": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-39822": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-42504": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-46600": [
+          "golang.org/x/net@v0.55.0",
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56852": [
+          "golang.org/x/text@v0.37.0"
+        ],
+        "CVE-2026-56853": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56858": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56859": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56860": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56862": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-5773": [
+          "curl@8.19.0-r0",
+          "libcurl@8.19.0-r0"
+        ],
+        "CVE-2026-6276": [
+          "curl@8.19.0-r0",
+          "libcurl@8.19.0-r0"
+        ],
+        "GHSA-hrxh-6v49-42gf": [
+          "google.golang.org/grpc@v1.81.0"
+        ]
+      }
+    },
+    {
+      "child_key": "caddy/prod/linux/arm64",
+      "image_label": "caddy/prod",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:0dd4b80108f81fcf4dca4c6c98924b7fef913a186c9f92231579d442cd2b9858",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:0dd4b80108f81fcf4dca4c6c98924b7fef913a186c9f92231579d442cd2b9858",
+      "config_architecture": "arm64",
+      "staging_tag": "caddy-prod-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "f69c2093ec648e6a5181f395244ff333a639afe99043e57c8a8ade019ffd05ea",
+      "child_wall_seconds": 99,
+      "phase_timing": {
+        "child_wall_seconds": 99,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 82,
+        "phases": {
+          "build_and_push": 22,
+          "db_acquire": 27,
+          "digest_resolve": 3,
+          "metadata_contract": 1,
+          "package_inventory": 0,
+          "pull_by_digest": 5,
+          "reconciliation": 1,
+          "smoke": 17,
+          "vulnerability_scan": 6
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "db_acquire",
+        "slowest_phase_seconds": 27,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 17,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 178,
+        "sha256": "9efd902a06c4e296b3027181d7f4dff56cdf7350de1abfb1eab0e8133f65fb35"
+      },
+      "severity_counts": {
+        "HIGH": 19
+      },
+      "governed_findings": {
+        "CVE-2026-27145": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-33630": [
+          "c-ares@1.34.6-r0"
+        ],
+        "CVE-2026-33818": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-39821": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-39822": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-42504": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-46600": [
+          "golang.org/x/net@v0.55.0",
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56852": [
+          "golang.org/x/text@v0.37.0"
+        ],
+        "CVE-2026-56853": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56858": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56859": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56860": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-56862": [
+          "stdlib@v1.26.3"
+        ],
+        "CVE-2026-5773": [
+          "curl@8.19.0-r0",
+          "libcurl@8.19.0-r0"
+        ],
+        "CVE-2026-6276": [
+          "curl@8.19.0-r0",
+          "libcurl@8.19.0-r0"
+        ],
+        "GHSA-hrxh-6v49-42gf": [
+          "google.golang.org/grpc@v1.81.0"
+        ]
+      }
+    },
+    {
+      "child_key": "nginx/prod/linux/amd64",
+      "image_label": "nginx/prod",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:bf8e662ddcfc986b9a859217adf7e826e3f1d186914f8bf3a36cf9c5eee82828",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:bf8e662ddcfc986b9a859217adf7e826e3f1d186914f8bf3a36cf9c5eee82828",
+      "config_architecture": "amd64",
+      "staging_tag": "nginx-prod-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "510ed91ab194ade58e910c41c7be9c0bf1b7e99af522e79421e71cd1df4e3851",
+      "child_wall_seconds": 141,
+      "phase_timing": {
+        "child_wall_seconds": 141,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 120,
+        "phases": {
+          "build_and_push": 38,
+          "db_acquire": 46,
+          "digest_resolve": 4,
+          "metadata_contract": 2,
+          "package_inventory": 0,
+          "pull_by_digest": 7,
+          "reconciliation": 1,
+          "smoke": 15,
+          "vulnerability_scan": 7
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "db_acquire",
+        "slowest_phase_seconds": 46,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 21,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 94,
+        "sha256": "a2d470ba074cdcabd02f3b6d5043072cbc13ffe16822d0af72a8a45f14e71f37"
+      },
+      "severity_counts": {
+        "HIGH": 27,
+        "CRITICAL": 5
+      },
+      "governed_findings": {
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "nginx/prod/linux/arm64",
+      "image_label": "nginx/prod",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:2a0775971ea58491207e6287ce8897133e22bab2b36053bf515d2e55fbfe01d2",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:2a0775971ea58491207e6287ce8897133e22bab2b36053bf515d2e55fbfe01d2",
+      "config_architecture": "arm64",
+      "staging_tag": "nginx-prod-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "e4ae4381d1b68fe6838aaa7345278a57c38daf236f92c20b274513e6054e3591",
+      "child_wall_seconds": 192,
+      "phase_timing": {
+        "child_wall_seconds": 192,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 170,
+        "phases": {
+          "build_and_push": 100,
+          "db_acquire": 30,
+          "digest_resolve": 3,
+          "metadata_contract": 1,
+          "package_inventory": 0,
+          "pull_by_digest": 7,
+          "reconciliation": 0,
+          "smoke": 20,
+          "vulnerability_scan": 9
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 100,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 22,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 94,
+        "sha256": "1a535e2938010f0e5f6d6e8818bb7c00a99a426eb22738705e15ca899331c566"
+      },
+      "severity_counts": {
+        "HIGH": 27,
+        "CRITICAL": 5
+      },
+      "governed_findings": {
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-cli/8.3/linux/amd64",
+      "image_label": "php-cli/8.3",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:9a598e747d4710492a0be60dfff422cc08db5d193e0980cdf235e53736584988",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:9a598e747d4710492a0be60dfff422cc08db5d193e0980cdf235e53736584988",
+      "config_architecture": "amd64",
+      "staging_tag": "php-cli-8.3-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "1581ee26557124579e4bf00a6a84b427748fd9af9da567f9e7dab7868e620464",
+      "child_wall_seconds": 274,
+      "phase_timing": {
+        "child_wall_seconds": 274,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 252,
+        "phases": {
+          "build_and_push": 181,
+          "db_acquire": 27,
+          "digest_resolve": 3,
+          "metadata_contract": 3,
+          "package_inventory": 0,
+          "pull_by_digest": 12,
+          "reconciliation": 0,
+          "smoke": 15,
+          "vulnerability_scan": 11
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 181,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 22,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 127,
+        "sha256": "261ecb48b76d39599dadc668d8e31f0f6cfb6c23c0e648e99b85c9e77daf846a"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-cli/8.3/linux/arm64",
+      "image_label": "php-cli/8.3",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:5e0f95bdd570c181e21d0d6ef837d27de9658f92aecab40c2d4dc548a3ca24dd",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:5e0f95bdd570c181e21d0d6ef837d27de9658f92aecab40c2d4dc548a3ca24dd",
+      "config_architecture": "arm64",
+      "staging_tag": "php-cli-8.3-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "8d12aeacf04d96b271f164be1bc32f2cc2f357aa48266d687caa438e2d08e2cc",
+      "child_wall_seconds": 3187,
+      "phase_timing": {
+        "child_wall_seconds": 3187,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 3167,
+        "phases": {
+          "build_and_push": 3071,
+          "db_acquire": 49,
+          "digest_resolve": 4,
+          "metadata_contract": 3,
+          "package_inventory": 0,
+          "pull_by_digest": 12,
+          "reconciliation": 0,
+          "smoke": 16,
+          "vulnerability_scan": 12
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 3071,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 20,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 127,
+        "sha256": "8f78ae0bdf0679169eda331e3195f6c2bae76dcd5db65798d6004f4fa0734996"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-cli/8.4/linux/amd64",
+      "image_label": "php-cli/8.4",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:124887dda8667be5a26711c675af7b466fd98c4a4a63d2fb93fb06053cb75d23",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:124887dda8667be5a26711c675af7b466fd98c4a4a63d2fb93fb06053cb75d23",
+      "config_architecture": "amd64",
+      "staging_tag": "php-cli-8.4-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "079b078122efae58bd24ecc44fe6e3c7c19ca038f409dc50f921b980639e2390",
+      "child_wall_seconds": 309,
+      "phase_timing": {
+        "child_wall_seconds": 309,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 288,
+        "phases": {
+          "build_and_push": 183,
+          "db_acquire": 54,
+          "digest_resolve": 4,
+          "metadata_contract": 2,
+          "package_inventory": 0,
+          "pull_by_digest": 11,
+          "reconciliation": 1,
+          "smoke": 20,
+          "vulnerability_scan": 13
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 183,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 21,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 127,
+        "sha256": "17980ce9765320c61200e60a1ce1ca4358b4dce7dc4e19771f2166aa83e0366a"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-cli/8.4/linux/arm64",
+      "image_label": "php-cli/8.4",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:6e885b182b8082fa8a76bcc4d465094caa3725be5acf3216b3dc88e590222a76",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:6e885b182b8082fa8a76bcc4d465094caa3725be5acf3216b3dc88e590222a76",
+      "config_architecture": "arm64",
+      "staging_tag": "php-cli-8.4-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "86f255da82645be0e45e9c4cbb74f0e6734e91c4408c01cc9db67848dfde056d",
+      "child_wall_seconds": 2982,
+      "phase_timing": {
+        "child_wall_seconds": 2982,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 2964,
+        "phases": {
+          "build_and_push": 2867,
+          "db_acquire": 43,
+          "digest_resolve": 4,
+          "metadata_contract": 3,
+          "package_inventory": 0,
+          "pull_by_digest": 12,
+          "reconciliation": 0,
+          "smoke": 23,
+          "vulnerability_scan": 12
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 2867,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 18,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 127,
+        "sha256": "1c2eebb614994615c41c66d5b3233eb7c0c628b009b67f61b47fa075e15077de"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-fpm/8.3/linux/amd64",
+      "image_label": "php-fpm/8.3",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:ca9acdf0adc5179d80d712cedc141d810bf719e8db692c4c527557ba50b89d46",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:ca9acdf0adc5179d80d712cedc141d810bf719e8db692c4c527557ba50b89d46",
+      "config_architecture": "amd64",
+      "staging_tag": "php-fpm-8.3-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "92dac5fa3df60a37bbd0531be3cb94b9637baacf9b887faa40e59488cc5cf0fa",
+      "child_wall_seconds": 292,
+      "phase_timing": {
+        "child_wall_seconds": 292,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 272,
+        "phases": {
+          "build_and_push": 177,
+          "db_acquire": 47,
+          "digest_resolve": 3,
+          "metadata_contract": 3,
+          "package_inventory": 0,
+          "pull_by_digest": 15,
+          "reconciliation": 0,
+          "smoke": 15,
+          "vulnerability_scan": 12
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 177,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 20,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 127,
+        "sha256": "791f7e4f261cc60d4eb1728edb08152a50c2785eb6e37203fcdcdb68c82a3b1a"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-fpm/8.3/linux/arm64",
+      "image_label": "php-fpm/8.3",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:bea8ee4d6033b56ad3bd8621284e4d1298ca5b477469423ad02934bade02cf0b",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:bea8ee4d6033b56ad3bd8621284e4d1298ca5b477469423ad02934bade02cf0b",
+      "config_architecture": "arm64",
+      "staging_tag": "php-fpm-8.3-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "b810fe92f8cc07f5a0f2798f7dbbb0aed5ad88c0505b689638821cc143a5a8a3",
+      "child_wall_seconds": 3085,
+      "phase_timing": {
+        "child_wall_seconds": 3085,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 3064,
+        "phases": {
+          "build_and_push": 2974,
+          "db_acquire": 40,
+          "digest_resolve": 4,
+          "metadata_contract": 3,
+          "package_inventory": 0,
+          "pull_by_digest": 6,
+          "reconciliation": 0,
+          "smoke": 25,
+          "vulnerability_scan": 12
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 2974,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 21,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 127,
+        "sha256": "12fd56405d103a8636ddf118bf67c973a43f2579b7b2f327e2c658d77d882722"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-fpm/8.4/linux/amd64",
+      "image_label": "php-fpm/8.4",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:8eab0f293935f717f07a33906aa4ea060acfcf75f21395219d5208adfda0ff6b",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:8eab0f293935f717f07a33906aa4ea060acfcf75f21395219d5208adfda0ff6b",
+      "config_architecture": "amd64",
+      "staging_tag": "php-fpm-8.4-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "431a1614e5a84ff52fc144625d262ca92a36e077c886dc6e973f63459c21d256",
+      "child_wall_seconds": 277,
+      "phase_timing": {
+        "child_wall_seconds": 277,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 257,
+        "phases": {
+          "build_and_push": 176,
+          "db_acquire": 29,
+          "digest_resolve": 4,
+          "metadata_contract": 3,
+          "package_inventory": 0,
+          "pull_by_digest": 12,
+          "reconciliation": 0,
+          "smoke": 20,
+          "vulnerability_scan": 13
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 176,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 20,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 127,
+        "sha256": "1ba87fda54f31199ca5ff0e8b024d8c55eece632d885d25bf88572e56eee17df"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-fpm/8.4/linux/arm64",
+      "image_label": "php-fpm/8.4",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:ae52345c2851b896f981f67f451f18cb14b409a9c0f71df2546be78561e54ec8",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:ae52345c2851b896f981f67f451f18cb14b409a9c0f71df2546be78561e54ec8",
+      "config_architecture": "arm64",
+      "staging_tag": "php-fpm-8.4-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "a0862823d6665a6a33e9d89729851a0310183bf1ee22c71d2c0643dbd2ef795a",
+      "child_wall_seconds": 2823,
+      "phase_timing": {
+        "child_wall_seconds": 2823,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 2803,
+        "phases": {
+          "build_and_push": 2715,
+          "db_acquire": 32,
+          "digest_resolve": 4,
+          "metadata_contract": 2,
+          "package_inventory": 0,
+          "pull_by_digest": 14,
+          "reconciliation": 0,
+          "smoke": 24,
+          "vulnerability_scan": 12
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 2715,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 20,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 127,
+        "sha256": "08318bb592b76d3a109c78981b79a08148e62354c2ffcc4e4c8fb5cce36fabf7"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-frankenphp/8.3/linux/amd64",
+      "image_label": "php-frankenphp/8.3",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:54992c07f9dc27e5bff59bd413f19f2416014537f3dc9f782d5a90833dd6edcb",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:54992c07f9dc27e5bff59bd413f19f2416014537f3dc9f782d5a90833dd6edcb",
+      "config_architecture": "amd64",
+      "staging_tag": "php-frankenphp-8.3-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "b044236c16910a9974ea2fa2363d848cf5c0c35598043379145b6e7f37c08ad3",
+      "child_wall_seconds": 286,
+      "phase_timing": {
+        "child_wall_seconds": 286,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 267,
+        "phases": {
+          "build_and_push": 169,
+          "db_acquire": 40,
+          "digest_resolve": 4,
+          "metadata_contract": 4,
+          "package_inventory": 0,
+          "pull_by_digest": 19,
+          "reconciliation": 1,
+          "smoke": 16,
+          "vulnerability_scan": 14
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 169,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 19,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 364,
+        "sha256": "ae6464e5f1def167fa75980b2fabda1a38fc0c7c4a1903938f19ba9637745776"
+      },
+      "severity_counts": {
+        "HIGH": 58,
+        "CRITICAL": 21
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-39616": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2023-6879": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-56208": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56209": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56210": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56211": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-57432": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "GHSA-hrxh-6v49-42gf": [
+          "google.golang.org/grpc@v1.81.1"
+        ],
+        "GHSA-r277-6w6q-xmqw": [
+          "github.com/getkin/kin-openapi@v0.140.0"
+        ]
+      }
+    },
+    {
+      "child_key": "php-frankenphp/8.3/linux/arm64",
+      "image_label": "php-frankenphp/8.3",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:f42f06b143c7ff154e0c055076864871b9962ca6a7eec540eab6454e7b65f43b",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:f42f06b143c7ff154e0c055076864871b9962ca6a7eec540eab6454e7b65f43b",
+      "config_architecture": "arm64",
+      "staging_tag": "php-frankenphp-8.3-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "2a5134caa0b26e9cc62ad1aa68c8bfbc2aef51028ce729f90533b6a93bee1127",
+      "child_wall_seconds": 2425,
+      "phase_timing": {
+        "child_wall_seconds": 2425,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 2405,
+        "phases": {
+          "build_and_push": 2324,
+          "db_acquire": 29,
+          "digest_resolve": 3,
+          "metadata_contract": 4,
+          "package_inventory": 0,
+          "pull_by_digest": 18,
+          "reconciliation": 1,
+          "smoke": 12,
+          "vulnerability_scan": 14
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 2324,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 20,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 364,
+        "sha256": "88885dc0bb15dce88b1b2a36107608e828d10bb8c454f6ac4b8ffe51ded09bb4"
+      },
+      "severity_counts": {
+        "HIGH": 58,
+        "CRITICAL": 21
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-39616": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2023-6879": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-56208": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56209": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56210": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56211": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-57432": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "GHSA-hrxh-6v49-42gf": [
+          "google.golang.org/grpc@v1.81.1"
+        ],
+        "GHSA-r277-6w6q-xmqw": [
+          "github.com/getkin/kin-openapi@v0.140.0"
+        ]
+      }
+    },
+    {
+      "child_key": "php-frankenphp/8.4/linux/amd64",
+      "image_label": "php-frankenphp/8.4",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:abbb0bec12d80d26878811b1a487dd5c1962103a94d043fd313fa7b99639159f",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:abbb0bec12d80d26878811b1a487dd5c1962103a94d043fd313fa7b99639159f",
+      "config_architecture": "amd64",
+      "staging_tag": "php-frankenphp-8.4-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "6a06cacc4cd3c13c13328e3df7fc0244b2083a99c276141e8efbeea5e513dd1a",
+      "child_wall_seconds": 299,
+      "phase_timing": {
+        "child_wall_seconds": 299,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 280,
+        "phases": {
+          "build_and_push": 176,
+          "db_acquire": 46,
+          "digest_resolve": 4,
+          "metadata_contract": 5,
+          "package_inventory": 0,
+          "pull_by_digest": 16,
+          "reconciliation": 0,
+          "smoke": 18,
+          "vulnerability_scan": 15
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 176,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 19,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 364,
+        "sha256": "506c76ac1622f4d51b4381fe9b7c125c49d7fb92e77bf07cf5da906cfa367eca"
+      },
+      "severity_counts": {
+        "HIGH": 58,
+        "CRITICAL": 21
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-39616": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2023-6879": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-56208": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56209": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56210": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56211": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-57432": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "GHSA-hrxh-6v49-42gf": [
+          "google.golang.org/grpc@v1.81.1"
+        ],
+        "GHSA-r277-6w6q-xmqw": [
+          "github.com/getkin/kin-openapi@v0.140.0"
+        ]
+      }
+    },
+    {
+      "child_key": "php-frankenphp/8.4/linux/arm64",
+      "image_label": "php-frankenphp/8.4",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:2daeb138033eb251a9a83fc4f0eb01a76aacebb6aab3c11d6ca1c08036225603",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:2daeb138033eb251a9a83fc4f0eb01a76aacebb6aab3c11d6ca1c08036225603",
+      "config_architecture": "arm64",
+      "staging_tag": "php-frankenphp-8.4-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "5aee4256be9190033b2aced04474c394355e960bf0002f79527987e783d4f8f4",
+      "child_wall_seconds": 2548,
+      "phase_timing": {
+        "child_wall_seconds": 2548,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 2527,
+        "phases": {
+          "build_and_push": 2418,
+          "db_acquire": 48,
+          "digest_resolve": 4,
+          "metadata_contract": 4,
+          "package_inventory": 0,
+          "pull_by_digest": 17,
+          "reconciliation": 1,
+          "smoke": 20,
+          "vulnerability_scan": 15
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 2418,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 21,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 364,
+        "sha256": "80b5cc2cd62101d0e4beaef6f73ca7bee479fc213c9efb8a679923c3df965234"
+      },
+      "severity_counts": {
+        "HIGH": 58,
+        "CRITICAL": 21
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-39616": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2023-6879": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-56208": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56209": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56210": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-56211": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "CVE-2026-57432": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "GHSA-hrxh-6v49-42gf": [
+          "google.golang.org/grpc@v1.81.1"
+        ],
+        "GHSA-r277-6w6q-xmqw": [
+          "github.com/getkin/kin-openapi@v0.140.0"
+        ]
+      }
+    },
+    {
+      "child_key": "php-worker/8.3/linux/amd64",
+      "image_label": "php-worker/8.3",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:d35023c581faa639999878e3e48c8a187ed66611cac80bda5a97bdcc738037ba",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:d35023c581faa639999878e3e48c8a187ed66611cac80bda5a97bdcc738037ba",
+      "config_architecture": "amd64",
+      "staging_tag": "php-worker-8.3-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "a4c8d2564a19c1d71f460dae4c315bbc2580e88394f0ca6818b48dd0cb242215",
+      "child_wall_seconds": 295,
+      "phase_timing": {
+        "child_wall_seconds": 295,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 276,
+        "phases": {
+          "build_and_push": 185,
+          "db_acquire": 47,
+          "digest_resolve": 3,
+          "metadata_contract": 2,
+          "package_inventory": 0,
+          "pull_by_digest": 4,
+          "reconciliation": 0,
+          "smoke": 23,
+          "vulnerability_scan": 12
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 185,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 19,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 128,
+        "sha256": "85fac11a79f86aa8d214c41b5b754fe65f81f74025758fadf3c052ea06d085d3"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-worker/8.3/linux/arm64",
+      "image_label": "php-worker/8.3",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:5188a56952b0d5c610255bd5945aef14ab39d168b116738109a2048516d9b934",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:5188a56952b0d5c610255bd5945aef14ab39d168b116738109a2048516d9b934",
+      "config_architecture": "arm64",
+      "staging_tag": "php-worker-8.3-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "1000d8c4f5bf7e4a90aa519b1064effaa2b38b4ebea7279afb6d12d20039c719",
+      "child_wall_seconds": 3175,
+      "phase_timing": {
+        "child_wall_seconds": 3175,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 3155,
+        "phases": {
+          "build_and_push": 3070,
+          "db_acquire": 34,
+          "digest_resolve": 4,
+          "metadata_contract": 3,
+          "package_inventory": 0,
+          "pull_by_digest": 5,
+          "reconciliation": 1,
+          "smoke": 26,
+          "vulnerability_scan": 12
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 3070,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 20,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 128,
+        "sha256": "f1c9a8739178d4adef2ce39d7b4ad6eb449332b148425ef0bc322cd6ecff3a30"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-worker/8.4/linux/amd64",
+      "image_label": "php-worker/8.4",
+      "platform": "linux/amd64",
+      "manifest_digest": "sha256:7627fae4d7b144c94e95e4863deb9a99195bbfb46d840673e75b4b328c1b0d64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:7627fae4d7b144c94e95e4863deb9a99195bbfb46d840673e75b4b328c1b0d64",
+      "config_architecture": "amd64",
+      "staging_tag": "php-worker-8.4-r32395890071-a1-s7061caa-amd64",
+      "execution_mode": "native",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "897766f558739ecc6b2e67989e29f32a2dff4033a193e9f30b72698a9466ac45",
+      "child_wall_seconds": 277,
+      "phase_timing": {
+        "child_wall_seconds": 277,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 258,
+        "phases": {
+          "build_and_push": 185,
+          "db_acquire": 27,
+          "digest_resolve": 3,
+          "metadata_contract": 3,
+          "package_inventory": 0,
+          "pull_by_digest": 4,
+          "reconciliation": 1,
+          "smoke": 23,
+          "vulnerability_scan": 12
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 185,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 19,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 128,
+        "sha256": "108ca3d24892b43254bd8ac79fdc96ee77c8d8668ba60d2b33dbf07b128e4d70"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    },
+    {
+      "child_key": "php-worker/8.4/linux/arm64",
+      "image_label": "php-worker/8.4",
+      "platform": "linux/arm64",
+      "manifest_digest": "sha256:33aaa754c4c60eebce844411e5eb334cee53d07045ba564a04058081d5ea39db",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:33aaa754c4c60eebce844411e5eb334cee53d07045ba564a04058081d5ea39db",
+      "config_architecture": "arm64",
+      "staging_tag": "php-worker-8.4-r32395890071-a1-s7061caa-arm64",
+      "execution_mode": "qemu",
+      "host_architecture": "amd64",
+      "runner_name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+      "smoke_test": "PASS",
+      "metadata_contract": "PASS",
+      "scan": "PASS",
+      "reconciliation": "PASS",
+      "evidence_sha256": "04535b326c3e9ee41af97f78ca6bdfcce28c15c1249d170ad83c0b8e805ea020",
+      "child_wall_seconds": 2992,
+      "phase_timing": {
+        "child_wall_seconds": 2992,
+        "incomplete_phases": [
+          "evidence_emit"
+        ],
+        "measured_phase_seconds": 2970,
+        "phases": {
+          "build_and_push": 2895,
+          "db_acquire": 25,
+          "digest_resolve": 3,
+          "metadata_contract": 3,
+          "package_inventory": 0,
+          "pull_by_digest": 4,
+          "reconciliation": 0,
+          "smoke": 27,
+          "vulnerability_scan": 13
+        },
+        "queue_seconds": null,
+        "queue_seconds_note": "unavailable: not observable from inside the job",
+        "slowest_phase": "build_and_push",
+        "slowest_phase_seconds": 2895,
+        "timing_complete": false,
+        "uninstrumented_overhead_seconds": 22,
+        "timing_available": true
+      },
+      "package_inventory": {
+        "package_count": 128,
+        "sha256": "ff0d3dfe977e3d69ac14c7017bee882dcc38df55a7269b9aae7e80b0ed9e0b7a"
+      },
+      "severity_counts": {
+        "HIGH": 40,
+        "CRITICAL": 7
+      },
+      "governed_findings": {
+        "CVE-2023-2953": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "CVE-2023-45853": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "CVE-2025-69720": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "CVE-2025-7458": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "CVE-2026-12064": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-13221": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-14456": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "CVE-2026-41992": [
+          "gzip@1.12-1"
+        ],
+        "CVE-2026-42496": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-42497": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-48962": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-53613": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-53615": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "CVE-2026-54369": [
+          "libacl1@2.3.1-3"
+        ],
+        "CVE-2026-57432": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-57433": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-58050": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-6276": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-6653": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "CVE-2026-7598": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "CVE-2026-8286": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8376": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "CVE-2026-8458": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-8927": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "CVE-2026-9538": [
+          "perl-base@5.36.0-7+deb12u3"
+        ]
+      }
+    }
+  ]
+}

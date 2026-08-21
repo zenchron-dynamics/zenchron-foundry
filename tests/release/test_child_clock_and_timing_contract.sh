@@ -198,5 +198,88 @@ ck "...and the missing-clock error IS visible in the job log" \
 ck "...and the timer's own refusal diagnostic reaches the log too" \
    "grep -qiE 'exceed|wall|REFUSE' '$W2/emit.log'"
 
+# =============================================================================
+# evidence_emit: the unreachable-end phase (fixed 2026-08-21)
+# -----------------------------------------------------------------------------
+# `phase start evidence_emit` ran before the emit step and `phase end
+# evidence_emit` ran after it — but the emit step is what SERIALIZES phases.json,
+# so at serialization time the phase always had a start and no end. All twenty
+# children in run 32395890071 reported timing_complete:false: a metric that could
+# not succeed. The end existed; it was simply always too late.
+#
+# Closing it early was rejected — that closes a phase before its work happens.
+# The instrumentation is removed and its cost lands in
+# uninstrumented_overhead_seconds.
+# =============================================================================
+ck "evidence_emit is no longer an instrumented phase" \
+   "! grep -qE 'phase-timer\.sh (start|end) evidence_emit' $WF"
+ck "...and the reason is recorded beside the emit step" \
+   "grep -q 'evidence_emit is deliberately NOT an instrumented phase' $WF"
+
+# EVERY instrumented phase must have a start AND an end that happens BEFORE the
+# record is serialized. This is the general form of the defect, not a spot fix.
+python3 - "$WF" <<'PY2'
+import re, sys
+s = open(sys.argv[1]).read()
+emit_at = s.index('phase-timer.sh emit')
+starts = {m.group(1): m.start() for m in re.finditer(r'phase-timer\.sh start (\w+)', s)}
+ends   = {m.group(1): m.start() for m in re.finditer(r'phase-timer\.sh end (\w+)', s)}
+assert starts, "no instrumented phases found — the search is vacuous"
+bad = [n for n, p in starts.items() if n not in ends or ends[n] > emit_at]
+assert not bad, "phases whose end is unreachable before serialization: %r" % bad
+print("ok   - all %d instrumented phases close before the record is serialized" % len(starts))
+orphan = [n for n in ends if n not in starts]
+assert not orphan, "phase ends with no start: %r" % orphan
+print("ok   - no phase end exists without a matching start")
+PY2
+[ $? -eq 0 ] || fail=1
+
+# --- timing_complete must now be ACHIEVABLE (it never was before) ----------
+printf 'db_acquire\tstart\t1000\ndb_acquire\tend\t1030\nsmoke\tstart\t1030\nsmoke\tend\t1040\n' > "$T/complete.tsv"
+OUTC="$(emit "$T/complete.tsv" 300)"; rcc=$?
+ck "a fully-closed phase log emits successfully" "[ $rcc -eq 0 ]"
+ck "...and reports timing_complete=TRUE (impossible before this fix)" \
+   "[ \"\$(jq -r .timing_complete <<<\"\$OUTC\")\" = true ]"
+ck "...with no incomplete phases" \
+   "[ \"\$(jq -r '.incomplete_phases|length' <<<\"\$OUTC\")\" -eq 0 ]"
+ck "...and overhead stays nonnegative and explicit (300 - 40 = 260)" \
+   "[ \"\$(jq -r .uninstrumented_overhead_seconds <<<\"\$OUTC\")\" -eq 260 ]"
+
+# --- SABOTAGE: reintroduce the recursive phase ------------------------------
+SABWF="$T/sabotaged-workflow.yml"
+sed 's|      # evidence_emit is deliberately NOT an instrumented phase.|      - name: phase start evidence_emit\n        run: bash scripts/ci/phase-timer.sh start evidence_emit\n      # evidence_emit is deliberately NOT an instrumented phase.|' \
+    "$WF" > "$SABWF"
+ck "SABOTAGE fixture really reintroduced the start" \
+   "grep -q 'phase-timer.sh start evidence_emit' '$SABWF'"
+python3 - "$SABWF" > "$T/sab.out" 2>&1 <<'PY2'
+import re, sys
+s = open(sys.argv[1]).read()
+emit_at = s.index('phase-timer.sh emit')
+starts = {m.group(1): m.start() for m in re.finditer(r'phase-timer\.sh start (\w+)', s)}
+ends   = {m.group(1): m.start() for m in re.finditer(r'phase-timer\.sh end (\w+)', s)}
+bad = [n for n, p in starts.items() if n not in ends or ends[n] > emit_at]
+assert not bad, "unreachable-end phases: %r" % bad
+PY2
+ck "SABOTAGE: the audit REJECTS a reintroduced evidence_emit phase" \
+   "grep -q 'unreachable-end phases' '$T/sab.out'"
+ck "...naming evidence_emit specifically, not a generic failure" \
+   "grep -q 'evidence_emit' '$T/sab.out'"
+
+# --- historical compatibility ----------------------------------------------
+# Records from run 32395890071 carry timing_complete:false and incomplete_phases:
+# ["evidence_emit"]. They must still validate against the schema.
+ck "historical records with incomplete_phases remain schema-compatible" \
+   "python3 -c \"
+import json,glob,jsonschema
+s=json.load(open('schemas/post-build-authorization-v1.schema.json'))
+c=s['\\\$defs']['child']; c['\\\$schema']='https://json-schema.org/draft/2020-12/schema'
+fs=glob.glob('docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json')
+assert fs, 'no historical record found — check is vacuous'
+d=json.load(open(fs[0]))
+n=sum(1 for ch in d['children'] if ch['phase_timing'].get('timing_complete') is False)
+assert n==20, n
+print('  (20 historical records carry timing_complete:false and remain readable)')
+\""
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_child_clock_and_timing_contract: PASS" || echo "test_child_clock_and_timing_contract: FAIL"
 exit $fail
