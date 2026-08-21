@@ -195,12 +195,35 @@ assert not bad, 'past support_ends but still offered: %r' % bad\""
 # Comments are stripped: build-acceptance-matrix.sh documents the OLD 10x2=20
 # arithmetic in prose, and a check that matches its own explanatory comment is
 # not a check.
-offenders="$(grep -rnE 'expected_children.*=.*20|images.*==.*10|-eq 20\b|grep -c \.\)\" = (10|20)\b' \
-             scripts/ .github/workflows/ 2>/dev/null \
+#
+# THIS PATTERN LIST IS THE PRODUCT OF A FAILURE. Its first version matched three
+# shapes and missed ELEVEN real hardcoded assumptions that PHP 8.5 then broke in
+# CI one at a time: the release-manifest schema, the manifest generator, the
+# promotion fixtures, MATRIX_COUNT, assert-image-matrix, per-image runtime
+# contract counts, extension contract counts, and five test suites. Every miss
+# was a literal shaped slightly differently from the ones I had imagined.
+#
+# So it now matches the SHAPES, not the specific numbers: any comparison of a
+# counted thing against a bare integer in matrix-adjacent code.
+offenders="$(grep -rnE 'expected_children.*=.*[0-9]+|wc -l[^|]*\)\" = [0-9]+|-eq (10|14|20|28)\b|keys \| length\" \) = [0-9]+|for v in \("8\.3","8\.4"\)' \
+             scripts/ .github/workflows/ contracts/ 2>/dev/null \
            | grep -vE 'test_|\.md:' \
-           | grep -vE ':[0-9]+: *#' || true)"
-ck "no script or workflow hardcodes a 10-image / 20-child matrix" \
+           | grep -vE ':[0-9]+: *#' \
+           | grep -vE 'MATRIX_COUNT|NIMG|NCHILD' || true)"
+ck "no script or workflow compares a matrix-derived count to a bare literal" \
    "[ -z \"\$offenders\" ] || { printf 'offenders:\n%s\n' \"\$offenders\"; false; }"
+
+# The two INTENTIONAL tripwires are exempt and named, so nobody deletes them
+# thinking they are the drift this check hunts.
+ck "the two deliberate drift tripwires still exist and agree with the matrix" \
+   "grep -q '^MATRIX_COUNT=' scripts/lib/common.sh &&
+    grep -q 'INTENTIONAL independent count assertion' scripts/assert-image-matrix.sh &&
+    [ \"\$(bash -c '. scripts/lib/common.sh; echo \$MATRIX_COUNT')\" -eq \"\$(bash -c '. scripts/lib/common.sh; matrix_image_labels' | grep -c .)\" ]"
+
+ck "every matrix image has a runtime contract and every PHP one an extension contract" \
+   "[ \"\$(ls contracts/images/*.yaml | wc -l | tr -d ' ')\" -eq \"\$(bash -c '. scripts/lib/common.sh; echo \$MATRIX_COUNT')\" ] &&
+    [ \"\$(ls contracts/php-extensions/*.txt | wc -l | tr -d ' ')\" -eq \"\$(grep -h '^extensions_contract:' contracts/images/*.yaml | sort -u | wc -l | tr -d ' ')\" ]"
+
 ck "the authorizer derives its expected count from the matrix, not a literal" \
    "grep -q 'n_images=\"\$(matrix_image_labels | wc -l' scripts/release/authorize-staged-candidates.sh"
 

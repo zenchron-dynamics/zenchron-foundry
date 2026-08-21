@@ -104,7 +104,7 @@ _vrb_self_test() {
   R="$R" OUT="$tmp/m.yaml" python3 - <<'PY'
 import os, yaml, hashlib
 R=os.environ["R"]
-keys=[f"php-{f}-{v}" for f in ("cli","fpm","worker","frankenphp") for v in ("8.3","8.4")]+["nginx","caddy"]
+keys=[f"php-{f}-{v}" for f in ("cli","fpm","worker","frankenphp") for v in ("8.3","8.4","8.5")]+["nginx","caddy"]
 def repo(k): return "ghcr.io/zenchron-dynamics/%s" % (k.rsplit("-",1)[0] if k.startswith("php-") else k)
 def dig(k): return "sha256:"+hashlib.sha256(k.encode()).hexdigest()
 imgs={k:{"repository":repo(k),"immutable_tag":"t-"+k,"digest":dig(k),

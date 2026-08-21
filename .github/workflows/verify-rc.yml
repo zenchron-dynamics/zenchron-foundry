@@ -184,8 +184,12 @@ jobs:
             bash scripts/verify-platforms.sh "$NS/$fam:$imm"
             n=$((n+1))
           done
-          test "$n" -eq 10 || { echo "REFUSE: expected 10 images, checked $n"; exit 1; }
-          echo "MULTI-ARCH OK: 10/10 RC digests carry amd64 + arm64"
+          # MATRIX_COUNT, not a literal: this loop iterates MATRIX_IMAGES, so a
+          # hardcoded total silently disagrees with the list it just walked the
+          # moment the matrix grows. It said 10 while the matrix held 14.
+          test "$n" -eq "$MATRIX_COUNT" \
+            || { echo "REFUSE: expected $MATRIX_COUNT images, checked $n"; exit 1; }
+          echo "MULTI-ARCH OK: $n/$MATRIX_COUNT RC digests carry amd64 + arm64"
 
   # Aggregate gate — always runs, fails unless both legs fully succeeded.
   # Named so it can become a required check later. The 10-image matrix COUNT is

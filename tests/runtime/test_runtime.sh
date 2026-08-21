@@ -17,7 +17,8 @@ ck "verify-rc runs contract check"    'grep -q "verify-image-contract.sh" .githu
 ck "verify-rc checks published platforms" 'grep -q "verify-platforms.sh" .github/workflows/verify-rc.yml'
 
 # every matrix image has a contract file
-ck "10 image contracts back the matrix" 'test "$(ls contracts/images/*.yaml | wc -l | tr -d " ")" = 10'
+ck "an image contract backs every matrix image" \
+   'test "$(ls contracts/images/*.yaml | wc -l | tr -d " ")" = "$(bash -c ". scripts/lib/common.sh; echo \$MATRIX_COUNT")"'
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_runtime: PASS" || echo "test_runtime: FAIL"
 exit $fail
