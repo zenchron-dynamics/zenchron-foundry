@@ -1,6 +1,6 @@
-# Zenchron Dynamics — `docker-platform`
+# Zenchron Foundry
 
-> Internal **container platform / golden images** repository.
+> Zenchron Dynamics' **container platform / golden images** repository.
 > Hardened, signed, scanned, SBOM-backed base images for PHP workloads,
 > published to `ghcr.io/zenchron-dynamics/*`.
 
