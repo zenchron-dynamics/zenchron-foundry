@@ -49,7 +49,7 @@ require_hex40()   { is_hex40   "${1:-}" || die "revision '${1:-}' is not 40 lowe
 # place the matrix is defined; assert-image-matrix.sh, smoke-all.sh, ci.yml and
 # the manifest/promotion tooling all derive from it.
 MATRIX_IMAGES="php-cli:8.3 php-cli:8.4 php-cli:8.5 php-fpm:8.3 php-fpm:8.4 php-fpm:8.5 php-worker:8.3 php-worker:8.4 php-worker:8.5 php-frankenphp:8.3 php-frankenphp:8.4 php-frankenphp:8.5 nginx:prod caddy:prod"
-MATRIX_COUNT=10
+MATRIX_COUNT=14
 
 matrix_images() { printf '%s\n' $MATRIX_IMAGES; }   # one token per line
 matrix_families() { for t in $MATRIX_IMAGES; do printf '%s\n' "${t%:*}"; done | sort -u; }
@@ -107,10 +107,20 @@ _common_self_test() {
   _t "uppercase revision reject"   '! is_hex40 7B4985A1234567890ABCDEF1234567890ABCDEF1'
   _t "39-char revision rejected"   '! is_hex40 7b4985a1234567890abcdef1234567890abcde'
   # matrix
-  _t "matrix has 10 images"        'test "$(matrix_images | wc -l | tr -d " ")" = 10'
+  # Shape, not a count: a literal here has to be edited every time the matrix
+  # grows, and it silently became wrong when PHP 8.5 landed. Assert the invariant
+  # that actually matters — every entry is family:version and the set is unique.
+  _t "matrix entries are all family:version" \
+     'test -z "$(matrix_images | grep -vE "^[a-z0-9-]+:[a-z0-9.]+$" || true)"'
+  _t "matrix entries are unique"    'test "$(matrix_images | wc -l)" = "$(matrix_images | sort -u | wc -l)"'
+  _t "matrix is non-empty"          'test "$(matrix_images | wc -l | tr -d " ")" -gt 0'
   _t "matrix has 6 families"       'test "$(matrix_families | wc -l | tr -d " ")" = 6'
-  _t "assert_full_matrix(10) ok"   'assert_full_matrix 10'
-  _t "assert_full_matrix(9) fails" '! ( assert_full_matrix 9 ) 2>/dev/null'
+  _t "assert_full_matrix(MATRIX_COUNT) ok" 'assert_full_matrix "$MATRIX_COUNT"'
+  _t "assert_full_matrix(short) fails"     '! ( assert_full_matrix "$((MATRIX_COUNT - 1))" ) 2>/dev/null'
+  # MATRIX_COUNT is a deliberate tripwire for accidental MATRIX_IMAGES edits
+  # (see assert-image-matrix.sh). It must agree with the list it guards.
+  _t "MATRIX_COUNT matches MATRIX_IMAGES" \
+     'test "$(matrix_images | wc -l | tr -d " ")" = "$MATRIX_COUNT"'
   return $fail
 }
 
