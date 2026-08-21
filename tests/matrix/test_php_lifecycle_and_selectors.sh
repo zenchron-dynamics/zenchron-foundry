@@ -128,12 +128,18 @@ import yaml;d=yaml.safe_load(open('$LEDGER'))
 rows=d['exceptions']+(d.get('not_affected') or [])
 assert not [e for e in rows if e.get('image')=='php-all']
 \" 2>&1 | grep -q Assertion"
-ck "the ledger contains no bare PHP family selector" \
+# The not_affected list uses the SAME selector grammar as exceptions and was
+# missed by the first migration, so twelve records kept bare family selectors and
+# began refusing. It was caught by reconciling ACCEPTED evidence, not by any
+# unit test — so both lists are now asserted explicitly.
+ck "the ledger contains no bare PHP family selector (BOTH lists)" \
    "! python3 -c \"
 import yaml;d=yaml.safe_load(open('$LEDGER'))
 bare={'php-cli','php-fpm','php-worker','php-frankenphp'}
 rows=d['exceptions']+(d.get('not_affected') or [])
 assert not [e for e in rows if e.get('image') in bare]
+# non-vacuity: both lists must actually be populated, or this proves nothing
+assert d['exceptions'] and d.get('not_affected')
 \" 2>&1 | grep -q Assertion"
 
 # --- lifecycle metadata (the CANONICAL inventory, not a parallel file) -----
@@ -226,6 +232,25 @@ ck "every matrix image has a runtime contract and every PHP one an extension con
 
 ck "the authorizer derives its expected count from the matrix, not a literal" \
    "grep -q 'n_images=\"\$(matrix_image_labels | wc -l' scripts/release/authorize-staged-candidates.sh"
+
+# --- REGRESSION: the accepted evidence must still reconcile clean ----------
+# This is the check that caught the not_affected miss. A selector change can look
+# perfect in unit fixtures and still break real, previously-passing evidence.
+ACC=docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json
+ck "the accepted run's 20 children are all recorded as reconciliation PASS" \
+   "[ \"\$(jq -r '[.children[]|select(.reconciliation==\"PASS\")]|length' $ACC)\" -eq 20 ]"
+ck "every governed CVE in that evidence still resolves to a live ledger entry" \
+   "python3 -c \"
+import json,yaml
+acc=json.load(open('$ACC'))
+led=yaml.safe_load(open('$LEDGER'))
+have={e['cve'] for e in led['exceptions']} | {e['cve'] for e in (led.get('not_affected') or [])}
+seen=set()
+for c in acc['children']:
+    seen |= set(c.get('governed_findings') or {})
+assert seen, 'no governed findings in the accepted evidence — check is vacuous'
+missing = sorted(seen - have)
+assert not missing, 'accepted evidence cites CVEs no ledger entry covers: %r' % missing\""
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_php_lifecycle_and_selectors: PASS" || echo "test_php_lifecycle_and_selectors: FAIL"
 exit $fail
