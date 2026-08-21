@@ -1,0 +1,73 @@
+# =============================================================================
+# policies/native-arch-requirements.yaml — when emulated evidence is not enough.
+# -----------------------------------------------------------------------------
+# QEMU establishes that an image BUILDS, that its packages are what we think, and
+# that its findings reconcile. It does not establish that the binaries RUN
+# correctly on real hardware: emulation differs in syscall coverage, atomics,
+# page size, unaligned access and JIT behaviour. PHP's JIT and FrankenPHP's Go
+# runtime are exactly the places that difference shows up.
+#
+# So: QEMU is sufficient for #139 (multi-arch build/scan/reconciliation) and is
+# NOT sufficient for #111 (native runtime behaviour). This file is the machine
+# -readable form of that boundary.
+#
+# Enforced by: scripts/release/assert-native-arch-evidence.sh
+# Tested by:   tests/release/test_native_arch_contract.sh
+# =============================================================================
+schema_version: 1
+
+policy:
+  owner: Zenchron Dynamics / Platform Security
+  last_reviewed: 2026-08-22
+  issue: 111
+
+# The runner that would satisfy this contract. Nothing here provisions it.
+required_runner:
+  labels: [self-hosted, Linux, ARM64, zenchron]
+  # Matching the existing X64 pair, which has hit 94% disk under load.
+  minimum_vcpu: 2
+  minimum_ram_gb: 4
+  minimum_free_disk_gb: 60
+  runner_group: the org group already used by the X64 runners
+  trust:
+    - must not execute fork pull-request code
+    - must not share a work volume with an untrusted job
+    - must be enrolled at organization scope, not repository scope
+  validation_command: "uname -m   # must print aarch64"
+  validation_evidence_field: "execution_mode == native AND host_architecture == arm64"
+
+# What native evidence is required FOR. Absent a native runner these are the
+# claims the project must not make.
+native_evidence_required_for:
+  - claim: "native arm64 runtime verification"
+    satisfied_by: execution_mode == native
+    not_satisfied_by: execution_mode == qemu
+    blocks: [111]
+  - claim: "arm64 runtime/JIT behaviour parity with amd64"
+    satisfied_by: a native arm64 smoke run over every arm64 child
+    not_satisfied_by: an emulated smoke run
+    blocks: [111]
+
+# Deliberately NOT required for these — stating it so nobody over-blocks.
+qemu_sufficient_for:
+  issue: 139
+  claims:
+    - multi-architecture build acceptance
+    - package inventory
+    - vulnerability scanning and reconciliation
+    - evidence identity, checksums and authorization
+
+# Release gating. `require_native_arm64` stays false while no native runner
+# exists: flipping it true without one would block every release rather than
+# improve safety. Flip it the same day the runner is enrolled.
+release_gate:
+  require_native_arm64: false
+  rationale: >-
+    No native arm64 runner is enrolled (verified 2026-08-22: both org runners are
+    labelled X64). Setting this true today would refuse every release without
+    making anything safer. The gate exists so that enrolling a runner is a
+    one-line policy change, and so that a future maintainer cannot quietly ship
+    an arm64 "native" claim on emulated evidence.
+  when_true_refuses:
+    - any arm64 child whose execution_mode is not native
+    - any release bundle asserting native arm64 verification without such children

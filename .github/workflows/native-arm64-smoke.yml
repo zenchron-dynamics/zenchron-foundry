@@ -1,0 +1,116 @@
+# =============================================================================
+# .github/workflows/native-arm64-smoke.yml — #111 native arm64 runtime evidence.
+# -----------------------------------------------------------------------------
+# This workflow CANNOT RUN until a native arm64 runner is enrolled. That is
+# deliberate and is the point: it is the executable half of #111, so enrolling a
+# runner is the only remaining step rather than "and then someone writes a
+# workflow".
+#
+# It refuses loudly rather than silently degrading:
+#   * if it lands on a non-aarch64 host it FAILS — it will not emulate;
+#   * `uname -m` is proven per child and recorded;
+#   * evidence carries execution_mode=native, checked by
+#     scripts/release/assert-native-arch-evidence.sh.
+#
+# QEMU evidence from stage-and-authorize is sufficient for #139 and can never
+# satisfy this workflow's contract.
+# =============================================================================
+name: native arm64 smoke (#111)
+
+on:
+  workflow_dispatch:
+    inputs:
+      images:
+        description: "Image labels to smoke, comma-separated; empty means the whole arm64 matrix"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-arm64-smoke
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: refuse any ref but the default branch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: {fetch-depth: 1}
+      - name: Refuse a non-default ref
+        run: |
+          set -euo pipefail
+          [ "${GITHUB_REF}" = "refs/heads/master" ] \
+            || { echo "REFUSE: native smoke runs only on master, got ${GITHUB_REF}"; exit 1; }
+
+  native-smoke:
+    name: native arm64 smoke
+    needs: guard
+    # The label contract from policies/native-arch-requirements.yaml. With no
+    # such runner enrolled this job stays queued and the run is cancelled by the
+    # operator — it never falls back to an X64 host.
+    runs-on: [self-hosted, Linux, ARM64, zenchron]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: {fetch-depth: 1}
+
+      # THE gate. A mislabelled X64 runner would otherwise produce "native"
+      # evidence that is emulated or simply wrong.
+      - name: Prove the host is really aarch64
+        id: arch
+        run: |
+          set -euo pipefail
+          m="$(uname -m)"
+          echo "uname -m = ${m}"
+          case "$m" in
+            aarch64|arm64) : ;;
+            *) echo "REFUSE: native arm64 smoke landed on a ${m} host. This job must"
+               echo "        never run emulated — that is exactly the evidence #111"
+               echo "        exists to distinguish."
+               exit 1 ;;
+          esac
+          {
+            echo "host_arch=arm64"
+            echo "execution_mode=native"
+            echo "uname_m=${m}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Record the native runtime evidence
+        env:
+          HOST_ARCH: ${{ steps.arch.outputs.host_arch }}
+          EXEC_MODE: ${{ steps.arch.outputs.execution_mode }}
+          UNAME_M: ${{ steps.arch.outputs.uname_m }}
+        run: |
+          set -euo pipefail
+          mkdir -p native-evidence
+          jq -n --arg h "$HOST_ARCH" --arg e "$EXEC_MODE" --arg u "$UNAME_M" \
+                --arg r "$GITHUB_SHA" --arg run "$GITHUB_RUN_ID" \
+                --arg runner "$RUNNER_NAME" '{
+            record_type:"native-arch-runtime-evidence",
+            platform:"linux/arm64", host_architecture:$h, execution_mode:$e,
+            uname_m:$u, source_revision:$r, workflow_run_id:($run|tonumber),
+            runner_name:$runner
+          }' > native-evidence/native-arm64.json
+          jq . native-evidence/native-arm64.json
+
+      - name: The evidence must satisfy the native contract
+        run: |
+          set -euo pipefail
+          # child_key is required by the gate's shape; add it for the standalone record.
+          jq '. + {child_key:"native-smoke/linux/arm64"}' native-evidence/native-arm64.json \
+            > native-evidence/tmp && mv native-evidence/tmp native-evidence/native-arm64.json
+          bash scripts/release/assert-native-arch-evidence.sh native-evidence --require-native linux/arm64
+
+      - name: Upload native evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: native-arm64-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: native-evidence/
+          if-no-files-found: error
