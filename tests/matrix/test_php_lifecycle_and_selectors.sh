@@ -21,7 +21,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
 REC=scripts/reconcile-vulnerabilities.sh
 LEDGER=policies/vulnerability-exceptions.yaml
-LIFE=policies/php-lifecycle.yaml
+LIFE=policies/lifecycle.yaml
 fail=0
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
@@ -136,43 +136,60 @@ rows=d['exceptions']+(d.get('not_affected') or [])
 assert not [e for e in rows if e.get('image') in bare]
 \" 2>&1 | grep -q Assertion"
 
-# --- lifecycle metadata -----------------------------------------------------
-ck "lifecycle policy declares 8.3, 8.4 and 8.5" \
-   "[ \"\$(python3 -c \"import yaml;print(len(yaml.safe_load(open('$LIFE'))['versions']))\")\" -eq 3 ]"
-ck "8.5 is marked governance-pending, NOT supported" \
+# --- lifecycle metadata (the CANONICAL inventory, not a parallel file) -----
+# An earlier draft of this change added policies/php-lifecycle.yaml alongside the
+# existing policies/lifecycle.yaml. Two inventories is exactly the writer/reader
+# drift this project keeps hitting, so the duplicate was deleted and 8.5 folded
+# into the canonical one.
+ck "there is exactly ONE lifecycle inventory" \
+   "test -f policies/lifecycle.yaml && ! test -f policies/php-lifecycle.yaml"
+ck "the inventory declares PHP 8.3, 8.4 and 8.5" \
    "[ \"\$(python3 -c \"
 import yaml;d=yaml.safe_load(open('$LIFE'))
-print([v['support_state'] for v in d['versions'] if v['version']=='8.5'][0])\")\" = governance-pending ]"
-ck "8.3 is marked deprecated and carries a migration target" \
+print(len([x for x in d['lines'] if x['id'].startswith('php-8.')]))\")\" -eq 3 ]"
+ck "8.5 tracks upstream 'active' but Foundry 'governance-pending'" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$LIFE'))
-v=[x for x in d['versions'] if x['version']=='8.3'][0]
-assert v['support_state']=='deprecated' and v['migration_target'] and v['retire_after']\""
-ck "every matrix PHP version is declared in the lifecycle policy" \
+e=[x for x in d['lines'] if x['id']=='php-8.5'][0]
+assert e['support_state']=='active', e['support_state']
+assert e['foundry_release_state']=='governance-pending', e.get('foundry_release_state')\""
+ck "8.3 is security-only — deprecation is advertised, not implied" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$LIFE'))
+e=[x for x in d['lines'] if x['id']=='php-8.3'][0]
+assert e['support_state']=='security-only', e['support_state']\""
+ck "every matrix PHP version has an inventory line claiming its images" \
    "python3 -c \"
 import yaml,subprocess
 d=yaml.safe_load(open('$LIFE'))
-declared={v['version'] for v in d['versions']}
+by={x['id'].split('-')[1]:x for x in d['lines'] if x['id'].startswith('php-8.')}
 out=subprocess.run(['bash','-c','. scripts/lib/common.sh; matrix_images'],capture_output=True,text=True).stdout
-inmatrix={t.split(':')[1] for t in out.split() if t.startswith('php-')}
-assert inmatrix <= declared, (inmatrix - declared)\""
-ck "every lifecycle version that is not retired is present in the matrix" \
+for tok in out.split():
+    fam,ver=tok.split(':')
+    if not fam.startswith('php-'): continue
+    e=by[ver]
+    assert fam in e['used_by'], (tok, e['used_by'])\""
+ck "no inventory line claims an image that does not exist in the matrix" \
    "python3 -c \"
 import yaml,subprocess
 d=yaml.safe_load(open('$LIFE'))
-live={v['version'] for v in d['versions'] if v['support_state']!='retired'}
 out=subprocess.run(['bash','-c','. scripts/lib/common.sh; matrix_images'],capture_output=True,text=True).stdout
-inmatrix={t.split(':')[1] for t in out.split() if t.startswith('php-')}
-assert live <= inmatrix, (live - inmatrix)\""
-ck "a lifecycle deadline that has passed is detectable" \
+have={(t.split(':')[0],t.split(':')[1]) for t in out.split()}
+for x in d['lines']:
+    if not x['id'].startswith('php-8.'): continue
+    ver=x['id'].split('-')[1]
+    for fam in (x.get('used_by') or []):
+        assert (fam,ver) in have, (fam,ver)\""
+ck "a passed upstream support deadline is detectable" \
    "python3 -c \"
 import yaml,datetime
 d=yaml.safe_load(open('$LIFE'))
 today=datetime.date.today()
-overdue=[v['version'] for v in d['versions']
-         if v.get('retire_after') and datetime.date.fromisoformat(str(v['retire_after']))<today
-         and v['support_state']!='retired']
-assert not overdue, 'past retire_after but still live: %r' % overdue\""
+bad=[x['id'] for x in d['lines']
+     if x.get('support_ends') and datetime.date.fromisoformat(str(x['support_ends']))<today
+     and x.get('support_state') not in ('unsupported','retired','not-yet-offered')
+     and x.get('upstream_state') not in ('unsupported','retired')]
+assert not bad, 'past support_ends but still offered: %r' % bad\""
 
 # --- no hardcoded 10-image / 20-child assumption anywhere ------------------
 # Comments are stripped: build-acceptance-matrix.sh documents the OLD 10x2=20

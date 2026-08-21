@@ -161,12 +161,17 @@ lines:
     active_support_ends: 2027-12-31
     support_ends: 2029-12-31
     source: "https://www.php.net/supported-versions.php"
-    used_by: []
-    support_state: not-yet-offered
+    used_by: [php-cli, php-fpm, php-worker, php-frankenphp]
+    support_state: active
+    foundry_release_state: governance-pending
     note: >-
-      In active upstream support and NOT yet offered by Foundry (#106). Recorded
-      here so the gap is visible in the inventory rather than only in an issue.
-      Entry criteria and the blocking dependency are in docs/php-version-policy.md.
+      Offered by Foundry since 2026-08-21 (#106) on both architectures. support_state
+      tracks UPSTREAM, which is active; foundry_release_state records that Foundry has
+      built and scanned these images but has NOT yet governed their findings. PHP 8.5
+      BEGINS UNGOVERNED by construction: every PHP selector in the ledger is bound to
+      the immutable php-8.3-8.4 cohort, so adding 8.5 to the matrix cannot widen a
+      historical risk decision. Its findings must be triaged from 8.5 evidence before
+      release. Entry criteria are in docs/php-version-policy.md.
 
   # --- other pinned runtimes ------------------------------------------------
   - id: frankenphp-1.x

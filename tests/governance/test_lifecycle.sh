@@ -71,7 +71,8 @@ ck "no Dockerfile still pins the retired nginx line" \
 # images said "supported" and nothing distinguished PHP 8.3 (security-fixes-only
 # since 2025-12-31) from PHP 8.4 (active) — the same overstatement class as #121.
 ck "every image declares com.zenchron.support_state" \
-   '[ "$(grep -rl "com.zenchron.support_state=" images/*/Dockerfile images/*/*/Dockerfile | wc -l | tr -d " ")" = 10 ]'
+   '[ "$(grep -rl "com.zenchron.support_state=" images/*/Dockerfile images/*/*/Dockerfile | wc -l | tr -d " ")" \
+      = "$(bash -c ". scripts/lib/common.sh; matrix_image_labels" | grep -c .)" ]'
 
 ck "each PHP image advertises the state its PHP line is actually in" \
    'python3 -c "
@@ -114,13 +115,14 @@ ck "the PHP version policy exists and names the retirement trigger" \
 # --- PHP 8.5 is a known gap, recorded as such -------------------------------
 # #106 cannot close while publication is disabled, so the honest state is a
 # tracked gap in the inventory rather than silence.
-ck "PHP 8.5 is in the inventory and marked not-yet-offered" \
+ck "PHP 8.5 is in the inventory, offered, and flagged governance-pending" \
    'python3 -c "
 import yaml
 inv = yaml.safe_load(open(\"policies/lifecycle.yaml\"))
 e = [x for x in inv[\"lines\"] if x[\"id\"] == \"php-8.5\"][0]
-assert e[\"support_state\"] == \"not-yet-offered\", e[\"support_state\"]
-assert not (e.get(\"used_by\") or []), \"php-8.5 claims images that do not exist\"
+assert e[\"support_state\"] == \"active\", e[\"support_state\"]
+assert sorted(e[\"used_by\"]) == [\"php-cli\", \"php-fpm\", \"php-frankenphp\", \"php-worker\"], e[\"used_by\"]
+assert e[\"foundry_release_state\"] == \"governance-pending\", e.get(\"foundry_release_state\")
 "'
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_lifecycle: PASS" || echo "test_lifecycle: FAIL"
