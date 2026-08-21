@@ -22,6 +22,11 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT" || exit 1
 fail=0
+# Derived, never literal: the matrix grew 10 -> 14 images with PHP 8.5, so every
+# hardcoded 20 (children) and 10 (per platform / collapsed identities) in this
+# file became wrong on the same day.
+NIMG="$(bash -c '. scripts/lib/common.sh; matrix_image_labels' | grep -c .)"
+NCHILD=$(( NIMG * 2 ))
 ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
 W=.github/workflows/stage-and-authorize.yml
@@ -58,25 +63,25 @@ slugs() {
 }
 # shellcheck disable=SC2034  # consumed inside the eval'd ck assertions
 S="$(slugs)"
-ck "the real plan yields 20 children" \
-   '[ "$(printf "%s" "$PLAN" | jq ".include|length")" = 20 ]'
-ck "20 DISTINCT evidence slugs (the collision that cancelled 32123758374)" \
-   '[ "$(printf "%s\n" "$S" | sort -u | wc -l | tr -d " ")" = 20 ]'
-ck "20 distinct artifact upload names" \
-   '[ "$(printf "%s\n" "$S" | sed "s/^/child-/;s/\$/-99-1/" | sort -u | wc -l | tr -d " ")" = 20 ]'
-ck "20 distinct evidence JSON filenames" \
-   '[ "$(printf "%s\n" "$S" | sed "s/\$/.json/" | sort -u | wc -l | tr -d " ")" = 20 ]'
-ck "20 distinct evidence directories" \
-   '[ "$(printf "%s\n" "$S" | sed "s/\$/-evidence/" | sort -u | wc -l | tr -d " ")" = 20 ]'
+ck "the real plan yields $NCHILD children" \
+   '[ "$(printf "%s" "$PLAN" | jq ".include|length")" = "$NCHILD" ]'
+ck "$NCHILD DISTINCT evidence slugs (the collision that cancelled 32123758374)" \
+   '[ "$(printf "%s\n" "$S" | sort -u | wc -l | tr -d " ")" = "$NCHILD" ]'
+ck "$NCHILD distinct artifact upload names" \
+   '[ "$(printf "%s\n" "$S" | sed "s/^/child-/;s/\$/-99-1/" | sort -u | wc -l | tr -d " ")" = "$NCHILD" ]'
+ck "$NCHILD distinct evidence JSON filenames" \
+   '[ "$(printf "%s\n" "$S" | sed "s/\$/.json/" | sort -u | wc -l | tr -d " ")" = "$NCHILD" ]'
+ck "$NCHILD distinct evidence directories" \
+   '[ "$(printf "%s\n" "$S" | sed "s/\$/-evidence/" | sort -u | wc -l | tr -d " ")" = "$NCHILD" ]'
 ck "no amd64 path equals an arm64 path" \
    'a="$(printf "%s\n" "$S" | grep -c -- "-linux-amd64")";
     b="$(printf "%s\n" "$S" | grep -c -- "-linux-arm64")";
     c="$(printf "%s\n" "$S" | grep -- "-linux-amd64" | sed "s/amd64/arm64/" | sort > /tmp/_a;
         printf "%s\n" "$S" | grep -- "-linux-arm64" | sort > /tmp/_b;
         comm -12 /tmp/_a /tmp/_b | wc -l | tr -d " ")";
-    [ "$a" = 10 ] && [ "$b" = 10 ] && [ "$c" = 10 ]'
+    [ "$a" = "$NIMG" ] && [ "$b" = "$NIMG" ] && [ "$c" = "$NIMG" ]'
 ck "image label alone is NOT unique across platforms (proves the old bug)" \
-   '[ "$(printf "%s" "$PLAN" | jq -r "[.include[]|\"\(.fam)-\(.ver)\"]|unique|length")" = 10 ]'
+   '[ "$(printf "%s" "$PLAN" | jq -r "[.include[]|\"\(.fam)-\(.ver)\"]|unique|length")" = "$NIMG" ]'
 
 # --- the workflow actually consumes it --------------------------------------
 ck "the identity step computes the platform-bound slug" \
@@ -101,9 +106,9 @@ ck "SABOTAGE: reverting the artifact name to matrix.fam/ver is DETECTED" \
    'tmp="$(mktemp -d)";
     sed "s|name: child-\${{ steps.id.outputs.slug }}|name: child-\${{ matrix.fam }}-\${{ matrix.ver }}|" '"$W"' > "$tmp/w.yml";
     ! grep -q "name: child-\${{ steps.id.outputs.slug }}" "$tmp/w.yml"; rc=$?; rm -rf "$tmp"; [ $rc -eq 0 ]'
-ck "SABOTAGE: a platform-free slug collapses 20 identities to 10" \
+ck "SABOTAGE: a platform-free slug collapses $NCHILD identities to $NIMG" \
    'n="$(printf "%s" "$PLAN" | jq -r ".include[]|\"\(.fam)-\(.ver)\"" | sort -u | wc -l | tr -d " ")";
-    [ "$n" = 10 ]'
+    [ "$n" = "$NIMG" ]'
 
 echo "----"
 [ "$fail" -eq 0 ] && echo "test_child_identity: PASS" || echo "test_child_identity: FAIL"
