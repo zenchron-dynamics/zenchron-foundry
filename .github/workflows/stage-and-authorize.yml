@@ -737,8 +737,14 @@ jobs:
             echo "meta=$meta"; echo "carch=${carch:-unknown}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: phase start evidence_emit
-        run: bash scripts/ci/phase-timer.sh start evidence_emit
+      # evidence_emit is deliberately NOT an instrumented phase. The step that
+      # would close it is the same step that serializes phases.json, so the end
+      # could never be observed by the record it produces: every child reported
+      # timing_complete:false, a metric that could not succeed. Closing it early
+      # would close a phase before its work happened. Its cost is accounted for
+      # in uninstrumented_overhead_seconds instead. Re-adding a start/end pair
+      # around the emit step is a regression — see
+      # tests/release/test_child_clock_and_timing_contract.sh.
       - name: Emit child evidence
         env:
           LABEL: ${{ steps.id.outputs.label }}
@@ -851,8 +857,6 @@ jobs:
           cp -r evidence/child "evidence/out/${slug}-evidence"
           jq . "evidence/out/${slug}.json"
 
-      - name: phase end evidence_emit
-        run: bash scripts/ci/phase-timer.sh end evidence_emit
       - name: Upload child evidence
         # Uploaded even on failure: a refused child is exactly what the operator
         # needs to see.
