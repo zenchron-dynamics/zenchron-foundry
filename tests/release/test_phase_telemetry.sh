@@ -21,12 +21,21 @@ HIST=docs/audits/acceptance-amd64-2026-08-14/post-build-authorization.json
 ck "the phase timer self-tests clean" "bash $T --self-test >/dev/null 2>&1"
 
 # --- every required phase is instrumented ----------------------------------
+# evidence_emit is NOT in this list, deliberately. The step that would close it
+# is the same step that serializes phases.json, so its end could never be
+# observed by the record it produces: every child reported timing_complete:false,
+# a metric structurally incapable of success (run 32395890071, 20/20). Its cost
+# is accounted for in uninstrumented_overhead_seconds instead. See
+# tests/release/test_child_clock_and_timing_contract.sh for the audit that
+# rejects reintroducing it.
 for ph in db_acquire build_and_push digest_resolve pull_by_digest smoke \
           metadata_contract vulnerability_scan package_inventory \
-          reconciliation evidence_emit; do
+          reconciliation; do
   ck "phase '$ph' is instrumented" \
      "grep -q 'phase-timer.sh start $ph' $W && grep -q 'phase-timer.sh end $ph' $W"
 done
+ck "evidence_emit is NOT instrumented (its end is unreachable by construction)" \
+   "! grep -qE 'phase-timer\.sh (start|end) evidence_emit' $W"
 
 ck "every started phase is also ended" \
    'python3 -c "
