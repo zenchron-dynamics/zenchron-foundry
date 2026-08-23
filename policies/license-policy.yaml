@@ -1,0 +1,155 @@
+# =============================================================================
+# policies/license-policy.yaml — machine-readable licence policy (#120, #98).
+# -----------------------------------------------------------------------------
+# THIS FILE IS NOT LEGAL ADVICE AND IT DOES NOT CHOOSE A LICENCE FOR FOUNDRY.
+#
+# It encodes two separate things, and conflating them is the failure this file
+# exists to prevent:
+#
+#   1. TECHNICAL MAPPING — which SPDX identifiers are uncontroversially
+#      notice-only, so the release gate can stop treating "we did not look" and
+#      "we looked and it is fine" as the same answer.
+#   2. THE UNANSWERED LEGAL QUESTION — how Foundry itself is distributed. That
+#      is #98, it is the owner's and counsel's to answer, and until it is
+#      answered this policy refuses to certify any notice set as publishable.
+#
+# The `denied` list is deliberately EMPTY. Denying a licence is a legal
+# conclusion, not an engineering one, and nothing in this repository is
+# authorised to reach it. The gate still enforces `denied` — the state is live
+# and exercised by fixtures in tests/license/ — it simply has no entries that an
+# engineer invented. Populating it is an owner action.
+#
+# Anything not listed resolves to `legal-review-required`, never to `allowed`.
+# =============================================================================
+version: 1
+
+# Fail-closed default. An SPDX identifier nobody has classified is an open
+# question, and an open question must not be able to ship a release.
+default_state: legal-review-required
+
+states:
+  - allowed
+  - denied
+  - legal-review-required
+
+# --- the publication question (#98) ------------------------------------------
+# Recorded as live facts, not as a conclusion. The repository is world-readable
+# under a LICENSE that forbids public distribution, while the images it
+# documents are private. That contradiction is real and unresolved; the gate
+# reports it and refuses to declare notices publishable while `decision` is
+# `undetermined`. Options A/B/C are enumerated in issue #98 — this file does not
+# recommend one and must not be edited to select one by anyone but the owner.
+publication:
+  decision: undetermined          # A | B | C | undetermined  — owner + legal
+  decided_by: null
+  decided_on: null
+  tracked_issue: 98
+  observed:
+    repository_visibility: public
+    license_file_grant: proprietary-no-public-distribution
+    package_visibility: private
+  # Set true only by the owner, together with `decision`. While false, the
+  # notice generator emits a CANDIDATE and the gate refuses to call it approved.
+  notices_approved_for_distribution: false
+
+# --- technical mapping -------------------------------------------------------
+# `allowed` is restricted to licences whose only distribution obligation is to
+# retain a notice. Every licence with reciprocal, source-offer, patent-
+# termination or naming obligations is `legal-review-required`, because whether
+# those obligations are satisfiable depends entirely on the answer to #98.
+licenses:
+  - id: MIT
+    state: allowed
+    obligations: [retain-copyright-notice, retain-license-text]
+  - id: ISC
+    state: allowed
+    obligations: [retain-copyright-notice, retain-license-text]
+  - id: BSD-2-Clause
+    state: allowed
+    obligations: [retain-copyright-notice, retain-license-text]
+  - id: BSD-3-Clause
+    state: allowed
+    obligations: [retain-copyright-notice, retain-license-text, no-endorsement]
+  - id: Apache-2.0
+    state: allowed
+    obligations: [retain-copyright-notice, retain-license-text, state-changes, retain-notice-file]
+  - id: Zlib
+    state: allowed
+    obligations: [retain-copyright-notice]
+  - id: 0BSD
+    state: allowed
+    obligations: []
+  - id: Unlicense
+    state: allowed
+    obligations: []
+  - id: CC0-1.0
+    state: allowed
+    obligations: []
+
+  # Reciprocal / weak-copyleft: the obligation depends on whether Foundry
+  # distributes, and to whom. Unanswerable before #98.
+  - id: GPL-2.0-only
+    state: legal-review-required
+    reason: reciprocal obligations depend on the unresolved distribution model (#98)
+  - id: GPL-2.0-or-later
+    state: legal-review-required
+    reason: reciprocal obligations depend on the unresolved distribution model (#98)
+  - id: GPL-3.0-only
+    state: legal-review-required
+    reason: reciprocal obligations depend on the unresolved distribution model (#98)
+  - id: GPL-3.0-or-later
+    state: legal-review-required
+    reason: reciprocal obligations depend on the unresolved distribution model (#98)
+  - id: LGPL-2.1-only
+    state: legal-review-required
+    reason: relinking and source-offer obligations depend on the image form shipped (#98)
+  - id: LGPL-2.1-or-later
+    state: legal-review-required
+    reason: relinking and source-offer obligations depend on the image form shipped (#98)
+  - id: LGPL-3.0-only
+    state: legal-review-required
+    reason: relinking and source-offer obligations depend on the image form shipped (#98)
+  - id: LGPL-3.0-or-later
+    state: legal-review-required
+    reason: relinking and source-offer obligations depend on the image form shipped (#98)
+  - id: AGPL-3.0-only
+    state: legal-review-required
+    reason: network-use obligations reach hosted deployments; counsel must scope this
+  - id: AGPL-3.0-or-later
+    state: legal-review-required
+    reason: network-use obligations reach hosted deployments; counsel must scope this
+  - id: MPL-2.0
+    state: legal-review-required
+    reason: per-file reciprocity requires a source offer this project does not yet operate
+  - id: EPL-2.0
+    state: legal-review-required
+    reason: per-file reciprocity requires a source offer this project does not yet operate
+  - id: CDDL-1.0
+    state: legal-review-required
+    reason: per-file reciprocity requires a source offer this project does not yet operate
+
+  # Permissive in practice, but with naming or advertising terms that interact
+  # with a proprietary LICENSE. Not an engineering call.
+  - id: PHP-3.01
+    state: legal-review-required
+    reason: naming restrictions interact with a proprietary LICENSE; counsel must confirm
+  - id: OpenSSL
+    state: legal-review-required
+    reason: advertising clause interacts with a proprietary LICENSE; counsel must confirm
+  - id: Artistic-2.0
+    state: legal-review-required
+    reason: renaming and distribution conditions require counsel review
+  - id: BSD-4-Clause
+    state: legal-review-required
+    reason: advertising clause requires counsel review
+
+# Licences the owner has affirmatively refused. EMPTY BY DESIGN — see the header.
+# The gate enforces this list; it does not populate it.
+denied: []
+
+# --- exceptions --------------------------------------------------------------
+# A component-scoped, time-boxed override. EMPTY BY DESIGN. The validator
+# refuses any entry lacking `granted_by`, `expires` or `tracked_issue`, and the
+# gate refuses an exception whose `expires` date has passed — an exception that
+# outlives its review is indistinguishable from an unreviewed licence.
+exceptions: []
