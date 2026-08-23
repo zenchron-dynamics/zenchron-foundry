@@ -223,7 +223,7 @@ assert not bad, 'past support_ends but still offered: %r' % bad\""
 #
 # So it now matches the SHAPES, not the specific numbers: any comparison of a
 # counted thing against a bare integer in matrix-adjacent code.
-offenders="$(grep -rnE 'expected_children.*=.*[0-9]+|wc -l[^|]*\)\" = [0-9]+|-eq (10|14|20|28)\b|keys \| length\" \) = [0-9]+|for v in \("8\.3","8\.4"\)' \
+offenders="$(grep -rnE 'expected_children.*=.*[0-9]+|wc -l[^|]*\)\" = [0-9]+|-eq (10|14|20|28)\b|keys \| length\" \) = [0-9]+' \
              scripts/ .github/workflows/ contracts/ 2>/dev/null \
            | grep -vE 'test_|\.md:' \
            | grep -vE ':[0-9]+: *#' \
@@ -233,6 +233,14 @@ ck "no script or workflow compares a matrix-derived count to a bare literal" \
 
 # The two INTENTIONAL tripwires are exempt and named, so nobody deletes them
 # thinking they are the drift this check hunts.
+# A hardcoded PHP version list in a fixture is only WRONG when it disagrees with
+# the live matrix. The previous form matched ("8.3","8.4") unconditionally: right
+# while PHP 8.5 was in the matrix, a false positive the moment 8.5 was withdrawn.
+# Compare against MATRIX_IMAGES instead of a constant.
+python3 scripts/ci/check-php-version-fixtures.py > "$TMP/vfix.out" 2>&1; _vfix=$?
+ck "hardcoded PHP version lists agree with the live matrix" "[ $_vfix -eq 0 ]"
+[ $_vfix -eq 0 ] || sed 's/^/      /' "$TMP/vfix.out"
+
 ck "the two deliberate drift tripwires still exist and agree with the matrix" \
    "grep -q '^MATRIX_COUNT=' scripts/lib/common.sh &&
     grep -q 'INTENTIONAL independent count assertion' scripts/assert-image-matrix.sh &&
