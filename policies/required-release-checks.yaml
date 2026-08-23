@@ -1,2 +1,87 @@
+# =============================================================================
+# policies/required-release-checks.yaml
+# -----------------------------------------------------------------------------
+# The exact set of CI checks that must be GREEN on the TAGGED COMMIT before a
+# stable GitHub release may be sealed. scripts/check-exact-commit-ci.sh queries
+# the GitHub Checks/Statuses API for the tag's commit and requires every name
+# below to have concluded `success` — skipped / neutral / cancelled / stale /
+# timed-out / missing / failed all reject.
+#
+# "Latest successful master run" is NOT accepted as evidence for another commit.
+# =============================================================================
+schema_version: 1
 
-# governance-binding self-test mutation
+# Bounded polling for checks still running on the tagged commit.
+poll:
+  timeout_seconds: 1800
+  interval_seconds: 30
+
+# Conclusions that count as a pass. Anything else (or absent) fails the gate.
+accept_conclusions: [success]
+
+# TWO distinct sets, because the pull-request path and the release path no
+# longer produce the same checks (#96 redesign).
+#
+# pr_required_checks — what a PULL REQUEST can actually produce, and therefore
+# what the master branch ruleset may require. Every job here runs on a
+# statically declared GitHub-hosted runner in ci.yml. Requiring anything a PR
+# cannot produce would block every merge for ever.
+#
+# release_required_checks — what must be GREEN on the tagged commit before a
+# stable release is sealed. This is a superset: it adds the dispatched image
+# scans and the trusted validation result, neither of which is a PR check
+# because both run on the restricted self-hosted pool.
+pr_required_checks:
+  - repo structure
+  - lint (shell / yaml / md / dockerfile)
+  - secret scan (gitleaks)
+  - semgrep docker security
+  - validate compose profiles
+
+release_required_checks:
+  - repo structure
+  - lint (shell / yaml / md / dockerfile)
+  - secret scan (gitleaks)
+  - semgrep docker security
+  - validate compose profiles
+  - scan php-cli 8.3
+  - scan php-cli 8.4
+  - scan php-fpm 8.3
+  - scan php-fpm 8.4
+  - scan php-worker 8.3
+  - scan php-worker 8.4
+  - scan php-frankenphp 8.3
+  - scan php-frankenphp 8.4
+  - scan nginx prod
+  - scan caddy prod
+  # Matrix-wide aggregate: fails when an active exception matched no finding on
+  # any shipping image. A stale record misstates what a release is knowingly
+  # accepting, so it gates the release like any other evidence defect
+  # (#102/#103). Produced by trusted-validation.yml in release mode, and by
+  # scan-images.yml on dispatch.
+  - no stale vulnerability exceptions
+  - trusted validation result
+
+# Backwards-compatible mirror: existing consumers read `required_checks` as the
+# release set. This is a literal copy, NOT a YAML anchor: `yq` and most YAML
+# tooling cannot write through an alias, so an anchor turned any targeted edit
+# of this key into a silent no-op. assert-required-checks.sh asserts the two
+# lists are identical, so they cannot drift.
+required_checks:
+  - repo structure
+  - lint (shell / yaml / md / dockerfile)
+  - secret scan (gitleaks)
+  - semgrep docker security
+  - validate compose profiles
+  - scan php-cli 8.3
+  - scan php-cli 8.4
+  - scan php-fpm 8.3
+  - scan php-fpm 8.4
+  - scan php-worker 8.3
+  - scan php-worker 8.4
+  - scan php-frankenphp 8.3
+  - scan php-frankenphp 8.4
+  - scan nginx prod
+  - scan caddy prod
+  - no stale vulnerability exceptions
+  - trusted validation result
