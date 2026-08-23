@@ -41,6 +41,7 @@ gate "supply-chain inputs"       bash scripts/assert-supply-chain-inputs.sh
 gate "governance model"          bash scripts/assert-governance-model.sh
 gate "admission policy sync"     python3 scripts/generate-admission-policy.py --check
 gate "continuity policy"         bash scripts/continuity-export.sh --self-test
+gate "licence policy gate"       bash scripts/license/assert-license-policy.sh --self-test
 gate "self-test + unit suite"    bash tests/run-all.sh
 gate "release dry-run"           bash scripts/release-dry-run.sh
 
