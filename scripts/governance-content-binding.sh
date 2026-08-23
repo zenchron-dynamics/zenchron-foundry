@@ -39,7 +39,15 @@
 # requires_fork_pr_boundary field names, so the binding follows the policy.
 # =============================================================================
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# AUDIT ROOT. Overridable so the self-test can bind a THROWAWAY copy of the
+# governed inputs instead of the ambient checkout.
+#
+# It used to mutate the real files in place — cp aside, append a byte, restore —
+# and one early exit between the rm and the restore left
+# policies/required-release-checks.yaml containing nothing but
+# "# governance-binding self-test mutation". That corruption was committed.
+# A self-test must never be able to damage the repository it is verifying.
+ROOT="${GCB_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 # Versioned, and DOMAIN-SEPARATED. The aggregate is taken over the schema name
 # followed by the sorted "<sha>  <path>" lines, so a future binding format cannot
@@ -179,26 +187,59 @@ _gcb_self_test() {
   t "the fork-boundary input follows the policy field" \
     "python3 -c \"import json,sys; b=json.loads(sys.argv[1]); sys.exit(0 if any('assert-pr-workflows-github-hosted' in f['path'] for f in b['files']) else 1)\" '$base'"
 
-  # One-byte mutation of EVERY bound input must change the aggregate.
-  local f abs saved after
+  # ---- EVERY mutation below runs against an ISOLATED COPY of the inputs. ----
+  # $ISO is a throwaway tree holding only the governed files at their repository
+  # -relative paths. GCB_ROOT points the binding at it, so nothing here can touch
+  # the ambient checkout even if this function dies mid-scenario.
+  local ISO="$tmp/iso" f
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    abs="$ROOT/$f"; saved="$tmp/$(echo "$f" | tr / _)"
-    cp "$abs" "$saved"
-    printf '\n# governance-binding self-test mutation\n' >> "$abs"
-    after="$(aggregate_only)"
-    cp "$saved" "$abs"
-    t "a one-byte change to $f changes the aggregate" \
-      "[ '$after' != \"\$(python3 -c \"import json,sys; print(json.loads(sys.argv[1])['aggregate'])\" '$base')\" ]"
-    t "...and restoring $f restores the aggregate" "[ \"\$(aggregate_only)\" = \"\$(python3 -c \"import json,sys; print(json.loads(sys.argv[1])['aggregate'])\" '$base')\" ]"
+    mkdir -p "$ISO/$(dirname "$f")"
+    cp "$ROOT/$f" "$ISO/$f"
   done < <(bound_inputs)
 
-  # A missing input refuses rather than binding a smaller set.
-  local pol="$ROOT/policies/required-release-checks.yaml"
-  cp "$pol" "$tmp/rrc"; rm "$pol"
-  t "a missing bound input REFUSES" "! content_binding >/dev/null 2>&1"
-  cp "$tmp/rrc" "$pol"
-  t "...and it recovers once restored" "content_binding >/dev/null"
+  local iso_base; iso_base="$( ( ROOT="$ISO"; content_binding ) )"
+  t "the isolated copy binds identically to the real tree" \
+    "[ \"\$(python3 -c \"import json,sys; print(json.loads(sys.argv[1])['aggregate'])\" '$iso_base')\" = \"\$(python3 -c \"import json,sys; print(json.loads(sys.argv[1])['aggregate'])\" '$base')\" ]"
+
+  # One-byte mutation of EVERY bound input must change the aggregate.
+  local abs after
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    abs="$ISO/$f"
+    printf '\n# governance-binding self-test mutation\n' >> "$abs"
+    after="$( ( ROOT="$ISO"; aggregate_only ) )"
+    t "a one-byte change to $f changes the aggregate" \
+      "[ '$after' != \"\$(python3 -c \"import json,sys; print(json.loads(sys.argv[1])['aggregate'])\" '$base')\" ]"
+    cp "$ROOT/$f" "$abs"
+    t "...and restoring $f restores the aggregate" \
+      "[ \"\$( ( ROOT=\"$ISO\"; aggregate_only ) )\" = \"\$(python3 -c \"import json,sys; print(json.loads(sys.argv[1])['aggregate'])\" '$base')\" ]"
+  done < <(bound_inputs)
+
+  # A missing input refuses rather than binding a smaller set — in the COPY.
+  rm -f "$ISO/policies/required-release-checks.yaml"
+  t "a missing bound input REFUSES" "! ( ROOT='$ISO'; content_binding ) >/dev/null 2>&1"
+  cp "$ROOT/policies/required-release-checks.yaml" "$ISO/policies/required-release-checks.yaml"
+  t "...and it recovers once restored" "( ROOT='$ISO'; content_binding ) >/dev/null"
+
+  # THE regression: the ambient checkout must be untouched by all of the above.
+  t "the real policy files are byte-identical after every mutation scenario" \
+    "cmp -s '$ROOT/policies/required-release-checks.yaml' '$ISO/policies/required-release-checks.yaml' &&
+     cmp -s '$ROOT/policies/repository-governance.yaml' '$ISO/policies/repository-governance.yaml'"
+  # Scoped to the POLICY files: this script legitimately contains the marker
+  # string (it writes it, and explains the corruption it caused), so grepping
+  # scripts/ would match the checker itself — the exact self-matching pattern
+  # this project keeps hitting.
+  t "no policy file in the ambient checkout carries the mutation marker" \
+    "! grep -rlq 'governance-binding self-test mutation' '$ROOT/policies' 2>/dev/null"
+  t "...and the marker IS findable where it was written (non-vacuity)" \
+    "grep -q 'governance-binding self-test mutation' '$ROOT/scripts/governance-content-binding.sh'"
+
+  # SABOTAGE: if GCB_ROOT routing is removed, mutations would hit the real tree.
+  t "SABOTAGE: the script honours an explicit audit root" \
+    "grep -q 'GCB_ROOT' '$ROOT/scripts/governance-content-binding.sh'"
+  t "...and binding a root with a missing input refuses there, not here" \
+    "! ( ROOT='$tmp/empty-root'; content_binding ) >/dev/null 2>&1"
 
   # Dirty-worktree refusal, tested against a throwaway repo rather than the
   # ambient one: whether THIS checkout happens to be clean is not the property
