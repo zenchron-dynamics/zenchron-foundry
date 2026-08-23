@@ -43,6 +43,7 @@ gate "admission policy sync"     python3 scripts/generate-admission-policy.py --
 gate "continuity policy"         bash scripts/continuity-export.sh --self-test
 gate "continuity mirror verify"  bash scripts/continuity-verify.sh --self-test
 gate "licence policy gate"       bash scripts/license/assert-license-policy.sh --self-test
+gate "CRA control set"           bash scripts/cra/assert-cra-controls.sh
 gate "self-test + unit suite"    bash tests/run-all.sh
 gate "release dry-run"           bash scripts/release-dry-run.sh
 
