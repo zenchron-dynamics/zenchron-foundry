@@ -236,7 +236,7 @@ self_test() {
   local tmp ok=0 bad=0
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064
-  trap "rm -rf '${tmp}'" RETURN
+  trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then ok=$((ok+1)); echo "  ok   $1"; else bad=$((bad+1)); echo "  FAIL $1"; fi; }
 
   cat > "$tmp/ids.yaml" <<'YAML'

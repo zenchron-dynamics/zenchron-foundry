@@ -331,7 +331,7 @@ PY
 
 self_test() {
   local p=0 f=0 tmp
-  tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
+  tmp="$(mktemp -d)"; trap "rm -rf '${tmp}'" EXIT
   a() { if eval "$2"; then p=$((p+1)); echo "  ok   $1"; else f=$((f+1)); echo "  FAIL $1"; fi; }
 
   a "deadlines compute from a valid awareness timestamp" \

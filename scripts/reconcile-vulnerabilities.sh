@@ -454,7 +454,7 @@ self_test() {
   local tmp ok=0 bad=0
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064
-  trap "rm -rf '${tmp}'" RETURN
+  trap "rm -rf '${tmp}'" EXIT
   # Every case reads the FIXTURE ledger, never the real one — otherwise the
   # suite silently grades itself against production data.
   export POLICY="$tmp/led.yaml"

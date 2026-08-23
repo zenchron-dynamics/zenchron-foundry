@@ -137,7 +137,7 @@ verify_oci_metadata() { # <ref> <contract> <labels-out>
 
 # ---------------------------------------------------------------------------
 _vom_self_test() {
-  local ok=0 nbad=0 tmp; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
+  local ok=0 nbad=0 tmp; tmp="$(mktemp -d)"; trap "rm -rf '${tmp}'" EXIT
   local REV="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   export EXPECT_REVISION="$REV" EXPECT_CREATED="2026-08-06T00:00:00Z" \
          EXPECT_REF_NAME="nginx-prod-r1-a1-saaaaaaa-amd64"

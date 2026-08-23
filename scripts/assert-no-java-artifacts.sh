@@ -47,7 +47,7 @@ assert_image() {
   cid="$(docker create "$ref" 2>/dev/null)" || {
     echo "REFUSE: could not create a container from $ref" >&2; return 1; }
   # shellcheck disable=SC2064
-  trap "docker rm -f '$cid' >/dev/null 2>&1 || true" RETURN
+  trap "docker rm -f '$cid' >/dev/null 2>&1 || true" EXIT
 
   # `docker export | tar -t` — the exit status that matters is the EXPORT's, so
   # capture the pipeline's parts explicitly rather than trusting $? of the tail.

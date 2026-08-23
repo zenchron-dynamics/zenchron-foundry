@@ -780,3 +780,5 @@ main() {
 }
 
 main "$@"
+
+# governance-binding self-test mutation

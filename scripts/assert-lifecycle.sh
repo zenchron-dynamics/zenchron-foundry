@@ -201,7 +201,7 @@ for e in d.get('lines') or []:
 
 self_test() {
   local tmp ok=0 bad=0
-  tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
+  tmp="$(mktemp -d)"; trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then ok=$((ok+1)); echo "  ok   $1"; else bad=$((bad+1)); echo "  FAIL $1"; fi; }
 
   # A minimal well-formed inventory; each fixture below injects ONE defect.

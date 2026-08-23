@@ -161,7 +161,7 @@ assert_clean_worktree() { # [dir]
 }
 
 _gcb_self_test() {
-  local ok=0 nbad=0 tmp; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
+  local ok=0 nbad=0 tmp; tmp="$(mktemp -d)"; trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then echo "ok   - $1"; ok=$((ok+1)); else echo "FAIL - $1"; nbad=$((nbad+1)); fi; }
 
   local base; base="$(content_binding)"
@@ -288,3 +288,5 @@ case "${1:---json}" in
   --self-test) _gcb_self_test && echo "governance-content-binding.sh: SELF-TEST OK" ;;
   *) echo "usage: governance-content-binding.sh [--json|--aggregate|--inputs|--assert-clean|--verify-evidence <f>|--self-test]" >&2; exit 2 ;;
 esac
+
+# governance-binding self-test mutation

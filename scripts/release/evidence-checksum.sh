@@ -39,7 +39,7 @@ evidence_checksum() { # <dir>
 }
 
 _ec_self_test() {
-  local ok=0 nbad=0 tmp; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
+  local ok=0 nbad=0 tmp; tmp="$(mktemp -d)"; trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then echo "ok   - $1"; ok=$((ok+1)); else echo "FAIL - $1"; nbad=$((nbad+1)); fi; }
 
   mkdir -p "$tmp/a/evidence/child/sub"

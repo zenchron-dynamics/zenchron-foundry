@@ -112,7 +112,7 @@ inventory() {
 
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064  # expand now: $tmp must be captured at trap time
-  trap "rm -rf '${tmp}'" RETURN
+  trap "rm -rf '${tmp}'" EXIT
 
   cid="$(docker create "$image")" \
     || { echo "REFUSE: could not create a container from '${image}'" >&2; return 1; }
@@ -134,7 +134,7 @@ self_test() {
   local ok=0 bad=0 tmp
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064
-  trap "rm -rf '${tmp}'" RETURN
+  trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then ok=$((ok+1)); echo "  ok   $1"; else bad=$((bad+1)); echo "  FAIL $1"; fi; }
 
   # Build tars carrying real VFS_CAP_DATA payloads.

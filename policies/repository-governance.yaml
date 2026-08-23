@@ -233,3 +233,5 @@ not_api_verifiable:
   - "Organization-level RULESETS (GET /orgs/{org}/rulesets). Still unverified —
      distinct from the runner group above, which IS now checked."
   - "GitHub plan/billing tier."
+
+# governance-binding self-test mutation
