@@ -1,0 +1,124 @@
+# =============================================================================
+# policies/cra-roles.yaml — incident roles, responsibilities and BACKUPS (#113).
+# -----------------------------------------------------------------------------
+# THE UNCOMFORTABLE FACT THIS FILE REFUSES TO HIDE: Zenchron Foundry has one
+# maintainer. policies/governance-model.yaml already records
+# `single_maintainer: true`, `independent_review_available: false` and
+# `segregation_of_duties: unavailable`, and its risk register explicitly rejects
+# "a second GitHub account held by the same person" and "a team whose only
+# member is the maintainer" as mitigations.
+#
+# So every role below collapses onto one person, and NONE of them has a real
+# backup. Inventing deputies to fill a matrix would be the exact failure the
+# governance model was written to prevent: a filing that implies resilience
+# nobody has.
+#
+# Instead each role must resolve its `backup` one of two ways, and the validator
+# (scripts/cra/assert-cra-controls.sh) refuses anything else:
+#
+#   backup: <name>        a real, distinct person who can act
+#   backup_gap: true      no backup exists — REQUIRES gap_reason, gap_owner
+#                         and gap_tracked_in
+#
+# A missing `backup` key, a backup naming the primary, or an undeclared gap are
+# all refused. This mirrors the `integrity_gap` idiom already used in
+# policies/supply-chain-inputs.yaml: gaps are declared and owned, never absent.
+#
+# The single-person concentration is a REPORTABLE FACT for any CRA submission.
+# A filing must state that classification, decision and submission authority
+# rest with one individual rather than implying a team.
+# =============================================================================
+schema_version: 1
+
+concentration:
+  single_person: true
+  derives_from: policies/governance-model.yaml
+  must_be_stated_in_filings: true
+  note: >-
+    Every role resolves to the same individual. A submission that names roles
+    without stating this would imply segregation of duties that does not exist.
+
+roles:
+  - id: incident-classifier
+    responsibility: decide whether an event is an actively-exploited vulnerability, a severe incident, or not reportable
+    primary: Bogdan Olteanu
+    backup: null
+    backup_gap: true
+    gap_reason: single maintainer; no second person holds this authority
+    gap_owner: Bogdan Olteanu
+    gap_tracked_in: 113
+
+  - id: awareness-recorder
+    responsibility: record the awareness timestamp that starts the reporting clocks
+    primary: Bogdan Olteanu
+    backup: null
+    backup_gap: true
+    gap_reason: single maintainer; nobody else can start the clock if the primary is unavailable
+    gap_owner: Bogdan Olteanu
+    gap_tracked_in: 113
+
+  - id: evidence-custodian
+    responsibility: preserve affected digests, source revisions, SBOMs and scan evidence at the moment of awareness
+    primary: Bogdan Olteanu
+    backup: null
+    backup_gap: true
+    gap_reason: single maintainer; evidence preservation depends on one person's availability
+    gap_owner: Bogdan Olteanu
+    gap_tracked_in: 113
+
+  - id: submission-authority
+    responsibility: file early warning, full notification and final report with the competent CSIRT
+    primary: Bogdan Olteanu
+    backup: null
+    backup_gap: true
+    gap_reason: >-
+      no submission account exists yet and no second person is authorised to
+      file; both are recorded as undetermined in policies/incident-reporting.yaml
+    gap_owner: Bogdan Olteanu
+    gap_tracked_in: 114
+
+  - id: customer-communicator
+    responsibility: notify affected recipients and record what was sent, to whom and when
+    primary: Bogdan Olteanu
+    backup: null
+    backup_gap: true
+    gap_reason: single maintainer; customer notification has no second owner
+    gap_owner: Bogdan Olteanu
+    gap_tracked_in: 113
+
+  - id: corrective-release-owner
+    responsibility: produce and ship the corrective release that starts the final-report clock
+    primary: Bogdan Olteanu
+    backup: null
+    backup_gap: true
+    gap_reason: single maintainer; release authority is not delegable today
+    gap_owner: Bogdan Olteanu
+    gap_tracked_in: 113
+
+# --- customer-impact classification ------------------------------------------
+# Distinct from the REGULATORY classification in policies/incident-reporting.yaml
+# (actively-exploited-vulnerability / severe-incident / not-reportable). That one
+# decides whether a regulator is told. This one decides what a CUSTOMER is told,
+# and the two are not the same question — an incident can be non-reportable and
+# still require customer action, or reportable with no customer action at all.
+#
+# The validator refuses an incident record that omits it: "we never worked out
+# who this hurt" is not an acceptable state for a closed incident.
+customer_impact_classification:
+  required_on: every incident record
+  field: customer_impact
+  values:
+    - id: action-required
+      means: recipients must upgrade, re-pin or reconfigure to be safe
+      notification: mandatory, before or with the corrective release
+    - id: informational
+      means: recipients are affected but the corrective release requires no action from them
+      notification: mandatory, with the corrective release
+    - id: no-customer-impact
+      means: no released artefact reaching any recipient is affected
+      notification: not required, but the rationale must be recorded
+      requires_rationale: true
+    - id: undetermined
+      means: impact not yet established
+      terminal: false
+      note: permitted only while an incident is open; a closed incident may not carry it
