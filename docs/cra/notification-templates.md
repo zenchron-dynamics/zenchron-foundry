@@ -92,9 +92,9 @@ Mitigations and corrective measures
 
 Governance disclosure
   Zenchron Foundry is maintained by one individual. Classification,
-  decision and submission authority rest with the same person; no
-  segregation of duties exists. Recorded in policies/governance-model.yaml
-  and policies/cra-roles.yaml.
+  decision and submission authority rest with the same person.
+  There is no segregation of duties. Recorded in
+  policies/governance-model.yaml and policies/cra-roles.yaml.
 ```
 
 **The governance disclosure is not optional.** A filing that names roles without stating that they collapse
