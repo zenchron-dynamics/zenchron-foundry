@@ -453,6 +453,7 @@ PY
 self_test() {
   local tmp ok=0 bad=0
   tmp="$(mktemp -d)"
+  # expand NOW: the local is out of scope by EXIT time
   # shellcheck disable=SC2064
   trap "rm -rf '${tmp}'" EXIT
   # Every case reads the FIXTURE ledger, never the real one — otherwise the

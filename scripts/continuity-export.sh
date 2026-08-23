@@ -85,6 +85,7 @@ exercise() {
   docker rm -f "$name" >/dev/null 2>&1 || true
   docker run -d --rm --name "$name" -p "127.0.0.1:${port}:5000" registry:2 >/dev/null 2>&1 \
     || { echo "REFUSE: could not start a local registry" >&2; return 1; }
+  # expand NOW: the local is out of scope by EXIT time
   # shellcheck disable=SC2064
   trap "docker rm -f '$name' >/dev/null 2>&1 || true; rm -rf '$dir'" EXIT
   sleep 3

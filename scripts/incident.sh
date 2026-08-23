@@ -331,7 +331,10 @@ PY
 
 self_test() {
   local p=0 f=0 tmp
-  tmp="$(mktemp -d)"; trap "rm -rf '${tmp}'" EXIT
+  tmp="$(mktemp -d)"
+  # expand NOW: the local is out of scope by EXIT time
+  # shellcheck disable=SC2064
+  trap "rm -rf '${tmp}'" EXIT
   a() { if eval "$2"; then p=$((p+1)); echo "  ok   $1"; else f=$((f+1)); echo "  FAIL $1"; fi; }
 
   a "deadlines compute from a valid awareness timestamp" \

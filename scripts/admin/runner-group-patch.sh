@@ -517,7 +517,10 @@ json.dump({k:g[k] for k in ("name","visibility","allows_public_repositories","re
 
 # ---------------------------------------------------------------------------
 _rgp_self_test() {
-  local ok=0 nbad=0 tmp rc; tmp="$(mktemp -d)"; trap "rm -rf '${tmp}'" EXIT
+  local ok=0 nbad=0 tmp rc; tmp="$(mktemp -d)"
+  # expand NOW: the local is out of scope by EXIT time
+  # shellcheck disable=SC2064
+  trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then echo "ok   - $1"; ok=$((ok+1)); else echo "FAIL - $1"; nbad=$((nbad+1)); fi; }
   local OLD="zenchron-dynamics/zenchron-foundry/.github/workflows/old.yml@refs/heads/master"
   local DRIFT="zenchron-dynamics/zenchron-foundry/.github/workflows/drifted.yml@refs/heads/master"

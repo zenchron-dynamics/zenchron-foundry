@@ -112,6 +112,8 @@ inventory() {
 
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064  # expand now: $tmp must be captured at trap time
+  # expand NOW: the local is out of scope by EXIT time
+  # shellcheck disable=SC2064
   trap "rm -rf '${tmp}'" EXIT
 
   cid="$(docker create "$image")" \
@@ -133,6 +135,7 @@ inventory() {
 self_test() {
   local ok=0 bad=0 tmp
   tmp="$(mktemp -d)"
+  # expand NOW: the local is out of scope by EXIT time
   # shellcheck disable=SC2064
   trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then ok=$((ok+1)); echo "  ok   $1"; else bad=$((bad+1)); echo "  FAIL $1"; fi; }

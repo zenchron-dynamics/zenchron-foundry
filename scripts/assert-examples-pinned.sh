@@ -95,7 +95,10 @@ scan() { # scan <dir-or-file>... -> prints violations, returns 1 if any
 
 self_test() {
   local tmp ok=0 bad=0
-  tmp="$(mktemp -d)"; trap "rm -rf '${tmp}'" EXIT
+  tmp="$(mktemp -d)"
+  # expand NOW: the local is out of scope by EXIT time
+  # shellcheck disable=SC2064
+  trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then ok=$((ok+1)); echo "  ok   $1"; else bad=$((bad+1)); echo "  FAIL $1"; fi; }
 
   printf 'FROM alpine:3@sha256:%064d AS a\nRUN echo hi\n' 0 > "$tmp/good"

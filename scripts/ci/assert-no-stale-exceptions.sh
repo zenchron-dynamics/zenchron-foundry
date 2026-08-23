@@ -201,6 +201,7 @@ self_test() {
   # old behaviour with `bash -T scripts/ci/assert-no-stale-exceptions.sh --self-test`.
   #
   # EXIT is scope-independent and fires exactly once, whatever functrace is doing.
+  # expand NOW: the local is out of scope by EXIT time
   # shellcheck disable=SC2064
   trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then ok=$((ok+1)); echo "  ok   $1"; else bad=$((bad+1)); echo "  FAIL $1"; fi; }

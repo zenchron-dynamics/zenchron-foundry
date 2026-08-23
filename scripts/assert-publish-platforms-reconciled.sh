@@ -441,6 +441,8 @@ _apr_self_test() {
   python3 -c 'import yaml' 2>/dev/null || { echo "SKIP - PyYAML absent"; return 0; }
   local fail=0 tmp; tmp="$(mktemp -d)"
   # shellcheck disable=SC2317  # invoked via the `t` helper below
+  # expand NOW: the local is out of scope by EXIT time
+  # shellcheck disable=SC2064
   trap "rm -rf '${tmp}'" EXIT
 
   cat >"$tmp/amd64-only.yaml" <<'Y'
