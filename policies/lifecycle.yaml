@@ -166,18 +166,36 @@ lines:
     foundry_release_state: blocked-does-not-build
     blocker:
       summary: >-
-        PHP 8.5 images DO NOT BUILD. docker-php-ext-install completes compilation but
-        installs no module against the PHP 8.5 extension API (no-debug-non-zts-20250925),
-        and the build fails at `cp: cannot stat 'modules/*'` / `make: *** [install-modules]`.
+        ROOT CAUSE FOUND 2026-08-23: `opcache`. PHP 8.5's official base already ships
+        Zend OPcache BUILT INTO the binary (`php -v` reports "with Zend OPcache v8.5.9";
+        `php -m` lists "Zend OPcache"). Running `docker-php-ext-install opcache` therefore
+        compiles it, produces no SHARED module, and `make install-modules` dies at
+        `cp: cannot stat 'modules/*'`. The final cp error was a symptom; the real cause is
+        asking the helper to build a statically-linked extension as a shared one.
       measured: 2026-08-23, local amd64 build of images/php-cli/8.5, twice (~160 s each)
       ruled_out: >-
-        Not the php-redis pin. Reproduced with php-redis 6.1.0 and again with 6.3.0
-        (sha256 0d5141f634bd1db6c1ddcda053d25ecf2c4fc1c395430d534fd3f8d51dd7f0b5),
-        whose package.xml declares min PHP 7.4.0 with no upper bound.
+        Not the php-redis pin (reproduced with 6.1.0 and 6.3.0). Not an interaction:
+        `opcache` ALONE reproduces the failure in 53 s. Not the toolchain: `bcmath pcntl`
+        passes, `intl` alone passes, `pdo_pgsql` alone passes.
+      isolation_method: >-
+        Bounded binary subdivision on linux/amd64. halfA {bcmath intl opcache pcntl
+        pdo_pgsql} failed; {bcmath pcntl} passed; then intl / opcache / pdo_pgsql
+        individually -> only opcache failed. Confirmed by building the full set MINUS
+        opcache: PASS in 344 s, with all ten required extensions present in `php -m`
+        including opcache, supplied by the base.
+      fix: >-
+        Remove `opcache` from the docker-php-ext-install list for the PHP 8.5 cohort only.
+        This is Foundry Dockerfile sequencing (ownership: foundry-dockerfile), NOT dropping
+        a required module: opcache remains present and enabled, provided by the official
+        base instead of compiled. PHP 8.3/8.4 are unaffected and must not be changed.
+      verified: >-
+        ext85:full_minus_opcache built 2026-08-23 on linux/amd64 from
+        php:8.5-cli-bookworm@sha256:b3154b925899...; php -m lists bcmath, intl, Zend OPcache,
+        pcntl, pdo_pgsql, pgsql, pdo_mysql, sockets, zip, gd.
       next_action: >-
-        Bisect the docker-php-ext-install list (bcmath intl opcache pcntl pdo_pgsql
-        pgsql pdo_mysql sockets zip gd) to identify which extension emits no module
-        against the 8.5 API, then pin or drop that extension for the 8.5 cohort only.
+        Apply the opcache fix to the four 8.5 Dockerfiles, build all four amd64 children,
+        scan the CHILDREN (never the bases), and govern from child evidence. FrankenPHP
+        needs separate validation: different upstream base and toolchain.
       why_not_in_matrix: >-
         These four families were added to MATRIX_IMAGES in an earlier batch WITHOUT
         ever building a child. Left in the live matrix they would fail 8 of 28 children
