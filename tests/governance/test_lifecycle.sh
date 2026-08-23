@@ -70,9 +70,17 @@ ck "no Dockerfile still pins the retired nginx line" \
 # says what UPSTREAM state its primary runtime line is in. Before this, all ten
 # images said "supported" and nothing distinguished PHP 8.3 (security-fixes-only
 # since 2025-12-31) from PHP 8.4 (active) — the same overstatement class as #121.
-ck "every image declares com.zenchron.support_state" \
-   '[ "$(grep -rl "com.zenchron.support_state=" images/*/Dockerfile images/*/*/Dockerfile | wc -l | tr -d " ")" \
-      = "$(bash -c ". scripts/lib/common.sh; matrix_image_labels" | grep -c .)" ]'
+# Subset, not equality: experimental PHP 8.5 Dockerfiles exist outside the
+# production matrix. Every SHIPPING image must declare the label.
+ck "every matrix image declares com.zenchron.support_state" \
+   'bash -c ". scripts/lib/common.sh
+     for t in \$MATRIX_IMAGES; do
+       f=\"images/\${t%%:*}/\${t#*:}/Dockerfile\"
+       [ -f \"\$f\" ] || f=\"images/\${t%%:*}/Dockerfile\"
+       grep -q com.zenchron.support_state= \"\$f\" || exit 1
+     done"'
+ck "...and the experimental 8.5 images declare it too" \
+   '[ "$(grep -rl "com.zenchron.support_state=" images/php-*/8.5/Dockerfile 2>/dev/null | wc -l | tr -d " ")" = 4 ]'
 
 ck "each PHP image advertises the state its PHP line is actually in" \
    'python3 -c "
@@ -115,14 +123,14 @@ ck "the PHP version policy exists and names the retirement trigger" \
 # --- PHP 8.5 is a known gap, recorded as such -------------------------------
 # #106 cannot close while publication is disabled, so the honest state is a
 # tracked gap in the inventory rather than silence.
-ck "PHP 8.5 is in the inventory, withdrawn, with its build blocker recorded" \
+ck "PHP 8.5 is in the inventory as experimental, amd64-only, out of production" \
    'python3 -c "
 import yaml
 inv = yaml.safe_load(open(\"policies/lifecycle.yaml\"))
 e = [x for x in inv[\"lines\"] if x[\"id\"] == \"php-8.5\"][0]
 assert e[\"support_state\"] == \"active\", e[\"support_state\"]
 assert e[\"used_by\"] == [], e[\"used_by\"]
-assert e[\"foundry_release_state\"] == \"blocked-does-not-build\", e.get(\"foundry_release_state\")
+assert e[\"foundry_release_state\"] == \"experimental-amd64-only\", e.get(\"foundry_release_state\")
 assert e[\"blocker\"][\"summary\"] and e[\"blocker\"][\"next_action\"]
 "'
 
