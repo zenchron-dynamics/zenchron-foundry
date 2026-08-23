@@ -18,7 +18,7 @@
 # round trip is executed rather than described.
 #
 # Usage:
-#   continuity-export.sh --export <dir>            OCI layout export of the matrix
+#   continuity-export.sh --export [--digests-only] <dir>   OCI layout export
 #   continuity-export.sh --exercise                export -> local registry -> verify
 #   continuity-export.sh --self-test
 # =============================================================================
@@ -45,7 +45,7 @@ resolve() { docker buildx imagetools inspect "$1" --format '{{.Manifest.Digest}}
 do_export() {
   local dir="${1:?usage: --export <dir>}"
   mkdir -p "$dir"
-  local n=0 failed=0
+  local n=0 failed=0 nolayout=0
   : > "$dir/digests.txt"
   while IFS= read -r img; do
     [ -n "$img" ] || continue
@@ -63,9 +63,8 @@ do_export() {
     # tag records whatever the tag meant at that instant.
     if ! docker buildx imagetools create --tag "oci-layout://$dir/layout:${img//[:\/]/_}" \
            "${ref%:*}@${dig}" >/dev/null 2>&1; then
-      # Fall back to a plain pull+save-by-digest where imagetools cannot write a
-      # layout locally. Recorded, not silently swallowed.
-      echo "note: OCI-layout export unavailable for $img; recording digest only" >&2
+      echo "note: OCI-layout export unavailable for $img; recorded digest only" >&2
+      nolayout=$((nolayout + 1))
     fi
   done < <(matrix)
 
@@ -73,6 +72,17 @@ do_export() {
   echo "exported $((n - failed))/$want image digest(s) to $dir"
   [ "$failed" -eq 0 ] || { echo "REFUSE: $failed image(s) did not resolve" >&2; return 1; }
   [ "$n" -eq "$want" ] || { echo "REFUSE: short matrix ($n of $want)" >&2; return 1; }
+  # A digest list is an INVENTORY, not a backup. policies/continuity.yaml
+  # promises `format: OCI layout`, and this used to exit 0 having written
+  # nothing but digests.txt when every layout write failed — a "successful"
+  # export you cannot restore from. Refuse unless the caller explicitly asked
+  # for an inventory-only run.
+  if [ "$nolayout" -gt 0 ] && [ "$DIGESTS_ONLY" != "1" ]; then
+    echo "REFUSE: $nolayout image(s) exported no OCI layout — a digest list is an" >&2
+    echo "        inventory, not a backup, and nothing can be restored from it." >&2
+    echo "        Re-run with --digests-only to record an inventory deliberately." >&2
+    return 1
+  fi
   return 0
 }
 
@@ -167,9 +177,15 @@ assert all(h['blocks']==116 for h in d['required_human_decisions'])\""
   [ "$fail" -eq 0 ]
 }
 
+# An inventory-only export must be ASKED for. It is a legitimate thing to want
+# — knowing which digests were live is useful — but it is not a backup, so it
+# cannot be what you get by accident when every layout write fails.
+DIGESTS_ONLY=0
 case "${1:-}" in
-  --export)    shift; do_export "${1:-}" ;;
+  --export)    shift
+               if [ "${1:-}" = "--digests-only" ]; then DIGESTS_ONLY=1; shift; fi
+               do_export "${1:-}" ;;
   --exercise)  exercise ;;
   --self-test) self_test ;;
-  *) echo "usage: $(basename "$0") --export <dir> | --exercise | --self-test" >&2; exit 64 ;;
+  *) echo "usage: $(basename "$0") --export [--digests-only] <dir> | --exercise | --self-test" >&2; exit 64 ;;
 esac
