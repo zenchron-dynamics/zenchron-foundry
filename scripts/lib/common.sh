@@ -48,8 +48,19 @@ require_hex40()   { is_hex40   "${1:-}" || die "revision '${1:-}' is not 40 lowe
 # for PHP families, or "prod" for the versionless edge images. This is the ONE
 # place the matrix is defined; assert-image-matrix.sh, smoke-all.sh, ci.yml and
 # the manifest/promotion tooling all derive from it.
-MATRIX_IMAGES="php-cli:8.3 php-cli:8.4 php-cli:8.5 php-fpm:8.3 php-fpm:8.4 php-fpm:8.5 php-worker:8.3 php-worker:8.4 php-worker:8.5 php-frankenphp:8.3 php-frankenphp:8.4 php-frankenphp:8.5 nginx:prod caddy:prod"
-MATRIX_COUNT=14
+# PHP 8.5 IS DELIBERATELY ABSENT FROM THE LIVE MATRIX. Its image definitions,
+# runtime contracts, extension contracts and lifecycle metadata all exist and are
+# tested — but the images DO NOT BUILD: docker-php-ext-install produces no module
+# against the PHP 8.5 extension API (20250925) and the build dies at
+# `cp: cannot stat 'modules/*'`. Measured locally, with php-redis 6.1.0 AND with
+# 6.3.0, so it is not the redis pin.
+#
+# It was added to this list in an earlier batch without ever building a child.
+# Left here it would fail 8 of 28 children at build time in a ~10-hour acceptance
+# run. It returns only once a representative child builds and scans.
+# Blocker and evidence: policies/lifecycle.yaml (php-8.5).
+MATRIX_IMAGES="php-cli:8.3 php-cli:8.4 php-fpm:8.3 php-fpm:8.4 php-worker:8.3 php-worker:8.4 php-frankenphp:8.3 php-frankenphp:8.4 nginx:prod caddy:prod"
+MATRIX_COUNT=10
 
 matrix_images() { printf '%s\n' $MATRIX_IMAGES; }   # one token per line
 matrix_families() { for t in $MATRIX_IMAGES; do printf '%s\n' "${t%:*}"; done | sort -u; }

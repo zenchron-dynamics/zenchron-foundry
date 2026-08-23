@@ -82,11 +82,34 @@ also change the authoritative image matrix from ten to fourteen, which
 paths assume.
 
 So #106 stays open, and the honest interim state is what the inventory now
-records: `php-8.5`, `support_state: not-yet-offered`, `used_by: []`. The gap is
-visible in a machine-readable file rather than only in an issue.
+records: `php-8.5`, `support_state: active` (that field tracks **upstream**),
+`foundry_release_state: blocked-does-not-build`, `used_by: []`.
 
-**Unblocking order:** #139 (publication path) → matrix expansion to fourteen →
-8.5 image definitions → build/scan/reconcile → release.
+### The blocker is measured, not inferred (2026-08-23)
+
+The four `php-*/8.5` image definitions were added to the matrix in an earlier
+batch **without ever building a child**, then withdrawn once a build was
+attempted. PHP 8.5 does not merely lack release plumbing — **the images do not
+build**:
+
+```text
+Installing shared extensions: .../no-debug-non-zts-20250925/
+cp: cannot stat 'modules/*': No such file or directory
+make: *** [Makefile:89: install-modules] Error 1
+```
+
+Reproduced twice on `linux/amd64` (~160 s each) with php-redis **6.1.0** and
+again with **6.3.0**, so it is not the redis pin. The failing component sits
+inside the `docker-php-ext-install` list and is not yet isolated.
+
+**Do not re-add 8.5 to `MATRIX_IMAGES` until a representative child builds.**
+Left in the matrix it fails 8 of 28 children at build time — after the native
+half of a ~10-hour acceptance run has already been spent.
+
+**Unblocking order:** isolate the extension failure → one built `php-cli/8.5`
+child with a real digest → scan the **child**, never the base → child-level
+governance on amd64 → arm64 evidence → matrix expansion to fourteen → #139
+publication path → release.
 
 ## What this policy does not do
 

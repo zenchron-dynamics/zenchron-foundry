@@ -2,7 +2,7 @@
 # =============================================================================
 # assert-image-matrix.sh
 # -----------------------------------------------------------------------------
-# self-test: waived (thin wrapper; exercised by the "image matrix (14/14)" gate
+# self-test: waived (thin wrapper; exercised by the "image matrix (10/10)" gate
 # in scripts/macro-validate.sh, ci.yml, and tests/lib/test_foundations.sh's
 # matrix drift-guard)
 #
@@ -39,11 +39,11 @@ while IFS= read -r token; do
   esac
 done < <(matrix_images)
 
-# INTENTIONAL independent count assertion: the literal 14 is NOT taken from
+# INTENTIONAL independent count assertion: the literal 10 is NOT taken from
 # MATRIX_COUNT, so an accidental edit shrinking/growing MATRIX_IMAGES is caught
 # here instead of silently re-baselining the gate.
-if [[ "${#EXPECTED[@]}" -ne 14 ]]; then
-  die "matrix derived ${#EXPECTED[@]} images, expected exactly 14 — MATRIX_IMAGES drifted"
+if [[ "${#EXPECTED[@]}" -ne 10 ]]; then
+  die "matrix derived ${#EXPECTED[@]} images, expected exactly 10 — MATRIX_IMAGES drifted"
 fi
 
 missing=0

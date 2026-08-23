@@ -1,2 +1,0 @@
-# Required PHP extensions — php-cli 8.4 (source of truth; smoke reads this)
-bcmath ctype curl dom fileinfo gd intl mbstring opcache openssl pcntl pdo pdo_mysql pdo_pgsql pgsql redis simplexml sockets sodium sqlite3 tokenizer xml zip

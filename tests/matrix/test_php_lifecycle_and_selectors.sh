@@ -34,17 +34,29 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 set +e
 
 # --- matrix shape -----------------------------------------------------------
-ck "the matrix holds 14 image definitions" "[ \"\$(matrix_images | wc -l | tr -d ' ')\" -eq 14 ]"
-ck "PHP 8.5 is present for all four families" \
-   "[ \"\$(matrix_images | grep -c ':8.5$')\" -eq 4 ]"
-ck "the planner yields exactly 28 children on two platforms" \
-   "[ \"\$(bash scripts/release/build-acceptance-matrix.sh 'linux/amd64,linux/arm64' | jq '(.include // .) | length')\" -eq 28 ]"
-ck "...14 per platform" \
-   "[ \"\$(bash scripts/release/build-acceptance-matrix.sh 'linux/amd64,linux/arm64' | jq '[(.include // .)[]|select(.platform==\"linux/arm64\")]|length')\" -eq 14 ]"
-ck "every 8.5 family has a real image directory with a Dockerfile" \
-   "for f in php-cli php-fpm php-worker php-frankenphp; do test -s \"images/\$f/8.5/Dockerfile\" || exit 1; done"
-ck "every 8.5 base is digest-pinned to an OFFICIAL upstream image" \
-   "[ \"\$(grep -hoE '(php|dunglas/frankenphp):[^ ]*8\.5[^ ]*@sha256:[a-f0-9]{64}' images/php-*/8.5/Dockerfile | wc -l | tr -d ' ')\" -ge 4 ]"
+ck "the matrix holds the shipping image definitions" \
+   "[ \"\$(matrix_images | wc -l | tr -d ' ')\" -eq \"\$MATRIX_COUNT\" ]"
+
+# PHP 8.5 IS WITHDRAWN FROM THE LIVE MATRIX. It was added in an earlier batch
+# without ever building a child; a local build proved the images do not build at
+# all (docker-php-ext-install emits no module against the 8.5 extension API).
+# Left in, it would have failed 8 of 28 children inside a ~10-hour run.
+ck "PHP 8.5 is NOT in the live matrix" \
+   "[ \"\$(matrix_images | grep -c ':8.5\$')\" -eq 0 ]"
+ck "...and no orphan 8.5 image directory or contract remains" \
+   "! ls -d images/php-*/8.5 >/dev/null 2>&1 && ! ls contracts/images/*-8.5.yaml >/dev/null 2>&1"
+ck "...with the build blocker recorded as evidence, not folklore" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$LIFE'))
+e=[x for x in d['lines'] if x['id']=='php-8.5'][0]
+assert e['foundry_release_state']=='blocked-does-not-build', e.get('foundry_release_state')
+b=e['blocker']
+assert 'modules' in b['summary']
+assert 'redis' in b['ruled_out']
+assert b['next_action'] and b['why_not_in_matrix']
+assert e['used_by']==[], e['used_by']\""
+ck "the planner yields exactly MATRIX_COUNT x 2 children" \
+   "[ \"\$(bash scripts/release/build-acceptance-matrix.sh 'linux/amd64,linux/arm64' | jq '(.include // .) | length')\" -eq \$(( MATRIX_COUNT * 2 )) ]"
 
 # --- a finding fixture ------------------------------------------------------
 scan() { jq -n --arg c "$2" --arg p "$3" --arg v "$4" '{
@@ -69,7 +81,7 @@ done
 # --- THE POINT: 8.5 is ungoverned ------------------------------------------
 for f in php-cli php-fpm php-worker php-frankenphp; do
   run "$TMP/ssl.json" "$f" 8.5 linux/amd64 > "$TMP/o-$f.txt" 2>&1
-  ck "$f/8.5 is UNGOVERNED — the cohort did not silently widen" \
+  ck "$f/8.5 would be UNGOVERNED if re-added — the cohort cannot widen" \
      "grep -q 'no in-scope exception' '$TMP/o-$f.txt'"
   ck "...and the refusal names $f/8.5, not a neighbour" \
      "grep -q '$f/8.5' '$TMP/o-$f.txt'"
@@ -153,12 +165,12 @@ ck "the inventory declares PHP 8.3, 8.4 and 8.5" \
    "[ \"\$(python3 -c \"
 import yaml;d=yaml.safe_load(open('$LIFE'))
 print(len([x for x in d['lines'] if x['id'].startswith('php-8.')]))\")\" -eq 3 ]"
-ck "8.5 tracks upstream 'active' but Foundry 'governance-pending'" \
+ck "8.5 tracks upstream 'active' but Foundry 'blocked-does-not-build'" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$LIFE'))
 e=[x for x in d['lines'] if x['id']=='php-8.5'][0]
 assert e['support_state']=='active', e['support_state']
-assert e['foundry_release_state']=='governance-pending', e.get('foundry_release_state')\""
+assert e['foundry_release_state']=='blocked-does-not-build', e.get('foundry_release_state')\""
 ck "8.3 is security-only — deprecation is advertised, not implied" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$LIFE'))
@@ -211,7 +223,7 @@ assert not bad, 'past support_ends but still offered: %r' % bad\""
 #
 # So it now matches the SHAPES, not the specific numbers: any comparison of a
 # counted thing against a bare integer in matrix-adjacent code.
-offenders="$(grep -rnE 'expected_children.*=.*[0-9]+|wc -l[^|]*\)\" = [0-9]+|-eq (10|14|20|28)\b|keys \| length\" \) = [0-9]+|for v in \("8\.3","8\.4"\)' \
+offenders="$(grep -rnE 'expected_children.*=.*[0-9]+|wc -l[^|]*\)\" = [0-9]+|-eq (10|14|20|28)\b|keys \| length\" \) = [0-9]+' \
              scripts/ .github/workflows/ contracts/ 2>/dev/null \
            | grep -vE 'test_|\.md:' \
            | grep -vE ':[0-9]+: *#' \
@@ -221,6 +233,14 @@ ck "no script or workflow compares a matrix-derived count to a bare literal" \
 
 # The two INTENTIONAL tripwires are exempt and named, so nobody deletes them
 # thinking they are the drift this check hunts.
+# A hardcoded PHP version list in a fixture is only WRONG when it disagrees with
+# the live matrix. The previous form matched ("8.3","8.4") unconditionally: right
+# while PHP 8.5 was in the matrix, a false positive the moment 8.5 was withdrawn.
+# Compare against MATRIX_IMAGES instead of a constant.
+python3 scripts/ci/check-php-version-fixtures.py > "$TMP/vfix.out" 2>&1; _vfix=$?
+ck "hardcoded PHP version lists agree with the live matrix" "[ $_vfix -eq 0 ]"
+[ $_vfix -eq 0 ] || sed 's/^/      /' "$TMP/vfix.out"
+
 ck "the two deliberate drift tripwires still exist and agree with the matrix" \
    "grep -q '^MATRIX_COUNT=' scripts/lib/common.sh &&
     grep -q 'INTENTIONAL independent count assertion' scripts/assert-image-matrix.sh &&
