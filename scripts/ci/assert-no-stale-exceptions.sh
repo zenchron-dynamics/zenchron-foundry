@@ -315,8 +315,7 @@ PYD
   # tests/matrix/test_php_lifecycle_and_selectors.sh now hunts for.
   t "the canonical matrix equals the shipping image set" \
     "[ \"\$(canonical_images | grep -c .)\" = \"\$(bash -c '. scripts/lib/common.sh; matrix_image_labels' | grep -c .)\" ] &&
-     canonical_images | grep -qx nginx/prod && canonical_images | grep -qx php-cli/8.3 &&
-     canonical_images | grep -qx php-cli/8.5"
+     canonical_images | grep -qx nginx/prod && canonical_images | grep -qx php-cli/8.3"
 
   # INTEGRATION: the labels the reconciler ACTUALLY emits must equal the
   # canonical set. The unit fixtures above generate their files FROM

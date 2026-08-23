@@ -89,7 +89,7 @@ _vrm_self_test() {
   R="$R" D="$D" OUT="$tmp/good.yaml" python3 - <<'PY'
 import os, yaml
 R, D = os.environ["R"], os.environ["D"]
-keys = [f"php-{f}-{v}" for f in ("cli","fpm","worker","frankenphp") for v in ("8.3","8.4","8.5")] + ["nginx","caddy"]
+keys = [f"php-{f}-{v}" for f in ("cli","fpm","worker","frankenphp") for v in ("8.3","8.4")] + ["nginx","caddy"]
 def repo(k):
     fam = k.rsplit("-",1)[0] if k.startswith("php-") else k
     return "ghcr.io/zenchron-dynamics/%s" % fam

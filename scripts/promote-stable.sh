@@ -140,7 +140,7 @@ _ps_self_test() {
     R="$R" OUT="$d/art/rc.yaml" python3 - <<'PY'
 import os, yaml, hashlib
 R = os.environ["R"]
-keys = [f"php-{f}-{v}" for f in ("cli","fpm","worker","frankenphp") for v in ("8.3","8.4","8.5")] + ["nginx","caddy"]
+keys = [f"php-{f}-{v}" for f in ("cli","fpm","worker","frankenphp") for v in ("8.3","8.4")] + ["nginx","caddy"]
 def repo(k): return "ghcr.io/zenchron-dynamics/%s" % (k.rsplit("-",1)[0] if k.startswith("php-") else k)
 def dig(k): return "sha256:" + hashlib.sha256(("ps-rc:"+k).encode()).hexdigest()
 imgs = {k: {"repository": repo(k), "immutable_tag": "t-"+k, "digest": dig(k),
@@ -230,8 +230,8 @@ PY
 
   # --- mid-promotion registry failure -> compensating reverse rollback ---
   local d2; d2="$(mktemp -d)"; _mkfix "$d2"
-  _run "$d2" REG_FAIL_AT=14; rc=$?
-  _t "REG_FAIL_AT=14 aborts promotion (nonzero)" '[ "$rc" -ne 0 ]'
+  _run "$d2" REG_FAIL_AT=10; rc=$?
+  _t "REG_FAIL_AT=10 aborts promotion (nonzero)" '[ "$rc" -ne 0 ]'
   _t "journal replay restored every prior"        '_all_at_prior "$d2"'
   rm -rf "$d2"
 

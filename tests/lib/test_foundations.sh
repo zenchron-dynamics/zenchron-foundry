@@ -24,8 +24,16 @@ PY"
 done
 
 # 3. contracts parse and cover the full matrix
-ck "an image contract exists for every matrix image" \
-   'test "$(ls contracts/images/*.yaml | wc -l | tr -d " ")" = "$(bash -c ". scripts/lib/common.sh; echo \$MATRIX_COUNT")"'
+# Subset, not equality: the four PHP 8.5 contracts are retained on purpose while
+# 8.5 is out of the live matrix (it does not build — see policies/lifecycle.yaml).
+# What must hold is that every SHIPPING image has a contract.
+. scripts/lib/common.sh
+_missing_contract=""
+for _t in $MATRIX_IMAGES; do
+  _f="contracts/images/${_t%:*}-${_t#*:}.yaml"
+  [ -f "$_f" ] || _missing_contract="$_missing_contract $_f"
+done
+ck "an image contract exists for every matrix image" '[ -z "$_missing_contract" ]'
 for f in contracts/images/*.yaml; do ck "yaml valid: $f" "yq -e '.' '$f' >/dev/null"; done
 ck "an extension contract exists for every declaring image contract" \
    'test "$(ls contracts/php-extensions/*.txt | wc -l | tr -d " ")" \

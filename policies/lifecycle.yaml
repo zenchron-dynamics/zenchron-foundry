@@ -161,17 +161,35 @@ lines:
     active_support_ends: 2027-12-31
     support_ends: 2029-12-31
     source: "https://www.php.net/supported-versions.php"
-    used_by: [php-cli, php-fpm, php-worker, php-frankenphp]
+    used_by: []
     support_state: active
-    foundry_release_state: governance-pending
+    foundry_release_state: blocked-does-not-build
+    blocker:
+      summary: >-
+        PHP 8.5 images DO NOT BUILD. docker-php-ext-install completes compilation but
+        installs no module against the PHP 8.5 extension API (no-debug-non-zts-20250925),
+        and the build fails at `cp: cannot stat 'modules/*'` / `make: *** [install-modules]`.
+      measured: 2026-08-23, local amd64 build of images/php-cli/8.5, twice (~160 s each)
+      ruled_out: >-
+        Not the php-redis pin. Reproduced with php-redis 6.1.0 and again with 6.3.0
+        (sha256 0d5141f634bd1db6c1ddcda053d25ecf2c4fc1c395430d534fd3f8d51dd7f0b5),
+        whose package.xml declares min PHP 7.4.0 with no upper bound.
+      next_action: >-
+        Bisect the docker-php-ext-install list (bcmath intl opcache pcntl pdo_pgsql
+        pgsql pdo_mysql sockets zip gd) to identify which extension emits no module
+        against the 8.5 API, then pin or drop that extension for the 8.5 cohort only.
+      why_not_in_matrix: >-
+        These four families were added to MATRIX_IMAGES in an earlier batch WITHOUT
+        ever building a child. Left in the live matrix they would fail 8 of 28 children
+        at build time inside a ~10-hour acceptance run. The image definitions, runtime
+        contracts, extension contracts and tests are all retained and exercised; only
+        the live matrix entry is withdrawn until a representative child builds.
     note: >-
-      Offered by Foundry since 2026-08-21 (#106) on both architectures. support_state
-      tracks UPSTREAM, which is active; foundry_release_state records that Foundry has
-      built and scanned these images but has NOT yet governed their findings. PHP 8.5
+      support_state tracks UPSTREAM, which is active. foundry_release_state records
+      Foundry readiness, which is BLOCKED. When 8.5 returns to the matrix it still
       BEGINS UNGOVERNED by construction: every PHP selector in the ledger is bound to
-      the immutable php-8.3-8.4 cohort, so adding 8.5 to the matrix cannot widen a
-      historical risk decision. Its findings must be triaged from 8.5 evidence before
-      release. Entry criteria are in docs/php-version-policy.md.
+      the immutable php-8.3-8.4 cohort, so re-adding it cannot widen a historical risk
+      decision. Entry criteria are in docs/php-version-policy.md.
 
   # --- other pinned runtimes ------------------------------------------------
   - id: frankenphp-1.x

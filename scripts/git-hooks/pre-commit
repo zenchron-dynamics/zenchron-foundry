@@ -20,9 +20,20 @@ fi
 
 # Dockerfile lint if hadolint is present.
 if command -v hadolint >/dev/null 2>&1; then
+    # --diff-filter=d: a DELETED Dockerfile still appears in --name-only, and
+    # handing it to hadolint crashes the hook with an uncaught Haskell
+    # IOException ("withBinaryFile: does not exist"). That set fail=1, so a
+    # commit that REMOVES a Dockerfile could not be made at all. Found while
+    # withdrawing the PHP 8.5 images. Belt and braces: also skip anything that
+    # is no longer on disk.
     while IFS= read -r f; do
-        case "$f" in */Dockerfile) hadolint --config policies/hadolint.yaml "$f" || fail=1;; esac
-    done < <(git diff --cached --name-only)
+        case "$f" in
+          */Dockerfile)
+            [ -f "$f" ] || continue
+            hadolint --config policies/hadolint.yaml "$f" || fail=1
+            ;;
+        esac
+    done < <(git diff --cached --name-only --diff-filter=d)
 fi
 
 exit "$fail"

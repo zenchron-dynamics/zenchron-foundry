@@ -115,14 +115,15 @@ ck "the PHP version policy exists and names the retirement trigger" \
 # --- PHP 8.5 is a known gap, recorded as such -------------------------------
 # #106 cannot close while publication is disabled, so the honest state is a
 # tracked gap in the inventory rather than silence.
-ck "PHP 8.5 is in the inventory, offered, and flagged governance-pending" \
+ck "PHP 8.5 is in the inventory, withdrawn, with its build blocker recorded" \
    'python3 -c "
 import yaml
 inv = yaml.safe_load(open(\"policies/lifecycle.yaml\"))
 e = [x for x in inv[\"lines\"] if x[\"id\"] == \"php-8.5\"][0]
 assert e[\"support_state\"] == \"active\", e[\"support_state\"]
-assert sorted(e[\"used_by\"]) == [\"php-cli\", \"php-fpm\", \"php-frankenphp\", \"php-worker\"], e[\"used_by\"]
-assert e[\"foundry_release_state\"] == \"governance-pending\", e.get(\"foundry_release_state\")
+assert e[\"used_by\"] == [], e[\"used_by\"]
+assert e[\"foundry_release_state\"] == \"blocked-does-not-build\", e.get(\"foundry_release_state\")
+assert e[\"blocker\"][\"summary\"] and e[\"blocker\"][\"next_action\"]
 "'
 
 echo "----"; [ "$fail" -eq 0 ] && echo "test_lifecycle: PASS" || echo "test_lifecycle: FAIL"
