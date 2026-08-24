@@ -890,5 +890,27 @@ json.dump({"name":"wrong-name","visibility":"selected","allows_public_repositori
 case "${1-}" in
   --self-test) _rgp_self_test && echo "runner-group-patch.sh: SELF-TEST OK" ;;
   "") echo "usage: runner-group-patch.sh <group-id> <group-patch.json> <expected-state.json> [--evidence <dir>]" >&2; exit 2 ;;
-  *) patch_group "$@" ;;
+  *)
+    # --- BEGIN repo-identity guard -----------------------------------------
+    # This mutates the ORG control plane on behalf of THIS repository, using
+    # expectations read out of THIS checkout. Running it from a clone of some
+    # other repository, or from inside another agent's live worktree, is the
+    # pair of incidents scripts/lib/repo-identity.sh documents.
+    #
+    # Sourced INSIDE A SUBSHELL on purpose. repo-identity.sh sets `set -e` (as
+    # every lib here does) and this script deliberately runs WITHOUT errexit —
+    # its refusal paths return rather than exit so the self-test can exercise
+    # them. Sourcing at top level would silently change the error semantics of
+    # 900 lines of control-plane code, which is a far larger change than the
+    # guard it adds. The subshell contains it; only the exit status escapes.
+    #
+    # Set ZF_ALLOW_DIRTY=1 to proceed with uncommitted changes under the
+    # protected paths (deliberately an explicit act, not a default).
+    if ! ( . "$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)/repo-identity.sh"
+           require_repo_identity ); then
+      warn "REFUSE: repository-identity guard refused; no control-plane call was made."
+      exit 1
+    fi
+    # --- END repo-identity guard -------------------------------------------
+    patch_group "$@" ;;
 esac

@@ -1,0 +1,88 @@
+# =============================================================================
+# policies/repo-identity.yaml
+# -----------------------------------------------------------------------------
+# WHICH REPOSITORY THIS IS, in the form a script can assert before it mutates
+# anything. Consumed by scripts/lib/repo-identity.sh; see
+# docs/agent-worktree-convention.md for the multi-agent workflow that uses it.
+#
+# Identity is expressed as owner/name plus the hosts a remote may legitimately
+# live on. It is NOT expressed as a filesystem path, and must never be: the same
+# repository is cloned to a different path by every contributor, every CI runner
+# and every worktree, so a path is a fact about one machine, not about the
+# repository. The guard derives everything else from `git remote` and the
+# repository's own metadata.
+#
+# TWO REAL INCIDENTS PRODUCED THIS FILE.
+#   * Agents were handed `git worktree` checkouts derived from the SESSION's
+#     repository rather than this one, worked in the wrong repository entirely,
+#     and a push from that state was flagged as possible exfiltration. Only
+#     manual inspection could establish it was a false positive.
+#   * A coordinator ran git commands inside a lane agent's live checkout and
+#     switched branches under it, silently reverting two tracked files.
+#
+# The flat top-level shape is deliberate. scripts/lib/repo-identity.sh reads it
+# with awk rather than yq, because it runs at the top of mutating scripts where
+# a missing binary would turn a fail-closed guard into an unconditional refusal.
+# The guard's self-test cross-checks the awk parse against yq whenever yq is
+# present, so the simplification cannot silently diverge from real YAML.
+# =============================================================================
+schema_version: 1
+
+# --- repository identity -----------------------------------------------------
+owner: zenchron-dynamics
+name: zenchron-foundry
+
+# The remote whose URL carries the identity. `origin` for every clone this
+# project makes; named here so the guard never guesses.
+remote: origin
+
+# Hosts a legitimate `origin` may point at. This is a separate assertion from
+# owner/name ON PURPOSE: `https://github.example.com/zenchron-dynamics/
+# zenchron-foundry.git` has the CORRECT owner/name and is a different service.
+# Checking the slug alone would accept it.
+allowed_remote_hosts:
+  - github.com
+
+# --- worktree state ----------------------------------------------------------
+# Uncommitted changes under these paths block a guarded operation unless the
+# caller passes --allow-dirty. Scoped to the paths whose content decides what
+# the tooling DOES; editing an image README while cutting a release is not a
+# safety problem and is not treated as one.
+protected_paths:
+  - .github/workflows
+  - policies
+  - scripts
+  - contracts
+
+# --- lane registry -----------------------------------------------------------
+# Names of the two files that record agent-worktree ownership. Both live inside
+# the git directory, so they are untracked by construction and can never be
+# committed, shipped or diffed into a pull request:
+#
+#   <worktree git dir>/zf-lane          who owns THIS checkout
+#   <common git dir>/zf-lanes/<lane>    which checkout a lane owns
+#
+# Absence is the default and means "unclaimed". An ordinary clone has neither
+# file, so the ownership check passes without doing anything — which is how
+# contributors who never touch the multi-agent workflow stay unaffected.
+lane_marker_filename: zf-lane
+lane_registry_dirname: zf-lanes
+
+# --- what the guard is wired into -------------------------------------------
+# EXHAUSTIVE, and enforced in both directions by
+# tests/lib/test_repo_identity_guard.sh: every script listed here must actually
+# call require_repo_identity, and no script outside this list may call it. The
+# first direction stops the wiring rotting into decoration; the second bounds
+# the blast radius, so "ordinary contributors are unaffected" is a checked
+# property rather than an intention.
+#
+# The membership rule: an operation belongs here when performing it against the
+# WRONG repository or in ANOTHER agent's checkout would be harmful and hard to
+# undo — pushing to the canonical remote, mutating the org control plane.
+# Build, test, lint, commit and hook-installation paths are deliberately absent.
+# scripts/install-hooks.sh in particular is NOT guarded: it is bootstrap, it is
+# run by `make init` from forks, and guarding it would block exactly the
+# contributors this policy promises not to block.
+guarded_scripts:
+  - scripts/prepare-release.sh
+  - scripts/admin/runner-group-patch.sh

@@ -61,6 +61,24 @@ for arg in "$@"; do
     esac
 done
 
+# --- BEGIN repo-identity guard ---------------------------------------------
+# This script creates a v* tag and offers to push it to `origin`. Doing that
+# from the wrong repository, or inside another agent's live checkout, is the
+# pair of incidents scripts/lib/repo-identity.sh documents -- the second of
+# which silently reverted tracked files, and the first of which produced a push
+# a security classifier flagged as possible exfiltration.
+#
+# AFTER argument parsing, so --self-test and --help still work in any checkout
+# (the self-test is run by tests/run-all.sh and must not need a real remote).
+# BEFORE the first mutation, which is what makes it a precondition rather than a
+# report. --allow-dirty is NOT passed: this script already requires a clean tree
+# a few steps below, so a dirty protected path refuses either way, and refusing
+# here names the actual reason.
+# shellcheck source=lib/repo-identity.sh
+. "$ROOT/scripts/lib/repo-identity.sh"
+require_repo_identity || die "repository-identity guard refused; nothing was tagged or pushed."
+# --- END repo-identity guard -----------------------------------------------
+
 # --- Tag format ------------------------------------------------------------
 step "Validating release tag '${TAG:-<none>}'"
 validate_tag "$TAG"
