@@ -1,0 +1,117 @@
+# =============================================================================
+# policies/continuity-mirror.yaml — registry-neutral mirror manifest (#116).
+# -----------------------------------------------------------------------------
+# WHAT MUST SURVIVE THE LOSS OF GHCR, and how a copy is proven faithful —
+# described WITHOUT naming a provider, because no independent mirror exists.
+#
+# Registry-neutral is not a stylistic choice. Writing this against a specific
+# vendor's API would mean the manifest has to be rewritten at the exact moment
+# it is needed, which is during an outage. Every field here is expressed in OCI
+# terms that any conformant registry satisfies.
+#
+# THE HONEST STATE: `mirror.status: not-provisioned`. Nothing in this file, and
+# nothing in scripts/continuity-verify.sh, should ever be read as evidence that
+# a mirror exists. The verifier and the drill exercise the MECHANISM a mirror
+# would use, against local OCI layouts.
+#
+# RTO/RPO are NOT restated here. They are declared once, in
+# policies/continuity.yaml under `objectives`, and tests/continuity/ asserts
+# they are not duplicated — two copies of a recovery objective drift, and the
+# one nobody updated is the one somebody follows.
+# =============================================================================
+schema_version: 1
+
+mirror:
+  status: not-provisioned
+  independent: false
+  provider: null
+  endpoint: null
+  credential_source: null
+  tracked_issue: 116
+  # A destination that fails when GHCR fails is not a mirror. Each of these is a
+  # separate failure domain, and a second GHCR package satisfies none of them.
+  independence_requirements:
+    - id: separate-provider
+      requirement: not ghcr.io, and not operated by GitHub
+      why: a provider-wide outage must not take both copies
+    - id: separate-account
+      requirement: an account and billing relationship distinct from the GitHub organisation
+      why: organisation suspension and billing failure are the loss modes continuity exists for
+    - id: external-credentials
+      requirement: credentials stored outside GitHub secrets
+      why: credentials that live only in the thing they must survive do not survive it
+    - id: immutable-retention
+      requirement: tag and digest immutability enabled on the destination
+      why: a mirror an attacker can overwrite is a second copy of the compromise
+
+# --- what must be mirrored ---------------------------------------------------
+# Derived, not hand-listed. A hand-maintained digest list goes stale silently;
+# the selector below is evaluated against the live matrix at export time by
+# scripts/continuity-export.sh.
+critical_release_inventory:
+  selector: every image in the matrix defined by scripts/lib/common.sh, at every currently supported release
+  source_of_truth: contracts/images/*.yaml
+  artifact_classes:
+    - id: image-manifests
+      required: true
+      mirrored: false
+      note: the manifest and every referenced blob, addressed by digest
+    - id: image-layers
+      required: true
+      mirrored: false
+      note: content-addressed blobs; equality is proven by rehashing, not by name
+    - id: release-manifest
+      required: true
+      mirrored: false
+      note: the signed release manifest binding tags to digests
+    - id: evidence-bundle
+      required: true
+      mirrored: false
+      note: the per-release evidence bundle and its checksums
+    - id: sbom
+      required: true
+      mirrored: false
+      note: SPDX and CycloneDX documents per image
+    - id: cosign-signatures
+      required: true
+      mirrored: false
+      blocked_by: 139
+      note: nothing is signed yet, so there is nothing to mirror; this is a
+            declared gap, not a satisfied requirement
+    - id: vex
+      required: true
+      mirrored: false
+      blocked_by: 115
+      note: VEX documents are not yet published per release
+
+# --- how a copy is proven faithful -------------------------------------------
+verification:
+  tool: scripts/continuity-verify.sh
+  invocation: scripts/continuity-verify.sh --verify <source-layout> <mirror-layout>
+  drill: scripts/continuity-verify.sh --drill
+  drill_is_offline: true
+  drill_note: local OCI layouts only — no registry, no network, and never evidence that a mirror exists
+  must_prove:
+    - every manifest published by the source is present in the mirror
+    - every mirrored manifest digest EQUALS the source digest
+    - every referenced blob, config and layers transitively, is present
+    - every blob's CONTENT rehashes to the digest naming it
+  # The assertion a digest list cannot make. A mirror can hold correct digest
+  # names over corrupted bytes; failover would then serve artefacts no signature
+  # covers. Content is rehashed, never assumed from the filename.
+  content_rehashed: true
+
+# --- what a human must decide ------------------------------------------------
+required_human_decisions:
+  - id: choose-mirror-provider
+    who: Bogdan Olteanu
+    decision: select and fund a registry outside GitHub
+    blocks: 116
+  - id: mirror-credentials
+    who: Bogdan Olteanu
+    decision: provision credentials held outside the GitHub account
+    blocks: 116
+  - id: enable-immutable-retention
+    who: Bogdan Olteanu
+    decision: turn on tag/digest immutability at the destination
+    blocks: 116
