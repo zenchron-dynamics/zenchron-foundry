@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/zenchron-dynamics/zenchron-foundry/schemas/build-input-lock-evidence-v1.schema.json",
+  "title": "Repeated-build evidence record, v1",
+  "description": "The MEASURED outcome of building the same declared inputs more than once. This is the only document in the repository allowed to say a field is stable across rebuilds. policies/reproducibility.yaml may claim a guarantee over a field only if a record of this shape reports that field `stable`; scripts/repro-guarantees.sh enforces that, so a claim can never outrun its measurement. `not-observed` is a distinct result from `stable` on purpose — the failure this guards against is a comparison that could not see a field reporting no difference and being read as agreement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "guarantee",
+    "repository",
+    "source_sha",
+    "generated_at",
+    "image",
+    "method",
+    "build_count",
+    "declared_inputs_lock_sha256",
+    "fields"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "guarantee": {
+      "enum": ["build-input", "package-resolution", "image-bytes", "vulnerability-verdict"],
+      "description": "Which of the four guarantees this record is evidence for. Exactly one; a record that spoke to several would be the conflation the whole design exists to prevent."
+    },
+    "repository": { "type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "selector", "platform"],
+      "properties": {
+        "family": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "selector": { "type": "string", "pattern": "^[a-z0-9.]+$" },
+        "platform": { "type": "string", "pattern": "^linux/[a-z0-9]+$" }
+      }
+    },
+    "method": {
+      "type": "string",
+      "minLength": 40,
+      "description": "How the repetition was controlled, in enough detail to repeat it. A record that does not say whether the builds shared a cache is not evidence: a cached second build compares an image against its own cache and always agrees."
+    },
+    "build_count": {
+      "type": "integer",
+      "minimum": 2,
+      "description": "At least two. One build is not a comparison."
+    },
+    "declared_inputs_lock_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Digest of the build-input lock these builds were run from, with the volatile `generated_at` removed. Binds the measurement to the exact declared inputs; a record cannot be carried over to a different input set."
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One entry per compared field. Fields are named by the lock path they correspond to, so a policy claim and its evidence refer to the same thing by the same name.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "result"],
+        "properties": {
+          "field": { "type": "string", "minLength": 1 },
+          "result": {
+            "enum": ["stable", "differs", "not-observed"],
+            "description": "stable — compared and identical. differs — compared and not identical. not-observed — NOT compared, for any reason. Absence of a difference that was never looked for is not stability."
+          },
+          "detail": { "type": "string" }
+        }
+      }
+    }
+  }
+}

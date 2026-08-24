@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/zenchron-dynamics/zenchron-foundry/schemas/build-input-lock-v1.schema.json",
+  "title": "Build-input lock, v1",
+  "description": "Everything that was declared as an input to ONE build of ONE image on ONE platform, plus what that build produced, plus the identity of the tooling that later judges it. It is a RECORD, not a claim: nothing in this document asserts that a rebuild will match. Which of the four reproducibility guarantees each section can support is declared in policies/reproducibility.yaml and enforced by scripts/repro-guarantees.sh. The sections are deliberately separate objects with separate `guaranteed` flags, because the four guarantees have four different answers and a single flat record invites a reader to carry the strongest one across all of them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repository",
+    "generated_at",
+    "image",
+    "build_inputs",
+    "package_resolution",
+    "build_outputs",
+    "vulnerability_verdict"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "Bumped when a field changes meaning. A consumer must refuse a version it does not know rather than read the fields it recognises."
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
+      "description": "owner/repo that produced this lock. A lock from another repository is not evidence about this one."
+    },
+    "generated_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "When the record was written. Deliberately NOT an input: it changes between two identical builds and is never compared."
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "selector", "platform"],
+      "description": "Which image, on which platform. The platform is part of the identity: one image definition produces one child per platform and those children are not interchangeable.",
+      "properties": {
+        "family": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "selector": { "type": "string", "pattern": "^[a-z0-9.]+$" },
+        "platform": { "type": "string", "pattern": "^linux/[a-z0-9]+$" }
+      }
+    },
+
+    "build_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "GUARANTEE 1 — build-input reproducibility. Everything here is a property of the repository and of digest-pinned upstream objects, so it can be re-presented identically forever. This section is the only one the repository fully controls.",
+      "required": [
+        "source_sha",
+        "source_date_epoch",
+        "context_path",
+        "context_digest",
+        "dockerfile_digest",
+        "base",
+        "build_args",
+        "toolchain"
+      ],
+      "properties": {
+        "source_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Full source revision the context was read from."
+        },
+        "source_date_epoch": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "MUST be `git log -1 --format=%ct <source_sha>`. A wall-clock or repository-metadata timestamp changes independently of the source and silently breaks every downstream comparison; scripts/repro-lock.sh verify recomputes this and refuses a mismatch."
+        },
+        "context_path": {
+          "type": "string",
+          "pattern": "^images/[A-Za-z0-9._/-]+$",
+          "description": "Build context, repository-relative."
+        },
+        "context_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Digest over every file in the context: sorted `relpath NUL mode NUL sha256(content)` records. Covers files the Dockerfile COPYs which no FROM pin can see (php.ini, Caddyfile, nginx.conf)."
+        },
+        "dockerfile_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Recorded separately from the context digest so a diagnostic can say WHICH changed — the recipe or the material it copies."
+        },
+        "base": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reference", "manifest_digest", "platform_child_digest"],
+          "description": "The base image at two levels. A `FROM foo@sha256:X` pin names an INDEX; the bytes a linux/amd64 build actually consumes are a child manifest with a DIFFERENT digest. Recording only the index digest leaves the platform-specific input unnamed.",
+          "properties": {
+            "reference": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The reference as written in the Dockerfile ARG, digest included."
+            },
+            "manifest_digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "description": "Digest of the object the reference names — an index for multi-platform bases."
+            },
+            "platform_child_digest": {
+              "anyOf": [
+                { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                { "type": "null" }
+              ],
+              "description": "Digest of the per-platform child actually consumed, or null when it could not be resolved (registry unreachable). Null is a DECLARED gap, never a pass: a consumer requiring platform-level input identity must refuse it."
+            }
+          }
+        },
+        "build_args": {
+          "type": "object",
+          "description": "Every --build-arg the build was given, verbatim. BUILD_DATE and VCS_REF belong here: they end up in image labels, so they are inputs to the byte-level result, not decoration.",
+          "additionalProperties": { "type": "string" }
+        },
+        "toolchain": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dockerfile_frontend", "buildx", "docker_server"],
+          "description": "The builder is an input. The same Dockerfile through a different BuildKit produces different layers; that is not a source change and must not be attributed to one.",
+          "properties": {
+            "dockerfile_frontend": { "type": "string", "minLength": 1 },
+            "buildx": { "type": "string", "minLength": 1 },
+            "docker_server": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+
+    "package_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "GUARANTEE 2 — package-resolution reproducibility. `apt-get install` resolves a LIVE Debian index, so this section records what one build happened to resolve. It is attribution, not a guarantee. `guaranteed` may only be true when `snapshot_identity` names a frozen archive, which this repository does not currently use.",
+      "required": [
+        "guaranteed",
+        "repositories",
+        "snapshot_identity",
+        "archive_release_dates",
+        "package_count",
+        "package_set_sha256",
+        "packages"
+      ],
+      "properties": {
+        "guaranteed": {
+          "type": "boolean",
+          "description": "False while the archive is live. Constrained below: true REQUIRES a snapshot identity, so the flag cannot be flipped without the thing that would justify it."
+        },
+        "repositories": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Archive URLs and suites the build resolved against."
+        },
+        "snapshot_identity": {
+          "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }],
+          "description": "A frozen archive identity — e.g. a snapshot.debian.org timestamp. Null means the index was live and package resolution is NOT reproducible."
+        },
+        "archive_release_dates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["list", "date"],
+            "properties": {
+              "list": { "type": "string" },
+              "date": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            }
+          },
+          "description": "InRelease/Release Date: headers as seen at build time. The closest thing to an index identity available without a snapshot service. Empty when the image deleted its apt lists, which the hardened images do."
+        },
+        "package_count": { "type": "integer", "minimum": 1 },
+        "package_set_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Fingerprint of the whole resolved set. Two builds with the same value saw the same index; a difference here ATTRIBUTES a byte difference to package movement instead of leaving it unexplained."
+        },
+        "packages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "version"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+              "architecture": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+            }
+          }
+        }
+      },
+      "if": { "properties": { "guaranteed": { "const": true } }, "required": ["guaranteed"] },
+      "then": {
+        "properties": { "snapshot_identity": { "type": "string", "minLength": 1 } },
+        "required": ["snapshot_identity"]
+      }
+    },
+
+    "build_outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "GUARANTEE 3 — image byte reproducibility. What the build produced. Whether any of these are STABLE across rebuilds is an empirical question answered per field by an evidence record, never by this document.",
+      "required": [
+        "config_digest",
+        "runtime_config_sha256",
+        "layer_digests",
+        "rootfs_file_manifest_sha256",
+        "rootfs_file_count",
+        "manifest_digest",
+        "labels"
+      ],
+      "properties": {
+        "config_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Digest of the config BLOB — the local image id. It commits to rootfs.diff_ids and to the build history, so it moves whenever any layer moves. Deliberately distinct from runtime_config_sha256 below: the two were conflated in an earlier report, which recorded `config identical` for an image whose config blob differed."
+        },
+        "runtime_config_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Digest of the canonicalised RUNTIME config — env, labels, entrypoint, cmd, user, exposed ports, working dir. Everything a consumer can observe about how the image runs, and nothing about how it was packed."
+        },
+        "layer_digests": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "description": "UNCOMPRESSED content digests (RootFS.Layers). Compression is not part of the claim; content is."
+        },
+        "rootfs_file_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Digest of the sorted `sha256  path` listing of every regular file in the exported rootfs. Layer digests answer 'is the packaging identical'; this answers 'is the filesystem identical', and localises a failure to a path."
+        },
+        "rootfs_file_count": { "type": "integer", "minimum": 1 },
+        "manifest_digest": {
+          "anyOf": [
+            { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            { "type": "null" }
+          ],
+          "description": "The OCI manifest digest, or null when the build was exported to the local daemon and no manifest was produced. Null means NOT OBSERVED, and a guarantee over this field must therefore be refused — it may not be read as 'nothing differed'."
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "OCI labels as produced. Recorded because they are the field most likely to smuggle wall-clock time into an otherwise deterministic image."
+        }
+      }
+    },
+
+    "vulnerability_verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "GUARANTEE 4 — vulnerability-verdict reproducibility. Re-scanning identical bytes gives an identical verdict only if the SCANNER and its DATABASE are identical. The scanner is a digest-pinned image; the database is fetched at scan time and changes daily. Without a frozen database identity there is no verdict guarantee, and a bit-identical image is not evidence of one.",
+      "required": ["guaranteed", "scanner", "vulnerability_database"],
+      "properties": {
+        "guaranteed": {
+          "type": "boolean",
+          "description": "Constrained below: true REQUIRES a frozen database identity."
+        },
+        "scanner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["image", "digest"],
+          "properties": {
+            "image": { "type": "string", "minLength": 1 },
+            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          }
+        },
+        "vulnerability_database": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["identity", "frozen"],
+          "description": "Identity format matches the one stage-and-authorize.yml already freezes and authorize-staged-candidates.sh already checks: v<Version>+updated:<UpdatedAt>+next:<NextUpdate>. Reused rather than reinvented so one run's frozen snapshot and one lock's recorded snapshot are directly comparable strings.",
+          "properties": {
+            "identity": {
+              "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+            },
+            "frozen": { "type": "boolean" }
+          },
+          "if": { "properties": { "frozen": { "const": true } }, "required": ["frozen"] },
+          "then": {
+            "properties": { "identity": { "type": "string", "minLength": 1 } },
+            "required": ["identity"]
+          }
+        }
+      },
+      "if": { "properties": { "guaranteed": { "const": true } }, "required": ["guaranteed"] },
+      "then": {
+        "properties": {
+          "vulnerability_database": {
+            "properties": { "frozen": { "const": true } },
+            "required": ["frozen"]
+          }
+        }
+      }
+    }
+  }
+}

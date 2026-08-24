@@ -38,6 +38,10 @@ gate "vulnerability policy"      bash scripts/validate-vulnerability-exceptions.
 gate "upstream lifecycle"        bash scripts/assert-lifecycle.sh
 gate "confinement profiles"      bash scripts/assert-runtime-profiles.sh
 gate "supply-chain inputs"       bash scripts/assert-supply-chain-inputs.sh
+# #101. Four separate reproducibility questions with four different answers; the
+# gate refuses when a claim has been widened past the measurement behind it.
+gate "reproducibility guarantees" bash scripts/repro-guarantees.sh
+gate "build-input lock binding"  bash scripts/repro-lock.sh verify tests/reproducibility/evidence/php-cli-8.4-linux-amd64.lock.json
 gate "governance model"          bash scripts/assert-governance-model.sh
 # The artifact/evidence CLASS contract. An upstream-base scan was once reported
 # as child evidence (php:8.4 base: 241 CRITICAL/HIGH, 170 linux-libc-dev; the
