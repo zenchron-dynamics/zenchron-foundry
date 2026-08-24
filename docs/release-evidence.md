@@ -76,3 +76,209 @@ content and role.
 - Release assets (manifest, SBOMs, checksums, evidence package, summary,
   `rollback-results.json`, and any `DEVIATION.md`) live on the GitHub Release
   and are the durable, consumer-facing copy.
+
+## The durable evidence bundle, dispositions and the release seal
+
+Everything above describes evidence that lives on a **workflow run** or a
+**GitHub Release**. Both expire or can be deleted. This section describes the
+layer that does not: a self-contained bundle that verifies with no network, no
+GitHub API, no registry and no surviving run, the machine-readable
+vulnerability dispositions generated from it, and the release-role seal over
+the whole thing.
+
+Three issues, one system:
+
+| Issue | What it asked for | What is now executable |
+|---|---|---|
+| [#128](https://github.com/zenchron-dynamics/zenchron-foundry/issues/128) | immutable retention + one tamper-evident bundle | `scripts/release/generate-evidence-bundle.sh`, `scripts/release/restore-evidence.sh`, `policies/retention.yaml`, `schemas/release-evidence-bundle-v1.schema.json` |
+| [#115](https://github.com/zenchron-dynamics/zenchron-foundry/issues/115) | signed machine-readable VEX, digest-bound | `scripts/release/generate-vex.sh`, `schemas/vex-openvex-v1.schema.json` |
+| [#130](https://github.com/zenchron-dynamics/zenchron-foundry/issues/130) | the reserved `release` role, and a verifier that consumes it | `scripts/release/release-seal.sh` (test-only), `scripts/release/verify-release-seal.sh` |
+
+They are one system because they share one input — an accepted acceptance
+record such as
+`docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json` — and
+one identity derivation, `child_key()` / `child_slug()` from
+`scripts/lib/common.sh`. Nothing here re-derives child identity, re-implements
+the per-child evidence checksum (`scripts/release/evidence-checksum.sh`), or
+re-defines the artifact classes declared in `policies/evidence-classes.yaml`.
+
+The class contract is **consumed**, not restated. A bundle's `evidence_class`
+must be one the policy declares; where the policy pins a pre-contract record's
+class to its bytes (`legacy_records`), the bundle must honour that declaration
+and may promote it by exactly one step along the policy's own `parent_class`
+chain — `staged-candidate` -> `published-artifact` and nothing else. Sideways
+and backwards moves are refused by name.
+
+### Bundle layout
+
+```text
+<bundle>/
+  manifest.json          the record — schemas/release-evidence-bundle-v1.schema.json
+  content/
+    acceptance/          the source acceptance record, verbatim
+    children/<slug>.json one full evidence extract per child
+    vex/openvex.json     the machine-readable dispositions
+    policy/              sha256 of every policy that decided the verdict
+    provenance/          run + revision binding, and the attestation if supplied
+    authorization/       the authorization record and its scope
+    retention/           class, retain_until, storage requirement
+    sbom/                SBOM bytes + index, when supplied
+  SHA256SUMS             manifest.json AND every file under content/
+  BUNDLE.sha256          sha256(SHA256SUMS) — the one value to quote in an audit
+```
+
+**The write order is the control.** Every generated file — including the VEX
+document, which the generator invokes `generate-vex.sh` to produce *into* the
+bundle — is written before any checksum is taken. `verify` then refuses on the
+inverse condition: a file present on disk that `SHA256SUMS` does not name. A
+file outside coverage is a file anybody can add afterwards, which is precisely
+the failure the bundle exists to prevent.
+
+**Determinism.** The generator never reads the wall clock; timestamps come from
+the acceptance record. Regenerating from the same inputs is byte-identical, so
+"this bundle was not altered" is checkable rather than assertable. `--today` is
+an input, not a clock: it is the date staleness was evaluated on, it is recorded
+in the disposition set, and moving it changes the disposition digest and nothing
+derived from the evidence.
+
+```bash
+scripts/release/generate-evidence-bundle.sh generate \
+  --evidence docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json \
+  --out /tmp/bundle --evidence-class staged-candidate
+scripts/release/generate-evidence-bundle.sh verify /tmp/bundle     # offline
+```
+
+### Dispositions (VEX)
+
+`generate-vex.sh` emits OpenVEX 0.2.0 from the findings the accepted run
+actually recorded, joined to the real ledger. Four rules keep it from becoming
+a laundering mechanism for claims nobody made:
+
+1. **The evidence is the universe.** Statements exist only for
+   `(image digest, advisory, package, version)` tuples the run recorded. On the
+   committed accepted run that is 982 tuples across 20 children, published as
+   77 statements. A statement wider than the evidence is refused, not trimmed.
+2. **Digest-bound, platform-scoped, version-exact.** Every product is a
+   `pkg:oci/...@sha256%3A...` with an `arch` qualifier; every subcomponent is
+   the exact `package@version` observed *in that image*. Tags are refused: a tag
+   can be repointed after the statement is published.
+3. **An accepted risk is `affected`.** The ledger's `reachability` field is
+   internal risk-acceptance rationale. Mapping it to the OpenVEX justification
+   `vulnerable_code_not_in_execute_path` would publish a reachability analysis
+   to a standard nobody performed. Only `not_affected` *records*, which carry an
+   evidenced `classification` and a version binding, become `not_affected`
+   *statements*; everything else is `affected` with an action statement.
+4. **Ambiguity refuses.** Zero governing records, two records disagreeing on
+   status, an unbounded `image: all` / `php-all` selector, a record with no
+   exact version pin, or a lapsed acceptance — each stops generation with its
+   own diagnostic. It never picks one.
+
+`verify` re-derives the whole document from the same inputs and additionally
+refuses a foreign digest, an unobserved package tuple, an advisory the scan did
+not report for that image, a statement backed by an expired record, and a
+*partial* document — because a consumer reads "no statement" as "nothing to
+worry about".
+
+```bash
+scripts/release/generate-vex.sh generate \
+  --evidence docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json \
+  --out /tmp/openvex.json
+scripts/release/generate-vex.sh verify --vex /tmp/openvex.json \
+  --evidence docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json
+```
+
+### The release seal — TEST-ONLY
+
+`policies/cosign-identities.yaml` describes the `release` role as "RESERVED,
+currently consumed by no verifier". `verify-release-seal.sh` is that consumer.
+`release-seal.sh` is the seal logic, exercised end to end with **fixture keys**:
+there is no flag that makes it emit a production signature, it refuses to run
+when `SIGSTORE_ID_TOKEN` / `COSIGN_*` are set or on a tag ref, and every seal it
+writes carries `test_only: true` and `not_a_release: true`. Wiring a real
+ceremony needs a workflow change and a real OIDC identity — reviewable on their
+own, deliberately not in this change.
+
+The seal refuses:
+
+| | refusal |
+|---|---|
+| R1 | an incomplete child set — counted as `MATRIX_COUNT × platforms`, never a literal |
+| R2 | mixed source revisions across children |
+| R3 | mixed vulnerability-database identities |
+| R4 | a platform set the evidence does not cover |
+| R5 | expired governance — a lapsed acceptance, or an elapsed retention window |
+| R6 | any checksum mismatch in the bundle (checked last, before signing) |
+| R7 | a missing SBOM or missing provenance attestation |
+| R8 | the wrong evidence class — a `staged-candidate` is not a release |
+| R9 | QEMU evidence presented as native arm64 |
+| R10 | an image line outside `MATRIX_IMAGES`, or carrying a `foundry_release_state` in `policies/lifecycle.yaml` — PHP 8.5 is `experimental-amd64-only` and is absent from the shipping matrix, so both layers refuse it |
+| R11 | public exposure without a separate public-exposure authorization |
+| R12 | an `rc-publisher` or `scheduled-rebuild` identity presented for the release role |
+
+R8 and R12 are the same acceptance criterion from two directions: a candidate
+*identity* cannot satisfy the release role, and neither can candidate
+*evidence*. `tests/release/test_release_seal.sh` asserts both, plus the hard
+case — a seal **validly signed by the right key** that carries an RC subject is
+still refused, because the policy pins the role, not the signature.
+
+**Revocation and correction.** A seal is never edited. A correction is a new
+seal from a new CalVer tag over a regenerated bundle, recorded in
+`docs/audits/withdrawals/`. `verify-release-seal.sh --superseded-by <version>`
+refuses a superseded seal so a consumer holding a cached copy learns it was
+replaced rather than silently trusting it. There is no in-place revoke flag: a
+mutable seal is not a seal.
+
+### Retention
+
+`policies/retention.yaml` states, per evidence class, how long a bundle must
+remain restorable and re-verifiable, and where.
+
+| class | retention | immutable storage |
+|---|---|---|
+| `upstream-base` | 400 days | no |
+| `foundry-child` | 400 days | no |
+| `staged-candidate` | 2555 days (7 years) | yes |
+| `published-artifact` | 2555 days (7 years) | yes |
+
+Two independent durable locations are required; the archive layout is plain
+directories and files so restoring needs nothing but a filesystem and
+`sha256sum`. Archived trees are set `0555` / `0444`, but permissions are a
+guardrail — the control is `INDEX.sha256`, which catches a change that root, a
+restore tool or a filesystem migration made anyway.
+
+**Deletion is an act, not an expiry.** There is no prune, no scheduled sweep.
+`restore-evidence.sh list` marks what is eligible; removing it is a maintainer's
+explicit act after verification. An automatic deleter is an automatic evidence
+destroyer the day the clock or the class is wrong.
+
+The exercise that is actually run — by `restore-evidence.sh --self-test` and
+again from outside by `tests/release/test_evidence_bundle.sh` — is:
+
+```text
+generate -> archive -> DELETE the working copy -> restore -> verify
+```
+
+on the real committed accepted evidence, offline. Anything less proves the
+archive is writable, not that the evidence survives.
+
+```bash
+scripts/release/restore-evidence.sh archive --bundle /tmp/bundle --archive-root /srv/evidence
+scripts/release/restore-evidence.sh list    --archive-root /srv/evidence
+scripts/release/restore-evidence.sh restore --archive-root /srv/evidence \
+  --bundle-id staged-candidate-7061caafb3ea-32395890071 --dest /tmp/restored
+scripts/release/restore-evidence.sh verify  --archive-root /srv/evidence
+```
+
+### What is not done
+
+- No workflow produces a bundle, a disposition set or a seal yet. Everything
+  here is a maintainer-runnable tool with its own refusal suite; wiring it into
+  `release.yml` and `stage-and-authorize.yml` is a separate, separately
+  reviewable change.
+- No production signature exists, and none can be produced by this tooling. The
+  `release` role remains unconsumed by a real ceremony;
+  `verify-release-seal.sh --reject-test-seal` is the gate that says so out loud
+  rather than passing a fixture.
+- SBOM bytes are supplied to the generator (`--sbom-dir`); the bundle records
+  their digests. Producing them on the acceptance path is `scripts/generate-sbom.sh`'s
+  job and is not changed here.
