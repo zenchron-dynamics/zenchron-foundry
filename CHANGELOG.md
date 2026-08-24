@@ -6,6 +6,28 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
 
 ## [Unreleased]
 
+### Fixed — governance binding could not see residue in its own bound scripts (#97 class)
+
+- **Three bound governance inputs carried committed self-test residue.** A bare
+  `# governance-binding self-test mutation` line sat in
+  `scripts/verify-repo-governance.sh`, `scripts/assert-pr-workflows-github-hosted.sh`
+  and `scripts/governance-content-binding.sh` — written by an earlier self-test
+  that mutated the ambient checkout. The binding's own cleanliness check was
+  scoped to `$ROOT/policies`, so it *structurally could not* see residue in the
+  bound **scripts**: the marker search never looked at them. That scoping was
+  introduced to stop the grep matching the checker's own source, and it created
+  the blind spot it was meant to avoid.
+- The check now iterates **every bound input**, and a non-vacuity probe proves
+  the search still matches a planted marker — so a future narrowing cannot make
+  it silently pass by looking at nothing.
+- The binding aggregate therefore changes from `ead0c28a…` to `bd8ad9dc…`.
+  Current-evidence citations move to
+  `docs/audits/governance-verification-2026-08-24.json` (verdict PASS, live
+  configuration re-verified against the API). The 08-23 record is kept, not
+  deleted: it is the true record of what was verified that day, and the
+  CHANGELOG entry below still cites it.
+
+
 ### Security — release-result integrity (#96)
 
 - **The exact-commit gate now picks the NEWEST result for each required check.**
