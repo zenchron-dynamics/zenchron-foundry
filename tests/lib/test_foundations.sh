@@ -13,6 +13,7 @@ ck "registry-aliases.sh self-test" 'bash scripts/lib/registry-aliases.sh --self-
 ck "release-manifest.sh self-test" 'bash scripts/lib/release-manifest.sh --self-test >/dev/null'
 ck "registry-ops.sh self-test"     'bash scripts/lib/registry-ops.sh --self-test >/dev/null'
 ck "cosign-identity.sh self-test"  'bash scripts/lib/cosign-identity.sh --self-test >/dev/null'
+ck "repo-identity.sh self-test"    'bash scripts/lib/repo-identity.sh --self-test >/dev/null'
 
 # 2. schemas are valid JSON and load as JSON Schema
 for s in schemas/*.json; do
