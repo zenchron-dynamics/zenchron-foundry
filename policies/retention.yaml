@@ -1,0 +1,127 @@
+schema_version: 1
+
+# =============================================================================
+# policies/retention.yaml — how long each class of release evidence must remain
+# verifiable, and where.
+# -----------------------------------------------------------------------------
+# THE DEFECT THIS EXISTS FOR (#128).
+#
+# scan-images.yml uploads scan and consolidated-result artifacts with 30-day
+# retention. A conformity assessment, a customer audit or an incident
+# reconstruction happens months or years later. On day 31 the release decision
+# for a shipped artifact becomes unreconstructible: the digests survive in the
+# registry, but WHY they were accepted — which scanner, which frozen database,
+# which exception records, which smoke results — does not.
+#
+# "Keep the artifacts longer" is not the fix. GitHub's maximum artifact
+# retention is 90 days on this plan and artifact retention is not immutable
+# storage: a run can be deleted, a repository can be transferred. The fix is a
+# SELF-CONTAINED bundle that verifies with no network and no GitHub at all, and
+# a retention class that states, per evidence class, how long that bundle must
+# remain restorable and re-verifiable.
+#
+# Retention classes are keyed to the artifact/evidence classes declared in
+# policies/evidence-classes.yaml. They are NOT invented here — this file states
+# durations and storage requirements for classes that already exist.
+# =============================================================================
+
+# The evidence classes this policy assigns retention to. Every name here MUST be
+# a class declared in policies/evidence-classes.yaml. A name that is not a
+# declared class is a retention rule for something nobody can produce, and
+# scripts/release/restore-evidence.sh refuses it.
+classes:
+  - evidence_class: upstream-base
+    retention_days: 400
+    rationale: >-
+      An upstream-base observation establishes who owned a finding at the time a
+      child was built. It is needed to answer "was there a patched base
+      available on the day we shipped" for at least one annual review cycle.
+    immutable_storage_required: false
+
+  - evidence_class: foundry-child
+    retention_days: 400
+    rationale: >-
+      A built child that was never staged did not ship. Retained for one annual
+      cycle so a build-time regression can be traced, then expirable.
+    immutable_storage_required: false
+
+  - evidence_class: staged-candidate
+    retention_days: 2555
+    rationale: >-
+      The staged candidate record IS the release decision: the scanner and
+      frozen-database identity, the per-child smoke/metadata/scan/reconciliation
+      verdicts, the package inventories and the authorization record. Seven
+      years matches the longest realistic enterprise contract and conformity
+      retention obligation, and it must outlive every GitHub artifact by orders
+      of magnitude.
+    immutable_storage_required: true
+
+  - evidence_class: published-artifact
+    retention_days: 2555
+    rationale: >-
+      What was actually shipped, and to whom it was represented. Retained for
+      the same seven years as the decision that produced it — a decision without
+      its outcome, or an outcome without its decision, reconstructs nothing.
+    immutable_storage_required: true
+
+# --- storage ----------------------------------------------------------------
+# Two independent durable locations, because one location with a delete button
+# is one delete button away from no evidence at all. The archive layout below is
+# what scripts/release/restore-evidence.sh writes and reads; it is deliberately
+# plain directories and files so that restoring it needs nothing but a
+# filesystem and sha256sum.
+storage:
+  minimum_independent_locations: 2
+  locations:
+    - name: repository-audit-tree
+      kind: git
+      path: docs/audits/
+      immutability: >-
+        protected branch, signed commits, no force-push; history is the
+        immutability control
+    - name: offline-archive
+      kind: filesystem
+      path: <archive-root>/
+      immutability: >-
+        write-once directory tree, mode 0555 on every bundle directory and 0444
+        on every file after archival; the checksum index detects any change that
+        a filesystem permission did not prevent
+
+  # The on-disk layout. ONE shape, so a restore never has to guess.
+  #   <archive-root>/
+  #     INDEX.sha256                          checksum index over every bundle
+  #     <evidence_class>/<source_revision>/<bundle_id>/
+  #         manifest.json
+  #         content/...
+  #         SHA256SUMS
+  #         BUNDLE.sha256
+  archive_layout:
+    index_file: INDEX.sha256
+    path_template: "<evidence_class>/<source_revision>/<bundle_id>"
+    file_mode: "0444"
+    dir_mode: "0555"
+
+# --- deletion ---------------------------------------------------------------
+# Deletion is an ACT, not an expiry. A bundle whose retention has elapsed is
+# eligible for deletion; nothing deletes it automatically, because an automatic
+# deleter is an automatic evidence destroyer if the clock or the class is wrong.
+deletion:
+  automatic: false
+  requires: >-
+    an explicit maintainer action naming the bundle_id, after
+    restore-evidence.sh verify has been run against it and the verification
+    result recorded
+  legal_hold_overrides_expiry: true
+
+# --- verification ------------------------------------------------------------
+# The property that makes retention meaningful. Restated here so a reader of
+# this file alone knows what "retained" is supposed to buy them.
+verification:
+  offline: true
+  network_required: false
+  github_required: false
+  tools_required: [sha256sum-or-shasum, python3]
+  statement: >-
+    A retained bundle must re-verify with no network access, no GitHub API, no
+    container registry and no expired workflow artifact. If verification needs
+    any of those, the evidence was not retained — a pointer to it was.
