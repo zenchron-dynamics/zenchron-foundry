@@ -87,6 +87,21 @@ docker_socket() {
 }
 step()  { printf '\n--- %s\n' "$*"; }
 
+# EXECUTION MODE DISCLOSURE.
+#
+# A linux/amd64 child built and probed on an aarch64 host runs under EMULATION.
+# The repository already refuses to let that blur: the accepted multi-arch
+# acceptance record carries execution_mode and host_architecture per child
+# precisely so a QEMU result cannot later be read as native evidence (#111,
+# #139). The same rule applies here, and it is DERIVED from the host rather than
+# asserted, so it cannot be forgotten on a machine where it happens to be false.
+host_arch() { uname -m; }
+execution_mode() { # execution_mode <platform>
+  local want="${1#linux/}" have; have="$(host_arch)"
+  case "$have" in x86_64|amd64) have=amd64 ;; aarch64|arm64) have=arm64 ;; esac
+  if [ "$want" = "$have" ]; then printf 'native'; else printf 'emulated'; fi
+}
+
 # oci_manifest_digest <local-ref> — the OCI-layout manifest digest of a locally
 # built image. `docker image inspect .Id` is the CONFIG digest, not the
 # manifest's, and a local tag is not an identity at all; `docker save` emits a
@@ -176,6 +191,24 @@ probe_shipped() { # probe_shipped <ref>
     --entrypoint sh "$1" -c 'cat > /tmp/shipped.php && php /tmp/shipped.php' 2>/dev/null
 }
 
+# THE SAPI THIS IMAGE ACTUALLY SERVES WITH.
+#
+# Every probe above runs `php`, so every probe reports PHP_SAPI = "cli" — true of
+# the probe and misleading about the artifact: php-fpm serves fpm-fcgi and
+# php-frankenphp serves through an embedded server. Recording the probe's SAPI as
+# the image's SAPI would be a quiet category error of the same family as
+# reporting a base scan as child evidence, so the SERVING binary is asked
+# directly and its answer is stored as its own field.
+server_identity_of() { # server_identity_of <ref> <family>
+  case "$2" in
+    php-fpm)        docker run --rm --entrypoint php-fpm    "$1" -v      2>/dev/null | head -1 ;;
+    php-frankenphp) docker run --rm --entrypoint frankenphp "$1" version 2>/dev/null | head -1 ;;
+    *)              docker run --rm --entrypoint php        "$1" -v      2>/dev/null | head -1 ;;
+  esac
+}
+
+# The extension API number is not a PHP constant; `php -i` is where it lives, and
+# it is the number the whole PHP 8.5 opcache story turns on (20250925).
 extension_api_of() {
   php_in "$1" -i 2>/dev/null | sed -n 's/^PHP Extension => //p' | head -1
 }
@@ -233,8 +266,13 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
   shipped="$(probe_shipped "$ref")"
   jq -e . >/dev/null 2>&1 <<<"$shipped" \
     || { echo "AS-SHIPPED PROBE returned non-JSON for $ckey" >&2; return 1; }
-  facts="$(jq -c --arg a "$api" --argjson sh "$shipped" \
-             '. + {extension_api:$a, opcache_as_shipped:$sh}' <<<"$facts")"
+  local server_id
+  server_id="$(server_identity_of "$ref" "$fam")"
+  [ -n "$server_id" ] || { echo "SERVER IDENTITY PROBE FAILED: $ckey" >&2; return 1; }
+  facts="$(jq -c --arg a "$api" --argjson sh "$shipped" --arg srv "$server_id" \
+             '. + {extension_api:$a, opcache_as_shipped:$sh,
+                   probe_sapi:.sapi, server_identity:$srv}
+              | del(.sapi)' <<<"$facts")"
 
   # The proof must be a PROOF. A record that says "opcache present" while
   # opcache_get_status() reports nothing cached is the same species of claim as
@@ -311,8 +349,9 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
   syft "docker:$ref" -c "$EXP_ROOT/policies/syft.yaml" \
        -o "spdx-json=$out/${slug}.spdx.json" > "$out/${slug}.sbom.log" 2>&1 \
     || { echo "SBOM FAILED: $ckey (see ${slug}.sbom.log)" >&2; return 1; }
-  local sbom_pkgs
+  local sbom_pkgs sbom_sha
   sbom_pkgs="$(jq '.packages|length' "$out/${slug}.spdx.json")"
+  sbom_sha="$(shasum -a 256 "$out/${slug}.spdx.json" | awk '{print $1}')"
 
   # --- vulnerability scan of the CHILD, frozen database -------------------
   step "SCAN (CHILD)  $ckey"
@@ -326,6 +365,21 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
       --format json "$ref" > "$out/${slug}.trivy.json" 2>"$out/${slug}.trivy.log"
   jq -e '.Results' "$out/${slug}.trivy.json" >/dev/null 2>&1 \
     || { echo "SCAN FAILED: $ckey (see ${slug}.trivy.log)" >&2; return 1; }
+
+  local scan_sha
+  scan_sha="$(shasum -a 256 "$out/${slug}.trivy.json" | awk '{print $1}')"
+  # A COMPACTED, REVIEWABLE finding set. The raw Trivy report is ~600 KB of
+  # scanner internals per child; what a reviewer needs is the tuple that decides
+  # governance — advisory, package, installed version, fixed version, severity.
+  # The full report stays bound by scan_sha above rather than being committed.
+  jq --arg ck "$ckey" '{
+       child_key: $ck,
+       findings: [.Results[]?.Vulnerabilities[]?
+         | {cve:.VulnerabilityID, package:.PkgName, installed:.InstalledVersion,
+            fixed:(.FixedVersion // null), severity:.Severity,
+            source:(.DataSource.ID // null)}]
+         | sort_by(.cve, .package)
+     }' "$out/${slug}.trivy.json" > "$out/${slug}.findings.json"
 
   local crit high by_pkg
   crit="$(jq '[.Results[]?.Vulnerabilities[]?|select(.Severity=="CRITICAL")]|length' "$out/${slug}.trivy.json")"
@@ -373,11 +427,14 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
         --arg base "$base" --arg bref "$bref" --arg rev "$rev" \
         --arg prov "$prov" --arg req "$req" --arg missing "$missing" \
         --argjson facts "$facts" --argjson purged "$purged" \
+        --arg exec "$(execution_mode "$plat")" --arg harch "$(host_arch)" \
         --argjson build_seconds "$(( t1 - t0 ))" \
         --argjson smoke_rc "$smoke_rc" --argjson sbom_pkgs "$sbom_pkgs" \
+        --arg sbom_sha "$sbom_sha" --arg scan_sha "$scan_sha" \
         --argjson pcount "$pkgcount" --arg psha "$pkgsha" '
     {child_key:$ck, local_reference:$ref, oci_manifest_digest:$dig,
      build_context:$ctx, build_input_digest:$bid, source_revision:$rev,
+     execution_mode:$exec, host_architecture:$harch,
      upstream_base:{reference:$bref, digest:$base},
      build_seconds:$build_seconds,
      php:$facts,
@@ -392,7 +449,10 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
                  loaded:$facts.extensions, zend:$facts.zend_extensions},
      build_tools_purged:$purged,
      packages:{inventory_sha256:$psha, count:$pcount, source:"dpkg-query on the CHILD"},
-     sbom:{format:"spdx-json", package_count:$sbom_pkgs},
+     sbom:{format:"spdx-json", package_count:$sbom_pkgs, sha256:$sbom_sha,
+           note:"the full SPDX document is a build artifact, not committed: 2.7 MB per child of material regenerable from oci_manifest_digest. It is BOUND here by sha256, which is what evidence needs."},
+     scan:{full_report_sha256:$scan_sha,
+           note:"the raw scanner report is likewise bound rather than committed; the reviewable tuple set is in the sibling findings.json"},
      smoke:{exit_code:$smoke_rc, result:(if $smoke_rc==0 then "PASS" else "FAIL" end)}}' \
     > "$out/${slug}.child-facts.json"
 
@@ -471,10 +531,11 @@ main() {
 
   jq -n --arg db "$db" --arg scanner "$TRIVY_IDENTITY" --arg rev "$rev" \
         --arg cohort "$cohort" --arg plat "$plat" \
+        --arg exec "$(execution_mode "$plat")" --arg harch "$(host_arch)" \
         --arg created "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
     {cohort:$cohort, platform:$plat, source_revision:$rev,
      scanner_identity:$scanner, vulnerability_db_identity:$db,
-     frozen_at:$created,
+     frozen_at:$created, execution_mode:$exec, host_architecture:$harch,
      note:"ONE database snapshot, downloaded once and shared by every child in this run. Findings are only comparable within one snapshot."}' \
     > "$out/frozen-scan-basis.json"
 
@@ -488,7 +549,7 @@ main() {
 
   [ "$n" -gt 0 ] || fatal "the plan enumerated no children to run"
 
-  ( cd "$out" && shasum -a 256 ./*.json ./*.txt > checksums.sha256 )
+  ( cd "$out" && shasum -a 256 ./*.json ./*.txt > SHA256SUMS )
 
   echo
   echo "================================================================"
