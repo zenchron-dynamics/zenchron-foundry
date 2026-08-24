@@ -1,14 +1,22 @@
 # =============================================================================
 # .github/workflows/native-arm64-smoke.yml — #111 native arm64 runtime evidence.
 # -----------------------------------------------------------------------------
-# This workflow CANNOT RUN until a native arm64 runner is enrolled. That is
-# deliberate and is the point: it is the executable half of #111, so enrolling a
-# runner is the only remaining step rather than "and then someone writes a
-# workflow".
+# This workflow CANNOT RUN until a native arm64 runner is enrolled.
+#
+# WHAT IT CLAIMS, ACCURATELY. It was previously described as "the executable half
+# of #111", which overstated it twice over. It declared a `families` input and
+# NEVER READ IT: the job proved `uname -m`, emitted an evidence record, and
+# smoked NO IMAGE. An architecture assertion is not runtime evidence, so the
+# workflow could not have closed #111 even on a real arm64 host. Enrolling a
+# runner is a NECESSARY step toward #111, not a sufficient one.
+#
+# It now actually runs the runtime smoke over the selected arm64 images, and the
+# evidence records which families were smoked and the verdict.
 #
 # It refuses loudly rather than silently degrading:
 #   * if it lands on a non-aarch64 host it FAILS — it will not emulate;
-#   * `uname -m` is proven per child and recorded;
+#   * `uname -m` is proven and recorded;
+#   * an unknown family REFUSES rather than smoking nothing and reporting green;
 #   * evidence carries execution_mode=native, checked by
 #     scripts/release/assert-native-arch-evidence.sh.
 #
@@ -20,8 +28,11 @@ name: native arm64 smoke (#111)
 on:
   workflow_dispatch:
     inputs:
-      images:
-        description: "Image labels to smoke, comma-separated; empty means the whole arm64 matrix"
+      families:
+        # Families, not image labels: scripts/smoke-all.sh filters by family via
+        # SMOKE_FAMILIES. The input previously said "image labels" and was never
+        # read at all, so it described a filter that did not exist.
+        description: "Image families to smoke (space- or comma-separated), e.g. 'php-fpm nginx'; empty means the whole matrix"
         required: false
         default: ""
 
@@ -81,21 +92,62 @@ jobs:
             echo "uname_m=${m}"
           } >> "$GITHUB_OUTPUT"
 
+      # THE INPUT, ACTUALLY READ. An unknown family REFUSES here rather than
+      # reaching smoke-all.sh and quietly matching nothing. smoke-all.sh does
+      # exit non-zero on zero images tested, but a typo should be named at the
+      # boundary where it was made, not diagnosed from an empty matrix.
+      - name: Resolve the requested families
+        id: fams
+        env:
+          REQUESTED: ${{ inputs.families }}
+        run: |
+          set -euo pipefail
+          . scripts/lib/common.sh
+          known="$(matrix_families | tr '\n' ' ')"
+          want="$(printf '%s' "$REQUESTED" | tr ',' ' ' | tr -s ' ' | sed 's/^ //; s/ $//')"
+          if [ -z "$want" ]; then
+            want="$(printf '%s' "$known" | sed 's/ $//')"
+            echo "no families requested -> full matrix: $want"
+          else
+            for f in $want; do
+              case " $known " in
+                *" $f "*) : ;;
+                *) echo "REFUSE: '$f' is not an image family. Known: $known"; exit 1 ;;
+              esac
+            done
+            echo "requested families: $want"
+          fi
+          echo "families=$want" >> "$GITHUB_OUTPUT"
+
+      - name: Run the native arm64 runtime smoke
+        id: smoke
+        env:
+          SMOKE_FAMILIES: ${{ steps.fams.outputs.families }}
+        run: |
+          set -euo pipefail
+          bash scripts/smoke-all.sh
+          echo "verdict=PASS" >> "$GITHUB_OUTPUT"
+
       - name: Record the native runtime evidence
         env:
           HOST_ARCH: ${{ steps.arch.outputs.host_arch }}
           EXEC_MODE: ${{ steps.arch.outputs.execution_mode }}
           UNAME_M: ${{ steps.arch.outputs.uname_m }}
+          SMOKED: ${{ steps.fams.outputs.families }}
+          VERDICT: ${{ steps.smoke.outputs.verdict }}
         run: |
           set -euo pipefail
           mkdir -p native-evidence
           jq -n --arg h "$HOST_ARCH" --arg e "$EXEC_MODE" --arg u "$UNAME_M" \
                 --arg r "$GITHUB_SHA" --arg run "$GITHUB_RUN_ID" \
-                --arg runner "$RUNNER_NAME" '{
+                --arg runner "$RUNNER_NAME" \
+                --arg smoked "$SMOKED" --arg verdict "$VERDICT" '{
             record_type:"native-arch-runtime-evidence",
             platform:"linux/arm64", host_architecture:$h, execution_mode:$e,
             uname_m:$u, source_revision:$r, workflow_run_id:($run|tonumber),
-            runner_name:$runner
+            runner_name:$runner,
+            smoked_families:($smoked|split(" ")),
+            runtime_smoke:$verdict
           }' > native-evidence/native-arm64.json
           jq . native-evidence/native-arm64.json
 

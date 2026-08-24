@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/zenchron-dynamics/zenchron-foundry/schemas/evidence-class-v1.schema.json",
+  "title": "Classed governance evidence record, v1",
+  "description": "One governance evidence record about ONE artifact on ONE platform. The record's CLASS is a required, first-class field: upstream-base, foundry-child, staged-candidate or published-artifact. A class is never inferred and never substitutes for another. The defect this schema exists for: an upstream-base scan of php:8.4 (241 CRITICAL/HIGH, 170 of them linux-libc-dev) was reported as php-fpm/8.4 child evidence (47 CRITICAL/HIGH, 0 linux-libc-dev). The child Dockerfile runs `apt-get purge -y --auto-remove`, so linux-libc-dev is not installed in the child at all — the base record describes a DIFFERENT ARTIFACT's inventory and can neither confirm nor deny anything about what Foundry ships. Every field below exists so that an evidence record cannot be silently reused across a class, digest, platform, image version or source revision boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_class",
+    "image_digest",
+    "platform",
+    "image_family",
+    "image_version",
+    "source_revision",
+    "build_input_digest",
+    "build_completed",
+    "scanner_identity",
+    "vulnerability_db_identity",
+    "package_inventory_source",
+    "created_at",
+    "parent"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+
+    "evidence_class": {
+      "enum": ["upstream-base", "foundry-child", "staged-candidate", "published-artifact"],
+      "description": "The artifact class this record describes. REQUIRED and never defaulted. policies/evidence-classes.yaml states what each class may and may not establish."
+    },
+
+    "child_key": {
+      "type": "string",
+      "description": "Canonical identity, `<family>/<version>/<platform>`, as produced by child_key() in scripts/lib/common.sh. This is the ONE identity derivation in the repository; a second one would let two spellings of the same child diverge. Absent for upstream-base records, which are not Foundry children."
+    },
+
+    "image_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "IMMUTABLE manifest digest. A mutable tag is not an identity: the bytes behind it can change after the evidence is written, which is exactly how evidence outlives the artifact it described. There is deliberately no `tag` alternative."
+    },
+
+    "platform": {
+      "type": "string",
+      "pattern": "^linux/[a-z0-9]+$",
+      "description": "linux/<arch>. Evidence is per-platform: an amd64 scan says nothing about the arm64 child, which has a different digest and a different installed inventory."
+    },
+
+    "image_family": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9._-]+$",
+      "description": "php-fpm, php-cli, php-worker, php-frankenphp, nginx, caddy — or, for upstream-base, the upstream repository name."
+    },
+
+    "image_version": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9._-]+$",
+      "description": "The image family's selector: a PHP minor such as 8.3 / 8.4, or `prod` for the versionless edge images. 8.3 evidence must never satisfy an 8.4 requirement."
+    },
+
+    "source_revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "The Foundry revision the artifact was built from. Evidence is bound to it: a later commit needs its own evidence."
+    },
+
+    "build_input_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Digest of the Dockerfile / build context that produced the artifact. Two artifacts from the same revision but a different context are different artifacts."
+    },
+
+    "build_completed": {
+      "type": "boolean",
+      "description": "Did the build reach completion. A build that did not complete cannot emit foundry-child (or any later) evidence: a partial image's installed inventory is undefined. Enforced in policies/evidence-classes.yaml via requires_build_completion."
+    },
+
+    "scanner_identity": {
+      "type": "string",
+      "pattern": "^[^\\s]+@sha256:[0-9a-f]{64}$",
+      "description": "The scanner image pinned by digest. A scanner referenced by tag can be swapped underneath the evidence."
+    },
+
+    "vulnerability_db_identity": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The FROZEN vulnerability database snapshot the scan was judged against. Findings are only comparable within one snapshot; two records from different snapshots differ for database reasons that are not artifact reasons."
+    },
+
+    "package_inventory_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "sha256"],
+      "description": "Where the installed-package list came from. THE 241-vs-47 FIELD: `image-base` inventories describe the upstream base, `image-child` inventories describe what Foundry ships, and they are not the same list.",
+      "properties": {
+        "kind": { "enum": ["image-base", "image-child", "sbom", "package-index"] },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "package_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+
+    "created_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "RFC3339 UTC, second precision."
+    },
+
+    "parent": {
+      "description": "Provenance: the record this artifact descends from. `null` ONLY for upstream-base, which by definition has no Foundry parent. Every other class must name its parent's class and immutable digest, so a child can be traced to the exact base bytes it was built on.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_class", "image_digest"],
+          "properties": {
+            "evidence_class": { "enum": ["upstream-base", "foundry-child", "staged-candidate"] },
+            "image_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "reference": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "severity_counts": {
+      "type": "object",
+      "description": "CRITICAL/HIGH counts AS SCANNED, per severity. Meaningful only together with evidence_class and package_inventory_source.kind.",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+
+    "findings_by_package": {
+      "type": "object",
+      "description": "Optional per-package finding counts. Present in the base-vs-child regression fixture because linux-libc-dev is the package that makes the two classes visibly different.",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+
+    "staging_package": {
+      "type": "string",
+      "description": "Required in practice for staged-candidate: the package the candidate was pushed to."
+    },
+
+    "release_identity": {
+      "type": "string",
+      "description": "Required in practice for published-artifact: the release version it was published under."
+    }
+  }
+}

@@ -1,0 +1,222 @@
+# =============================================================================
+# policies/cra-control-matrix.yaml — CRA obligations mapped onto controls that
+# ALREADY EXIST AND ARE ENFORCED in this repository (#113).
+# -----------------------------------------------------------------------------
+# THIS IS NOT A COMPLIANCE CLAIM AND NOT A CERTIFICATION. Applicability is
+# undetermined (policies/cra-applicability.yaml). This file answers a narrower,
+# answerable question: IF the CRA applies, which obligations does existing
+# machinery already serve, and which are not served at all?
+#
+# The rule for every row: `evidence` must name a real path in this repository,
+# and `enforced_by` must name something that actually runs. A matrix whose rows
+# point at aspirations is how an organisation convinces itself it is covered.
+# scripts/cra/assert-cra-controls.sh refuses any row whose evidence path does
+# not exist on disk, so this file cannot drift away from the tree.
+#
+# `status` is deliberately three-valued:
+#   enforced      a control runs and fails closed
+#   partial       a control exists but does not cover the whole obligation
+#   absent        nothing serves this obligation; the gap is named, not softened
+# =============================================================================
+schema_version: 1
+
+disclaimer:
+  is_compliance_claim: false
+  is_certification: false
+  applicability_status: undetermined
+  applicability_source: policies/cra-applicability.yaml
+  note: >-
+    Mapping an obligation to a control is an engineering statement about what
+    runs. It is not a legal conclusion that the obligation is satisfied.
+
+obligations:
+  - id: vulnerability-handling-inventory
+    obligation: identify and document components contained in the product, including an SBOM
+    status: enforced
+    controls:
+      - scripts/generate-sbom.sh
+      - policies/syft.yaml
+    evidence:
+      - scripts/generate-sbom.sh
+      - policies/syft.yaml
+    enforced_by: SBOM generation in the publish path; policies/required-release-checks.yaml
+    gap: null
+
+  - id: vulnerability-remediation
+    obligation: address and remediate vulnerabilities without delay
+    status: partial
+    controls:
+      - scripts/reconcile-vulnerabilities.sh
+      - policies/vulnerability-exceptions.yaml
+      - scripts/classify-remediation-owner.sh
+    evidence:
+      - scripts/reconcile-vulnerabilities.sh
+      - policies/vulnerability-exceptions.yaml
+      - docs/vulnerability-management.md
+    enforced_by: the reconciler and the exception validator, both gated in CI
+    gap: >-
+      Foundry cannot remediate vulnerabilities inside upstream artefacts it does
+      not compile. Issue 79 is the standing example; the boundary is enforced by
+      scripts/assert-upstream-ownership.sh rather than assumed.
+
+  - id: ownership-boundary
+    obligation: distinguish what the manufacturer controls from what it merely redistributes
+    status: enforced
+    controls:
+      - policies/component-ownership.yaml
+      - scripts/assert-upstream-ownership.sh
+    evidence:
+      - policies/component-ownership.yaml
+      - docs/ownership-boundary.md
+      - docs/shared-responsibility.md
+    enforced_by: scripts/assert-upstream-ownership.sh, run in CI
+    gap: null
+
+  - id: security-updates-distribution
+    obligation: distribute security updates to users without delay
+    status: partial
+    controls:
+      - scripts/promote-stable.sh
+      - scripts/rollback-stable.sh
+      - policies/support-policy.yaml
+    evidence:
+      - policies/support-policy.yaml
+      - docs/stable-promotion.md
+      - docs/release-process.md
+    enforced_by: the promotion and rollback tooling, exercised in tests/promotion
+    gap: >-
+      Notification reach is unproven. There is no verified recipient roster, so
+      "without delay" cannot be measured end to end.
+
+  - id: support-period-declaration
+    obligation: declare a support period and honour it
+    status: partial
+    controls:
+      - policies/support-policy.yaml
+      - policies/lifecycle.yaml
+      - scripts/assert-lifecycle.sh
+    evidence:
+      - policies/support-policy.yaml
+      - policies/lifecycle.yaml
+      - docs/product-support-policy.md
+    enforced_by: scripts/assert-lifecycle.sh, gated in macro-validate
+    gap: whether the declared period meets the required minimum is undetermined
+
+  - id: incident-reporting-clock
+    obligation: report an actively exploited vulnerability or severe incident within 24h / 72h / final report
+    status: enforced
+    controls:
+      - scripts/incident.sh
+      - policies/incident-reporting.yaml
+    evidence:
+      - scripts/incident.sh
+      - policies/incident-reporting.yaml
+      - docs/incident-response.md
+    enforced_by: deadlines computed from a recorded awareness timestamp; a naive timestamp is refused
+    gap: >-
+      No competent CSIRT and no submission account are established, so a packet
+      can be produced but not filed. Recorded as undetermined in
+      policies/incident-reporting.yaml.
+
+  - id: incident-evidence-preservation
+    obligation: preserve the evidence an incident report must carry
+    status: enforced
+    controls:
+      - scripts/incident.sh
+      - scripts/build-release-evidence.sh
+      - scripts/validate-release-evidence.sh
+    evidence:
+      - policies/incident-reporting.yaml
+      - scripts/build-release-evidence.sh
+      - docs/release-evidence.md
+    enforced_by: packet generation refuses when a required evidence field is empty
+    gap: null
+
+  - id: coordinated-disclosure
+    obligation: provide a contact point and a coordinated vulnerability disclosure policy
+    status: enforced
+    controls:
+      - SECURITY.md
+      - policies/support-policy.yaml
+    evidence:
+      - SECURITY.md
+      - docs/vulnerability-management.md
+    enforced_by: channel declarations cross-checked against SECURITY.md in tests/governance
+    gap: null
+
+  - id: integrity-of-distribution
+    obligation: protect the integrity of the product as distributed
+    status: partial
+    controls:
+      - scripts/verify-release-artifacts.sh
+      - scripts/verify-image-release-identity.sh
+      - policies/cosign-identities.yaml
+    evidence:
+      - scripts/verify-release-artifacts.sh
+      - policies/cosign-identities.yaml
+      - docs/sbom-signing-provenance.md
+    enforced_by: release verification tooling and the required-checks policy
+    gap: nothing is signed yet — tracked in issue 139
+
+  - id: business-continuity-of-supply
+    obligation: remain able to supply security updates through a disruption
+    status: partial
+    controls:
+      - policies/continuity.yaml
+      - scripts/continuity-export.sh
+    evidence:
+      - policies/continuity.yaml
+      - docs/continuity.md
+    enforced_by: the continuity export and its policy self-test
+    gap: no independent registry mirror exists — tracked in issue 116
+
+  - id: third-party-licence-accounting
+    obligation: account for the licences of components distributed with the product
+    status: enforced
+    controls:
+      - scripts/license/assert-license-policy.sh
+      - policies/license-policy.yaml
+    evidence:
+      - policies/license-policy.yaml
+      - docs/licensing/license-compliance.md
+    enforced_by: the fail-closed licence gate, self-tested in macro-validate
+    gap: allow/deny lists await owner and counsel; publication decision is issue 98
+
+  - id: roles-and-responsibilities
+    obligation: identify who performs vulnerability handling and incident duties
+    status: partial
+    controls:
+      - policies/cra-roles.yaml
+      - policies/governance-model.yaml
+    evidence:
+      - policies/cra-roles.yaml
+      - policies/governance-model.yaml
+    enforced_by: scripts/cra/assert-cra-controls.sh refuses a role without a backup or a declared gap
+    gap: >-
+      Every role resolves to one person and none has a backup. Declared as a gap
+      rather than filled with invented deputies.
+
+  - id: native-runtime-assurance
+    obligation: verify the product behaves correctly on each architecture it is shipped for
+    status: partial
+    controls:
+      - policies/native-arch-requirements.yaml
+      - scripts/release/assert-native-arch-evidence.sh
+    evidence:
+      - policies/native-arch-requirements.yaml
+      - scripts/release/assert-native-arch-evidence.sh
+    enforced_by: execution_mode evidence, derived from the runner rather than declared
+    gap: >-
+      No native arm64 runner is enrolled, so arm64 runtime behaviour is
+      evidenced only under emulation. Tracked in issue 111.
+
+  - id: conformity-documentation
+    obligation: produce and retain the technical documentation a conformity assessment requires
+    status: absent
+    controls: []
+    evidence:
+      - policies/cra-applicability.yaml
+    enforced_by: nothing
+    gap: >-
+      Not started, and correctly so: the form of the documentation depends on
+      the product classification and economic role, which are undetermined.

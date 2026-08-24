@@ -37,6 +37,23 @@ pr_required_checks:
   - secret scan (gitleaks)
   - semgrep docker security
   - validate compose profiles
+  # DELIBERATELY IN THE PR SET ONLY, NOT THE RELEASE SET.
+  #
+  # The master ruleset has required this check live for some time, but it was
+  # never declared here, so scripts/verify-repo-governance.sh returned FAIL on a
+  # divergence that was in fact intended. That is the real cost: with the
+  # verifier stuck at FAIL, a GENUINE future divergence — a control silently
+  # removed — would have looked exactly like this known one. Declaring it
+  # restores the PASS signal that makes the next divergence legible.
+  #
+  # It is NOT added to release_required_checks/required_checks. Its workflow,
+  # .github/workflows/sensitive-change.yml, triggers on `pull_request` only, so
+  # it can never produce a check run on a TAGGED COMMIT. check-exact-commit-ci.sh
+  # requires every release name to have concluded `success` on the tag's commit
+  # and treats missing as a reject, so listing it there would deadlock every
+  # stable release for ever — the mirror image of the trap described above about
+  # requiring what a PR cannot produce.
+  - security-sensitive change checklist
 
 release_required_checks:
   - repo structure

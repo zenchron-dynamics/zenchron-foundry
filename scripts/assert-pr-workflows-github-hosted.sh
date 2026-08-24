@@ -61,7 +61,9 @@ assert_all() {
 self_test() {
   local tmp ok=0 bad=0
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
+  # expand NOW: the local is out of scope by EXIT time
+  # shellcheck disable=SC2064
+  trap "rm -rf '${tmp}'" EXIT
 
   chk() { # chk <label> <want-rc> <dir>
     local label="$1" want="$2" dir="$3" got=0
@@ -272,3 +274,5 @@ case "${1:-}" in
   "")          assert_all "$ROOT/.github/workflows" ;;
   *)           assert_all "$1" ;;
 esac
+
+# governance-binding self-test mutation

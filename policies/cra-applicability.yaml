@@ -1,0 +1,159 @@
+# =============================================================================
+# policies/cra-applicability.yaml — product boundary inventory and the
+# applicability DECISION TEMPLATE (#113).
+# -----------------------------------------------------------------------------
+# NOTHING IN THIS FILE IS A LEGAL DETERMINATION, AND NOTHING HERE CLAIMS
+# COMPLIANCE OR CERTIFICATION.
+#
+# The Cyber Resilience Act turns on questions engineering cannot answer: whether
+# these artefacts are "placed on the market", which economic role Zenchron
+# Dynamics occupies for each, and which member state establishes competence.
+# Every one of those fields is present and EMPTY, with `determined_by: null`.
+# They are here so a determination has somewhere to live and so the validator
+# can refuse to pretend one was made.
+#
+# What engineering CAN state, and does state below, is the factual boundary:
+# what is produced, what is merely repackaged, who receives it and how, and how
+# long each line is supported. Those are facts about this repository, and they
+# are the inputs a determination needs.
+#
+# scripts/cra/assert-cra-controls.sh refuses if any product omits a boundary
+# field, and refuses if this file is ever edited to assert a determination
+# without naming who made it and when.
+# =============================================================================
+schema_version: 1
+
+applicability:
+  status: undetermined
+  determined_by: null
+  determined_at: null
+  tracked_in: 113
+  obligations_commence: 2026-09-11
+  note: >-
+    Reporting obligations commence 2026-09-11. The machinery in
+    scripts/incident.sh and this control matrix was built before the
+    determination deliberately: if the answer is "the CRA applies", the clock
+    starts at 24 hours and there is no time to build a process then. If the
+    answer is "it does not apply", a working incident process is still worth
+    having and nothing was lost.
+
+# --- the questions a determination must answer -------------------------------
+# A decision template, not a decision. Each entry stays `answer: null` until a
+# human with the authority to answer it does so.
+decision_template:
+  - id: placed-on-market
+    question: Are these images made available on the Union market in the course of a commercial activity?
+    answer: null
+    answered_by: null
+    evidence_needed: distribution channels, customer contracts, whether access is for consideration
+  - id: economic-role
+    question: Is Zenchron Dynamics a manufacturer, importer or distributor for each product?
+    answer: null
+    answered_by: null
+    evidence_needed: who places the product on the market under whose name or trademark
+  - id: product-category
+    question: Does any product fall within an important or critical product class?
+    answer: null
+    answered_by: null
+    evidence_needed: the functional classification of each image line
+  - id: member-state
+    question: Which member state of establishment determines the competent authority and CSIRT?
+    answer: null
+    answered_by: null
+    evidence_needed: place of establishment of the legal entity
+  - id: open-source-steward
+    question: Does any part of the output fall under the open-source steward provisions?
+    answer: null
+    answered_by: null
+    evidence_needed: whether the artefacts are supplied commercially, which depends on issue 98
+    depends_on: 98
+  - id: support-period
+    question: What support period is declared for each product line, and is it at least the required minimum?
+    answer: null
+    answered_by: null
+    evidence_needed: policies/support-policy.yaml and the declared end-of-support dates
+
+# --- the factual product boundary --------------------------------------------
+# Facts about what this repository produces. `foundry_authored` distinguishes
+# what Zenchron actually writes from what it repackages — the distinction that
+# decides who can fix a given vulnerability, and it is already enforced
+# elsewhere by scripts/assert-upstream-ownership.sh over
+# policies/component-ownership.yaml.
+product_boundary:
+  source_of_truth: contracts/images/*.yaml
+  ownership_source_of_truth: policies/component-ownership.yaml
+  support_source_of_truth: policies/support-policy.yaml
+  products:
+    - id: php-cli
+      description: PHP command-line runtime images
+      foundry_authored: image assembly, configuration and hardening only
+      third_party_core: PHP, Debian base, PECL extensions
+      distribution: GHCR, private packages
+      recipients: authorised Zenchron Dynamics systems and personnel
+      support_line_ref: php-cli
+    - id: php-fpm
+      description: PHP-FPM runtime images
+      foundry_authored: image assembly, configuration and hardening only
+      third_party_core: PHP, Debian base, PECL extensions
+      distribution: GHCR, private packages
+      recipients: authorised Zenchron Dynamics systems and personnel
+      support_line_ref: php-fpm
+    - id: php-worker
+      description: PHP queue-worker runtime images
+      foundry_authored: image assembly, configuration and hardening only
+      third_party_core: PHP, Debian base, PECL extensions
+      distribution: GHCR, private packages
+      recipients: authorised Zenchron Dynamics systems and personnel
+      support_line_ref: php-worker
+    - id: php-frankenphp
+      description: FrankenPHP application-server images
+      foundry_authored: image assembly and configuration only
+      third_party_core: FrankenPHP official artefact, including bundled Go modules
+      distribution: GHCR, private packages
+      recipients: authorised Zenchron Dynamics systems and personnel
+      support_line_ref: php-frankenphp
+      note: >-
+        Foundry does not compile FrankenPHP and cannot remediate vulnerabilities
+        inside the official artefact. Tracked in issue 79 as upstream exposure,
+        not as a Foundry defect.
+    - id: nginx
+      description: Edge reverse-proxy images
+      foundry_authored: configuration and hardening only
+      third_party_core: nginx, Debian base
+      distribution: GHCR, private packages
+      recipients: authorised Zenchron Dynamics systems and personnel
+      support_line_ref: nginx
+    - id: caddy
+      description: Edge reverse-proxy images
+      foundry_authored: configuration and hardening only
+      third_party_core: Caddy, Debian base
+      distribution: GHCR, private packages
+      recipients: authorised Zenchron Dynamics systems and personnel
+      support_line_ref: caddy
+
+# --- support period ----------------------------------------------------------
+# The CRA asks for a declared support period per product. The dates themselves
+# live in policies/support-policy.yaml, which is already enforced; restating
+# them here would create two copies that drift.
+support_period:
+  declared_in: policies/support-policy.yaml
+  determined_by: null
+  meets_required_minimum: null
+  note: >-
+    Whether the declared period satisfies the required minimum is part of the
+    determination, not an engineering judgement.
+
+# --- what only a human can supply --------------------------------------------
+required_human_inputs:
+  - id: cra-applicability
+    who: legal / business decision
+    supplies: the determination itself and the economic role
+    blocks: 113
+  - id: competent-csirt
+    who: legal
+    supplies: the competent CSIRT and the submission route
+    blocks: 114
+  - id: submission-authority
+    who: Bogdan Olteanu
+    supplies: who is authorised to file, and the platform account
+    blocks: 114

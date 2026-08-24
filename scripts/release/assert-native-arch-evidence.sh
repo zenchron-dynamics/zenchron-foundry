@@ -109,7 +109,10 @@ PY
 
 _self_test() {
   local tmp ok=0 bad=0
-  tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
+  tmp="$(mktemp -d)"
+  # expand NOW: the local is out of scope by EXIT time
+  # shellcheck disable=SC2064
+  trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then echo "  ok   $1"; ok=$((ok+1)); else echo "  FAIL $1"; bad=$((bad+1)); fi; }
   # check() can die(), and die() exits. Without a subshell the first die-path
   # kills the self-test and every later assertion silently never executes.

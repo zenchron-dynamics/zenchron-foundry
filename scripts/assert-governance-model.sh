@@ -165,7 +165,10 @@ import yaml; print(yaml.safe_load(open('$MODEL'))['model']['maintainer_count'])"
 fi
 
 if [ "${1:-}" = "--self-test" ]; then
-  tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+  tmp="$(mktemp -d)"
+  # expand NOW: the local is out of scope by EXIT time
+  # shellcheck disable=SC2064
+  trap "rm -rf '${tmp}'" EXIT
   # A model that claims independence must be rejected: that is the failure mode
   # this whole file exists to make impossible to introduce quietly.
   python3 -c "

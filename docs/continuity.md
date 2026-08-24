@@ -23,7 +23,11 @@ Everything that does not require a second provider:
 | digest-equality verification on restore | built, exercised |
 | restore procedure | this document |
 | RTO / RPO targets | declared as numbers |
-| local-registry disaster exercise | **executed** |
+| local-registry disaster exercise | **executed** (needs docker + network) |
+| offline OCI-layout disaster drill | **executed on every test run** |
+| mirror consistency verifier | built — `scripts/continuity-verify.sh` |
+| registry-neutral mirror manifest | declared — `policies/continuity-mirror.yaml` |
+| critical-release inventory | declared, derived from the matrix |
 | signature/evidence backup | **not yet possible** — nothing is signed (#139) |
 | independent mirror | **absent** — requires a procurement decision |
 
@@ -86,3 +90,96 @@ Two human decisions, recorded in `policies/continuity.yaml`:
 
 Then: mirror on publish, verify digest equality continuously, and re-run the
 exercise against the real mirror rather than a local container.
+
+## The mirror manifest, and why it names no vendor
+
+`policies/continuity-mirror.yaml` describes **what must survive the loss of GHCR** and **how a copy is
+proven faithful**, in OCI terms that any conformant registry satisfies. It deliberately names no provider.
+
+Writing the manifest against a specific vendor's API would mean rewriting it at the exact moment it is
+needed — during an outage. So the destination is described by the properties it must have, not by who
+sells it:
+
+| requirement | why |
+| --- | --- |
+| separate provider | a provider-wide outage must not take both copies |
+| separate account and billing | organisation suspension and billing failure are the loss modes continuity exists for |
+| credentials held outside GitHub | credentials that live only in the thing they must survive do not survive it |
+| immutable retention at the destination | a mirror an attacker can overwrite is a second copy of the compromise |
+
+`mirror.status` is `not-provisioned` and every artifact class records `mirrored: false`. Nothing in this
+repository should ever be read as evidence that a mirror exists.
+
+The critical-release inventory is **derived**, not hand-listed: a hand-maintained digest list goes stale
+silently, so the selector is evaluated against the live matrix (`contracts/images/*.yaml`) at export time.
+Two classes are declared as blocked rather than satisfied — cosign signatures (#139, nothing is signed
+yet) and VEX documents (#115).
+
+## The consistency verifier
+
+```bash
+bash scripts/continuity-verify.sh --verify <source-layout> <mirror-layout>
+```
+
+`policies/continuity.yaml` has named this file as `restore.verification` since the continuity work landed.
+**It did not exist.** A policy pointing at an absent verifier is worse than one pointing at nothing,
+because it reads as though restoration is already checked. It exists now, and `tests/continuity/` asserts
+that the file the policy names is present and runnable.
+
+It proves five things between two OCI layouts:
+
+1. both are real OCI layouts, not directories that resemble one
+2. every manifest the source publishes is present in the mirror
+3. every mirrored manifest digest **equals** the source digest
+4. every referenced blob — config and layers, transitively — is present
+5. every blob's **content still hashes to the digest naming it**
+
+Point 5 is the one a digest list cannot give you. A mirror can hold the right digest *names* over corrupted
+bytes; the failover everybody rehearsed then serves artefacts no signature covers. Content is rehashed
+here, never assumed from the filename.
+
+## The offline drill
+
+```bash
+bash scripts/continuity-verify.sh --drill
+```
+
+No docker, no network, no registry — so it runs in CI on every test run rather than living as a transcript
+in a document. It builds an OCI layout, mirrors it digest-preserving, verifies equality, and then
+**sabotages the mirror three ways** and proves the verifier refuses each:
+
+```text
+-- 3. sabotage: corrupt one blob, keep its name
+ok   - a mirror with the right digest over WRONG BYTES is refused
+ok   - ...and the refusal says the blob is CORRUPT
+-- 4. sabotage: drop a blob the index still references
+ok   - a mirror missing a referenced blob is refused
+-- 5. sabotage: an empty directory is not a mirror
+ok   - an empty directory is refused, never reported as a clean mirror
+-- 6. the policy must still say no independent mirror exists
+continuity drill: 8 ok, 0 failed
+```
+
+A drill that only ever passes has not tested anything. The final assertion re-reads the policy, so this run
+can never be cited later as evidence that a mirror was created.
+
+## Exports refuse to look successful
+
+`scripts/continuity-export.sh --export <dir>` used to exit **0** having written only `digests.txt` when
+every OCI-layout write failed — a "successful" export nothing can be restored from, against a policy
+promising `format: OCI layout`. It now refuses:
+
+```text
+REFUSE: N image(s) exported no OCI layout — a digest list is an
+        inventory, not a backup, and nothing can be restored from it.
+        Re-run with --digests-only to record an inventory deliberately.
+```
+
+Recording an inventory is a legitimate thing to want. It is not what you should get by accident.
+
+## What still blocks #116
+
+One external decision, unchanged by any of the above: **an independent registry must be selected and
+funded**, with credentials held outside the GitHub account and immutable retention enabled. Owner: Bogdan
+Olteanu. Until then the acceptance criterion — a customer pulling and verifying an approved release while
+GHCR is unavailable — is not met, and no tooling in this repository can meet it.

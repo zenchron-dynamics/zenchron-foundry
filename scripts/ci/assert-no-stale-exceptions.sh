@@ -188,8 +188,22 @@ PY
 self_test() {
   local tmp ok=0 bad=0
   tmp="$(mktemp -d)"
+  # CLEANUP MUST NOT USE `trap ... RETURN`.
+  #
+  # A RETURN trap set in this function fires on the return of ANY function while
+  # it is active, once bash `functrace` (set -T) is on — including the ~22 calls
+  # to t() below. The temp directory was then deleted after the FIRST assertion
+  # and every later one failed on missing fixtures.
+  #
+  # That is exactly the "four vulnerability-policy suites fail together, then a
+  # rerun passes unchanged" flake seen on PR #198: all four call this self-test,
+  # and the outcome depended on whether functrace was inherited. Reproduce the
+  # old behaviour with `bash -T scripts/ci/assert-no-stale-exceptions.sh --self-test`.
+  #
+  # EXIT is scope-independent and fires exactly once, whatever functrace is doing.
+  # expand NOW: the local is out of scope by EXIT time
   # shellcheck disable=SC2064
-  trap "rm -rf '${tmp}'" RETURN
+  trap "rm -rf '${tmp}'" EXIT
   t() { if eval "$2"; then ok=$((ok+1)); echo "  ok   $1"; else bad=$((bad+1)); echo "  FAIL $1"; fi; }
 
   # Two records that BOTH name CVE-2099-3 on nginx and differ only by package —

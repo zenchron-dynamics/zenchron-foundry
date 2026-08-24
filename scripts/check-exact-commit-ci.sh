@@ -59,8 +59,9 @@ fetch_checks() { # <sha> -> {checks:[{name,status,conclusion}]}
   # all into an array, so every page is collected — this also fixes a latent
   # multi-page bug the old single-`$cr` capture had.
   local tmp; tmp="$(mktemp -d)"
+  # expand NOW: the local is out of scope by EXIT time
   # shellcheck disable=SC2064
-  trap "rm -rf '$tmp'" RETURN
+  trap "rm -rf '$tmp'" EXIT
   if ! gh api "repos/$REPO/commits/$sha/check-runs" --paginate > "$tmp/cr.json" 2>"$tmp/cr.err"; then
     echo "REFUSE: cannot read check-runs for $sha (needs 'checks: read')." >&2
     cat "$tmp/cr.err" >&2; cat "$tmp/cr.json" >&2
