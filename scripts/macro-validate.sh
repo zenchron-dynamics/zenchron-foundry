@@ -39,6 +39,13 @@ gate "upstream lifecycle"        bash scripts/assert-lifecycle.sh
 gate "confinement profiles"      bash scripts/assert-runtime-profiles.sh
 gate "supply-chain inputs"       bash scripts/assert-supply-chain-inputs.sh
 gate "governance model"          bash scripts/assert-governance-model.sh
+# The artifact/evidence CLASS contract. An upstream-base scan was once reported
+# as child evidence (php:8.4 base: 241 CRITICAL/HIGH, 170 linux-libc-dev; the
+# accepted 8.4 child: 47 and none, because the Dockerfile purges the headers).
+# The gate refuses class substitution and re-validates the committed accepted
+# evidence under the EXPLICIT historical-compatibility rule.
+gate "evidence class contract"   bash scripts/release/assert-evidence-class.sh --self-test
+gate "accepted evidence still classes" bash scripts/release/assert-evidence-class.sh legacy docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json
 gate "admission policy sync"     python3 scripts/generate-admission-policy.py --check
 gate "continuity policy"         bash scripts/continuity-export.sh --self-test
 gate "continuity mirror verify"  bash scripts/continuity-verify.sh --self-test

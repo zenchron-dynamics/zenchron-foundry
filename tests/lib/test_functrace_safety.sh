@@ -66,10 +66,29 @@ for s in scripts/ci/assert-no-stale-exceptions.sh scripts/reconcile-vulnerabilit
 done
 
 # --- SABOTAGE: put the defect back and prove it is detected ----------------
-# A copy beside the original so its relative source paths still resolve.
-SAB="$ROOT/scripts/ci/.functrace-sabotage-$$.sh"
+# The sabotage copy used to be written to $ROOT/scripts/ci/, i.e. INTO THE REAL
+# CHECKOUT, because the script under test resolves its own root as
+# `dirname $BASH_SOURCE/../..` and must find scripts/lib/common.sh relative to
+# it. An EXIT trap removed it — but a SIGKILL, a CI cancellation or a crash
+# leaves a stray `.functrace-sabotage-*.sh` sitting in scripts/ci/. That is the
+# ambient-mutation class tests/lib/test_no_ambient_mutation.sh exists to refuse,
+# and this test was itself an instance of it.
+#
+# Fixed with a MIRROR ROOT under $TMP: every path the script needs is symlinked
+# in, so `../..` resolves to the mirror. Read-only symlinks, and exactly one
+# real file — the sabotage itself.
+MIRROR="$TMP/mirror"
+mkdir -p "$MIRROR/scripts/ci"
+for e in "$ROOT"/*; do
+  [ "$(basename "$e")" = scripts ] || ln -sfn "$e" "$MIRROR/$(basename "$e")"
+done
+for e in "$ROOT"/scripts/*; do
+  [ "$(basename "$e")" = ci ] || ln -sfn "$e" "$MIRROR/scripts/$(basename "$e")"
+done
+for e in "$ROOT"/scripts/ci/*; do ln -sfn "$e" "$MIRROR/scripts/ci/$(basename "$e")"; done
+SAB="$MIRROR/scripts/ci/.functrace-sabotage-$$.sh"
 # shellcheck disable=SC2064
-trap "rm -rf '$TMP'; rm -f '$SAB'" EXIT
+trap "rm -rf '$TMP'" EXIT
 sed "s|trap \"rm -rf '\${tmp}'\" EXIT|trap \"rm -rf '\${tmp}'\" RETURN|" \
     scripts/ci/assert-no-stale-exceptions.sh > "$SAB"
 ck "SABOTAGE fixture really restored the RETURN trap" \
