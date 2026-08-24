@@ -427,6 +427,11 @@ self_test() {
   copy="$tmp/tree"
   mkdir -p "$copy"
   ( cd "$EXP_AUDIT_ROOT" && tar cf - policies scripts images ) | ( cd "$copy" && tar xf - )
+  # tar preserves modes. tests/lib/test_no_ambient_mutation.sh runs every
+  # self-test against a WRITE-PROTECTED copy of the checkout, so without this the
+  # fixture inherits read-only bits and every sabotage below fails with EPERM on
+  # its own fixture — a false failure that looks exactly like a real one.
+  chmod -R u+w "$copy"
   ck "the disposable copy reproduces the clean verdict (sabotage baseline)" \
      "EXP_AUDIT_ROOT='$copy' $0 --count php-8.5 linux/amd64 >/dev/null 2>&1"
 
@@ -454,6 +459,7 @@ self_test() {
 
   # 3. the lifecycle authorization removed underneath a registered cohort
   ( cd "$EXP_AUDIT_ROOT" && tar cf - policies scripts ) | ( cd "$copy" && tar xf - )
+  chmod -R u+w "$copy"
   python3 - "$copy/policies/lifecycle.yaml" <<'PYS'
 import sys, yaml
 p = sys.argv[1]
@@ -470,6 +476,7 @@ PYS
 
   # 4. NON-VACUITY of the disjointness proof: an EMPTY matrix must not pass
   ( cd "$EXP_AUDIT_ROOT" && tar cf - policies scripts ) | ( cd "$copy" && tar xf - )
+  chmod -R u+w "$copy"
   sed -i.bak 's|^MATRIX_IMAGES=.*|MATRIX_IMAGES=""|' "$copy/scripts/lib/common.sh"
   rm -f "$copy/scripts/lib/common.sh.bak"
   ck "SABOTAGE: an EMPTY production matrix is refused, not passed vacuously" \

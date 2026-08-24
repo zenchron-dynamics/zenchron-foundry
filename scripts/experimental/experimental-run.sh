@@ -66,6 +66,25 @@ TRIVY_REF="aquasec/trivy:0.71.0@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c
 TRIVY_IDENTITY="aquasec/trivy@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500"
 
 fatal() { printf 'REFUSE: %s\n' "$*" >&2; exit 1; }
+
+# THE DAEMON THIS RUN TALKS TO, derived from the ACTIVE docker context rather
+# than assumed to be /var/run/docker.sock.
+#
+# This is not hypothetical tidiness. On the machine this was first run on,
+# /var/run/docker.sock is a symlink to one runtime while the CLI's active
+# context points at ANOTHER, so syft and the containerised scanner queried a
+# daemon that had never seen the images the build had just produced — and
+# reported "repository does not exist", i.e. an infrastructure miss that reads
+# exactly like a missing artifact. Both tools are now pointed at the same daemon
+# the build used, by construction.
+docker_socket() {
+  local host
+  host="$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null)"
+  case "$host" in
+    unix://*) printf '%s' "${host#unix://}" ;;
+    *) return 1 ;;
+  esac
+}
 step()  { printf '\n--- %s\n' "$*"; }
 
 # oci_manifest_digest <local-ref> — the OCI-layout manifest digest of a locally
@@ -90,6 +109,77 @@ base_ref_of() {
 # --- runtime probes, all against the RUNNING CHILD ---------------------------
 php_in() { docker run --rm --entrypoint php "$1" "${@:2}"; }
 
+# THE OPCACHE RUNTIME PROOF, and why it is not `php -m`.
+#
+# On the PHP 8.5 cli/fpm/worker cohort OPcache is NOT compiled: the official base
+# ships it linked into the binary, and asking docker-php-ext-install to build it
+# produces no shared module (policies/lifecycle.yaml, php-8.5 blocker). "Listed
+# in php -m" would therefore be satisfied by a module that never caches
+# anything, which is exactly the claim that must not be taken on trust.
+#
+# So the probe writes a REAL FILE into the container and executes it with OPcache
+# on. opcache_get_status() then reports the interpreter's own view, and
+# num_cached_scripts counts the probe script itself — a module that is present
+# but inert cannot produce that number. It runs under --read-only with a tmpfs
+# /tmp, so it also exercises the shipped confinement rather than a relaxed one.
+PROBE_PHP='<?php
+// A REAL FILE, compiled by OPcache inside the child. opcache_compile_file()
+// returning true and num_cached_scripts rising above zero is a proof; an entry
+// in php -m is not. file_update_protection is forced to 0 because OPcache
+// refuses to cache a file written in the last two seconds by default, and the
+// probe writes its own fixture.
+file_put_contents("/tmp/zc-opcache-probe.php", "<?php function zc_probe(){ return 42; }");
+$compiled = @opcache_compile_file("/tmp/zc-opcache-probe.php");
+$op = function_exists("opcache_get_status") ? @opcache_get_status(false) : null;
+$ext = get_loaded_extensions(false); $zend = get_loaded_extensions(true);
+sort($ext); sort($zend);
+echo json_encode([
+  "php_version"     => PHP_VERSION,
+  "php_version_id"  => PHP_VERSION_ID,
+  "zend_version"    => zend_version(),
+  "sapi"            => PHP_SAPI,
+  "extensions"      => $ext,
+  "zend_extensions" => $zend,
+  "opcache_loaded"  => extension_loaded("Zend OPcache") || extension_loaded("opcache"),
+  "opcache_status"  => is_array($op) ? [
+      "opcache_enabled"    => $op["opcache_enabled"] ?? null,
+      "compile_succeeded"  => $compiled,
+      "cache_full"         => $op["cache_full"] ?? null,
+      "used_memory"        => $op["memory_usage"]["used_memory"] ?? null,
+      "num_cached_scripts" => $op["opcache_statistics"]["num_cached_scripts"] ?? null,
+  ] : null,
+  "redis_loaded"    => extension_loaded("redis"),
+  "redis_version"   => phpversion("redis") ?: null,
+  "redis_class"     => class_exists("Redis"),
+  "redis_connect"   => method_exists("Redis", "connect"),
+], JSON_UNESCAPED_SLASHES);'
+
+# The configuration AS SHIPPED, read with no -d overrides at all. Recording the
+# forced-on values from the proof run as if they were the shipped ones would be
+# a small lie of exactly the kind this repository keeps paying for.
+SHIPPED_PHP='<?php echo json_encode([
+  "opcache.enable"     => ini_get("opcache.enable"),
+  "opcache.enable_cli" => ini_get("opcache.enable_cli"),
+  "opcache.jit"        => ini_get("opcache.jit"),
+  "opcache.memory_consumption" => ini_get("opcache.memory_consumption"),
+]);'
+
+probe_child() { # probe_child <ref>
+  printf '%s' "$PROBE_PHP" | docker run --rm -i --read-only --tmpfs /tmp \
+    --entrypoint sh "$1" -c \
+    'cat > /tmp/probe.php && php -d opcache.enable=1 -d opcache.enable_cli=1 \
+       -d opcache.file_update_protection=0 /tmp/probe.php' 2>/dev/null
+}
+
+probe_shipped() { # probe_shipped <ref>
+  printf '%s' "$SHIPPED_PHP" | docker run --rm -i --read-only --tmpfs /tmp \
+    --entrypoint sh "$1" -c 'cat > /tmp/shipped.php && php /tmp/shipped.php' 2>/dev/null
+}
+
+extension_api_of() {
+  php_in "$1" -i 2>/dev/null | sed -n 's/^PHP Extension => //p' | head -1
+}
+
 run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
   local e="$1" out="$2" rev="$3" db="$4"
   local fam ver ctx plat slug ckey req prov ref rc=0
@@ -106,8 +196,15 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
   step "BUILD  $ckey  (context $ctx)"
   local t0 t1
   t0="$(date +%s)"
+  # BUILD_DATE is derived from the SOURCE, not from the wall clock — the same
+  # SOURCE_DATE_EPOCH rule .github/workflows/build-images.yml applies (#101). A
+  # wall-clock stamp lands in a LABEL near the top of the runtime stage, so it
+  # invalidates every layer after it: a re-run of the same revision would rebuild
+  # from scratch and produce a different digest for identical source, which is
+  # precisely what the reproducibility work exists to prevent.
   docker build --platform "$plat" \
-    --build-arg "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --build-arg "BUILD_DATE=$BUILD_DATE" \
+    --build-arg "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" \
     --build-arg "VCS_REF=$rev" \
     -t "$ref" "$EXP_ROOT/$ctx" || { echo "BUILD FAILED: $ckey" >&2; return 1; }
   t1="$(date +%s)"
@@ -126,32 +223,39 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
 
   # --- PHP / SAPI identity, extensions, OPcache, redis --------------------
   step "EXTENSIONS + RUNTIME PROOFS  $ckey"
-  local facts
-  facts="$(php_in "$ref" -r '
-    $ext = get_loaded_extensions(false);
-    $zend = get_loaded_extensions(true);
-    sort($ext); sort($zend);
-    $op = function_exists("opcache_get_status") ? @opcache_get_status(false) : null;
-    echo json_encode([
-      "php_version"       => PHP_VERSION,
-      "php_version_id"    => PHP_VERSION_ID,
-      "zend_version"      => zend_version(),
-      "sapi"              => PHP_SAPI,
-      "extension_api"     => (string)(defined("PHP_EXTENSION_API") ? PHP_EXTENSION_API : ""),
-      "extensions"        => $ext,
-      "zend_extensions"   => $zend,
-      "opcache_loaded"    => extension_loaded("Zend OPcache") || extension_loaded("opcache"),
-      "opcache_status"    => is_array($op) ? [
-            "opcache_enabled" => $op["opcache_enabled"] ?? null,
-            "cache_full"      => $op["cache_full"] ?? null,
-            "used_memory"     => $op["memory_usage"]["used_memory"] ?? null,
-            "num_cached_scripts" => $op["opcache_statistics"]["num_cached_scripts"] ?? null,
-          ] : null,
-      "redis_loaded"      => extension_loaded("redis"),
-      "redis_version"     => phpversion("redis") ?: null,
-      "redis_class"       => class_exists("Redis"),
-    ], JSON_UNESCAPED_SLASHES);' 2>/dev/null)"
+  local facts api
+  facts="$(probe_child "$ref")"
   [ -n "$facts" ] || { echo "RUNTIME PROBE FAILED: $ckey" >&2; return 1; }
+  jq -e . >/dev/null 2>&1 <<<"$facts" \
+    || { echo "RUNTIME PROBE returned non-JSON for $ckey" >&2; return 1; }
+  api="$(extension_api_of "$ref")"
+  local shipped
+  shipped="$(probe_shipped "$ref")"
+  jq -e . >/dev/null 2>&1 <<<"$shipped" \
+    || { echo "AS-SHIPPED PROBE returned non-JSON for $ckey" >&2; return 1; }
+  facts="$(jq -c --arg a "$api" --argjson sh "$shipped" \
+             '. + {extension_api:$a, opcache_as_shipped:$sh}' <<<"$facts")"
+
+  # The proof must be a PROOF. A record that says "opcache present" while
+  # opcache_get_status() reports nothing cached is the same species of claim as
+  # reporting a base scan as child evidence.
+  local op_enabled op_cached
+  op_enabled="$(jq -r '.opcache_status.opcache_enabled // false' <<<"$facts")"
+  op_cached="$(jq -r '.opcache_status.num_cached_scripts // 0' <<<"$facts")"
+  local op_compiled
+  op_compiled="$(jq -r '.opcache_status.compile_succeeded // false' <<<"$facts")"
+  if [ "$op_enabled" != true ] || [ "$op_compiled" != true ] || [ "${op_cached:-0}" -lt 1 ]; then
+    echo "OPCACHE RUNTIME PROOF FAILED for $ckey: enabled=$op_enabled compiled=$op_compiled cached=$op_cached" >&2
+    rc=1
+  fi
+  # redis likewise: a loaded extension that cannot produce its client class is
+  # not a working redis.
+  if [ "$(jq -r '.redis_loaded' <<<"$facts")" != true ] \
+     || [ "$(jq -r '.redis_class' <<<"$facts")" != true ]; then
+    echo "REDIS RUNTIME PROOF FAILED for $ckey" >&2
+    rc=1
+  fi
+
 
   # required-extension check, against the COHORT's declared set
   local missing
@@ -203,16 +307,17 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
 
   # --- SBOM ---------------------------------------------------------------
   step "SBOM  $ckey"
+  DOCKER_HOST="unix://$DOCKER_SOCK" \
   syft "docker:$ref" -c "$EXP_ROOT/policies/syft.yaml" \
-       -o "spdx-json=$out/${slug}.spdx.json" >/dev/null 2>&1 \
-    || { echo "SBOM FAILED: $ckey" >&2; return 1; }
+       -o "spdx-json=$out/${slug}.spdx.json" > "$out/${slug}.sbom.log" 2>&1 \
+    || { echo "SBOM FAILED: $ckey (see ${slug}.sbom.log)" >&2; return 1; }
   local sbom_pkgs
   sbom_pkgs="$(jq '.packages|length' "$out/${slug}.spdx.json")"
 
   # --- vulnerability scan of the CHILD, frozen database -------------------
   step "SCAN (CHILD)  $ckey"
   docker run --rm \
-    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v "$DOCKER_SOCK":/var/run/docker.sock \
     -v "$TRIVY_CACHE":/root/.cache \
     "$TRIVY_REF" image \
       --severity CRITICAL,HIGH --exit-code 0 --scanners vuln \
@@ -278,7 +383,9 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
      php:$facts,
      opcache:{declared_provenance:$prov,
               loaded:$facts.opcache_loaded,
-              runtime_proof:$facts.opcache_status},
+              as_shipped:$facts.opcache_as_shipped,
+              runtime_proof:$facts.opcache_status,
+              proof_method:"a real file written and compiled inside the child under --read-only with a tmpfs /tmp; opcache.enable/enable_cli forced on for the proof only, opcache.file_update_protection=0 so a just-written file is cacheable. opcache_compile_file() returning true AND num_cached_scripts > 0 is the proof; presence in php -m is not."},
      redis:{loaded:$facts.redis_loaded, version:$facts.redis_version,
             class_present:$facts.redis_class},
      extensions:{required:($req|split(" ")), missing:(if $missing=="" then [] else ($missing|split(" ")) end),
@@ -326,6 +433,19 @@ main() {
   rev="$(git -C "$EXP_ROOT" rev-parse HEAD)"
   is_hex40 "$rev" || fatal "source revision '$rev' is not 40 lowercase hex"
 
+  SOURCE_DATE_EPOCH="$(git -C "$EXP_ROOT" show -s --format=%ct "$rev")"
+  case "$SOURCE_DATE_EPOCH" in
+    ''|*[!0-9]*) fatal "could not derive SOURCE_DATE_EPOCH from $rev" ;;
+  esac
+  BUILD_DATE="$(TZ=UTC0 date -u -r "$SOURCE_DATE_EPOCH" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+                || date -u -d "@$SOURCE_DATE_EPOCH" +%Y-%m-%dT%H:%M:%SZ)"
+  export SOURCE_DATE_EPOCH BUILD_DATE
+
+  DOCKER_SOCK="$(docker_socket)" \
+    || fatal "the active docker context does not expose a unix socket; syft and
+        the containerised scanner must reach the SAME daemon the build used"
+  export DOCKER_SOCK
+
   mkdir -p "$out"
 
   # --- ONE FROZEN DATABASE for the whole run ------------------------------
@@ -337,8 +457,12 @@ main() {
     image --download-db-only >/dev/null 2>&1 \
     || fatal "could not download the vulnerability database"
   local db
-  db="$(jq -r '"trivy-db:v" + (.Version|tostring) + "+" + .UpdatedAt + "+next:" + .NextUpdate' \
-        "$TRIVY_CACHE/db/metadata.json" 2>/dev/null)"
+  # The cache ROOT is mounted at /root/.cache, so trivy's own metadata lands at
+  # <root>/trivy/db/metadata.json — not <root>/db/metadata.json. Reading the
+  # wrong path would silently yield an empty identity, which is why this is a
+  # refusal below rather than a default.
+  db="$(jq -r '"trivy-db:v" + (.Version|tostring) + "+updated:" + .UpdatedAt' \
+        "$TRIVY_CACHE/trivy/db/metadata.json" 2>/dev/null)"
   case "$db" in
     trivy-db:v*) : ;;
     *) fatal "could not read the frozen database identity from the trivy cache" ;;

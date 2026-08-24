@@ -200,7 +200,12 @@ done
 # =============================================================================
 COPY="$TMP/tree"; mkdir -p "$COPY"
 tar cf - policies scripts contracts images .github | ( cd "$COPY" && tar xf - )
-reset_copy() { tar cf - policies scripts contracts .github | ( cd "$COPY" && tar xf - ); }
+# tar preserves modes. This suite must stay runnable from a write-protected
+# checkout (tests/lib/test_no_ambient_mutation.sh freezes one), so the fixture's
+# write bits are restored explicitly — otherwise every sabotage below fails with
+# EPERM on its OWN fixture, which is indistinguishable from a real refusal.
+reset_copy() { tar cf - policies scripts contracts .github | ( cd "$COPY" && tar xf - ); chmod -R u+w "$COPY"; }
+chmod -R u+w "$COPY"
 
 ck "the disposable copy reproduces BOTH clean verdicts (sabotage baseline)" \
    "EXP_AUDIT_ROOT='$COPY' bash $PLAN --count php-8.5 linux/amd64 >/dev/null 2>&1 &&
@@ -323,7 +328,7 @@ ck "every record names its upstream base as parent, by immutable digest" \
 ck "child digests are distinct — four artifacts, not one recorded four times" \
    "[ \"\$(jq -r -s '[.[].image_digest]|unique|length' '$EVDIR'/*.evidence.json)\" = '$N_REG' ]"
 ck "the run's evidence checksums verify" \
-   "( cd '$EVDIR' && shasum -a 256 -c checksums.sha256 >/dev/null 2>&1 )"
+   "( cd '$EVDIR' && shasum -a 256 -c SHA256SUMS >/dev/null 2>&1 )"
 ck "the committed evidence is NOT reachable by production authorization" \
    "for r in '$EVDIR'/*.evidence.json; do
       bash scripts/release/assert-evidence-class.sh consumer production-authorization \"\$r\" >/dev/null 2>&1 && exit 1

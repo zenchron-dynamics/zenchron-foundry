@@ -246,7 +246,12 @@ self_test() {
 
   copy="$tmp/tree"; mkdir -p "$copy"
   ( cd "$EXP_AUDIT_ROOT" && tar cf - policies scripts contracts images .github ) | ( cd "$copy" && tar xf - )
-  reset_copy() { ( cd "$EXP_AUDIT_ROOT" && tar cf - policies scripts contracts .github ) | ( cd "$copy" && tar xf - ); }
+  # tar preserves modes, and tests/lib/test_no_ambient_mutation.sh runs every
+  # self-test against a WRITE-PROTECTED copy of the checkout. Without this the
+  # fixture inherits those read-only bits and every sabotage fails with EPERM on
+  # its OWN fixture — a false failure indistinguishable from a real one.
+  reset_copy() { ( cd "$EXP_AUDIT_ROOT" && tar cf - policies scripts contracts .github ) | ( cd "$copy" && tar xf - ); chmod -R u+w "$copy"; }
+  chmod -R u+w "$copy"
   # OUTPUT IS CAPTURED, NEVER PIPED INTO A MATCHER. Two traps meet here and the
   # second one is a RACE, so it passes until it does not:
   #   * `set -o pipefail` reports a pipeline as failed when ANY member fails,

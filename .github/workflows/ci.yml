@@ -135,6 +135,14 @@ jobs:
       - name: Assert the production image matrix is complete (10/10, no legacy lines)
         run: bash scripts/assert-image-matrix.sh
 
+      # The EXPERIMENTAL cohort must stay outside production, checked from the
+      # PRODUCTION side. The plan (scripts/experimental/experimental-plan.sh)
+      # proves the four PHP 8.5 definitions are reachable; this proves nothing in
+      # MATRIX_IMAGES, the acceptance planner, contracts/, the workflows or the
+      # 8.3/8.4 ledger selectors can reach back.
+      - name: Assert experimental cohorts cannot enter production
+        run: bash scripts/experimental/assert-experimental-isolation.sh
+
       - name: Assert only approved release environments are referenced
         run: bash scripts/assert-environment-names.sh
 
