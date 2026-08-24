@@ -274,5 +274,3 @@ case "${1:-}" in
   "")          assert_all "$ROOT/.github/workflows" ;;
   *)           assert_all "$1" ;;
 esac
-
-# governance-binding self-test mutation

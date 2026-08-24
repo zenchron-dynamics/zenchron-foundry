@@ -230,8 +230,25 @@ _gcb_self_test() {
   # string (it writes it, and explains the corruption it caused), so grepping
   # scripts/ would match the checker itself — the exact self-matching pattern
   # this project keeps hitting.
-  t "no policy file in the ambient checkout carries the mutation marker" \
-    "! grep -rlq 'governance-binding self-test mutation' '$ROOT/policies' 2>/dev/null"
+  # Scoped to POLICIES ONLY was a blind spot: this self-test used to mutate the
+  # real checkout, and it left the marker as committed residue in THREE bound
+  # inputs — verify-repo-governance.sh, assert-pr-workflows-github-hosted.sh and
+  # this file — where a policies-only grep structurally could not see it. Those
+  # files are bound, so the binding aggregate covered junk appended by a test.
+  #
+  # Now every BOUND INPUT is checked. The marker legitimately appears inside this
+  # script's own logic (it writes it and greps for it), so a bare trailing marker
+  # line is what counts as residue, not any mention of the string.
+  local _res=""
+  while IFS= read -r _f; do
+    [ -n "$_f" ] || continue
+    grep -qx '# governance-binding self-test mutation' "$ROOT/$_f" 2>/dev/null && _res="$_res $_f"
+  done < <(bound_inputs)
+  t "no BOUND INPUT carries a bare self-test mutation marker" \
+    "[ -z '$_res' ] || { printf 'residue in:%s\n' '$_res'; false; }"
+  t "...and that search is not vacuous — it matches a planted bare marker" \
+    "printf '# governance-binding self-test mutation\n' > '$tmp/probe' &&
+     grep -qx '# governance-binding self-test mutation' '$tmp/probe'"
   t "...and the marker IS findable where it was written (non-vacuity)" \
     "grep -q 'governance-binding self-test mutation' '$ROOT/scripts/governance-content-binding.sh'"
 
@@ -332,5 +349,3 @@ case "${1:---json}" in
   --self-test) _gcb_self_test && echo "governance-content-binding.sh: SELF-TEST OK" ;;
   *) echo "usage: governance-content-binding.sh [--json|--aggregate|--inputs|--assert-clean|--verify-evidence <f>|--self-test]" >&2; exit 2 ;;
 esac
-
-# governance-binding self-test mutation
