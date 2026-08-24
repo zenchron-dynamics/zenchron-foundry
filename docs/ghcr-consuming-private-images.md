@@ -170,15 +170,24 @@ cosign verify \
 
 See [sbom-and-signing.md](sbom-and-signing.md) and `scripts/verify-signatures.sh`.
 
-## 14. Free-tier notes (GitHub Free, private repo)
+## 14. Free-tier notes (GitHub Free, public repo, private packages)
 
 Private GHCR consumption works fine on the **Free plan** — package access is
 independent of branch-protection limits. What changes on Free is cost/limits
 awareness, not capability.
 
-> This is a compensating control, not equivalent to enforced GitHub branch
-> protection — it covers *consumption*, while repo governance stays advisory (see
-> [audits/free-tier-governance-accepted-risk.md](audits/free-tier-governance-accepted-risk.md)).
+> Scope note: everything in this section covers *consumption* only. It is not a
+> governance control and it never was. The older wording here said "private repo"
+> and that "repo governance stays advisory" — both were false from 2026-07-28.
+> The repository is **public**, so branch and tag rulesets are available on Free
+> and are **enforced**: see [repository-security.md](repository-security.md),
+> declared in
+> [`../policies/repository-governance.yaml`](../policies/repository-governance.yaml)
+> and verified in
+> [`audits/governance-verification-2026-08-23.json`](audits/governance-verification-2026-08-23.json).
+> The accepted-risk record this section used to cite is
+> [superseded](audits/free-tier-governance-accepted-risk.md) — do not cite it as
+> current.
 
 - **Create the deploy identity manually** in the GitHub UI: a machine/deploy user
   added to the org, then a classic PAT with **`read:packages` only** (no

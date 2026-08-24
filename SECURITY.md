@@ -67,7 +67,7 @@ Support periods, update commitments, deprecation and withdrawal are in
   administrators.** Declared in `policies/repository-governance.yaml` and
   machine-checked against the live API by `scripts/verify-repo-governance.sh`
   (`make verify-governance`), which fails closed on drift in either direction.
-  Evidence: [docs/audits/governance-verification-2026-07-28.json](docs/audits/governance-verification-2026-07-28.json).
+  Evidence: [docs/audits/governance-verification-2026-08-23.json](docs/audits/governance-verification-2026-08-23.json).
   Alongside it: deployment branch/tag policies on the `foundry-rc` (branch
   `master`) and `foundry-production` (tags `v*.*.*`) environments,
   typed-confirmation workflow inputs, an exact-commit CI gate and local git hooks.

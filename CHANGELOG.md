@@ -73,7 +73,7 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   (`make verify-governance`) now declare and machine-check that configuration,
   failing closed on divergence in either direction. Required-check names are
   read from `policies/required-release-checks.yaml` rather than copied. Dated
-  evidence: `docs/audits/governance-verification-2026-07-28.json`.
+  evidence: `docs/audits/governance-verification-2026-08-23.json`.
 - The stale apply-instructions in `repository-security.md` (classic
   branch-protection payload, rotted `build representative images (…)` contexts,
   `required_approving_review_count: 1`) are replaced — following them would have

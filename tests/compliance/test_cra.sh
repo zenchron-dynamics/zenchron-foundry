@@ -202,6 +202,26 @@ ck "...and removing the customer-impact rationale REFUSES" \
 ck "an unreadable record REFUSES rather than being skipped" \
    "echo 'not: [valid' >'$TMP/bad.yaml'; ! bash $CRA --check-record '$TMP/bad.yaml' >/dev/null 2>&1"
 
+# --- the SHIPPED records, not just synthetic fixtures ------------------------
+# The cases above build their own records in $TMP. That is how the shipped
+# tabletop evidence came to be REFUSED by this very validator while CI stayed
+# green: `scripts/incident.sh --tabletop` emitted no `customer_impact`, and
+# nothing ever pointed --check-record at the artefact the exercise leaves behind.
+# Two implementations built to disagree-detect each other were never aimed at
+# each other on the one record that ships as evidence. #114 criterion 3.
+shipped_incident_records() { ls docs/audits/incidents/*.yaml 2>/dev/null; }
+refused_shipped_records() {
+  local f
+  for f in $(shipped_incident_records); do
+    bash "$CRA" --check-record "$f" >/dev/null 2>&1 || echo "$f"
+  done
+}
+# NON-VACUITY: if the glob matches nothing the check below passes trivially.
+ck "NON-VACUOUS: at least one incident record actually ships" \
+   '[ "$(shipped_incident_records | wc -l)" -ge 1 ]'
+ck "every SHIPPED incident record is reportable-ready" \
+   '[ -z "$(refused_shipped_records)" ]'
+
 # --- NON-VACUITY -------------------------------------------------------------
 ck "non-vacuity: the shipped matrix reports gaps rather than full coverage" \
    "python3 -c \"

@@ -87,6 +87,11 @@ rec = {
     "summary": os.environ["SUMMARY"],
     "classification": None,
     "classification_rationale": None,
+    # "undetermined" is permitted ONLY while the incident is open
+    # (policies/cra-roles.yaml). Recording it at awareness means the field is
+    # never absent, and the validator refuses it on a CLOSED record — so impact
+    # must be established before closure rather than discovered missing after.
+    "customer_impact": "undetermined",
     "decision_log": [
         {"at": now, "by": os.environ.get("USER", "unknown"),
          "what": "awareness recorded; reporting clocks start"},
@@ -281,6 +286,16 @@ rec = {
   "corrective_release": "SIMULATED-v2026.08.13",
   "root_cause": "SIMULATED root cause for exercise purposes.",
   "customer_notifications": ["SIMULATED: advisory drafted; nothing sent."],
+  # policies/cra-roles.yaml -> customer_impact_classification.required_on:
+  # "every incident record". Without it the record this exercise SHIPS as
+  # evidence is refused by scripts/cra/assert-cra-controls.sh --check-record,
+  # which is the one artefact #114 offers as proof the runbook produces
+  # reportable output. An exercise whose output the validator rejects has not
+  # exercised the thing it claims to.
+  "customer_impact": "action-required",
+  "customer_impact_rationale":
+      "SIMULATED: a corrective release exists, so recipients must re-pin to the "
+      "corrective digest to be safe.",
   "retrospective": "SIMULATED retrospective.",
   # submitted ON TIME relative to t0, so the exercise asserts a clean run
   "early_warning_submitted_at":     "2026-08-13T20:00:00+00:00",
