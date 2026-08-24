@@ -19,7 +19,7 @@
 > included): `master-protection` — PR required, no direct push, no force-push, no
 > deletion, linear history, conversation resolution, 5 PR-required status checks;
 > `release-tags-immutable` — `v*` tags cannot be deleted, force-moved or
-> repointed. Evidence: [`governance-verification-2026-07-28.json`](governance-verification-2026-07-28.json).
+> repointed. Evidence: [`governance-verification-2026-08-23.json`](governance-verification-2026-08-23.json).
 >
 > **What did NOT change.** The single-maintainer gap is real and has nothing to
 > do with the plan: GitHub forbids self-approval, so required reviewers and

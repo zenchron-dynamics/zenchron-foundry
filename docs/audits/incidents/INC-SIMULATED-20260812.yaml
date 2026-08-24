@@ -34,6 +34,9 @@ corrective_release: SIMULATED-v2026.08.13
 root_cause: SIMULATED root cause for exercise purposes.
 customer_notifications:
 - 'SIMULATED: advisory drafted; nothing sent.'
+customer_impact: action-required
+customer_impact_rationale: 'SIMULATED: a corrective release exists, so recipients must re-pin to the corrective
+  digest to be safe.'
 retrospective: SIMULATED retrospective.
 early_warning_submitted_at: '2026-08-13T20:00:00+00:00'
 full_notification_submitted_at: '2026-08-15T09:00:00+00:00'

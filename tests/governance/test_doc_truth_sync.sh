@@ -147,5 +147,30 @@ ck "FACT: php-frankenphp exposes no 8443" \
 ck "its smoke test does not claim 8443 is exposed" \
    "! grep -q 'EXPOSE 8080 8443' scripts/smoke/smoke-php-frankenphp.sh"
 
+# --- governance evidence citations ------------------------------------------
+# FACT: the dated governance verification records live in docs/audits/ and are
+# REPLACED, not appended to — governance-verification-2026-07-28.json was renamed
+# away in e7c4e80 while five documents went on linking to it. A document that
+# cites evidence which is not there is the #97 defect class exactly: a claim the
+# repository does not carry. Derived from the tree, so it cannot rot into a
+# literal.
+governance_evidence_refs() {
+  grep -rhoE 'governance-verification-[0-9]{4}-[0-9]{2}-[0-9]{2}\.json' \
+    --include='*.md' . 2>/dev/null | sort -u
+}
+missing_governance_evidence() {
+  local n
+  while IFS= read -r n; do
+    [ -n "$n" ] || continue
+    [ -f "docs/audits/$n" ] || echo "$n"
+  done < <(governance_evidence_refs)
+}
+# NON-VACUITY: the extractor must actually find citations, or the check below
+# passes by finding nothing to check.
+ck "NON-VACUOUS: documents do cite dated governance evidence" \
+   '[ "$(governance_evidence_refs | wc -l)" -ge 1 ]'
+ck "every cited governance-verification record exists in docs/audits/" \
+   '[ -z "$(missing_governance_evidence)" ]'
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_doc_truth_sync: PASS" || echo "test_doc_truth_sync: FAIL"
 exit $fail
