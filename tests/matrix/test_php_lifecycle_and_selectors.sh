@@ -43,15 +43,36 @@ ck "the matrix holds the shipping image definitions" \
 # Left in, it would have failed 8 of 28 children inside a ~10-hour run.
 ck "PHP 8.5 is NOT in the live matrix" \
    "[ \"\$(matrix_images | grep -c ':8.5\$')\" -eq 0 ]"
-ck "...and no orphan 8.5 image directory or contract remains" \
-   "! ls -d images/php-*/8.5 >/dev/null 2>&1 && ! ls contracts/images/*-8.5.yaml >/dev/null 2>&1"
+# The 8.5 image definitions EXIST and BUILD as of 2026-08-23 (opcache + php-redis
+# fixes). They are deliberately not in the PRODUCTION matrix: production stays at
+# MATRIX_COUNT images, and 8.5 is an experimental cohort with its own governance.
+ck "the 8.5 image definitions exist and are digest-pinned to official bases" \
+   "for f in php-cli php-fpm php-worker php-frankenphp; do
+      test -s \"images/\$f/8.5/Dockerfile\" || exit 1
+      grep -qE '(php|dunglas/frankenphp):[^ ]*8\.5[^ ]*@sha256:[a-f0-9]{64}' \"images/\$f/8.5/Dockerfile\" || exit 1
+    done"
+ck "...but PRODUCTION contracts exist only for matrix images" \
+   "! ls contracts/images/*-8.5.yaml >/dev/null 2>&1"
+ck "...and the cli/fpm/worker 8.5 Dockerfiles do NOT compile opcache" \
+   "for f in php-cli php-fpm php-worker; do
+      grep -A16 'docker-php-ext-install' \"images/\$f/8.5/Dockerfile\" | grep -qE '^\s+opcache' && exit 1
+      grep -q 'OPCACHE IS NOT COMPILED ON PHP 8.5' \"images/\$f/8.5/Dockerfile\" || exit 1
+    done; true"
+ck "...while 8.3 and 8.4 still DO compile opcache (unchanged)" \
+   "for v in 8.3 8.4; do
+      grep -A16 'docker-php-ext-install' \"images/php-cli/\$v/Dockerfile\" | grep -qE '^\s+opcache' || exit 1
+    done"
+ck "...and 8.5 pins php-redis 6.3.0 (6.1.0 fails: php_smart_string.h removed in 8.5)" \
+   "for f in php-cli php-fpm php-worker; do
+      grep -q 'PHPREDIS_VERSION=\"6.3.0\"' \"images/\$f/8.5/Dockerfile\" || exit 1
+    done"
 ck "...with the build blocker recorded as evidence, not folklore" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$LIFE'))
 e=[x for x in d['lines'] if x['id']=='php-8.5'][0]
-assert e['foundry_release_state']=='blocked-does-not-build', e.get('foundry_release_state')
+assert e['foundry_release_state']=='experimental-amd64-only', e.get('foundry_release_state')
 b=e['blocker']
-assert 'modules' in b['summary']
+assert 'opcache' in b['summary']
 assert 'redis' in b['ruled_out']
 assert b['next_action'] and b['why_not_in_matrix']
 assert e['used_by']==[], e['used_by']\""
@@ -165,12 +186,12 @@ ck "the inventory declares PHP 8.3, 8.4 and 8.5" \
    "[ \"\$(python3 -c \"
 import yaml;d=yaml.safe_load(open('$LIFE'))
 print(len([x for x in d['lines'] if x['id'].startswith('php-8.')]))\")\" -eq 3 ]"
-ck "8.5 tracks upstream 'active' but Foundry 'blocked-does-not-build'" \
+ck "8.5 tracks upstream 'active' but Foundry 'experimental-amd64-only'" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$LIFE'))
 e=[x for x in d['lines'] if x['id']=='php-8.5'][0]
 assert e['support_state']=='active', e['support_state']
-assert e['foundry_release_state']=='blocked-does-not-build', e.get('foundry_release_state')\""
+assert e['foundry_release_state']=='experimental-amd64-only', e.get('foundry_release_state')\""
 ck "8.3 is security-only — deprecation is advertised, not implied" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$LIFE'))

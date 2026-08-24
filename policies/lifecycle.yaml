@@ -163,10 +163,11 @@ lines:
     source: "https://www.php.net/supported-versions.php"
     used_by: []
     support_state: active
-    foundry_release_state: blocked-does-not-build
+    foundry_release_state: experimental-amd64-only
     blocker:
+      status: RESOLVED 2026-08-23 — all four families build on linux/amd64.
       summary: >-
-        ROOT CAUSE FOUND 2026-08-23: `opcache`. PHP 8.5's official base already ships
+        ROOT CAUSE (fixed): `opcache`. PHP 8.5's official base already ships
         Zend OPcache BUILT INTO the binary (`php -v` reports "with Zend OPcache v8.5.9";
         `php -m` lists "Zend OPcache"). Running `docker-php-ext-install opcache` therefore
         compiles it, produces no SHARED module, and `make install-modules` dies at
@@ -192,10 +193,18 @@ lines:
         ext85:full_minus_opcache built 2026-08-23 on linux/amd64 from
         php:8.5-cli-bookworm@sha256:b3154b925899...; php -m lists bcmath, intl, Zend OPcache,
         pcntl, pdo_pgsql, pgsql, pdo_mysql, sockets, zip, gd.
+      second_root_cause: >-
+        php-redis 6.1.0 does not build on PHP 8.5 — `fatal error: ext/standard/php_smart_string.h:
+        No such file or directory` (header removed in 8.5). Pinned 6.3.0
+        (sha256 0d5141f634bd1db6c1ddcda053d25ecf2c4fc1c395430d534fd3f8d51dd7f0b5). An earlier
+        conclusion that 6.3.0 "did not help" was wrong: the build died at opcache before ever
+        reaching redis.
+      frankenphp_note: >-
+        FrankenPHP needed NO fix. It uses install-php-extensions, not docker-php-ext-install,
+        and handles a statically-linked opcache gracefully. Validated independently.
       next_action: >-
-        Apply the opcache fix to the four 8.5 Dockerfiles, build all four amd64 children,
-        scan the CHILDREN (never the bases), and govern from child evidence. FrankenPHP
-        needs separate validation: different upstream base and toolchain.
+        Scan the four built amd64 CHILDREN (never their bases) with one frozen database and
+        group findings by root cause. arm64 remains unproven — do not infer it from amd64.
       why_not_in_matrix: >-
         These four families were added to MATRIX_IMAGES in an earlier batch WITHOUT
         ever building a child. Left in the live matrix they would fail 8 of 28 children
