@@ -19,9 +19,26 @@
 # policies/supply-chain-inputs.yaml under `known_nondeterminism` — stated up
 # front, not discovered after a failure and used to move the goalposts.
 #
+# WHICH GUARANTEE THIS TESTS.
+#
+# Exactly one of the four in policies/reproducibility.yaml: `image-bytes`. It
+# does NOT test package-resolution — two builds minutes apart see the same live
+# Debian index, so agreement here is a property of the WINDOW, not of the
+# archive. It does not test vulnerability-verdict either: the database moves
+# underneath unchanged bytes. Those inferences are declared forbidden in the
+# policy and scripts/repro-guarantees.sh enforces that they are.
+#
 # Usage:
 #   reproducibility-check.sh <context-dir> <label> [--build-arg K=V ...]
+#     [--emit-evidence <dir> --family <f> --selector <s> [--platform linux/amd64]]
 #   reproducibility-check.sh --self-test
+#
+# With --emit-evidence the run also writes, per image:
+#   <slug>.lock.json               the build-input lock for build A
+#   <slug>-build-input.json        measured evidence for guarantee `build-input`
+#   <slug>-image-bytes.json        measured evidence for guarantee `image-bytes`
+# Every field is recorded with what was MEASURED — stable, differs, or
+# not-observed — and `not-observed` is never written as `stable`.
 #
 # Exit 0 only if content AND config match. Any failure to build or inspect is a
 # failure, never a skip.
@@ -119,8 +136,11 @@ compare() { # compare <ctx> <label> [extra build args...]
   # nginx as identical while 8 files differed byte-for-byte with the SAME size
   # and mtime — apt/dpkg logs and ldconfig's aux-cache. A check that cannot see
   # the difference it exists to find is not a check.
-  ( cd "$da" && find . -type f -exec shasum -a 256 {} \; 2>/dev/null | sort -k2 ) > "$ea"
-  ( cd "$db" && find . -type f -exec shasum -a 256 {} \; 2>/dev/null | sort -k2 ) > "$eb"
+  # -print0 | xargs -0 rather than -exec ... \; : one shasum process per file is
+  # ~4,300 spawns per image here, which turned a ten-second hash into minutes.
+  # NUL-delimited so a path containing a space cannot split into two arguments.
+  ( cd "$da" && find . -type f -print0 2>/dev/null | xargs -0 shasum -a 256 2>/dev/null | sort -k2 ) > "$ea"
+  ( cd "$db" && find . -type f -print0 2>/dev/null | xargs -0 shasum -a 256 2>/dev/null | sort -k2 ) > "$eb"
   rm -rf "$da" "$db"
   if [ ! -s "$ea" ] || [ ! -s "$eb" ]; then
     echo "FAIL  could not export a filesystem — treating as NOT reproducible"; rc=1
@@ -148,7 +168,157 @@ compare() { # compare <ctx> <label> [extra build args...]
     rc=1
   fi
 
+  # --- machine-readable evidence -------------------------------------------
+  # The prose verdict above is for a human reading a terminal. The policy gate
+  # cannot read prose, so the same measurement is written as a record bound to
+  # the exact declared inputs it was taken from.
+  if [ -n "${EVIDENCE_DIR:-}" ]; then
+    emit_evidence "$tagA" "$tagB" "$ctx" "$epoch" || rc=1
+  fi
+
   docker rmi -f "$tagA" "$tagB" >/dev/null 2>&1 || true
+  return "$rc"
+}
+
+# emit_evidence <tagA> <tagB> <ctx> <epoch>
+#
+# Emits a build-input lock for EACH build, compares them field by field, and
+# writes one evidence record per guarantee those fields belong to. The two locks
+# ARE the measurement: that the declared inputs were held fixed is asserted by
+# comparison, not assumed, because holding them fixed is the whole experiment.
+emit_evidence() {
+  local tagA="$1" tagB="$2" ctx="$3" epoch="$4"
+  local fam="${EV_FAMILY:?--family is required with --emit-evidence}"
+  local sel="${EV_SELECTOR:?--selector is required with --emit-evidence}"
+  local plat="${EV_PLATFORM:-linux/amd64}"
+  # child_slug() in scripts/lib/common.sh is the ONE definition of a
+  # platform-bound child identity, and tests/release/test_child_identity_contract.sh
+  # asserts that nothing else in the tree rebuilds a path by substituting '/' in
+  # a label. It caught the second implementation that used to be on this line.
+  # Sourced in a SUBSHELL because common.sh brings `set -e`, which this script
+  # deliberately does not run under: every comparison failure here is a result to
+  # report, not an abort. Written "$( ( ... ) )" with spaces — "$(( ... ))" is
+  # arithmetic expansion, not a subshell.
+  local slug
+  slug="$( ( . "$ROOT/scripts/lib/common.sh"; child_slug "$fam" "$sel" "$plat" ) )"
+  if [ -z "$slug" ]; then
+    echo "FAIL  could not derive a child identity for $fam/$sel on $plat"; return 1
+  fi
+  local tmp; tmp="$(mktemp -d)" || return 1
+  local bd; bd="$(date -u -r "$epoch" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -d "@$epoch" +%Y-%m-%dT%H:%M:%SZ)"
+  local ref; ref="$(git -C "$ROOT" rev-parse HEAD)"
+
+  # The two tags the comparison above just built, carried in rather than
+  # re-derived: a second spelling of the same name is a second thing to keep in
+  # step, and locks emitted from the wrong tags would compare cleanly and mean
+  # nothing.
+  local pair t tag
+  for pair in "a:$tagA" "b:$tagB"; do
+    t="${pair%%:*}"; tag="${pair#*:}"
+    if ! bash "$ROOT/scripts/repro-lock.sh" emit \
+      --context "$ctx" --family "$fam" --selector "$sel" --platform "$plat" \
+      --image "$tag" \
+      --build-arg "SOURCE_DATE_EPOCH=$epoch" \
+      --build-arg "BUILD_DATE=$bd" \
+      --build-arg "VCS_REF=$ref" \
+      --out "$tmp/$t.json" >/dev/null; then
+        echo "FAIL  could not emit a build-input lock for build $t"
+        rm -rf "$tmp"; return 1
+    fi
+  done
+
+  mkdir -p "$EVIDENCE_DIR"
+  A="$tmp/a.json" B="$tmp/b.json" OUTDIR="$EVIDENCE_DIR" SLUG="$slug" \
+  REPO_SLUG="zenchron-dynamics/zenchron-foundry" SHA="$ref" \
+  python3 <<'PYEV'
+import hashlib, json, os, time
+
+a = json.load(open(os.environ["A"]))
+b = json.load(open(os.environ["B"]))
+outdir, slug = os.environ["OUTDIR"], os.environ["SLUG"]
+
+def canon(x):
+    return json.dumps(x, sort_keys=True, separators=(",", ":"))
+
+def lock_digest(d):
+    d = dict(d); d.pop("generated_at", None)
+    return hashlib.sha256(canon(d).encode()).hexdigest()
+
+def get(d, path):
+    cur = d
+    for part in path.split("."):
+        cur = cur[part]
+    return cur
+
+def compare(path):
+    va, vb = get(a, path), get(b, path)
+    # None means the field was never produced. That is NOT agreement, and
+    # recording it as `stable` is exactly the defect this enum exists to stop.
+    if va is None and vb is None:
+        return {"field": path, "result": "not-observed",
+                "detail": "neither build produced this field"}
+    if canon(va) == canon(vb):
+        return {"field": path, "result": "stable"}
+    d = {"field": path, "result": "differs"}
+    if isinstance(va, list) and isinstance(vb, list) and len(va) == len(vb):
+        n = sum(1 for x, y in zip(va, vb) if x != y)
+        d["detail"] = "%d of %d entries differ" % (n, len(va))
+    return d
+
+INPUT_FIELDS = [
+    "build_inputs.source_sha", "build_inputs.source_date_epoch",
+    "build_inputs.context_path", "build_inputs.context_digest",
+    "build_inputs.dockerfile_digest", "build_inputs.base.reference",
+    "build_inputs.base.manifest_digest", "build_inputs.base.platform_child_digest",
+    "build_inputs.build_args", "build_inputs.toolchain",
+]
+OUTPUT_FIELDS = [
+    "build_outputs.config_digest", "build_outputs.runtime_config_sha256",
+    "build_outputs.layer_digests", "build_outputs.rootfs_file_manifest_sha256",
+    "build_outputs.rootfs_file_count", "build_outputs.manifest_digest",
+    "build_outputs.labels",
+]
+
+common = {
+    "schema_version": 1,
+    "repository": os.environ["REPO_SLUG"],
+    "source_sha": os.environ["SHA"],
+    "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    "image": a["image"],
+    "method": ("two builds of the same context on one host, both --no-cache on a "
+               "dedicated docker-container buildx builder, both --platform %s, "
+               "identical --build-arg set, SOURCE_DATE_EPOCH taken from the "
+               "source commit, exporter rewrite-timestamp=true. A cached second "
+               "build would compare an image against its own cache and always "
+               "agree, so neither build may use a cache."
+               % a["image"]["platform"]),
+    "build_count": 2,
+    "declared_inputs_lock_sha256": lock_digest(a),
+}
+
+for guarantee, fields in (("build-input", INPUT_FIELDS), ("image-bytes", OUTPUT_FIELDS)):
+    rec = dict(common)
+    rec["guarantee"] = guarantee
+    rec["fields"] = [compare(f) for f in fields]
+    p = os.path.join(outdir, "%s-%s.json" % (slug, guarantee))
+    with open(p, "w") as fh:
+        json.dump(rec, fh, indent=2)
+        fh.write("\n")
+    print("evidence written: %s" % p)
+
+# Build A's lock is committed as the reviewable input set the evidence binds to.
+# generated_at is normalised so re-running the experiment does not churn the
+# file for a reason that is not a measurement.
+lock = dict(a)
+lock["generated_at"] = "1970-01-01T00:00:00Z"
+p = os.path.join(outdir, "%s.lock.json" % slug)
+with open(p, "w") as fh:
+    json.dump(lock, fh, indent=2)
+    fh.write("\n")
+print("lock written: %s" % p)
+PYEV
+  local rc=$?
+  rm -rf "$tmp"
   return "$rc"
 }
 
@@ -173,12 +343,53 @@ assert kn and all(k.get('excluded_from_claim') is not None for k in kn), kn\""
 import yaml
 d=yaml.safe_load(open('$ROOT/policies/supply-chain-inputs.yaml'))
 assert d['build_determinism']['source_date_epoch']['derived_from']=='source-commit'\""
+  # This harness answers ONE of the four questions in policies/reproducibility.yaml.
+  # Asserting that here stops its answer being quoted for a question it never
+  # asked, which is what #101's history is a record of.
+  t "the guarantee this harness tests is declared in the policy" \
+    "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$ROOT/policies/reproducibility.yaml'))
+g=[x for x in d['guarantees'] if x['id']=='image-bytes']
+assert g, 'image-bytes is not declared'
+assert g[0]['status'] in ('conditional','guaranteed'), g[0]['status']\""
+  t "...and the policy forbids reading its result as package-resolution" \
+    "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$ROOT/policies/reproducibility.yaml'))
+pairs={(i['from'],i['to']) for i in d['forbidden_inferences']}
+assert ('image-bytes','package-resolution') in pairs, sorted(pairs)\""
+  t "...and forbids reading its result as a vulnerability verdict" \
+    "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$ROOT/policies/reproducibility.yaml'))
+pairs={(i['from'],i['to']) for i in d['forbidden_inferences']}
+assert ('image-bytes','vulnerability-verdict') in pairs, sorted(pairs)\""
   echo "self-test: $ok ok, $bad failed"
   [ "$bad" -eq 0 ]
 }
 
+# --emit-evidence and its companions are consumed here rather than inside
+# compare(), which passes every remaining argument straight to `docker buildx
+# build`. An unrecognised flag reaching buildx fails the build, which is the
+# right direction, but the diagnostic would name buildx instead of this script.
+EVIDENCE_DIR="" EV_FAMILY="" EV_SELECTOR="" EV_PLATFORM="linux/amd64"
+argv=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --emit-evidence) EVIDENCE_DIR="${2:?--emit-evidence needs a directory}"; shift 2 ;;
+    --family)        EV_FAMILY="${2:?--family needs a value}";   shift 2 ;;
+    --selector)      EV_SELECTOR="${2:?--selector needs a value}"; shift 2 ;;
+    --platform)      EV_PLATFORM="${2:?--platform needs a value}"; shift 2 ;;
+    *) argv+=("$1"); shift ;;
+  esac
+done
+export EVIDENCE_DIR EV_FAMILY EV_SELECTOR EV_PLATFORM
+set -- ${argv[@]+"${argv[@]}"}
+
 case "${1:-}" in
   --self-test) self_test ;;
-  "") echo "usage: $(basename "$0") <context-dir> <label> [--build-arg K=V ...]" >&2; exit 64 ;;
+  "") echo "usage: $(basename "$0") <context-dir> <label> [--build-arg K=V ...]" \
+           "[--emit-evidence <dir> --family <f> --selector <s> [--platform linux/amd64]]" >&2; exit 64 ;;
   *) compare "$@" ;;
 esac

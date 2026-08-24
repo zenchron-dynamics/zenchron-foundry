@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "repository": "zenchron-dynamics/zenchron-foundry",
+  "source_sha": "39b77c000a00c718e10de9a449d3d15a3d51c696",
+  "generated_at": "2026-08-24T08:19:32Z",
+  "image": {
+    "family": "php-cli",
+    "selector": "8.4",
+    "platform": "linux/amd64"
+  },
+  "method": "two builds of the same context on one host, both --no-cache on a dedicated docker-container buildx builder, both --platform linux/amd64, identical --build-arg set, SOURCE_DATE_EPOCH taken from the source commit, exporter rewrite-timestamp=true. A cached second build would compare an image against its own cache and always agree, so neither build may use a cache.",
+  "build_count": 2,
+  "declared_inputs_lock_sha256": "05fab4b633858905cdd00ee66e850eff2c72fa8122351682abfa7fbb00aab162",
+  "guarantee": "image-bytes",
+  "fields": [
+    {
+      "field": "build_outputs.config_digest",
+      "result": "differs"
+    },
+    {
+      "field": "build_outputs.runtime_config_sha256",
+      "result": "stable"
+    },
+    {
+      "field": "build_outputs.layer_digests",
+      "result": "differs",
+      "detail": "1 of 15 entries differ"
+    },
+    {
+      "field": "build_outputs.rootfs_file_manifest_sha256",
+      "result": "differs"
+    },
+    {
+      "field": "build_outputs.rootfs_file_count",
+      "result": "stable"
+    },
+    {
+      "field": "build_outputs.manifest_digest",
+      "result": "not-observed",
+      "detail": "neither build produced this field"
+    },
+    {
+      "field": "build_outputs.labels",
+      "result": "stable"
+    }
+  ]
+}

@@ -1,0 +1,291 @@
+# =============================================================================
+# policies/reproducibility.yaml — the four reproducibility guarantees, kept apart.
+# -----------------------------------------------------------------------------
+# WHY THIS FILE EXISTS (#101).
+#
+# "Reproducible" was being used for four different questions with four different
+# answers, and the strongest answer kept being carried across all of them:
+#
+#   1. build-input          can we re-present the same declared inputs?
+#   2. package-resolution   would apt install the same packages?
+#   3. image-bytes          do two builds produce the same bytes?
+#   4. vulnerability-verdict does re-scanning give the same verdict?
+#
+# (1) is fully in the repository's control. (2) is not achievable at all while
+# the build resolves a live Debian archive. (3) is achievable for some fields of
+# some images and demonstrably not for others. (4) is not achievable without a
+# frozen vulnerability database, and identical image bytes are NOT evidence for
+# it — the database changes daily underneath unchanged bytes.
+#
+# So the four are declared separately, each with its own status, its own bound
+# fields, and its own named residual. scripts/repro-guarantees.sh enforces the
+# rules that make this more than prose:
+#
+#   * exactly these four ids exist — a fifth guarantee cannot be smuggled in and
+#     one of these four cannot quietly disappear;
+#   * attributed fields — `bound_fields` (claimed) plus `unclaimed_fields`
+#     (measured and deliberately not claimed) — are DISJOINT across guarantees,
+#     so no field is evidence for two claims at once. That disjointness IS the
+#     anti-conflation mechanism;
+#   * every field required by schemas/build-input-lock-v1.schema.json is
+#     attributed to exactly one guarantee, so nothing recorded is left for a
+#     later reader to claim under whichever guarantee suits them;
+#   * a guarantee whose status is not `not-guaranteed` must name evidence files
+#     that EXIST, and every field it claims must be reported `stable` in them.
+#     A claim can never outrun its measurement;
+#   * `package-resolution` MUST remain `not-guaranteed` while
+#     policies/supply-chain-inputs.yaml declares debian-package-index with
+#     `integrity_gap: true`. The claim is bound to the actual state of the tree,
+#     not to what someone remembered to update.
+#
+# Statuses:
+#   guaranteed      holds for every image in the matrix, unconditionally.
+#   conditional     holds for the named images/fields, under a named condition.
+#   not-guaranteed  does not hold. Stated as a refusal to claim, not a gap to
+#                   be closed by rewording.
+# =============================================================================
+schema_version: 1
+
+policy:
+  issue: 101
+  owner: Zenchron Dynamics / Platform Security
+  review_every_days: 90
+  last_reviewed: 2026-08-24
+  lock_schema: schemas/build-input-lock-v1.schema.json
+  evidence_schema: schemas/build-input-lock-evidence-v1.schema.json
+  # The single sentence a consumer may quote. It says what is guaranteed and
+  # names, in the same breath, what is not — because every previous version of
+  # this sentence was quoted with the second half removed.
+  headline: >-
+    Zenchron Foundry guarantees that the declared INPUTS to a build are
+    recorded and re-presentable exactly; it does NOT guarantee that Debian
+    package resolution, image bytes for the PHP families, or vulnerability
+    verdicts reproduce.
+
+guarantees:
+  # --- 1 -------------------------------------------------------------------
+  - id: build-input
+    question: >-
+      Given a release, can the exact declared inputs of each build be recovered
+      and re-presented, byte-identically, at any later date?
+    status: guaranteed
+    scope: every image in the matrix, every platform
+    holds_because: >-
+      Every field is either a property of the git history (source revision,
+      commit timestamp, context and Dockerfile digests) or a digest-pinned
+      upstream object (base index digest, base platform-child digest, checksum
+      -pinned extension archives). None of them can change without the change
+      being visible as a different lock.
+    bound_fields:
+      - build_inputs.source_sha
+      - build_inputs.source_date_epoch
+      - build_inputs.context_path
+      - build_inputs.context_digest
+      - build_inputs.dockerfile_digest
+      - build_inputs.base.reference
+      - build_inputs.base.manifest_digest
+      - build_inputs.base.platform_child_digest
+      - build_inputs.build_args
+      - build_inputs.toolchain
+    enforced_by:
+      - scripts/repro-lock.sh          # emit / verify a lock against the tree
+      - scripts/repro-guarantees.sh    # this policy against the schema + evidence
+    evidence:
+      - tests/reproducibility/evidence/php-cli-8.4-linux-amd64-build-input.json
+    refusal: >-
+      repro-lock.sh verify refuses when the recorded source_date_epoch is not
+      the commit's, when the recomputed context digest differs from the locked
+      one, when the base reference in the lock is not the one the Dockerfile
+      declares, or when a checksum-pinned artefact's pin is absent from the
+      build. Every refusal names the field.
+    residual: >-
+      base.platform_child_digest may be null when the registry was unreachable
+      at lock time. Null is a declared gap and a consumer needing platform-level
+      input identity must refuse it; it is never read as "no difference".
+
+  # --- 2 -------------------------------------------------------------------
+  - id: package-resolution
+    question: >-
+      Would `apt-get install` resolve the same package versions if the same
+      commit were built again?
+    status: not-guaranteed
+    scope: every Debian-based image
+    # This is the honest answer, and it is not achievable by any amount of
+    # repository-side work. It is a property of the Debian archive.
+    does_not_hold_because: >-
+      The images resolve http://deb.debian.org live. Debian publishes point
+      releases and security fixes continuously, and it SHOULD — that is how
+      fixes reach the images. Two builds of one commit a week apart can
+      therefore legitimately install different versions. Measured directly: the
+      pinned nginx base ships libssl3 3.0.18-1~deb12u2 while the built child
+      carries 3.0.20-1~deb12u2, because apt pulled the package forward at build
+      time.
+    bound_fields:
+      - package_resolution.repositories
+      - package_resolution.snapshot_identity
+      - package_resolution.archive_release_dates
+      - package_resolution.package_count
+      - package_resolution.package_set_sha256
+      - package_resolution.packages
+    enforced_by:
+      - scripts/repro-lock.sh
+      - scripts/repro-guarantees.sh
+    what_is_done_instead: >-
+      The resolved set is recorded per build with a stable fingerprint, so a
+      byte difference between two builds is ATTRIBUTABLE to named packages
+      rather than standing as an unexplained mismatch. Attribution is not a
+      guarantee and this file does not let it be read as one.
+    refusal: >-
+      The lock schema refuses `package_resolution.guaranteed: true` unless
+      `snapshot_identity` names a frozen archive. repro-guarantees.sh refuses
+      any status other than not-guaranteed while supply-chain-inputs.yaml still
+      declares debian-package-index with integrity_gap: true.
+    residual: >-
+      Closing this needs snapshot.debian.org pinned to a commit-derived
+      timestamp, or a committed package lock. Both change how security updates
+      reach the images and neither may be done as a side effect of inventory
+      work.
+    residual_owner: Zenchron Dynamics / Platform Security
+    residual_tracked_in: 101
+
+  # --- 3 -------------------------------------------------------------------
+  - id: image-bytes
+    question: >-
+      Do two isolated builds of the same declared inputs produce the same image
+      bytes?
+    status: conditional
+    # Conditional in two directions at once: only some fields, and only under a
+    # stated condition. Both halves are enforced, not merely written down.
+    scope: >-
+      ONLY the two fields listed under bound_fields, for the images with an
+      evidence record below, on linux/amd64, and CONDITIONAL on both builds
+      resolving the same package index state. Nothing outside that sentence is
+      claimed — in particular the LAYERS and the FILESYSTEM of php-cli 8.4 were
+      measured to differ, and are listed as unclaimed below with the
+      measurement that says so.
+    condition: >-
+      Both builds must see the same Debian index state — see guarantee
+      `package-resolution`, which is not-guaranteed. This guarantee is
+      downstream of one that does not hold, which is exactly why it is
+      conditional and never `guaranteed`.
+    bound_fields:
+      - build_outputs.runtime_config_sha256
+      - build_outputs.labels
+    # Recorded, compared, and NOT claimed. Each entry states the measurement
+    # that stopped it being claimed, so the omission is a finding rather than
+    # something a reader has to notice for themselves.
+    unclaimed_fields:
+      - field: build_outputs.layer_digests
+        why: >-
+          Measured to DIFFER for php-cli 8.4: one layer of the set moves between
+          two builds of the same declared inputs, because the PECL-compiled
+          redis.so in it is not byte-reproducible. Claiming layer stability here
+          would be false.
+      - field: build_outputs.config_digest
+        why: >-
+          The config BLOB commits to rootfs.diff_ids, so it moves whenever any
+          layer moves and it does move here. It is NOT the observable runtime
+          config, which is bound above; the two were conflated in an earlier
+          report that recorded "config identical" for exactly this image.
+      - field: build_outputs.rootfs_file_manifest_sha256
+        why: >-
+          Measured to DIFFER: hashing every regular file in both exported
+          rootfs trees finds redis.so differing. Diagnosed and not eliminated;
+          the stripping hypothesis was tested and is wrong.
+      - field: build_outputs.rootfs_file_count
+        why: >-
+          Stable in every measurement, but a file COUNT is not a content claim
+          and would be quoted as one. Recorded for attribution only.
+      - field: build_outputs.manifest_digest
+        why: >-
+          NOT OBSERVED. A local build exports to the daemon and produces no OCI
+          manifest, and BuildKit embeds build-time metadata in its attestation
+          manifest, so a manifest digest is unstable for reasons that are not
+          the source. `not-observed` is not `stable` and may not be claimed as
+          if the absence of a comparison were the absence of a difference.
+    enforced_by:
+      - scripts/reproducibility-check.sh   # the repeated build and comparison
+      - scripts/repro-guarantees.sh        # claim never exceeds evidence
+    evidence:
+      - tests/reproducibility/evidence/php-cli-8.4-linux-amd64-image-bytes.json
+    refusal: >-
+      reproducibility-check.sh exits non-zero on any compared difference and
+      never on a skip; a build or inspection that fails is a failure, not an
+      absent result. repro-guarantees.sh refuses this policy if a bound field is
+      reported `differs` or `not-observed` in the evidence.
+    residual: >-
+      PHP compiled-extension determinism: redis.so, and redis.reg which stores
+      an install timestamp. The stripping hypothesis was tested and is wrong.
+      Next candidates are -frandom-seed and -ffile-prefix-map.
+    residual_owner: Zenchron Dynamics / Platform Security
+    residual_tracked_in: 101
+
+  # --- 4 -------------------------------------------------------------------
+  - id: vulnerability-verdict
+    question: >-
+      Does re-scanning the same image bytes produce the same vulnerability
+      verdict?
+    status: not-guaranteed
+    scope: every image in the matrix
+    does_not_hold_because: >-
+      A verdict is a function of the bytes AND of the scanner AND of the
+      vulnerability database. The scanner image is digest-pinned in
+      supply-chain-inputs.yaml, but the database is fetched at scan time and
+      changes daily. Identical bytes scanned a week apart legitimately yield a
+      different verdict, and MUST — that is the database learning about a CVE.
+      An image being bit-identical is therefore not evidence for this guarantee,
+      and this file exists partly to stop that inference being made.
+    bound_fields:
+      - vulnerability_verdict.scanner
+      - vulnerability_verdict.vulnerability_database
+    enforced_by:
+      - scripts/repro-lock.sh
+      - scripts/repro-guarantees.sh
+    what_is_done_instead: >-
+      A single release run freezes ONE database snapshot and requires every
+      child's evidence to name it — stage-and-authorize.yml freezes it and
+      scripts/release/authorize-staged-candidates.sh refuses a child scanned
+      against a different one. That makes a verdict reproducible WITHIN a run.
+      It does not make it reproducible across runs, and the identity recorded in
+      the lock is what a later reader needs in order to know which database
+      produced a verdict they are looking at.
+    refusal: >-
+      The lock schema refuses `vulnerability_verdict.guaranteed: true` unless
+      the database is marked frozen, and refuses `frozen: true` with a null
+      identity. A verdict claim without a named database is unreachable by
+      construction.
+    residual: >-
+      Cross-run verdict reproducibility needs a retained, addressable database
+      snapshot per release. Trivy's DB is not published in an addressable
+      historical form, so this may not be closable at all.
+    residual_owner: Zenchron Dynamics / Platform Security
+    residual_tracked_in: 101
+
+# --- what a reader may NOT infer --------------------------------------------
+# Each entry is a real inference that was made, or nearly made, during this
+# work. They are listed so a future reader meets them as prohibitions rather
+# than rediscovering them as bugs. repro-guarantees.sh asserts that every `from`
+# and `to` names a declared guarantee, so a renamed guarantee cannot orphan one.
+forbidden_inferences:
+  - from: build-input
+    to: image-bytes
+    why: >-
+      Identical inputs do not imply identical outputs. The build tool, the live
+      archive and the compiler all sit between them, and all three were measured
+      changing the result with the inputs held fixed.
+  - from: image-bytes
+    to: package-resolution
+    why: >-
+      Two builds minutes apart agree on packages because the index did not move,
+      not because it is pinned. Agreement observed inside a window is not a
+      property of the archive.
+  - from: image-bytes
+    to: vulnerability-verdict
+    why: >-
+      The database moves underneath unchanged bytes. Byte stability says nothing
+      about what tomorrow's scan will report.
+  - from: package-resolution
+    to: build-input
+    why: >-
+      Recording what apt resolved is attribution after the fact. It does not
+      make the resolution an input, and a recorded set cannot be replayed.
