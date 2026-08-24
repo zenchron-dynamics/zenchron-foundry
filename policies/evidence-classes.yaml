@@ -1,0 +1,214 @@
+schema_version: 1
+
+# =============================================================================
+# policies/evidence-classes.yaml — the artifact / evidence class contract.
+# -----------------------------------------------------------------------------
+# THE DEFECT THIS EXISTS FOR.
+#
+# An upstream-base scan was reported as if it were Foundry child evidence. The
+# two are not interchangeable and the gap is not small:
+#
+#   php:8.4 UPSTREAM BASE   241 CRITICAL/HIGH, of which 170 are linux-libc-dev
+#   php-fpm/8.4 CHILD        47 CRITICAL/HIGH, of which   0 are linux-libc-dev
+#
+# The child is not "the base plus our layers". The Foundry Dockerfile runs
+#   apt-get purge -y --auto-remove
+# which removes the build-time headers entirely, so linux-libc-dev is NOT
+# INSTALLED in the child at all. A base scan therefore describes an inventory
+# that the shipped artifact does not have. Reported as child evidence it
+# overstates exposure by 194 findings and — far worse in the other direction —
+# it is evidence about a DIFFERENT ARTIFACT, so it can neither confirm nor deny
+# anything about what Foundry actually ships.
+#
+# The failure was not a bad number. It was a missing TYPE. Every governance
+# record now carries its class, and every consumer states which class it will
+# accept. Nothing is inferred.
+# =============================================================================
+
+# --- the four classes --------------------------------------------------------
+# Order is the artifact lifecycle: upstream-base -> foundry-child ->
+# staged-candidate -> published-artifact. A class NEVER substitutes for another,
+# in either direction.
+classes:
+  - name: upstream-base
+    summary: >-
+      A scan or observation of an official upstream base image exactly as
+      published by its upstream owner. Foundry does not own its contents.
+    # What a record of this class is ALLOWED to establish.
+    establishes:
+      - upstream-ownership
+      - patched-base-availability
+      - base-remediation-owner
+    # What it can NEVER establish, and the diagnostic emitted if it is tried.
+    forbidden:
+      foundry-child-inventory: >-
+        an upstream-base scan describes the BASE image's installed packages, not
+        the Foundry child's; the child Dockerfile purges build-time packages
+        (apt-get purge -y --auto-remove), so the two inventories differ by
+        design and the base set is not a superset in any useful sense
+      governance-generation: >-
+        governance is generated from what Foundry ships, which is the child
+      production-authorization: >-
+        an upstream base is not a Foundry artifact and can never be authorized
+    requires_build_completion: false
+    requires_parent: false
+
+  - name: foundry-child
+    summary: >-
+      A Foundry-built platform child: one image family/version on one platform,
+      built from a declared upstream base, addressed by its immutable manifest
+      digest. This is the class that describes what Foundry actually ships.
+    establishes:
+      - foundry-child-inventory
+      - governance-generation
+    forbidden:
+      production-authorization: >-
+        a built child has not been staged; production authorization requires
+        staged-candidate, which additionally binds the staging package and the
+        authorization run
+    requires_build_completion: true
+    requires_parent: true
+    parent_class: upstream-base
+
+  - name: staged-candidate
+    summary: >-
+      A foundry-child that was pushed to the staging package and evaluated by a
+      complete acceptance run: smoke, metadata contract, scan and
+      reconciliation. The ONLY class that may authorize production.
+    establishes:
+      - foundry-child-inventory
+      - governance-generation
+      - production-authorization
+    forbidden: {}
+    requires_build_completion: true
+    requires_parent: true
+    parent_class: foundry-child
+
+  - name: published-artifact
+    summary: >-
+      A staged-candidate that has been published under a release identity. It is
+      a record of what WAS shipped; it does not re-authorize anything.
+    establishes:
+      - foundry-child-inventory
+    forbidden:
+      production-authorization: >-
+        a published artifact is a historical record; authorizing production from
+        it would re-authorize an already-shipped digest without a fresh run
+    requires_build_completion: true
+    requires_parent: true
+    parent_class: staged-candidate
+
+# --- the binding -------------------------------------------------------------
+# Every evidence record binds ALL of these. A record missing any one of them is
+# REFUSED — an unbound field is exactly the field an attacker or an accident
+# gets to choose later.
+required_binding:
+  - evidence_class            # which of the four classes this record is
+  - image_digest              # immutable sha256 manifest digest; never a tag
+  - platform                  # linux/<arch>
+  - image_family              # php-fpm, nginx, caddy, ...
+  - image_version             # 8.3, 8.4, prod
+  - source_revision           # 40-hex Foundry revision the artifact was built from
+  - build_input_digest        # Dockerfile/build-context digest
+  - build_completed           # did the build reach completion
+  - scanner_identity          # scanner image, pinned by digest
+  - vulnerability_db_identity # frozen database snapshot identity
+  - package_inventory_source  # where the installed-package list came from
+  - created_at                # RFC3339 UTC
+  - parent                    # provenance relation to the previous class
+
+# Consumers, and the ONE class each will accept. Stated here rather than in each
+# consumer so a new consumer cannot quietly invent its own acceptance rule.
+consumers:
+  governance-generation:
+    accepts: [foundry-child, staged-candidate]
+    refuses_diagnostic: governance requires child-installed inventory
+  production-authorization:
+    accepts: [staged-candidate]
+    refuses_diagnostic: production authorization requires a staged candidate
+  upstream-ownership:
+    accepts: [upstream-base]
+    refuses_diagnostic: upstream ownership is established from the base, not a child
+
+# Reports MUST print the class of every record they display. A number without
+# its class is how 241 got read as 47's replacement.
+report_requirements:
+  display_evidence_class: true
+
+# --- historical compatibility ------------------------------------------------
+# EXPLICIT, NEVER INFERRED.
+#
+# Evidence accepted before this contract existed does not carry an
+# `evidence_class` field. The tempting rule — "records without a class are
+# children" — is precisely the defect this policy exists to prevent: it would
+# have silently classified the 241-finding base scan as a child.
+#
+# Instead, each pre-contract record is admitted INDIVIDUALLY, pinned by the
+# sha256 of its bytes, with its class asserted by a human and every binding
+# field it cannot supply named as an explicit waiver. An unlisted record, or a
+# listed record whose bytes changed, is REFUSED. There is no default.
+legacy_records:
+  - path: docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json
+    sha256: 641aae805d3883da4133f794236c4fc937029e027540b24bb6628e0ca531982f
+    # Identified by a field the record ACTUALLY carries, checked against the
+    # bytes. A grant that names a field the record does not have is a grant
+    # nobody verified.
+    identified_by:
+      field: record_type
+      value: post-acceptance-evidence
+    declared_class: staged-candidate
+    declared_by: "PR #199 — artifact/evidence class contract"
+    rationale: >-
+      The 20 records in this file are staged platform children from acceptance
+      run 32395890071: each was pushed to the foundry-staging package, pulled
+      BY DIGEST, smoke-tested, metadata-checked, scanned under one frozen
+      database and reconciled. That is the staged-candidate definition. It was
+      the input to the accepted authorization record and must keep validating.
+    waived_bindings:
+      build_input_digest: >-
+        the acceptance run predates build-input digest capture; the artifacts
+        are still immutably bound by manifest_digest and source_revision
+      parent: >-
+        per-child parent base digests were not recorded in this run; the base
+        set is pinned in the Dockerfiles at source_revision
+    # Fields this record DOES supply, and where. Checked, not assumed.
+    field_map:
+      image_digest: children[].manifest_digest
+      platform: children[].platform
+      image_family: children[].image_label
+      image_version: children[].image_label
+      source_revision: source_revision
+      build_completed: children[].phase_timing.phases.build_and_push
+      scanner_identity: scanner.image
+      vulnerability_db_identity: frozen_vulnerability_database.identity
+      package_inventory_source: children[].package_inventory.sha256
+      created_at: authorization_record.build_created
+
+  - path: docs/audits/acceptance-amd64-2026-08-14/post-build-authorization.json
+    sha256: 0f35c20b90162d196a675fb8a418ec1768bac3697e103b27677d64731d0fe93f
+    identified_by:
+      field: authorization_scope
+      value: immutable-rc-manifest-input
+    declared_class: staged-candidate
+    declared_by: "PR #199 — artifact/evidence class contract"
+    rationale: >-
+      The accepted linux/amd64 authorization record from run 31792482449. Same
+      staged-candidate definition, single platform.
+    waived_bindings:
+      build_input_digest: >-
+        predates build-input digest capture
+      parent: >-
+        per-child parent base digests were not recorded in this run
+      package_inventory_source: >-
+        this record is the authorization verdict; the package inventory lives in
+        the per-child evidence it was computed from
+    field_map:
+      image_digest: children[].manifest_digest
+      platform: children[].platform
+      image_family: children[].image_label
+      image_version: children[].image_label
+      source_revision: source_revision
+      build_completed: verdict
+      scanner_identity: trivy_db_snapshot
+      vulnerability_db_identity: children[].trivy_db_identity
+      created_at: build_created

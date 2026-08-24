@@ -385,7 +385,10 @@ authorize() { # authorize <evidence-dir> <out.json>
 # self-test
 # ---------------------------------------------------------------------------
 _asc_self_test() {
-  local ok=0 bad=0 tmp; tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' RETURN
+  local ok=0 bad=0 tmp; tmp="$(mktemp -d)"
+  # expand NOW: the local is out of scope by EXIT time
+  # shellcheck disable=SC2064
+  trap "rm -rf '${tmp}'" EXIT
   local REV="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   local DIG SUM
   DIG="sha256:$(printf 'b%.0s' {1..64})"

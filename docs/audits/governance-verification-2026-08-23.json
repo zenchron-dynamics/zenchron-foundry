@@ -1,0 +1,246 @@
+{
+  "repository": "zenchron-dynamics/zenchron-foundry",
+  "checked_at": "2026-08-23T16:03:31Z",
+  "binding_note": "content_binding is the durable security binding; source_revision is PROVENANCE ONLY and is rewritten by squash/rebase merges",
+  "content_binding": {
+    "aggregate": "ead0c28aede3b8bf22ee792da899f058292d247fef84a646164e8c85e6f00f3e",
+    "algorithm": "sha256",
+    "files": [
+      {
+        "path": "policies/repository-governance.yaml",
+        "sha256": "8b704d305d732d70b52de696225b17e131e00c99c2f15b8771115a4ce4d61254"
+      },
+      {
+        "path": "policies/required-release-checks.yaml",
+        "sha256": "a04768363850d2eee9cfa67a44ac35f66a57709f917def9124ac5fc88e7c8346"
+      },
+      {
+        "path": "scripts/assert-pr-workflows-github-hosted.sh",
+        "sha256": "e55279062627b7df494c3e3f96563ceae87cdb0862e6a89a19d3cabd0bfee5d4"
+      },
+      {
+        "path": "scripts/governance-content-binding.sh",
+        "sha256": "97415c32a6eba6d78d80132178e94936ccf6b3c1b129352b1c8fe3a818e0ee38"
+      },
+      {
+        "path": "scripts/verify-repo-governance.sh",
+        "sha256": "41345e352c56b2d97b469eac1686b141dd0cd73ec8d452035d1734d941a8f0b4"
+      }
+    ],
+    "schema": "repository-governance-binding-v1"
+  },
+  "source_revision": "b02a0ed9ea54f064e0309c1124e7c50bb37cccfd",
+  "verdict": "PASS",
+  "settings": {
+    "visibility": "public",
+    "private": false,
+    "default_branch": "master",
+    "allow_forking": true,
+    "license": "NOASSERTION",
+    "private_vulnerability_reporting": true
+  },
+  "rulesets": [
+    {
+      "id": 19853431,
+      "name": "master-protection",
+      "target": "branch",
+      "source_type": "Repository",
+      "source": "zenchron-dynamics/zenchron-foundry",
+      "enforcement": "active",
+      "node_id": "RRS_lACqUmVwb3NpdG9yec5KwwbkzgEu8Hc",
+      "_links": {
+        "self": {
+          "href": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/rulesets/19853431"
+        },
+        "html": {
+          "href": "https://github.com/zenchron-dynamics/zenchron-foundry/rules/19853431"
+        }
+      },
+      "created_at": "2026-07-28T01:06:42.947+03:00",
+      "updated_at": "2026-08-20T20:09:27.719+03:00"
+    },
+    {
+      "id": 19853433,
+      "name": "release-tags-immutable",
+      "target": "tag",
+      "source_type": "Repository",
+      "source": "zenchron-dynamics/zenchron-foundry",
+      "enforcement": "active",
+      "node_id": "RRS_lACqUmVwb3NpdG9yec5KwwbkzgEu8Hk",
+      "_links": {
+        "self": {
+          "href": "https://api.github.com/repos/zenchron-dynamics/zenchron-foundry/rulesets/19853433"
+        },
+        "html": {
+          "href": "https://github.com/zenchron-dynamics/zenchron-foundry/rules/19853433"
+        }
+      },
+      "created_at": "2026-07-28T01:06:49.577+03:00",
+      "updated_at": "2026-07-28T01:06:49.611+03:00"
+    }
+  ],
+  "rules_applied_to_default_branch": [
+    {
+      "type": "deletion",
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "zenchron-dynamics/zenchron-foundry",
+      "ruleset_id": 19853431
+    },
+    {
+      "type": "non_fast_forward",
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "zenchron-dynamics/zenchron-foundry",
+      "ruleset_id": 19853431
+    },
+    {
+      "type": "required_linear_history",
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "zenchron-dynamics/zenchron-foundry",
+      "ruleset_id": 19853431
+    },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": true,
+        "required_reviewers": [],
+        "require_code_owner_review": false,
+        "dismissal_restriction": {
+          "enabled": false,
+          "allowed_actors": []
+        },
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true,
+        "require_extra_approval_for_unattributed_changes": true,
+        "allowed_merge_methods": [
+          "merge",
+          "squash",
+          "rebase"
+        ]
+      },
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "zenchron-dynamics/zenchron-foundry",
+      "ruleset_id": 19853431
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "repo structure"
+          },
+          {
+            "context": "lint (shell / yaml / md / dockerfile)"
+          },
+          {
+            "context": "secret scan (gitleaks)"
+          },
+          {
+            "context": "semgrep docker security"
+          },
+          {
+            "context": "validate compose profiles"
+          },
+          {
+            "context": "security-sensitive change checklist"
+          }
+        ]
+      },
+      "ruleset_source_type": "Repository",
+      "ruleset_source": "zenchron-dynamics/zenchron-foundry",
+      "ruleset_id": 19853431
+    }
+  ],
+  "environments": [
+    {
+      "name": "foundry-production",
+      "protection_rules": [
+        "branch_policy"
+      ]
+    },
+    {
+      "name": "foundry-rc",
+      "protection_rules": [
+        "branch_policy"
+      ]
+    }
+  ],
+  "pr_required_checks": [
+    "repo structure",
+    "lint (shell / yaml / md / dockerfile)",
+    "secret scan (gitleaks)",
+    "semgrep docker security",
+    "validate compose profiles",
+    "security-sensitive change checklist"
+  ],
+  "release_required_checks": [
+    "repo structure",
+    "lint (shell / yaml / md / dockerfile)",
+    "secret scan (gitleaks)",
+    "semgrep docker security",
+    "validate compose profiles",
+    "scan php-cli 8.3",
+    "scan php-cli 8.4",
+    "scan php-fpm 8.3",
+    "scan php-fpm 8.4",
+    "scan php-worker 8.3",
+    "scan php-worker 8.4",
+    "scan php-frankenphp 8.3",
+    "scan php-frankenphp 8.4",
+    "scan nginx prod",
+    "scan caddy prod",
+    "no stale vulnerability exceptions",
+    "trusted validation result"
+  ],
+  "org_runner_group": {
+    "id": 3,
+    "name": "zenchron-foundry-trusted",
+    "visibility": "selected",
+    "allows_public_repositories": true,
+    "restricted_to_workflows": true,
+    "selected_repositories": [
+      {
+        "id": 1254295268,
+        "full_name": "zenchron-dynamics/zenchron-foundry",
+        "visibility": null
+      }
+    ],
+    "selected_workflows": [
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/build-images.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/scan-images.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/stage-and-authorize.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/trusted-validation.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-rc.yml@refs/heads/master",
+      "zenchron-dynamics/zenchron-foundry/.github/workflows/verify-signatures.yml@refs/heads/master"
+    ],
+    "runners": [
+      {
+        "id": 22,
+        "name": "runner-prod-fsn1-org-zenchron-dynamics-1",
+        "status": "online",
+        "busy": false,
+        "labels": [
+          "self-hosted",
+          "Linux",
+          "X64",
+          "zenchron"
+        ]
+      },
+      {
+        "id": 23,
+        "name": "runner-prod-fsn1-org-zenchron-dynamics-2",
+        "status": "online",
+        "busy": false,
+        "labels": [
+          "self-hosted",
+          "Linux",
+          "X64",
+          "zenchron"
+        ]
+      }
+    ],
+    "default_group_runners": []
+  }
+}

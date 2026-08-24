@@ -721,8 +721,21 @@ raise SystemExit(0 if any(\"allows_public_repositories\" in x for x in d.get(\"n
 
   t "policy file parses"                    '[ "$(pol repository.visibility)" = "public" ]'
   t "policy declares no bypass actors"      '[ -z "$(pol branch_ruleset.bypass_actors || true)" ]'
+  # DERIVED, never hardcoded. This read `= "5"`, so declaring a check the live
+  # ruleset already required — `security-sensitive change checklist`, which had
+  # been required for some time but was never written down — broke the verifier's
+  # own self-test. A pinned count turns every legitimate policy edit into a
+  # failure and teaches people to edit the number rather than think. The real
+  # invariant is that the ruleset is compared against the PR-producible set and
+  # that that set is strictly smaller than the release set.
+  _n_pr()  { CP="$CHECKS_POLICY" python3 -c 'import os,yaml;print(len(yaml.safe_load(open(os.environ["CP"]))["pr_required_checks"]))'; }
+  _n_rel() { CP="$CHECKS_POLICY" python3 -c 'import os,yaml;print(len(yaml.safe_load(open(os.environ["CP"]))["release_required_checks"]))'; }
   t "the ruleset check set is the PR-producible one" \
-    '[ "$(required_check_names | grep -c .)" = "5" ] && required_check_names | grep -qx "repo structure"'
+    '[ "$(required_check_names | grep -c .)" = "$(_n_pr)" ] &&
+     [ "$(_n_pr)" -lt "$(_n_rel)" ] &&
+     required_check_names | grep -qx "repo structure"'
+  t "...and that count is DERIVED from the policy, not pinned in this script" \
+    '! grep -qE "required_check_names \| grep -c \.\)\" = \"[0-9]+\"" "$0"'
   # --- review-block coherence -----------------------------------------------
   # A date compared only against today says nothing about the cadence claimed
   # beside it. These drive the same python the gate runs.
@@ -780,3 +793,5 @@ main() {
 }
 
 main "$@"
+
+# governance-binding self-test mutation
