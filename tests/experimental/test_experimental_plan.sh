@@ -329,6 +329,65 @@ ck "child digests are distinct — four artifacts, not one recorded four times" 
    "[ \"\$(jq -r -s '[.[].image_digest]|unique|length' '$EVDIR'/*.evidence.json)\" = '$N_REG' ]"
 ck "the run's evidence checksums verify" \
    "( cd '$EVDIR' && shasum -a 256 -c SHA256SUMS >/dev/null 2>&1 )"
+# THE EVIDENCE STILL DESCRIBES THE CURRENT CONTEXTS.
+# source_revision names the commit the children were built from; commits landing
+# after it (this packet, this README) do not touch images/. That is a claim, so
+# it is checked: the plan recomputes each build-context digest at HEAD and it must
+# equal the one recorded in the evidence. If a Dockerfile changes, this fails and
+# the evidence must be regenerated rather than quietly re-used.
+ck "every record's build_input_digest matches the context digest at HEAD" \
+   "python3 - <<'PY' >/dev/null 2>&1
+import json,glob,subprocess
+plan=json.loads(subprocess.check_output(['bash','$PLAN','plan','php-8.5','linux/amd64'],text=True))
+now={c['fam']:c['build_input_digest'] for c in plan['include']}
+seen=0
+for f in glob.glob('$EVDIR/*.evidence.json'):
+    r=json.load(open(f)); seen+=1
+    assert r['build_input_digest']==now[r['image_family']], (r['image_family'], r['build_input_digest'], now[r['image_family']])
+assert seen, 'no records examined — the check would be vacuous'
+PY"
+
+# THE DECISION PACKET DECIDED NOTHING. Its Group B advisories must still be
+# ungoverned for every family, including production 8.3/8.4 — writing the packet
+# must not have quietly added a ledger entry.
+cat > "$TMP/kin.json" <<'JSON'
+{"SchemaVersion":2,"ArtifactName":"t","Metadata":{"OS":{"Family":"debian","Name":"12.15"}},
+ "Results":[{"Target":"t","Class":"lang-pkgs","Type":"gobinary","Vulnerabilities":[
+   {"VulnerabilityID":"CVE-2026-76905","PkgName":"github.com/getkin/kin-openapi",
+    "InstalledVersion":"v0.140.0","FixedVersion":"0.141.0","Severity":"HIGH",
+    "DataSource":{"ID":"go"}}]}]}
+JSON
+for v in 8.4 8.5; do
+  TODAY=2026-08-24 bash scripts/reconcile-vulnerabilities.sh "$TMP/kin.json" php-frankenphp "$v" \
+      --arch linux/amd64 --today 2026-08-24 > "$TMP/kin-$v.txt" 2>&1; rc_kin=$?
+  ck "the packet added NO exception: CVE-2026-76905 is still ungoverned on frankenphp/$v" \
+     "[ '$rc_kin' -ne 0 ] && grep -q 'no in-scope exception' '$TMP/kin-$v.txt'"
+done
+
+# The proofs the evidence claims must actually be in it.
+ck "every child proves OPcache at RUNTIME, not merely in php -m" \
+   "jq -e -s 'all(.[]; .opcache.runtime_proof.opcache_enabled==true and
+                       .opcache.runtime_proof.compile_succeeded==true and
+                       .opcache.runtime_proof.num_cached_scripts>0)' \
+      '$EVDIR'/*.child-facts.json >/dev/null"
+ck "...and records its PROVENANCE, which differs by family" \
+   "[ \"\$(jq -r -s '[.[].opcache.declared_provenance]|unique|sort|join(\",\")' '$EVDIR'/*.child-facts.json)\" \
+      = 'base-builtin,helper-installed' ]"
+ck "every child proves redis by version AND by its client class" \
+   "jq -e -s 'all(.[]; .redis.loaded==true and .redis.class_present==true and
+                       (.redis.version|test(\"^[0-9]+\\\\.[0-9]+\\\\.[0-9]+\$\")))' \
+      '$EVDIR'/*.child-facts.json >/dev/null"
+ck "every child proves the build toolchain was purged" \
+   "jq -e -s 'all(.[]; (.build_tools_purged|index(\"gcc\")) and (.build_tools_purged|index(\"make\")) and
+                       (.build_tools_purged|index(\"phpize\")))' '$EVDIR'/*.child-facts.json >/dev/null"
+ck "every child satisfied its declared extension set" \
+   "jq -e -s 'all(.[]; (.extensions.missing|length)==0 and (.extensions.loaded|length)>0)' \
+      '$EVDIR'/*.child-facts.json >/dev/null"
+ck "emulation is DISCLOSED, never blurred into a native claim" \
+   "jq -e -s 'all(.[]; .execution_mode==\"emulated\" or .execution_mode==\"native\")' \
+      '$EVDIR'/*.child-facts.json >/dev/null &&
+    jq -e '.execution_mode and .host_architecture' '$EVDIR/frozen-scan-basis.json' >/dev/null"
+
 ck "the committed evidence is NOT reachable by production authorization" \
    "for r in '$EVDIR'/*.evidence.json; do
       bash scripts/release/assert-evidence-class.sh consumer production-authorization \"\$r\" >/dev/null 2>&1 && exit 1

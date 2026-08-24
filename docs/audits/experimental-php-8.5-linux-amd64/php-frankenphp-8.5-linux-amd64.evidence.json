@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "evidence_class": "foundry-child",
+  "image_digest": "sha256:b37bdc2f5e0c0afebf2f486a221dc7047f81b274209af6be03775806ee2286e1",
+  "child_key": "php-frankenphp/8.5/linux/amd64",
+  "platform": "linux/amd64",
+  "image_family": "php-frankenphp",
+  "image_version": "8.5",
+  "source_revision": "e84c2155cfcde8e179a007b13653bc8e124535a4",
+  "build_input_digest": "sha256:1ab3e67122781722ace29c902b6c5229d27119c3a753c28629f74ee73d3af5d8",
+  "build_completed": true,
+  "scanner_identity": "aquasec/trivy@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500",
+  "vulnerability_db_identity": "trivy-db:v2+updated:2026-08-24T13:01:06.952742724Z",
+  "created_at": "2026-08-24T14:47:07Z",
+  "package_inventory_source": {
+    "kind": "image-child",
+    "sha256": "d9f0c15011d8fdca7c0807f9941da52000d9dffb301f45c48009f61ffafb32af",
+    "package_count": 181
+  },
+  "parent": {
+    "evidence_class": "upstream-base",
+    "image_digest": "sha256:8896df27f5fe22f4be4628a2cabfc9959229e1010b2890019f6768139a3dfbcf",
+    "reference": "dunglas/frankenphp:1-php8.5-bookworm@sha256:8896df27f5fe22f4be4628a2cabfc9959229e1010b2890019f6768139a3dfbcf"
+  },
+  "severity_counts": {
+    "CRITICAL": 17,
+    "HIGH": 64
+  },
+  "findings_by_package": {
+    "bsdutils": 2,
+    "curl": 5,
+    "github.com/getkin/kin-openapi": 3,
+    "google.golang.org/grpc": 1,
+    "gzip": 1,
+    "libacl1": 1,
+    "libaom3": 6,
+    "libblkid1": 2,
+    "libcurl4": 5,
+    "libldap-2.5-0": 1,
+    "libmount1": 2,
+    "libperl5.36": 8,
+    "libsmartcols1": 2,
+    "libsqlite3-0": 1,
+    "libssh2-1": 2,
+    "libssl3": 1,
+    "libtinfo6": 1,
+    "libuuid1": 2,
+    "libxml2": 1,
+    "mount": 2,
+    "ncurses-base": 1,
+    "ncurses-bin": 1,
+    "openssl": 1,
+    "perl": 8,
+    "perl-base": 8,
+    "perl-modules-5.36": 8,
+    "util-linux": 2,
+    "util-linux-extra": 2,
+    "zlib1g": 1,
+    "linux-libc-dev": 0
+  }
+}

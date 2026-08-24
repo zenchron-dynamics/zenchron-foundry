@@ -549,7 +549,17 @@ main() {
 
   [ "$n" -gt 0 ] || fatal "the plan enumerated no children to run"
 
-  ( cd "$out" && shasum -a 256 ./*.json ./*.txt > SHA256SUMS )
+  # THE DURABLE SET, named explicitly.
+  #
+  # `shasum ./*.json` would also cover the per-child SPDX documents and raw
+  # scanner reports — ~3.3 MB per child of regenerable material that is bound by
+  # sha256 inside each child-facts record instead of being committed. A
+  # SHA256SUMS covering files the audit directory does not carry cannot be
+  # verified by anyone reading that directory, which is worse than no checksum.
+  ( cd "$out" && shasum -a 256 \
+      frozen-scan-basis.json \
+      ./*.evidence.json ./*.child-facts.json ./*.findings.json \
+      ./*.packages.txt ./*.smoke.txt > SHA256SUMS )
 
   echo
   echo "================================================================"

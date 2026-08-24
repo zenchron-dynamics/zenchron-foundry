@@ -1,0 +1,15 @@
+== smoke: php-cli (zenchron-experimental/php-cli:8.5-php-cli-8.5-linux-amd64) ==
+PASS  php -v reports a version
+PASS  required extensions present
+PASS  runs as non-root (uid != 0)
+PASS  runs as the pinned uid 10001
+PASS  read-only rootfs + tmpfs /tmp is writable
+PASS  no apk package manager (not an alpine image)
+PASS  no gcc build tool
+PASS  no make build tool
+PASS  no phpize (extension build helper removed)
+PASS  perl module Storable absent (not_affected evidence)
+PASS  perl module Archive::Tar absent (not_affected evidence)
+PASS  perl module IO::Compress::Gzip absent (not_affected evidence)
+PASS  no file capabilities in the final image (cap_drop: ALL contract)
+SMOKE SUMMARY: 13 passed, 0 failed, 13 checks

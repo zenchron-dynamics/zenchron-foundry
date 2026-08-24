@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "evidence_class": "foundry-child",
+  "image_digest": "sha256:a34a2462c363e83b843b384e5915bfb6f7f6696062491a7cfc00167c938e26c5",
+  "child_key": "php-worker/8.5/linux/amd64",
+  "platform": "linux/amd64",
+  "image_family": "php-worker",
+  "image_version": "8.5",
+  "source_revision": "e84c2155cfcde8e179a007b13653bc8e124535a4",
+  "build_input_digest": "sha256:9758282ec50ed294ab07efae9c3e2e2214d6b26fa66d4da2e2dc64439375fae9",
+  "build_completed": true,
+  "scanner_identity": "aquasec/trivy@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500",
+  "vulnerability_db_identity": "trivy-db:v2+updated:2026-08-24T13:01:06.952742724Z",
+  "created_at": "2026-08-24T14:38:16Z",
+  "package_inventory_source": {
+    "kind": "image-child",
+    "sha256": "8eaa2ab28eed0e8bcaee76a969e16450114a240c845377ea00ddac5c9ffd8fe2",
+    "package_count": 128
+  },
+  "parent": {
+    "evidence_class": "upstream-base",
+    "image_digest": "sha256:b3154b925899c55cca2885581c74cd9966484dc7469a36584353a6c8c26bbde0",
+    "reference": "php:8.5-cli-bookworm@sha256:b3154b925899c55cca2885581c74cd9966484dc7469a36584353a6c8c26bbde0"
+  },
+  "severity_counts": {
+    "CRITICAL": 6,
+    "HIGH": 41
+  },
+  "findings_by_package": {
+    "bsdutils": 2,
+    "curl": 5,
+    "gzip": 1,
+    "libacl1": 1,
+    "libblkid1": 2,
+    "libcurl4": 5,
+    "libldap-2.5-0": 1,
+    "libmount1": 2,
+    "libsmartcols1": 2,
+    "libsqlite3-0": 1,
+    "libssh2-1": 2,
+    "libssl3": 1,
+    "libtinfo6": 1,
+    "libuuid1": 2,
+    "libxml2": 1,
+    "mount": 2,
+    "ncurses-base": 1,
+    "ncurses-bin": 1,
+    "openssl": 1,
+    "perl-base": 8,
+    "util-linux": 2,
+    "util-linux-extra": 2,
+    "zlib1g": 1,
+    "linux-libc-dev": 0
+  }
+}
