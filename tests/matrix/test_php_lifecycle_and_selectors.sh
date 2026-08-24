@@ -38,9 +38,13 @@ ck "the matrix holds the shipping image definitions" \
    "[ \"\$(matrix_images | wc -l | tr -d ' ')\" -eq \"\$MATRIX_COUNT\" ]"
 
 # PHP 8.5 IS WITHDRAWN FROM THE LIVE MATRIX. It was added in an earlier batch
-# without ever building a child; a local build proved the images do not build at
-# all (docker-php-ext-install emits no module against the 8.5 extension API).
-# Left in, it would have failed 8 of 28 children inside a ~10-hour run.
+# without ever building a child, and the build then turned out to be broken
+# (opcache, php-redis). Both root causes are fixed and four amd64 children have
+# been built and scanned — so the reason it stays out is no longer "it does not
+# build" but "production is MATRIX_COUNT images and 8.5 has not earned that".
+# It lives as an enumerated EXPERIMENTAL cohort instead:
+# policies/experimental-cohorts.yaml + scripts/experimental/experimental-plan.sh,
+# proved reachable AND isolated by tests/experimental/test_experimental_plan.sh.
 ck "PHP 8.5 is NOT in the live matrix" \
    "[ \"\$(matrix_images | grep -c ':8.5\$')\" -eq 0 ]"
 # The 8.5 image definitions EXIST and BUILD as of 2026-08-23 (opcache + php-redis

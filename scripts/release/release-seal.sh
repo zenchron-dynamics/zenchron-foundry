@@ -35,7 +35,8 @@
 #   R7  a missing SBOM or missing provenance
 #   R8  the wrong evidence class — a staged-candidate is not a release
 #   R9  QEMU evidence presented as native arm64
-#   R10 an image line that does not build / is not in the shipping matrix
+#   R10 an image line that is not in the shipping matrix (PHP 8.5: an
+#       experimental cohort, deliberately outside production)
 #   R11 public exposure without a separate public-exposure authorization
 #   R12 an RC or scheduled-rebuild identity presented for the release role
 #
@@ -608,7 +609,7 @@ PY
        --public-exposure-authorization '$tmp/pea.txt' \
        --test-key '$tmp/test.key' --out '$tmp/r11b.json' --today '$DAY' 2>&1 | grep -q 'public_exposure_authorized=false'"
 
-  # --- R10 an image line that does not build --------------------------------
+  # --- R10 an image line outside the shipping matrix ------------------------
   # PHP 8.5 is absent from MATRIX_IMAGES and marked blocked-does-not-build in
   # policies/lifecycle.yaml. Both facts are READ from those files, so this case
   # cannot rot into a hardcoded version string.

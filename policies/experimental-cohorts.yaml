@@ -1,0 +1,204 @@
+# =============================================================================
+# policies/experimental-cohorts.yaml — the registry of EXPERIMENTAL image
+# cohorts, and the only place one may be declared.
+# -----------------------------------------------------------------------------
+# WHY THIS FILE EXISTS.
+#
+# Four PHP 8.5 image definitions live under images/php-{cli,fpm,worker,
+# frankenphp}/8.5. They build on linux/amd64. They are deliberately NOT in
+# MATRIX_IMAGES (scripts/lib/common.sh), because production is ten images and
+# twenty children and 8.5 has not earned that.
+#
+# Recording that as `used_by: []` in policies/lifecycle.yaml was not enough.
+# `used_by: []` says only "no shipping image consumes this line". It leaves four
+# valid, buildable, digest-pinned Dockerfiles as UNREACHABLE DEAD CONFIGURATION:
+# nothing enumerates them, nothing builds them, nothing scans them, and nothing
+# would notice if a fifth appeared, or if one of the four rotted. Dead
+# configuration in a security repository is worse than absent configuration,
+# because it looks maintained.
+#
+# So an experimental cohort is a FIRST-CLASS, ENUMERATED thing with its own
+# plan (scripts/experimental/experimental-plan.sh) and its own bounded set of
+# capabilities. It is reachable on purpose and isolated on purpose.
+#
+# WHAT THIS FILE IS NOT.
+#
+#   * NOT a second lifecycle inventory. policies/lifecycle.yaml remains the ONE
+#     record of upstream lifecycle facts and the ONE authorization for a Foundry
+#     release state. Every cohort here names its `lifecycle_line` and the
+#     `requires_foundry_release_state` it must find there; if the lifecycle
+#     entry disagrees, the plan refuses. This file says WHICH DIRECTORIES are in
+#     the cohort. lifecycle.yaml says WHAT STATE the line is in. Neither can be
+#     changed alone to move an image.
+#
+#   * NOT a production matrix. MATRIX_IMAGES in scripts/lib/common.sh is the ONE
+#     production enumeration and this file must stay DISJOINT from it. The plan
+#     refuses if a cohort image is also a production matrix image, in either
+#     direction, and scripts/experimental/assert-experimental-isolation.sh
+#     refuses the same thing from the production side.
+#
+#   * NOT an extension contract. contracts/ holds PRODUCTION contracts and is
+#     counted against MATRIX_COUNT; adding an 8.5 file there would both break
+#     that count and quietly claim production status. The extension inventory
+#     an experimental child must satisfy is declared inline below, and is
+#     verified against the built child rather than assumed.
+#
+# Enforced by:
+#   scripts/experimental/experimental-plan.sh          (enumeration + capability)
+#   scripts/experimental/assert-experimental-isolation.sh (production isolation)
+#   tests/experimental/test_experimental_plan.sh       (reachability + isolation)
+# =============================================================================
+schema_version: 1
+
+# --- the capability vocabulary ----------------------------------------------
+# A capability is a thing the plan may be INVOKED FOR. The vocabulary is closed:
+# a capability that is neither allowed nor forbidden is a refusal, so inventing
+# a new verb cannot silently succeed.
+capabilities:
+  allowed:
+    build: >-
+      targeted local image build of ONE cohort child on ONE authorized platform
+    smoke: >-
+      runtime smoke of a built child (identity, read-only rootfs, absent build
+      tools)
+    extensions: >-
+      extension-inventory verification against the cohort's declared required
+      set, read out of the running child
+    sbom: >-
+      SBOM generation from the built child
+    scan: >-
+      vulnerability scan of the built CHILD — never of its upstream base
+    evidence: >-
+      foundry-child evidence-record generation, validated by
+      scripts/release/assert-evidence-class.sh
+
+  # Each forbidden capability carries its OWN diagnostic. A gate that refuses
+  # everything with one message teaches the reader nothing and gets bypassed.
+  forbidden:
+    acceptance: >-
+      production acceptance enumerates MATRIX_IMAGES through
+      scripts/release/build-acceptance-matrix.sh. An experimental cohort is not
+      in that matrix and must never be spliced into it: acceptance is a
+      ~10-hour, all-or-nothing run whose expected child count is derived from
+      MATRIX_COUNT, and an extra family fails the authorizer for a DEFECT rather
+      than a finding
+    release-manifest: >-
+      a production release manifest names the artifacts a release ships.
+      Experimental children are not shipped, carry no runtime contract in
+      contracts/, and have no production extension contract, so a manifest entry
+      for one would assert guarantees nothing verified
+    promotion: >-
+      promotion moves an already-published digest between channels. An
+      experimental child is never published, so there is no digest to promote
+      and nothing that could have been promoted from
+    seal: >-
+      release sealing binds a tagged commit to a verified evidence bundle whose
+      required checks are declared in policies/required-release-checks.yaml.
+      Experimental evidence is produced outside that gate set and cannot satisfy
+      it
+    sign: >-
+      production signing binds a Foundry identity to bytes consumers will trust.
+      Signing an experimental child would make an unshipped, ungoverned artifact
+      indistinguishable from a released one at verification time
+    publish: >-
+      publication makes an artifact available to consumers. An experimental
+      cohort has no support commitment, no governance decisions and no
+      vulnerability exceptions; publishing it would ship exactly the
+      unaccountable artifact this repository exists to prevent
+    governance-selector: >-
+      the vulnerability ledger's PHP selectors are bound to the IMMUTABLE
+      php-8.3-8.4 cohort (see in_scope() in scripts/reconcile-vulnerabilities.sh).
+      An experimental cohort must never be added to `php-8.3-8.4`,
+      `<family>-8.3-8.4` or `all`: those decisions were made from evidence that
+      never contained this cohort, and widening them would retroactively govern
+      an artifact nobody assessed
+
+# --- the cohorts -------------------------------------------------------------
+cohorts:
+  - id: php-8.5
+    selector: "8.5"
+
+    # BINDING TO THE ONE LIFECYCLE INVENTORY. The plan reads
+    # policies/lifecycle.yaml, finds this line, and refuses unless its
+    # foundry_release_state is EXACTLY the value below. Editing this file alone
+    # cannot promote the cohort, and editing lifecycle.yaml alone cannot enrol
+    # new directories into it.
+    lifecycle_line: php-8.5
+    requires_foundry_release_state: experimental-amd64-only
+
+    # AUTHORIZED PLATFORMS. linux/amd64 only, and this is not a formality: no
+    # arm64 8.5 child has ever been built, so there is no arm64 digest, no
+    # arm64 installed inventory and no arm64 finding set. An amd64 result must
+    # not be allowed to speak for it.
+    platforms: [linux/amd64]
+
+    capabilities: [build, smoke, extensions, sbom, scan, evidence]
+
+    # The evidence class every record produced from this cohort carries.
+    # REUSED from schemas/evidence-class-v1.schema.json and
+    # policies/evidence-classes.yaml — not redefined here.
+    evidence_class: foundry-child
+
+    # Where the committed evidence for this cohort lives.
+    evidence_dir: docs/audits/experimental-php-8.5-linux-amd64
+
+    # THE ENUMERATION. All four, explicitly. A directory on disk that is not
+    # listed here is REFUSED by the plan — an unregistered image is exactly the
+    # dead configuration this file exists to abolish.
+    images:
+      - family: php-cli
+        context: images/php-cli/8.5
+        # Same set as contracts/php-extensions/cli-8.4.txt. Written out rather
+        # than referenced: contracts/ is the PRODUCTION contract directory,
+        # counted against MATRIX_COUNT, and pointing an experimental cohort at a
+        # production contract is how an experimental image starts looking
+        # production-supported.
+        required_extensions: >-
+          bcmath ctype curl dom fileinfo gd intl mbstring opcache openssl pcntl
+          pdo pdo_mysql pdo_pgsql pgsql redis simplexml sockets sodium sqlite3
+          tokenizer xml zip
+        forbidden_tools: [gcc, make, phpize, apk]
+
+      - family: php-fpm
+        context: images/php-fpm/8.5
+        # The CLI set MINUS pcntl, by design — mirrors
+        # contracts/php-extensions/fpm-8.4.txt.
+        required_extensions: >-
+          bcmath ctype curl dom fileinfo gd intl mbstring opcache openssl pdo
+          pdo_mysql pdo_pgsql pgsql redis simplexml sockets sodium sqlite3
+          tokenizer xml zip
+        forbidden_tools: [gcc, make, phpize, apk]
+
+      - family: php-worker
+        context: images/php-worker/8.5
+        required_extensions: >-
+          bcmath ctype curl dom fileinfo gd intl mbstring opcache openssl pcntl
+          pdo pdo_mysql pdo_pgsql pgsql redis simplexml sockets sodium sqlite3
+          tokenizer xml zip
+        forbidden_tools: [gcc, make, phpize, apk]
+
+      - family: php-frankenphp
+        context: images/php-frankenphp/8.5
+        required_extensions: >-
+          bcmath ctype curl dom fileinfo gd intl mbstring opcache openssl pcntl
+          pdo pdo_mysql pdo_pgsql pgsql redis simplexml sockets sodium sqlite3
+          tokenizer xml zip
+        forbidden_tools: [gcc, make, phpize, apk]
+
+    # OPCACHE PROVENANCE. On 8.5 the cli/fpm/worker families do NOT compile
+    # opcache: the official base ships Zend OPcache linked into the binary, and
+    # docker-php-ext-install produces no shared module (policies/lifecycle.yaml,
+    # php-8.5 blocker). "Present because the base provides it" and "present
+    # because we built it" are different facts, so the plan records which one
+    # holds and PROVES the module is live at runtime rather than merely listed.
+    opcache_provenance:
+      php-cli: base-builtin
+      php-fpm: base-builtin
+      php-worker: base-builtin
+      php-frankenphp: helper-installed
+
+    note: >-
+      Reachable through scripts/experimental/experimental-plan.sh and through
+      nothing else. It is not in MATRIX_IMAGES, has no entry in contracts/, is
+      not enumerated by scripts/release/build-acceptance-matrix.sh, and is not
+      covered by any selector in policies/vulnerability-exceptions.yaml.
