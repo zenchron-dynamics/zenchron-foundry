@@ -700,7 +700,7 @@ ck "...for the class diagnostic, not a checksum one" \
 ck "NON-VACUOUS: each verifies against the class it WAS published for" \
    "vexv --vex '$TMP/cand/content/vex/openvex.json' --evidence '$ACCEPTED' \
       --evidence-class staged-candidate --today '$DAY' >/dev/null 2>&1 \
-    && vexv --vex '$TMP/pub/content/vex/openvex.json' --evidence '$ACCEPTED' \
+    && vexv --vex '$TMP/pub/content/vex/openvex.json' --evidence '$ACCEPTED_NATIVE' \
       --evidence-class published-artifact --today '$DAY' >/dev/null 2>&1"
 
 # --- bundle verify cross-checks the VEX against the manifest ----------------
@@ -1019,7 +1019,10 @@ sys.exit(0 if g[\"verdict\"]==\"PASS\" and g[\"platform\"]==\"linux/arm64\"
 # that trips an earlier rule proves nothing about the rule under test.
 ck "S-S6 the argued-absence bundle really exists and verifies (non-vacuity)" \
    "ver '$TMP/absent' >/dev/null 2>&1"
-gen --evidence "$ACCEPTED" --out "$TMP/noauth-pub" --evidence-class staged-candidate \
+# From the NATIVE fixture on purpose: built from the emulated accepted record it
+# would refuse at R9 before ever reaching R13, and the assertion below would then
+# pass for a reason that has nothing to do with authorization.
+gen --evidence "$ACCEPTED_NATIVE" --out "$TMP/noauth-pub" --evidence-class staged-candidate \
     --sbom-dir "$TMP/sbom" --provenance "$TMP/prov.json" \
     --authorization-absent 'the 30-day workflow artifact holding this run authorization expired before the bundle was built' \
     --today "$DAY" >/dev/null 2>&1
@@ -1174,8 +1177,8 @@ ck "the bundle restores from the archive alone" \
 # the archive rather than out of the generator.
 ck "REVALIDATED: the restored bundle verifies against its own index" \
    "ver '$TMP/restored' >/dev/null 2>&1"
-ck "REVALIDATED: the restored dispositions still re-derive from the accepted run" \
-   "vexv --vex '$TMP/restored/content/vex/openvex.json' --evidence '$ACCEPTED' \
+ck "REVALIDATED: the restored dispositions still re-derive from the run they were built from" \
+   "vexv --vex '$TMP/restored/content/vex/openvex.json' --evidence '$ACCEPTED_NATIVE' \
       --evidence-class published-artifact --today '$DAY' >/dev/null 2>&1"
 ck "REVALIDATED: the restored manifest still satisfies release-evidence-bundle-v1" \
    "python3 -c 'import json,sys
