@@ -110,12 +110,24 @@ ck "the staging build creates no index (sbom and provenance both off)" \
    "grep -q 'sbom: false' $STAGER && grep -q 'provenance: false' $STAGER"
 
 # --- the authorization job must not be able to publish ---------------------
-ck "the authorization job is packages: read, never write" \
+# `actions: read` was added so the job can download the native arm64 runtime
+# evidence artifact (#111). The assertion is therefore on the PROPERTY that
+# matters — no scope is ever write, and no id-token is granted — rather than on
+# a literal dict that would have to be edited for every legitimate read scope.
+ck "the authorization job holds no write scope and no id-token" \
    "python3 -c \"
 import yaml
 d=yaml.safe_load(open('$STAGER'))
 p=d['jobs']['authorize']['permissions']
-assert p=={'contents':'read','packages':'read'}, p\""
+assert p['contents']=='read' and p['packages']=='read', p
+assert all(v=='read' for v in p.values()), p
+assert 'id-token' not in p, p\""
+ck "...and the only scopes it holds are ones it demonstrably uses" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('$STAGER'))
+p=set(d['jobs']['authorize']['permissions'])
+assert p <= {'contents','packages','actions'}, p\""
 ck "the authorization job declares no environment" \
    "python3 -c \"
 import yaml

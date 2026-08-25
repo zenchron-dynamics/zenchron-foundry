@@ -321,7 +321,7 @@ ck "...and it really does carry every required property of the canonical schema"
 req=json.load(open(\"schemas/post-build-authorization-v1.schema.json\"))[\"required\"]
 r=json.load(open(sys.argv[1]))
 missing=[k for k in req if k not in r]
-sys.exit(0 if not missing and len(req)==16 else 1)' '$TMP/auth-right.json'"
+sys.exit(0 if not missing and len(req)==15 else 1)' '$TMP/auth-right.json'"
 ck "NON-VACUOUS: a malformed revision in the same record is REFUSED by the schema" \
    "! bash '$AUTHV' '$TMP/auth-malformed.json' >/dev/null 2>&1"
 

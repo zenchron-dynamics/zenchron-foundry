@@ -274,6 +274,24 @@ f=[s for s in d['jobs']['authorize']['steps']
    if 'native arm64 runtime evidence' in (s.get('name') or '')][0]
 assert not f.get('continue-on-error')\""
 
+echo "### the schema declares the gate without invalidating older records"
+# Adding a REQUIRED property to a v1 schema retroactively invalidates every
+# record already emitted under v1. phase_timing set the precedent: declare it,
+# do not require it, and put the fail-closed behaviour at CONSUMPTION.
+ck "native_arch_gate is DECLARED by post-build-authorization-v1" \
+   "python3 -c \"
+import json;d=json.load(open('schemas/post-build-authorization-v1.schema.json'))
+assert 'native_arch_gate' in d['properties']
+assert d['additionalProperties'] is False\""
+ck "...and is NOT required, so records emitted before it existed stay valid" \
+   "python3 -c \"
+import json;d=json.load(open('schemas/post-build-authorization-v1.schema.json'))
+assert 'native_arch_gate' not in d['required']\""
+ck "...but the PRODUCER always emits it, so a live record can be read for it" \
+   "jq -e 'has(\"native_arch_gate\")' '$T/ok/out.json' >/dev/null"
+ck "...and the seal, not the schema, is where its absence fails closed" \
+   "grep -q 'native_arch_gate' $SEAL && grep -q 'cannot vouch for its own architecture' $SEAL"
+
 echo "### the test-only seal requires it too"
 ck "release-seal reads the policy rather than waiting to be asked" \
    "grep -q 'RS_NATIVE_ARCH' $SEAL && grep -q 'native_required' $SEAL"
