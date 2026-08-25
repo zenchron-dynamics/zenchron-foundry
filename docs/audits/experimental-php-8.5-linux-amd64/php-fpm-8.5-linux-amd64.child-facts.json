@@ -1,17 +1,17 @@
 {
   "child_key": "php-fpm/8.5/linux/amd64",
   "local_reference": "zenchron-experimental/php-fpm:8.5-php-fpm-8.5-linux-amd64",
-  "oci_manifest_digest": "sha256:a707386339945364cbe9e3f06bb5e968ae353a92cd7ae2b5e48afdd38634bbde",
+  "oci_manifest_digest": "sha256:2684d43ddf4deb348fc1eee9bfc676b9c9e0377caf52f88c3d18501cee552ace",
   "build_context": "images/php-fpm/8.5",
   "build_input_digest": "sha256:eb43e53eedd57f2bc6351e93eb5838b1f99de180ed43c0367ebf3f9b36531a91",
-  "source_revision": "e84c2155cfcde8e179a007b13653bc8e124535a4",
+  "source_revision": "58dc036681c565d74584ebaa1283c19103e75b43",
   "execution_mode": "emulated",
   "host_architecture": "arm64",
   "upstream_base": {
     "reference": "php:8.5-fpm-bookworm@sha256:7b1deadd1d73c72d2eb952ebb494cd3e902d7b6ae4e4b3cd1113a1041b530c2c",
     "digest": "sha256:7b1deadd1d73c72d2eb952ebb494cd3e902d7b6ae4e4b3cd1113a1041b530c2c"
   },
-  "build_seconds": 54,
+  "build_seconds": 67,
   "php": {
     "php_version": "8.5.9",
     "php_version_id": 80509,
@@ -202,11 +202,11 @@
   "sbom": {
     "format": "spdx-json",
     "package_count": 144,
-    "sha256": "6d78382ad9c45bb75af6f5312e90a666764fbcd5345f8f093a0e0901432fd04d",
+    "sha256": "1cc899fe1897298b2dea8f90f1814e9e8481eefae75dbd73944878111870ea90",
     "note": "the full SPDX document is a build artifact, not committed: 2.7 MB per child of material regenerable from oci_manifest_digest. It is BOUND here by sha256, which is what evidence needs."
   },
   "scan": {
-    "full_report_sha256": "eedbf9cd61b44f5c4c19d9c8ffb98f8b9e8b105f72b8d5cb5f6bc4ef645dbe48",
+    "full_report_sha256": "00af0d8df120774371bb687cb42b18a62e573fe740903aff08556454d3d8f6ad",
     "note": "the raw scanner report is likewise bound rather than committed; the reviewable tuple set is in the sibling findings.json"
   },
   "smoke": {

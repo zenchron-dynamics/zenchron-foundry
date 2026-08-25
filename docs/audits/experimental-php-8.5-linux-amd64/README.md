@@ -1,7 +1,7 @@
 # PHP 8.5 experimental cohort — `linux/amd64` child evidence
 
 **Four children built, smoked, SBOM'd and scanned. Source revision
-`e84c2155cfcde8e179a007b13653bc8e124535a4`, 2026-08-24.**
+`58dc036681c565d74584ebaa1283c19103e75b43`, 2026-08-25.**
 
 This is **not** an acceptance run, a release candidate, or an authorization of
 anything. It is the durable record that the four PHP 8.5 image definitions are
@@ -12,11 +12,11 @@ measured on the **children**, never on their upstream bases.
 |---|---|
 | cohort | `php-8.5` (`policies/experimental-cohorts.yaml`) |
 | plan | `scripts/experimental/experimental-plan.sh` |
-| source revision | `e84c2155cfcde8e179a007b13653bc8e124535a4` |
+| source revision | `58dc036681c565d74584ebaa1283c19103e75b43` |
 | platform | `linux/amd64` only — **no arm64 child exists** |
 | execution | `emulated` on an `arm64` host (disclosed per child) |
 | scanner | `aquasec/trivy@sha256:016eae51…` (digest-pinned) |
-| frozen database | `trivy-db:v2+updated:2026-08-24T13:01:06.952742724Z` — ONE identity, all four children |
+| frozen database | `trivy-db:v2+updated:2026-08-25T06:59:59.307495517Z` — ONE identity, all four children |
 | evidence class | `foundry-child` (reused from `policies/evidence-classes.yaml`) |
 | children | 4 planned, 4 completed, 0 failed |
 | smoke | PASS 4/4 (13 + 11 + 11 + 8 checks) |
@@ -27,10 +27,10 @@ measured on the **children**, never on their upstream bases.
 
 | child | OCI-layout digest | upstream base digest | pkgs | CRITICAL | HIGH |
 |---|---|---|---|---|---|
-| `php-cli/8.5/linux/amd64` | `sha256:ec010fe093478791…` | `sha256:b3154b925899c55c…` | 127 | 6 | 41 |
-| `php-fpm/8.5/linux/amd64` | `sha256:a707386339945364…` | `sha256:7b1deadd1d73c72d…` | 127 | 6 | 41 |
-| `php-worker/8.5/linux/amd64` | `sha256:a34a2462c363e83b…` | `sha256:b3154b925899c55c…` | 128 | 6 | 41 |
-| `php-frankenphp/8.5/linux/amd64` | `sha256:b37bdc2f5e0c0afe…` | `sha256:8896df27f5fe22f4…` | 181 | 17 | 64 |
+| `php-cli/8.5/linux/amd64` | `sha256:a5df2373e09282b0…` | `sha256:b3154b925899c55c…` | 127 | 6 | 41 |
+| `php-fpm/8.5/linux/amd64` | `sha256:2684d43ddf4deb34…` | `sha256:7b1deadd1d73c72d…` | 127 | 6 | 41 |
+| `php-worker/8.5/linux/amd64` | `sha256:3928928e553c9b73…` | `sha256:b3154b925899c55c…` | 128 | 6 | 41 |
+| `php-frankenphp/8.5/linux/amd64` | `sha256:2d85d996cb16451c…` | `sha256:8896df27f5fe22f4…` | 181 | 17 | 64 |
 
 Full digests are in the per-child `*.evidence.json`. Each is an **OCI-layout
 manifest digest**, read out of a real OCI layout — not `docker image inspect
@@ -62,7 +62,7 @@ child.
 | redis | 6.3.0 | 6.3.0 | 6.3.0 | 6.3.0 |
 | OPcache provenance | base-builtin | base-builtin | base-builtin | helper-installed |
 | SBOM packages | 144 | 144 | 145 | 382 |
-| build seconds | 54 | 54 | 54 | 459 |
+| build seconds | 75 | 67 | 67 | 580 |
 
 `fpm` carries 45 extensions rather than 46 because **pcntl is intentionally
 absent from PHP-FPM**, which its smoke test asserts positively.
@@ -94,6 +94,35 @@ cannot be mistaken for what the image ships.
 `gcc`, `make`, `phpize` and `apk` are absent from all four children, tested by
 attempting to resolve each one inside the image rather than by reading the
 Dockerfile.
+
+## Reproduced, at a second revision under a newer database
+
+This directory was produced twice: once at `e84c2155…` under
+`trivy-db:v2+updated:2026-08-24T13:01:06…`, and again at
+`58dc036681c565d74584ebaa1283c19103e75b43` under
+`trivy-db:v2+updated:2026-08-25T06:59:59…`. The second run is the one committed
+here; the first was discarded because a rebase left the revision it named
+unreachable, and evidence citing a revision the repository does not carry is not
+evidence.
+
+What that second run bought is worth more than a resolvable revision. Between the
+two runs, **byte-identical**:
+
+- every `*.findings.json` — the same 47 / 47 / 47 / 81 CRITICAL+HIGH tuples;
+- every `*.packages.txt` — the same 127 / 127 / 128 / 181 installed packages,
+  same `inventory_sha256`;
+- every `*.smoke.txt` — the same 13 / 11 / 11 / 8 checks passing;
+- every extension inventory, OPcache runtime proof, redis proof and purge proof.
+
+What moved: the OCI-layout digests, `build_seconds`, and the SBOM/report
+`sha256` bindings. The digests move because the layer timestamps are derived
+from `SOURCE_DATE_EPOCH`, which is derived from the source commit — a different
+commit is a different artifact even when its contents are the same, and this
+record says so rather than pretending the digest is stable.
+
+**A newer vulnerability database returned the same finding set.** That is a
+measurement, not a guarantee: it says nothing about the next snapshot, and the
+findings remain comparable only within the ONE snapshot named above.
 
 ## Emulation disclosure
 

@@ -1,9 +1,9 @@
 # Decision packet — PHP 8.5 experimental cohort, `linux/amd64`
 
-**Status: OPEN — NOTHING HERE HAS BEEN DECIDED.** Prepared 2026-08-24 from the
+**Status: OPEN — NOTHING HERE HAS BEEN DECIDED.** Prepared 2026-08-25 from the
 child evidence at
 [`docs/audits/experimental-php-8.5-linux-amd64/`](../audits/experimental-php-8.5-linux-amd64/README.md),
-source revision `e84c2155cfcde8e179a007b13653bc8e124535a4`.
+source revision `58dc036681c565d74584ebaa1283c19103e75b43`.
 
 **No exception was added, widened or renewed to produce this document.**
 `policies/vulnerability-exceptions.yaml` is byte-identical to master. Writing a
@@ -23,9 +23,9 @@ form of decisions a maintainer must make deliberately rather than by default.
 ## The measurement
 
 ```text
-children          4, linux/amd64, built from e84c2155, one frozen database
+children          4, linux/amd64, built from 58dc0366, one frozen database
 scanner           aquasec/trivy@sha256:016eae51…  (digest-pinned)
-database          trivy-db:v2+updated:2026-08-24T13:01:06.952742724Z
+database          trivy-db:v2+updated:2026-08-25T06:59:59.307495517Z
 execution         emulated on an arm64 host  (build/scan evidence, NOT native runtime)
 target            the CHILDREN.  linux-libc-dev findings: 0 on all four
 ```
