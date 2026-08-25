@@ -17,8 +17,8 @@ ck "verify-rc runs contract check"    'grep -q "verify-image-contract.sh" .githu
 ck "verify-rc checks published platforms" 'grep -q "verify-platforms.sh" .github/workflows/verify-rc.yml'
 
 # every matrix image has a contract file
-# Subset, not equality: PHP 8.5 contracts are retained while 8.5 is out of the
-# live matrix (it does not build — see policies/lifecycle.yaml).
+# Subset, not equality. PHP 8.5 is out of the live matrix as an EXPERIMENTAL
+# cohort (policies/experimental-cohorts.yaml), not because it fails to build.
 . scripts/lib/common.sh
 _missing_contract=""
 for _t in $MATRIX_IMAGES; do

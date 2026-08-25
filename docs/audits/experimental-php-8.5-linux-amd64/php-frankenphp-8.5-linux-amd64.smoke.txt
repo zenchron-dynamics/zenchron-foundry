@@ -1,0 +1,11 @@
+== smoke: php-frankenphp (zenchron-experimental/php-frankenphp:8.5-php-frankenphp-8.5-linux-amd64) ==
+PASS  runs as non-root (uid != 0)
+PASS  runs as the pinned uid 10001
+PASS  exposes HTTP port 8080
+PASS  exposes readiness port 8081
+PASS  document root is /app/public
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+PASS  read-only rootfs: HTTP listener answers on :8080
+PASS  readiness endpoint /healthz returns ok on :8081
+PASS  no file capabilities in the final image (cap_drop: ALL contract)
+SMOKE SUMMARY: 8 passed, 0 failed, 8 checks

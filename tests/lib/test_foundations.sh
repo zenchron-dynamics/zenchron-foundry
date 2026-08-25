@@ -25,8 +25,9 @@ PY"
 done
 
 # 3. contracts parse and cover the full matrix
-# Subset, not equality: the four PHP 8.5 contracts are retained on purpose while
-# 8.5 is out of the live matrix (it does not build — see policies/lifecycle.yaml).
+# Subset, not equality. PHP 8.5 is out of the live matrix — not because it fails
+# to build (it does build on linux/amd64) but because it is an EXPERIMENTAL
+# cohort with no production contract; see policies/experimental-cohorts.yaml.
 # What must hold is that every SHIPPING image has a contract.
 . scripts/lib/common.sh
 _missing_contract=""

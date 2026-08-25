@@ -36,7 +36,7 @@ fixes only. A consumer's inventory tooling could not tell PHP 8.3 from 8.4.
 | --- | --- | --- | --- |
 | 8.3 | **ended 2025-12-31** | 2027-12-31 | shipped, `security-only` |
 | 8.4 | 2026-12-31 | 2028-12-31 | shipped, `active` — **recommended** |
-| 8.5 | 2027-12-31 | 2029-12-31 | **not offered** — see below |
+| 8.5 | 2027-12-31 | 2029-12-31 | **not offered** — experimental cohort, `linux/amd64` only; see below |
 
 ## Entry criteria — when a new PHP line is added
 
@@ -66,50 +66,92 @@ support, so adoption is not gated on us.
 Retirement is never silent: `com.zenchron.support_state` changes on the image, the
 inventory changes, and the lifecycle gate fails the build if the two disagree.
 
-## PHP 8.5 — the current, tracked gap
+## PHP 8.5 — an EXPERIMENTAL cohort, not a shipped line
 
 PHP 8.5 has been in **active upstream support** since 2025-11 and Foundry does
-not offer it. Entry criteria 1–4 are believed satisfiable today; criterion 5, and
-the acceptance criteria on #106 itself, are **not**:
+not offer it. That has not changed. What HAS changed is the reason, and the
+reason matters more than the verdict.
 
-> *"PHP 8.5 is built, scanned, signed, attested, smoke-tested, and released on
-> amd64/arm64."*
+**State:** `foundry_release_state: experimental-amd64-only`.
 
-Signing, attestation and release are **closed** platform-wide pending the
-protected exposure path (#139). Adding four `php-*/8.5` image definitions would
-also change the authoritative image matrix from ten to fourteen, which
-`scripts/assert-image-matrix.sh` enforces and which several release-evidence
-paths assume.
+This document and `policies/lifecycle.yaml` must name the SAME value, and
+`tests/governance/test_doc_truth_sync.sh` reads both files and fails if they
+disagree — the machine-readable line is the authority, this sentence is the
+claim, and a claim that drifts from its fact is the #121 defect class.
 
-So #106 stays open, and the honest interim state is what the inventory now
-records: `php-8.5`, `support_state: active` (that field tracks **upstream**),
-`foundry_release_state: blocked-does-not-build`, `used_by: []`.
+> **CORRECTED 2026-08-25.** This section previously stated
+> `foundry_release_state: blocked-does-not-build` and described the failing
+> component as "not yet isolated". Both were false by then. The component WAS
+> isolated — `opcache` is statically built into the PHP 8.5 base, so
+> `docker-php-ext-install opcache` produces no shared module — and all four
+> families build on `linux/amd64` (`blocker.status: RESOLVED 2026-08-23`). The
+> retired value is recorded here rather than deleted so a reader who met it in
+> an older revision, an older PR, or a cached copy can see that it was withdrawn
+> and why, instead of assuming the two revisions describe different images.
 
-### The blocker is measured, not inferred (2026-08-23)
+**The images build.** They did not, and the failure was real, measured and
+specific — see the resolved `blocker` block on the `php-8.5` line in
+`policies/lifecycle.yaml`. Two root causes, both Foundry Dockerfile sequencing
+rather than anything wrong with PHP 8.5:
 
-The four `php-*/8.5` image definitions were added to the matrix in an earlier
-batch **without ever building a child**, then withdrawn once a build was
-attempted. PHP 8.5 does not merely lack release plumbing — **the images do not
-build**:
+1. **`opcache`.** The official PHP 8.5 base already ships Zend OPcache linked
+   into the binary. Asking `docker-php-ext-install` to build it produces no
+   SHARED module and the build dies at `cp: cannot stat 'modules/*'`. Fixed by
+   removing `opcache` from the 8.5 install list only — it is still present,
+   still enabled, and now supplied by the base. 8.3 and 8.4 are unchanged.
+2. **php-redis 6.1.0.** `ext/standard/php_smart_string.h` was removed in 8.5.
+   Pinned 6.3.0.
+
+**Four `linux/amd64` children have been built, smoked, SBOM'd and scanned** —
+`php-cli`, `php-fpm`, `php-worker`, `php-frankenphp`. The evidence is committed
+under `docs/audits/experimental-php-8.5-linux-amd64/`, one `foundry-child` record
+per child, all four under ONE frozen vulnerability database.
+
+### Why it is still not in `MATRIX_IMAGES`
+
+`used_by: []` was an accurate statement about the LINE and said nothing about the
+four Dockerfiles, which were left as unreachable dead configuration. That is now
+fixed in the other direction: 8.5 is an **enumerated experimental cohort**.
 
 ```text
-Installing shared extensions: .../no-debug-non-zts-20250925/
-cp: cannot stat 'modules/*': No such file or directory
-make: *** [Makefile:89: install-modules] Error 1
+policies/experimental-cohorts.yaml            the registry (which directories)
+policies/lifecycle.yaml  (php-8.5)            the authorization (what state)
+scripts/experimental/experimental-plan.sh     the ONE canonical plan
+scripts/experimental/assert-experimental-isolation.sh   the production-side gate
+tests/experimental/test_experimental_plan.sh  reachability AND isolation
 ```
 
-Reproduced twice on `linux/amd64` (~160 s each) with php-redis **6.1.0** and
-again with **6.3.0**, so it is not the redis pin. The failing component sits
-inside the `docker-php-ext-install` list and is not yet isolated.
+The plan is explicitly invocable for **build, smoke, extension verification,
+SBOM, child vulnerability scanning and evidence generation**, and REFUSES —
+each with its own diagnostic — production acceptance, release manifests,
+promotion, sealing, signing, publication, and the `php-8.3-8.4` /
+`<family>-8.3-8.4` governance selectors.
 
-**Do not re-add 8.5 to `MATRIX_IMAGES` until a representative child builds.**
-Left in the matrix it fails 8 of 28 children at build time — after the native
-half of a ~10-hour acceptance run has already been spent.
+Neither file can move an image on its own: the registry says which directories
+are in the cohort, `policies/lifecycle.yaml` says what state the line is in, and
+the plan refuses when they disagree.
 
-**Unblocking order:** isolate the extension failure → one built `php-cli/8.5`
-child with a real digest → scan the **child**, never the base → child-level
-governance on amd64 → arm64 evidence → matrix expansion to fourteen → #139
-publication path → release.
+### What is still missing before 8.5 could ship
+
+- **No arm64 child exists.** Not "unverified" — *nonexistent*. There is no arm64
+  digest, no arm64 installed inventory and no arm64 finding set, and the plan
+  refuses `linux/arm64` for this cohort so an amd64 result cannot speak for it.
+- **No production contracts.** `contracts/images/` and
+  `contracts/php-extensions/` hold production contracts only, and their count is
+  asserted against `MATRIX_COUNT`.
+- **No governance decisions.** Every PHP selector in
+  `policies/vulnerability-exceptions.yaml` is bound to the immutable
+  `php-8.3-8.4` cohort, so 8.5 begins **ungoverned by construction** — every
+  CRITICAL/HIGH finding on an 8.5 child is currently unaccepted risk. The
+  findings and the decisions they demand are set out in
+  [decisions/php-8.5-experimental-cohort-decision-packet.md](decisions/php-8.5-experimental-cohort-decision-packet.md).
+  **Nothing in that packet has been decided by writing it.**
+- **Signing, attestation and release remain closed platform-wide** pending the
+  protected exposure path (#139).
+
+**Unblocking order:** maintainer decisions on the 8.5 root causes → production
+contracts → arm64 children and their own evidence → matrix expansion → #139
+publication path → release. #106 stays open.
 
 ## What this policy does not do
 

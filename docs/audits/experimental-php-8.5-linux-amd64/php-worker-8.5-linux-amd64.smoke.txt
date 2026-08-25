@@ -1,0 +1,13 @@
+== smoke: php-worker (zenchron-experimental/php-worker:8.5-php-worker-8.5-linux-amd64) ==
+PASS  runs as non-root (uid != 0)
+PASS  runs as the pinned uid 10001
+PASS  PID 1 is tini
+PASS  worker entrypoint starts under read-only rootfs
+PASS  heartbeat file created at /tmp/worker-heartbeat
+PASS  worker-healthcheck exits 0 (fresh heartbeat)
+PASS  clean SIGTERM (stops within grace period)
+PASS  perl module Storable absent (not_affected evidence)
+PASS  perl module Archive::Tar absent (not_affected evidence)
+PASS  perl module IO::Compress::Gzip absent (not_affected evidence)
+PASS  no file capabilities in the final image (cap_drop: ALL contract)
+SMOKE SUMMARY: 11 passed, 0 failed, 11 checks

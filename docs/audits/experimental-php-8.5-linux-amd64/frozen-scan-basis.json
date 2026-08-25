@@ -1,0 +1,11 @@
+{
+  "cohort": "php-8.5",
+  "platform": "linux/amd64",
+  "source_revision": "58dc036681c565d74584ebaa1283c19103e75b43",
+  "scanner_identity": "aquasec/trivy@sha256:016eae51fdcf989332a5404af7e8f625cd5d95d7c0907a221d080a996f556500",
+  "vulnerability_db_identity": "trivy-db:v2+updated:2026-08-25T06:59:59.307495517Z",
+  "frozen_at": "2026-08-25T08:04:49Z",
+  "execution_mode": "emulated",
+  "host_architecture": "arm64",
+  "note": "ONE database snapshot, downloaded once and shared by every child in this run. Findings are only comparable within one snapshot."
+}

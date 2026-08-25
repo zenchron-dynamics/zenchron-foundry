@@ -1,0 +1,13 @@
+== smoke: php-fpm (zenchron-experimental/php-fpm:8.5-php-fpm-8.5-linux-amd64) ==
+PASS  php-fpm -t config test passes
+PASS  required extensions present (no pcntl)
+PASS  pcntl intentionally absent
+PASS  runs as non-root (uid != 0)
+PASS  runs as the pinned uid 10001
+PASS  exposes port 9000
+PASS  read-only rootfs: master starts and listens on 9000
+PASS  perl module Storable absent (not_affected evidence)
+PASS  perl module Archive::Tar absent (not_affected evidence)
+PASS  perl module IO::Compress::Gzip absent (not_affected evidence)
+PASS  no file capabilities in the final image (cap_drop: ALL contract)
+SMOKE SUMMARY: 11 passed, 0 failed, 11 checks

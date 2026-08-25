@@ -48,17 +48,27 @@ require_hex40()   { is_hex40   "${1:-}" || die "revision '${1:-}' is not 40 lowe
 # for PHP families, or "prod" for the versionless edge images. This is the ONE
 # place the matrix is defined; assert-image-matrix.sh, smoke-all.sh, ci.yml and
 # the manifest/promotion tooling all derive from it.
-# PHP 8.5 IS DELIBERATELY ABSENT FROM THE LIVE MATRIX. Its image definitions,
-# runtime contracts, extension contracts and lifecycle metadata all exist and are
-# tested — but the images DO NOT BUILD: docker-php-ext-install produces no module
-# against the PHP 8.5 extension API (20250925) and the build dies at
-# `cp: cannot stat 'modules/*'`. Measured locally, with php-redis 6.1.0 AND with
-# 6.3.0, so it is not the redis pin.
+# PHP 8.5 IS DELIBERATELY ABSENT FROM THE LIVE MATRIX, and its absence is now a
+# POSITION rather than a blocker. The images DO build on linux/amd64 — the
+# opcache and php-redis root causes were found and fixed, and four amd64
+# children have been built, smoked, SBOM'd and scanned (evidence:
+# docs/audits/experimental-php-8.5-linux-amd64/).
 #
-# It was added to this list in an earlier batch without ever building a child.
-# Left here it would fail 8 of 28 children at build time in a ~10-hour acceptance
-# run. It returns only once a representative child builds and scans.
-# Blocker and evidence: policies/lifecycle.yaml (php-8.5).
+# They stay out of THIS list because production is MATRIX_COUNT images and 8.5
+# has not earned that: no runtime contract in contracts/, no extension contract,
+# no support commitment, no governance decisions, and no arm64 child at all.
+# Adding them here would put eight extra children into a ~10-hour acceptance run
+# whose expected count is derived from MATRIX_COUNT.
+#
+# They are NOT dead configuration either. They are an ENUMERATED experimental
+# cohort with its own canonical plan and its own bounded capabilities:
+#   policies/experimental-cohorts.yaml
+#   scripts/experimental/experimental-plan.sh
+#   scripts/experimental/assert-experimental-isolation.sh
+# That plan REFUSES production acceptance, release manifests, promotion,
+# sealing, signing, publication and the 8.3/8.4 governance selectors, and the
+# isolation gate refuses the reverse from this side. Promoting 8.5 requires a
+# lifecycle authorization change in policies/lifecycle.yaml, not an edit here.
 MATRIX_IMAGES="php-cli:8.3 php-cli:8.4 php-fpm:8.3 php-fpm:8.4 php-worker:8.3 php-worker:8.4 php-frankenphp:8.3 php-frankenphp:8.4 nginx:prod caddy:prod"
 MATRIX_COUNT=10
 

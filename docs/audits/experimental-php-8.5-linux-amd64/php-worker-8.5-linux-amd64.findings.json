@@ -1,0 +1,381 @@
+{
+  "child_key": "php-worker/8.5/linux/amd64",
+  "findings": [
+    {
+      "cve": "CVE-2023-2953",
+      "package": "libldap-2.5-0",
+      "installed": "2.5.13+dfsg-5",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2023-45853",
+      "package": "zlib1g",
+      "installed": "1:1.2.13.dfsg-1",
+      "fixed": null,
+      "severity": "CRITICAL",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2025-69720",
+      "package": "libtinfo6",
+      "installed": "6.4-4",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2025-69720",
+      "package": "ncurses-base",
+      "installed": "6.4-4",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2025-69720",
+      "package": "ncurses-bin",
+      "installed": "6.4-4",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2025-7458",
+      "package": "libsqlite3-0",
+      "installed": "3.40.1-2+deb12u2",
+      "fixed": null,
+      "severity": "CRITICAL",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-12064",
+      "package": "curl",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-12064",
+      "package": "libcurl4",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-13221",
+      "package": "perl-base",
+      "installed": "5.36.0-7+deb12u3",
+      "fixed": null,
+      "severity": "CRITICAL",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-14456",
+      "package": "libssl3",
+      "installed": "3.0.20-1~deb12u2",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-14456",
+      "package": "openssl",
+      "installed": "3.0.20-1~deb12u2",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-41992",
+      "package": "gzip",
+      "installed": "1.12-1",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-42496",
+      "package": "perl-base",
+      "installed": "5.36.0-7+deb12u3",
+      "fixed": null,
+      "severity": "CRITICAL",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-42497",
+      "package": "perl-base",
+      "installed": "5.36.0-7+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-48962",
+      "package": "perl-base",
+      "installed": "5.36.0-7+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53613",
+      "package": "bsdutils",
+      "installed": "1:2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53613",
+      "package": "libblkid1",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53613",
+      "package": "libmount1",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53613",
+      "package": "libsmartcols1",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53613",
+      "package": "libuuid1",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53613",
+      "package": "mount",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53613",
+      "package": "util-linux",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53613",
+      "package": "util-linux-extra",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53615",
+      "package": "bsdutils",
+      "installed": "1:2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53615",
+      "package": "libblkid1",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53615",
+      "package": "libmount1",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53615",
+      "package": "libsmartcols1",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53615",
+      "package": "libuuid1",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53615",
+      "package": "mount",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53615",
+      "package": "util-linux",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-53615",
+      "package": "util-linux-extra",
+      "installed": "2.38.1-5+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-54369",
+      "package": "libacl1",
+      "installed": "2.3.1-3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-57432",
+      "package": "perl-base",
+      "installed": "5.36.0-7+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-57433",
+      "package": "perl-base",
+      "installed": "5.36.0-7+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-58050",
+      "package": "libssh2-1",
+      "installed": "1.10.0-3+b1",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-6276",
+      "package": "curl",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-6276",
+      "package": "libcurl4",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-6653",
+      "package": "libxml2",
+      "installed": "2.9.14+dfsg-1.3~deb12u6",
+      "fixed": null,
+      "severity": "CRITICAL",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-7598",
+      "package": "libssh2-1",
+      "installed": "1.10.0-3+b1",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-8286",
+      "package": "curl",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-8286",
+      "package": "libcurl4",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-8376",
+      "package": "perl-base",
+      "installed": "5.36.0-7+deb12u3",
+      "fixed": null,
+      "severity": "CRITICAL",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-8458",
+      "package": "curl",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-8458",
+      "package": "libcurl4",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-8927",
+      "package": "curl",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-8927",
+      "package": "libcurl4",
+      "installed": "7.88.1-10+deb12u15",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    },
+    {
+      "cve": "CVE-2026-9538",
+      "package": "perl-base",
+      "installed": "5.36.0-7+deb12u3",
+      "fixed": null,
+      "severity": "HIGH",
+      "source": "debian"
+    }
+  ]
+}

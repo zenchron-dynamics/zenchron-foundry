@@ -43,6 +43,14 @@ gate "supply-chain inputs"       bash scripts/assert-supply-chain-inputs.sh
 gate "reproducibility guarantees" bash scripts/repro-guarantees.sh
 gate "build-input lock binding"  bash scripts/repro-lock.sh verify tests/reproducibility/evidence/php-cli-8.4-linux-amd64.lock.json
 gate "governance model"          bash scripts/assert-governance-model.sh
+# The EXPERIMENTAL COHORT contract. Four PHP 8.5 image definitions build but are
+# not in MATRIX_IMAGES; `used_by: []` left them as unreachable dead
+# configuration. The plan makes them reachable; this gate proves production
+# cannot reach back — MATRIX_IMAGES, the acceptance planner, contracts/, the
+# workflows and the 8.3/8.4 ledger selectors are all checked from the
+# production side.
+gate "experimental cohort plan"  bash scripts/experimental/experimental-plan.sh --self-test
+gate "experimental isolation"    bash scripts/experimental/assert-experimental-isolation.sh
 # The artifact/evidence CLASS contract. An upstream-base scan was once reported
 # as child evidence (php:8.4 base: 241 CRITICAL/HIGH, 170 linux-libc-dev; the
 # accepted 8.4 child: 47 and none, because the Dockerfile purges the headers).
