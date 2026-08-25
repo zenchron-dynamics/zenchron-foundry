@@ -29,6 +29,12 @@
 #                      --platform linux/amd64 --image <ref> [--build-arg K=V]... \
 #                      [--out <file>]
 #   repro-lock.sh verify <lock.json>
+#   bind    join a lock to the evidence bundle whose child it describes, on the
+#           build-input identity both carry. REFUSES, naming which side is
+#           missing, when either value does not exist — a bind that succeeded
+#           over two nulls would be a reproducibility claim backed by nothing.
+#
+#   repro-lock.sh bind <lock.json> <bundle-dir>
 #   repro-lock.sh digest <lock.json>
 #   repro-lock.sh --self-test
 # =============================================================================
@@ -672,14 +678,156 @@ d['build_inputs']['base']['manifest_digest'] = 'sha256:' + '2' * 64" \
     "d['schema_version'] = 2" \
     "schema"
 
+  # --- bind: the join, and the refusal when it cannot be made ---------------
+  # Everything here is offline and buildless. The bundle is generated into the
+  # disposable root from the committed accepted run.
+  local BEV="$ROOT/docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json"
+  if [ -f "$BEV" ] && python3 -c 'import yaml' 2>/dev/null \
+     && python3 "$ROOT/tests/lib/make_authorization_fixture.py" "$BEV" "$tmp/auth.json" 2>/dev/null \
+     && bash "$ROOT/scripts/release/generate-evidence-bundle.sh" generate \
+          --evidence "$BEV" --out "$tmp/bundle" --evidence-class staged-candidate \
+          --authorization "$tmp/auth.json" --today 2026-08-25 >/dev/null 2>&1; then
+    t "bind: the committed lock names no shipped image, so binding REFUSES" \
+      "! ( bind '$fixture' '$tmp/bundle' )"
+    t "bind: ...saying WHICH side is missing, not just that it failed" \
+      "grep -q 'manifest_digest = null' <<<\"\$( ( bind '$fixture' '$tmp/bundle' ) 2>&1 )\""
+    # Give the lock a shipped digest the bundle DOES carry: the refusal must
+    # now move to the other side of the join rather than disappearing.
+    python3 - "$fixture" "$tmp/bundle/manifest.json" "$tmp/lock-dig.json" <<'PY'
+import json, sys
+lock = json.load(open(sys.argv[1]))
+man = json.load(open(sys.argv[2]))
+c = [x for x in man["children"]
+     if x["image_label"] == "php-cli/8.4" and x["platform"] == "linux/amd64"][0]
+lock["build_outputs"]["manifest_digest"] = c["manifest_digest"]
+json.dump(lock, open(sys.argv[3], "w"), indent=2)
+PY
+    t "bind: NON-VACUOUS: with a shipped digest the refusal MOVES to the bundle side" \
+      "grep -q 'build_input_digest = null' <<<\"\$( ( bind '$tmp/lock-dig.json' '$tmp/bundle' ) 2>&1 )\""
+    python3 - "$tmp/lock-dig.json" "$tmp/lock-foreign.json" <<'PY'
+import json, sys
+lock = json.load(open(sys.argv[1]))
+lock["build_outputs"]["manifest_digest"] = "sha256:" + "a" * 64
+json.dump(lock, open(sys.argv[2], "w"), indent=2)
+PY
+    t "bind: a lock naming a digest this bundle never shipped is REFUSED" \
+      "grep -q 'no child with that digest' <<<\"\$( ( bind '$tmp/lock-foreign.json' '$tmp/bundle' ) 2>&1 )\""
+    t "bind: the bundle states the same gap in its own record" \
+      "python3 -c 'import json,sys
+r=json.load(open(sys.argv[1]))[\"reproducibility\"]
+sys.exit(0 if r[\"joinable\"] is False and r[\"children_with_build_input_digest\"]==0
+             and \"REFUSES\" in r[\"note\"] else 1)' '$tmp/bundle/manifest.json'"
+    t "bind: policies/reproducibility.yaml is among the digests the bundle seals" \
+      "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+sys.exit(0 if \"policies/reproducibility.yaml\" in m[\"policy_digests\"] else 1)' \
+        '$tmp/bundle/manifest.json'"
+  else
+    echo "  SKIP bind: an evidence bundle could not be generated offline"
+  fi
+
   echo "self-test: $ok ok, $bad failed"
   [ "$bad" -eq 0 ]
+}
+
+# =============================================================================
+# bind <lock.json> <bundle-dir>
+# -----------------------------------------------------------------------------
+# THE JOIN, AND THE REFUSAL WHEN IT CANNOT BE MADE.
+#
+# A lock records the DECLARED INPUTS of a build. An evidence bundle records the
+# OUTPUTS that shipped. The claim "this release is reproducible from these
+# inputs" is only checkable if the two can be joined on a value they share —
+# and until now there was none: build_outputs.manifest_digest in every emitted
+# lock is null (a lock is emitted from a locally built image, and the registry
+# lookup that would resolve a manifest digest is honestly recorded as null
+# rather than invented), while the bundle recorded no build-input identity for
+# any child at all.
+#
+# Both halves of the join now exist as fields. Where the VALUES do not, this
+# REFUSES and says which side is missing. That is the point: a bind that
+# quietly succeeded over two nulls would be a reproducibility claim backed by
+# nothing, which is worse than no claim.
+bind() {
+  local lock="${1:?usage: repro-lock.sh bind <lock.json> <bundle-dir>}"
+  local bundle="${2:?usage: repro-lock.sh bind <lock.json> <bundle-dir>}"
+  [ -s "$lock" ] || die "no lock at '$lock'"
+  [ -f "$bundle/manifest.json" ] || die "not an evidence bundle: $bundle"
+  local ld; ld="$(lock_digest "$lock")" || return 1
+  LOCK_DIGEST="$ld" python3 - "$lock" "$bundle/manifest.json" <<'PY'
+import json, os, sys
+
+
+def refuse(msg):
+    print("REFUSE: " + msg, file=sys.stderr)
+    sys.exit(1)
+
+
+lock = json.load(open(sys.argv[1]))
+man = json.load(open(sys.argv[2]))
+out = (lock.get("build_outputs") or {})
+img = (lock.get("image") or {})
+mdig = out.get("manifest_digest")
+
+if not mdig:
+    refuse("this lock records build_outputs.manifest_digest = null, so it names "
+           "no shipped image. A lock is emitted from a LOCALLY built image and "
+           "the registry lookup that would resolve a manifest digest is recorded "
+           "as an explicit null rather than invented — which is honest, and "
+           "leaves nothing to join on. Emit the lock against the pushed image "
+           "(repro-lock.sh emit --image <ref-by-digest>) so the value exists. "
+           "Binding two nulls would be a reproducibility claim backed by "
+           "nothing.")
+
+repro = man.get("reproducibility") or {}
+children = man.get("children") or []
+match = [c for c in children if c.get("manifest_digest") == mdig]
+if not match:
+    refuse("the lock names shipped digest %s; this bundle carries no child with "
+           "that digest (%d children, revision %s). A lock for another image is "
+           "not this release's inputs"
+           % (mdig, len(children), man.get("source_revision")))
+c = match[0]
+
+want_plat = img.get("platform")
+if want_plat and c.get("platform") != want_plat:
+    refuse("the lock was taken on %s, the child it names shipped on %s"
+           % (want_plat, c.get("platform")))
+if img.get("family") and img.get("selector"):
+    want_label = "%s/%s" % (img["family"], img["selector"])
+    if c.get("image_label") != want_label:
+        refuse("the lock is for %s, the child it names is %s"
+               % (want_label, c.get("image_label")))
+
+bid = c.get("build_input_digest")
+if not bid:
+    refuse("child %s carries build_input_digest = null. The acceptance run that "
+           "produced this bundle predates build-input locking, so there is no "
+           "recorded input identity to compare this lock against. The bundle "
+           "states the same thing at reproducibility.note (%d of %d children "
+           "joinable); until stage-and-authorize.yml emits build_input_digest "
+           "per child this REFUSES rather than asserting a reproducibility "
+           "claim nothing checked"
+           % (c.get("child_key"),
+              repro.get("children_with_build_input_digest", 0),
+              repro.get("children_total", len(children))))
+
+ld = os.environ["LOCK_DIGEST"]
+if bid != ld:
+    refuse("child %s was built from input identity %s; this lock's canonical "
+           "digest is %s. The lock describes a different set of declared inputs"
+           % (c.get("child_key"), bid, ld))
+
+print("ok - lock %s binds child %s (%s, %s) on build_input_digest %s"
+      % (os.path.basename(sys.argv[1]), c["child_key"], c["platform"], mdig, ld))
+PY
 }
 
 case "${1:-}" in
   emit)        shift; emit "$@" ;;
   verify)      shift; verify "$@" ;;
   digest)      shift; lock_digest "${1:?usage: repro-lock.sh digest <lock.json>}" ;;
+  bind)        shift; bind "$@" ;;
   --self-test) self_test ;;
   *) sed -n '/^# Usage:/,/^# =====/{/^# =====/d;p;}' "${BASH_SOURCE[0]}" \
        | sed 's/^#\{1,\} \{0,1\}//' >&2; exit 64 ;;

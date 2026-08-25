@@ -28,7 +28,8 @@
     "authorization",
     "retention",
     "checksums",
-    "files"
+    "files",
+    "reproducibility"
   ],
   "properties": {
     "schema_version": {
@@ -241,7 +242,8 @@
           "package_inventory",
           "severity_counts",
           "gates",
-          "evidence_file"
+          "evidence_file",
+          "build_input_digest"
         ],
         "properties": {
           "child_key": {
@@ -420,6 +422,14 @@
           "evidence_file": {
             "type": "string",
             "description": "Path, relative to the bundle root, of this child's full evidence extract."
+          },
+          "build_input_digest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(sha256:[0-9a-f]{64})?$",
+            "description": "The identity of the DECLARED INPUTS this child was built from (evidence-class-v1 requires it). Explicitly null when the acceptance run predates build-input locking \u2014 never silently omitted, because the bundle recording no such field at all is why a reproducibility lock and a shipped image had no value to be joined on."
           }
         }
       }
@@ -974,6 +984,52 @@
           "role": {
             "type": "string"
           }
+        }
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Whether this bundle can be joined to a build-input lock, and the policy whose bytes decided what a reproducibility claim means. policies/reproducibility.yaml is among policy_digests, so the claim cannot be reworded without the bundle's digest changing.",
+      "required": [
+        "policy_file",
+        "lock_schema",
+        "children_with_build_input_digest",
+        "children_total",
+        "joinable",
+        "note"
+      ],
+      "properties": {
+        "policy_file": {
+          "type": "string"
+        },
+        "policy_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([0-9a-f]{64})?$"
+        },
+        "lock_schema": {
+          "type": "string"
+        },
+        "lock_tool": {
+          "type": "string"
+        },
+        "children_with_build_input_digest": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "children_total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "joinable": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 20
         }
       }
     }

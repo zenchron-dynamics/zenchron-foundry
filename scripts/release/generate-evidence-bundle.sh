@@ -79,7 +79,10 @@ policies/cosign-identities.yaml
 policies/native-arch-requirements.yaml
 policies/required-release-checks.yaml
 policies/retention.yaml
-policies/evidence-classes.yaml"
+policies/evidence-classes.yaml
+policies/reproducibility.yaml
+policies/continuity-mirror.yaml
+policies/license-policy.yaml"
 
 _geb_need_py() {
   python3 -c 'import yaml' 2>/dev/null \
@@ -429,6 +432,11 @@ for c, (key, slug, ident_fmts) in zip(children_in, ident):
     esha = c.get("evidence_sha256") or ""
     if not re.match(r"^[0-9a-f]{64}$", esha):
         refuse("child %s: evidence_sha256 %r is missing or malformed" % (key, esha))
+    bid = c.get("build_input_digest") or c.get("context_digest")
+    if bid is not None and not re.match(r"^sha256:[0-9a-f]{64}$", str(bid)):
+        refuse("child %s: build_input_digest %r is neither absent nor a sha256 "
+               "digest. A malformed identity is worse than a missing one: it "
+               "joins to nothing while looking as though it does" % (key, bid))
 
     child_sbom = None
     if sbom_dir:
@@ -489,6 +497,15 @@ for c, (key, slug, ident_fmts) in zip(children_in, ident):
         ("host_architecture", c.get("host_architecture")),
         ("runner_name", c.get("runner_name")),
         ("source_revision", source_revision),
+        # THE BUILD-INPUT IDENTITY. evidence-class-v1 REQUIRES build_input_digest
+        # — it is what makes "the same inputs" a checkable claim rather than an
+        # assertion — and the bundle recorded no such field for any child, so
+        # there was no value on which a reproducibility lock and a shipped image
+        # could ever be joined. It is carried through when the acceptance record
+        # has it and recorded as an EXPLICIT null when it does not, never
+        # silently omitted; the manifest's reproducibility block below says how
+        # many children carry one and what would close the gap.
+        ("build_input_digest", bid),
         ("evidence_sha256", esha),
         ("package_inventory", c.get("package_inventory")),
         ("severity_counts", c.get("severity_counts") or {}),
@@ -856,6 +873,33 @@ execution = collections.OrderedDict([
 mx = ev.get("matrix") or {}
 platforms = sorted({c["platform"] for c in children_in})
 
+# --- reproducibility ---------------------------------------------------------
+# The word did not appear in this generator at all, and policies/reproducibility
+# .yaml was not among the policies the bundle digested — so a reproducibility
+# claim could be reworded with no bundle digest changing. Both are fixed: the
+# policy is a decision input above, and the bundle states, per child, whether a
+# build-input identity exists to join a lock to.
+with_bid = [c for c in children if c["build_input_digest"]]
+reproducibility = collections.OrderedDict([
+    ("policy_file", "policies/reproducibility.yaml"),
+    ("policy_sha256", digests.get("policies/reproducibility.yaml")),
+    ("lock_schema", "schemas/build-input-lock-v1.schema.json"),
+    ("lock_tool", "scripts/repro-lock.sh"),
+    ("children_with_build_input_digest", len(with_bid)),
+    ("children_total", len(children)),
+    ("joinable", len(with_bid) == len(children) and bool(children)),
+    ("note",
+     ("Every child carries a build-input identity; a lock emitted by "
+      "scripts/repro-lock.sh can be bound to a shipped digest."
+      if with_bid and len(with_bid) == len(children) else
+      "No child in this accepted run carries a build-input identity: the run "
+      "predates build-input locking on the acceptance path. Until "
+      "stage-and-authorize.yml emits build_input_digest per child, "
+      "scripts/repro-lock.sh bind REFUSES rather than pretending a lock and a "
+      "shipped image describe the same build. This is a declared gap with an "
+      "enforced refusal, not an unstated one.")),
+])
+
 manifest = collections.OrderedDict([
     ("schema_version", 1),
     ("bundle_type", "release-evidence-bundle"),
@@ -911,6 +955,7 @@ manifest = collections.OrderedDict([
         ("policy_sha256", sha256_file(ledger_p)),
     ])),
     ("dispositions", dispositions),
+    ("reproducibility", reproducibility),
     ("policy_digests", digests),
     ("provenance", provenance),
     ("authorization", authorization),
