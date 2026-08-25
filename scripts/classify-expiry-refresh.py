@@ -321,10 +321,18 @@ def main(argv=None):
         bucket, ev, why = classify(e, children, heads, moved)
         eid = exc_id(e)
         pkgs = packages_of(e) or []
-        own = owner_of("php-frankenphp/8.4" if "frankenphp" in e.get("image", "") else "php-fpm/8.4",
-                       pkgs[0] if pkgs else "unknown",
-                       (e.get("installed_version") if isinstance(e.get("installed_version"), str) else ""),
-                       "", "yes" if ev.get("upstream_base_head_state") == ["head-moved-same-version"] else "no")
+        # Feed the ownership model what was ACTUALLY OBSERVED, not the record's
+        # own claims and not a placeholder image. The model keys on installed
+        # and fixed versions; passing an empty `--fixed` for a finding that has
+        # one reports a vendored Go module as an unfixable distro package.
+        obs = (ev.get("observed") or [""])[0]
+        obs_pkg = obs.split("@")[0] if obs else (pkgs[0] if pkgs else "unknown")
+        obs_ver = obs.split("@")[1].split(" fix:")[0] if "@" in obs else ""
+        obs_fix = obs.split(" fix:")[1] if " fix:" in obs else ""
+        first_child = (ev.get("in_scope_children") or ["unknown/unknown"])[0]
+        label = "/".join(first_child.split("/")[:2])
+        own = owner_of(label, obs_pkg, obs_ver, obs_fix,
+                       "yes" if ev.get("upstream_base_head_state") == ["head-moved-same-version"] else "no")
         rows.append({
             "n": i, "exception_id": eid, "cve": e.get("cve"), "image_selector": e.get("image"),
             "packages": pkgs, "bound_version": e.get("installed_version"),

@@ -304,9 +304,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 7,
@@ -344,9 +344,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 8,
@@ -466,9 +466,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:google.golang.org/grpc:v1.81.0"
+      "root_cause_key": "upstream-vendor-binary:google.golang.org/grpc:v1.81.0"
     },
     {
       "n": 11,
@@ -590,9 +590,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 14,
@@ -1319,7 +1319,7 @@
       "matched_by_gate": true,
       "remediation_owner": "upstream-base",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:bsdutils:unpinned"
+      "root_cause_key": "upstream-base:bsdutils:1:2.38.1-5+deb12u3"
     },
     {
       "n": 28,
@@ -1718,7 +1718,7 @@
       "matched_by_gate": true,
       "remediation_owner": "upstream-base",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+      "root_cause_key": "upstream-base:perl-base:5.36.0-7+deb12u3"
     },
     {
       "n": 37,
@@ -1759,7 +1759,7 @@
       "matched_by_gate": true,
       "remediation_owner": "upstream-base",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+      "root_cause_key": "upstream-base:perl-base:5.36.0-7+deb12u3"
     },
     {
       "n": 38,
@@ -1800,7 +1800,7 @@
       "matched_by_gate": true,
       "remediation_owner": "upstream-base",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+      "root_cause_key": "upstream-base:perl-base:5.36.0-7+deb12u3"
     },
     {
       "n": 39,
@@ -1973,7 +1973,7 @@
       "matched_by_gate": true,
       "remediation_owner": "upstream-base",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:bsdutils:unpinned"
+      "root_cause_key": "upstream-base:bsdutils:1:2.38.1-5+deb12u3"
     },
     {
       "n": 43,
@@ -2049,9 +2049,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:golang.org/x/text:v0.37.0"
+      "root_cause_key": "upstream-vendor-binary:golang.org/x/text:v0.37.0"
     },
     {
       "n": 45,
@@ -2195,9 +2195,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:golang.org/x/net:v0.55.0"
+      "root_cause_key": "upstream-vendor-binary:golang.org/x/net:v0.55.0"
     },
     {
       "n": 48,
@@ -2235,9 +2235,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 49,
@@ -2275,9 +2275,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 50,
@@ -2315,9 +2315,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 51,
@@ -2355,9 +2355,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 52,
@@ -2395,9 +2395,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 53,
@@ -2435,9 +2435,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 54,
@@ -2475,9 +2475,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 55,
@@ -2515,9 +2515,9 @@
         ]
       },
       "matched_by_gate": true,
-      "remediation_owner": "upstream-base",
+      "remediation_owner": "upstream-vendor-binary",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:stdlib:v1.26.3"
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
     },
     {
       "n": 56,
@@ -2571,7 +2571,7 @@
       "matched_by_gate": true,
       "remediation_owner": "upstream-base",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:openssl:3.0.20-1~deb12u2"
+      "root_cause_key": "upstream-base:libssl3:3.0.20-1~deb12u2"
     },
     {
       "n": 57,
@@ -2611,7 +2611,7 @@
       "matched_by_gate": true,
       "remediation_owner": "upstream-base",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:openssl:3.0.20-1~deb12u2"
+      "root_cause_key": "upstream-base:libssl3:3.0.20-1~deb12u2"
     },
     {
       "n": 58,
@@ -2680,7 +2680,7 @@
       "matched_by_gate": true,
       "remediation_owner": "upstream-base",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:bsdutils:unpinned"
+      "root_cause_key": "upstream-base:bsdutils:1:2.38.1-5+deb12u3"
     },
     {
       "n": 59,
@@ -2735,7 +2735,7 @@
       "matched_by_gate": true,
       "remediation_owner": "upstream-base",
       "rebuild_can_remediate": "no",
-      "root_cause_key": "upstream-base:bsdutils:unpinned"
+      "root_cause_key": "upstream-base:bsdutils:1:2.38.1-5+deb12u3"
     }
   ]
 }
