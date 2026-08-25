@@ -40,6 +40,54 @@ risk worth naming, independently of any individual finding:
 - **Staggering the replacement dates is itself a maintainer decision and is not
   taken here.** This lane cannot edit the ledger and does not propose a schedule.
 
+### `expires_at` is INCLUSIVE — the date a record stops being valid
+
+A per-entry technical fact about the comparison, because "expires 2026-08-31"
+reads to most people as "valid through 31 August" and **it is not**.
+
+Both gates compare with `<=`, not `<`:
+
+- `scripts/validate-vulnerability-exceptions.sh:335` —
+  `[[ "$expires" > "$today" ]] || fail "… EXPIRED/EXPIRING ($expires <= $today)"`
+- `scripts/reconcile-vulnerabilities.sh:384` — `if exp <= today:` →
+  `"exception expired (%s <= %s)"`
+
+So a record dated `2026-08-31` is invalid **on** 2026-08-31, not on the day
+after. Verified by sweeping the date the validator is given. The mechanism is the
+`TODAY` environment variable (`main()` reads `${TODAY:-$(date +%Y-%m-%d)}`), not
+a `--today` flag on this script — `--today` is the equivalent option on
+`reconcile-vulnerabilities.sh`:
+
+```console
+$ TODAY=2026-08-25 bash scripts/validate-vulnerability-exceptions.sh
+EXCEPTION-POLICY OK: 59 entries valid, scanner/policy in sync (as of 2026-08-25)   # rc=0
+
+$ TODAY=2026-08-30 bash scripts/validate-vulnerability-exceptions.sh
+EXCEPTION-POLICY OK: 59 entries valid, scanner/policy in sync (as of 2026-08-30)   # rc=0
+
+$ TODAY=2026-08-31 bash scripts/validate-vulnerability-exceptions.sh
+EXCEPTION-POLICY FAIL: entry 0 (CVE-2023-45853/php-8.3-8.4):
+  EXPIRED/EXPIRING (2026-08-31 <= 2026-08-31) — re-review required               # rc=1
+```
+
+The validator stops at the first failing entry, so the same sweep was repeated
+against a read-only copy containing **only** the four records dated
+`2026-09-01` (written to `/tmp`; the ledger itself was never touched):
+
+```console
+$ TODAY=2026-08-31 bash scripts/validate-vulnerability-exceptions.sh /tmp/only-0901.yaml
+EXCEPTION-POLICY OK: 4 entries valid, scanner/policy in sync (as of 2026-08-31)    # rc=0
+
+$ TODAY=2026-09-01 bash scripts/validate-vulnerability-exceptions.sh /tmp/only-0901.yaml
+EXCEPTION-POLICY FAIL: entry 0 (CVE-2026-14456/php-8.3-8.4):
+  EXPIRED/EXPIRING (2026-09-01 <= 2026-09-01) — re-review required                # rc=1
+```
+
+The inclusive boundary is deliberate and is documented in the ledger itself: the
+`CVE-2026-14456` record explains that `2026-08-26` was the value chosen to expire
+the authorization at the **start** of 26 August. Read the `expires` column in the
+table below as *"the first date on which this record is no longer valid"*.
+
 ## Method
 
 Each of the 59 records was evaluated against evidence measured today, not
@@ -75,6 +123,16 @@ Twelve reconciliations were run:
 
 `shadowed_exception_ids` was empty in all twelve — no record is unreachable
 behind another.
+
+**A failure mode to rule out before blaming expiry.** The intermittent
+stale-exception self-test failure seen in this repository was **not** a policy
+refusal: it was `canonical_images | grep -qx …` taking SIGPIPE under
+`set -o pipefail`, fixed on master in `4203044` (#215). It reproduced here too —
+piping `tests/run-all.sh` into `tail` produced `printf: write error: Broken pipe`
+and a spurious `test_vuln_policy: FAIL`, while the same test run directly
+returned PASS. No reconciliation result in this review is attributable to expiry
+unless the record's own `expires_at` was compared, which is what the sweep above
+does explicitly.
 
 ### Coverage limits, stated rather than glossed
 
@@ -125,7 +183,10 @@ acceptance rationale was never re-verified (below).
 ## Full table — all 59 expiring entries
 
 "matched today" counts the image/architecture reconciliations in which the
-repository's own gate paired this record with a real finding.
+repository's own gate paired this record with a real finding. The `expires`
+column is the **first date on which the record is no longer valid** — the
+comparison is `expires_at <= today` in both gates, so the date shown is not a
+"valid through" date.
 
 | # | advisory | ledger scope | package(s) | bound version | expires | classification | matched today |
 |---|---|---|---|---|---|---|---|

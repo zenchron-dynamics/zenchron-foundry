@@ -2,7 +2,7 @@
   "schema_version": 1,
   "record_type": "maintainer-decision-packet-evidence",
   "prepared_at": "2026-08-25",
-  "source_revision": "a828e077d153b581e9906a537a945dcf4304b9ec",
+  "source_revision": "4203044 (rebased); packet content measured against a828e07 tree, docs-only delta",
   "lane": "documentation and evidence only \u2014 no ledger mutation, no dispatch, no publish, no promote, no signing, no release, no upstream compile",
   "ledger_untouched": "policies/vulnerability-exceptions.yaml unchanged",
   "scanner": {
@@ -1031,7 +1031,26 @@
         ],
         "exception_id": "CVE-2026-53613|nginx|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3"
       }
-    ]
+    ],
+    "expiry_boundary_semantics": {
+      "comparison": "expires_at <= today (INCLUSIVE) in both gates",
+      "validator": "scripts/validate-vulnerability-exceptions.sh:335",
+      "reconciler": "scripts/reconcile-vulnerabilities.sh:384",
+      "date_override": "TODAY env var for the validator; --today flag for the reconciler",
+      "sweep": {
+        "TODAY=2026-08-25": "rc=0, 59 entries valid",
+        "TODAY=2026-08-30": "rc=0, 59 entries valid",
+        "TODAY=2026-08-31": "rc=1, entry 0 EXPIRED/EXPIRING (2026-08-31 <= 2026-08-31)",
+        "TODAY=2026-08-31 (only 2026-09-01 records)": "rc=0, 4 entries valid",
+        "TODAY=2026-09-01 (only 2026-09-01 records)": "rc=1, EXPIRED/EXPIRING (2026-09-01 <= 2026-09-01)"
+      },
+      "note": "a record dated 2026-08-31 is invalid ON 2026-08-31, not the day after"
+    },
+    "stale_exception_flake": {
+      "cause": "canonical_images | grep -qx taking SIGPIPE under set -o pipefail",
+      "fixed_on_master": "4203044 (#215)",
+      "implication": "a reconciliation failure must not be attributed to expiry without comparing expires_at"
+    }
   },
   "reconciliations": {
     "caddy/prod|linux/arm64": {
