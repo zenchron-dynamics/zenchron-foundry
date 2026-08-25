@@ -612,3 +612,856 @@ ck "B-S5 ...because verify re-reads the SUBJECT, not just the file's own digest"
    "says 'not this child' ver '$TMP/b-s5'"
 ck "B-S5 NON-VACUOUS: the untouched bundle still verifies after every SBOM sabotage" \
    "ver '$TMP/cand' >/dev/null 2>&1"
+
+echo
+echo "== stage 4: VEX — bound to the digest AND to the evidence class =========="
+
+ck "the VEX document lives INSIDE checksum coverage" \
+   "grep -q 'content/vex/openvex.json' '$TMP/cand/SHA256SUMS'"
+ck "the bundle's dispositions re-derive from the same accepted run" \
+   "vexv --vex '$TMP/cand/content/vex/openvex.json' --evidence '$ACCEPTED' --today '$DAY' >/dev/null 2>&1"
+
+# Digest binding: change one product digest and nothing else.
+mkdir -p "$TMP/vexsab"
+python3 - "$TMP/cand/content/vex/openvex.json" "$TMP/vexsab/digest.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+p = d["statements"][0]["products"][0]
+fake = "f" * 64
+p["@id"] = p["@id"].replace(p["hashes"]["sha256"], fake).replace(
+    p["hashes"]["sha256"].upper(), fake)
+p["identifiers"]["purl"] = p["@id"]
+p["hashes"]["sha256"] = fake
+json.dump(d, open(sys.argv[2], "w"), indent=2)
+PY
+ck "SABOTAGE: a statement re-pointed at a digest the run never scanned is REFUSED" \
+   "! vexv --vex '$TMP/vexsab/digest.json' --evidence '$ACCEPTED' --today '$DAY' >/dev/null 2>&1"
+ck "...for the digest-binding diagnostic" \
+   "says 'is not one of the' vexv --vex '$TMP/vexsab/digest.json' --evidence '$ACCEPTED' --today '$DAY'"
+
+# Evidence binding: same document, different acceptance record.
+python3 - "$ACCEPTED" "$TMP/vexsab/other-evidence.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["scope_note"] = (d.get("scope_note") or "") + " (disposable copy)"
+json.dump(d, open(sys.argv[2], "w"), indent=2)
+PY
+ck "SABOTAGE: dispositions checked against a different acceptance record are REFUSED" \
+   "! vexv --vex '$TMP/cand/content/vex/openvex.json' --evidence '$TMP/vexsab/other-evidence.json' \
+      --today '$DAY' >/dev/null 2>&1"
+ck "...for the evidence-record-hash diagnostic" \
+   "says 'hashes to' vexv --vex '$TMP/cand/content/vex/openvex.json' \
+      --evidence '$TMP/vexsab/other-evidence.json' --today '$DAY'"
+
+# --- the class boundary -----------------------------------------------------
+# WHAT THIS USED TO PIN. A disposition set is a published statement about a
+# SHIPPED artifact. The class contract exists precisely because "what may ship"
+# and "what shipped" are not interchangeable — yet the VEX document had no field
+# that distinguished them, vex-openvex-v1 declared none and forbade extras, and
+# the two documents were BYTE-IDENTICAL. Either could be presented as the other.
+ck "a published-artifact bundle generates from the same run" \
+   "gen --evidence '$ACCEPTED' --out '$TMP/pub' --evidence-class published-artifact \
+      --release v2026.08.25 --candidate rc1 --sbom-dir '$TMP/sbom' \
+      --provenance '$TMP/prov.json' --authorization '$TMP/auth-right.json' \
+      --today '$DAY' >/dev/null 2>&1"
+ck "the two bundles really do carry different classes (non-vacuity for the next line)" \
+   "[ \"\$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[\"evidence_class\"])' '$TMP/cand/manifest.json')\" \
+   != \"\$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[\"evidence_class\"])' '$TMP/pub/manifest.json')\" ]"
+ck "candidate and published dispositions are NO LONGER byte-identical" \
+   "! cmp -s '$TMP/cand/content/vex/openvex.json' '$TMP/pub/content/vex/openvex.json'"
+ck "...because each document NAMES the evidence class it was published for" \
+   "[ \"\$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[\"foundry\"][\"evidence_class\"])' '$TMP/cand/content/vex/openvex.json')\" = 'staged-candidate' ] \
+    && [ \"\$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[\"foundry\"][\"evidence_class\"])' '$TMP/pub/content/vex/openvex.json')\" = 'published-artifact' ]"
+ck "vex-openvex-v1 now DECLARES evidence_class and REQUIRES it" \
+   "python3 -c 'import json,sys
+f=json.load(open(\"schemas/vex-openvex-v1.schema.json\"))[\"properties\"][\"foundry\"]
+sys.exit(0 if \"evidence_class\" in f[\"properties\"] and \"evidence_class\" in f[\"required\"]
+             and f[\"additionalProperties\"] is False else 1)'"
+ck "SABOTAGE: candidate dispositions presented as a published release are REFUSED" \
+   "! vexv --vex '$TMP/cand/content/vex/openvex.json' --evidence '$ACCEPTED' \
+      --evidence-class published-artifact --today '$DAY' >/dev/null 2>&1"
+ck "...for the class diagnostic, not a checksum one" \
+   "says 'does not stand in for' vexv --vex '$TMP/cand/content/vex/openvex.json' \
+      --evidence '$ACCEPTED' --evidence-class published-artifact --today '$DAY'"
+ck "NON-VACUOUS: each verifies against the class it WAS published for" \
+   "vexv --vex '$TMP/cand/content/vex/openvex.json' --evidence '$ACCEPTED' \
+      --evidence-class staged-candidate --today '$DAY' >/dev/null 2>&1 \
+    && vexv --vex '$TMP/pub/content/vex/openvex.json' --evidence '$ACCEPTED' \
+      --evidence-class published-artifact --today '$DAY' >/dev/null 2>&1"
+
+# --- bundle verify cross-checks the VEX against the manifest ----------------
+# The digest check alone proved only that the file had not changed since
+# sealing; it said nothing about whether the document was about this bundle.
+# A disposition document re-pointed at another revision, then HONESTLY
+# re-sealed: the manifest's recorded digest, the file index and the
+# path-independent aggregate all agree afterwards, so only a cross-check
+# against the manifest can refuse it.
+cp -R "$TMP/cand" "$TMP/vex-rev"
+python3 - "$TMP/vex-rev" <<'PY'
+import hashlib, json, os, sys
+b = sys.argv[1]
+vp = os.path.join(b, "content/vex/openvex.json")
+d = json.load(open(vp))
+d["foundry"]["source_revision"] = "0" * 40
+json.dump(d, open(vp, "w"), indent=2)
+mp = os.path.join(b, "manifest.json")
+m = json.load(open(mp))
+m["dispositions"]["sha256"] = hashlib.sha256(open(vp, "rb").read()).hexdigest()
+json.dump(m, open(mp, "w"), indent=2)
+PY
+reindex "$TMP/vex-rev"
+ck "SABOTAGE: dispositions re-pointed at another revision and honestly re-sealed are REFUSED" \
+   "! ver '$TMP/vex-rev' >/dev/null 2>&1"
+ck "...by a cross-check against the manifest, which the digest check alone could not make" \
+   "says 'binds source_revision' ver '$TMP/vex-rev'"
+
+# The same for the class: a published set dropped into a candidate bundle.
+cp -R "$TMP/cand" "$TMP/vex-cls"
+cp "$TMP/pub/content/vex/openvex.json" "$TMP/vex-cls/content/vex/openvex.json"
+python3 - "$TMP/vex-cls" <<'PY'
+import hashlib, json, os, sys
+b = sys.argv[1]
+vp = os.path.join(b, "content/vex/openvex.json")
+mp = os.path.join(b, "manifest.json")
+m = json.load(open(mp))
+m["dispositions"]["sha256"] = hashlib.sha256(open(vp, "rb").read()).hexdigest()
+json.dump(m, open(mp, "w"), indent=2)
+PY
+reindex "$TMP/vex-cls"
+ck "SABOTAGE: a PUBLISHED disposition set inside a candidate bundle is REFUSED" \
+   "! ver '$TMP/vex-cls' >/dev/null 2>&1"
+ck "...for the class diagnostic — 'what shipped' does not stand in for 'what may ship'" \
+   "says 'does not stand in for' ver '$TMP/vex-cls'"
+
+# --- V-S3  REQUIRED SABOTAGE: missing VEX disposition -----------------------
+cp -R "$TMP/cand" "$TMP/v-s3"
+rm -f "$TMP/v-s3/content/vex/openvex.json"
+ck "V-S3 SABOTAGE: a bundle whose disposition document is DELETED is REFUSED" \
+   "! ver '$TMP/v-s3' >/dev/null 2>&1"
+cp -R "$TMP/cand" "$TMP/v-s3b"
+rm -f "$TMP/v-s3b/content/vex/openvex.json"
+reindex "$TMP/v-s3b"
+ck "V-S3 SABOTAGE: ...and still REFUSED after an honest re-seal over the gap" \
+   "! ver '$TMP/v-s3b' >/dev/null 2>&1"
+# A disposition REMOVED from an otherwise intact document: an observed finding
+# with no published statement about it.
+cp -R "$TMP/cand" "$TMP/v-s3c"
+python3 - "$TMP/v-s3c/content/vex/openvex.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["statements"] = d["statements"][1:]
+json.dump(d, open(sys.argv[1], "w"), indent=2)
+PY
+ck "V-S3 SABOTAGE: an observed finding with NO disposition is REFUSED by the VEX verifier" \
+   "! vexv --vex '$TMP/v-s3c/content/vex/openvex.json' --evidence '$ACCEPTED' \
+      --evidence-class staged-candidate --today '$DAY' >/dev/null 2>&1"
+ck "V-S3 ...for the no-disposition diagnostic" \
+   "says 'no disposition' vexv --vex '$TMP/v-s3c/content/vex/openvex.json' \
+      --evidence '$ACCEPTED' --evidence-class staged-candidate --today '$DAY'"
+ck "V-S3 NON-VACUOUS: the complete document still verifies after all three" \
+   "vexv --vex '$TMP/cand/content/vex/openvex.json' --evidence '$ACCEPTED' \
+      --evidence-class staged-candidate --today '$DAY' >/dev/null 2>&1"
+
+echo
+echo "== stage 5: retention + content-after-checksum ============================"
+
+ck "retention travels as bundle content, not as a manifest-only assertion" \
+   "grep -q 'content/retention/retention.json' '$TMP/cand/SHA256SUMS'"
+ck "retain_until is derived from policies/retention.yaml, not from the generator clock" \
+   "python3 -c 'import datetime,json,sys,yaml
+m=json.load(open(sys.argv[1]))
+p=yaml.safe_load(open(\"policies/retention.yaml\"))
+d=[c for c in p[\"classes\"] if c[\"evidence_class\"]==m[\"evidence_class\"]][0]
+start=datetime.date.fromisoformat(m[\"generated_at\"][:10])
+want=(start+datetime.timedelta(days=int(d[\"retention_days\"]))).isoformat()
+sys.exit(0 if m[\"retention\"][\"retain_until\"]==want else 1)' '$TMP/cand/manifest.json'"
+
+# --- R-S1  REQUIRED SABOTAGE: incomplete retention metadata ----------------
+# Retention stays on disk but is dropped from coverage, and the aggregate is
+# recomputed so BUNDLE.sha256 agrees with SHA256SUMS.
+cp -R "$TMP/cand" "$TMP/ret-uncovered"
+python3 - "$TMP/ret-uncovered" <<'PY'
+import hashlib, os, sys
+d = sys.argv[1]
+keep = [ln for ln in open(os.path.join(d, "SHA256SUMS")).read().splitlines()
+        if ln and "content/retention/" not in ln]
+open(os.path.join(d, "SHA256SUMS"), "w").write("\n".join(keep) + "\n")
+open(os.path.join(d, "BUNDLE.sha256"), "w").write(
+    "%s  SHA256SUMS\n"
+    % hashlib.sha256(open(os.path.join(d, "SHA256SUMS"), "rb").read()).hexdigest())
+PY
+ck "R-S1 SABOTAGE: retention excluded from the checksum index is REFUSED" \
+   "! ver '$TMP/ret-uncovered' >/dev/null 2>&1"
+ck "R-S1 ...for the outside-coverage diagnostic, naming the retention file" \
+   "says 'covered by no checksum' ver '$TMP/ret-uncovered'"
+
+# --- R-S2  REQUIRED SABOTAGE: changed bundle content after checksum --------
+cp -R "$TMP/cand" "$TMP/ret-deleted"
+rm -f "$TMP/ret-deleted/content/retention/retention.json"
+python3 - "$TMP/ret-deleted" <<'PY'
+import hashlib, os, sys
+d = sys.argv[1]
+lines = []
+for dp, _dirs, ns in os.walk(d):
+    for n in ns:
+        ap = os.path.join(dp, n)
+        rel = os.path.relpath(ap, d)
+        if rel in ("SHA256SUMS", "BUNDLE.sha256"):
+            continue
+        lines.append("%s  %s" % (hashlib.sha256(open(ap, "rb").read()).hexdigest(), rel))
+lines.sort(key=lambda s: s.split("  ", 1)[1])
+mn = [l for l in lines if l.endswith("  manifest.json")]
+open(os.path.join(d, "SHA256SUMS"), "w").write(
+    "\n".join(mn + [l for l in lines if l not in mn]) + "\n")
+open(os.path.join(d, "BUNDLE.sha256"), "w").write(
+    "%s  SHA256SUMS\n"
+    % hashlib.sha256(open(os.path.join(d, "SHA256SUMS"), "rb").read()).hexdigest())
+PY
+ck "R-S2 SABOTAGE: retention deleted and the index honestly rewritten is still REFUSED" \
+   "! ver '$TMP/ret-deleted' >/dev/null 2>&1"
+ck "R-S2 ...because the aggregate over content/ no longer matches the sealed manifest" \
+   "says 'manifest content_checksum is' ver '$TMP/ret-deleted'"
+cp -R "$TMP/cand" "$TMP/content-planted"
+printf 'planted after sealing\n' > "$TMP/content-planted/content/planted.txt"
+ck "R-S2 SABOTAGE: a file added after sealing is outside coverage and REFUSED" \
+   "! ver '$TMP/content-planted' >/dev/null 2>&1"
+
+# --- R-S3  retention metadata that is present but INCOMPLETE ---------------
+cp -R "$TMP/cand" "$TMP/ret-partial"
+python3 - "$TMP/ret-partial" <<'PY'
+import json, os, sys
+p = os.path.join(sys.argv[1], "manifest.json")
+m = json.load(open(p))
+m["retention"].pop("retain_until", None)
+json.dump(m, open(p, "w"), indent=2)
+PY
+reindex "$TMP/ret-partial"
+ck "R-S3 SABOTAGE: a manifest whose retention block is incomplete is REFUSED by the schema" \
+   "! ver '$TMP/ret-partial' >/dev/null 2>&1"
+ck "R-S3 ...naming release-evidence-bundle-v1 rather than a checksum" \
+   "says 'release-evidence-bundle-v1' ver '$TMP/ret-partial'"
+ck "R-S1/2/3 NON-VACUOUS: the untouched bundle still verifies after all four" \
+   "ver '$TMP/cand' >/dev/null 2>&1"
+
+echo
+echo "== stage 6: the test-only seal ============================================"
+
+openssl ecparam -name prime256v1 -genkey -noout -out "$TMP/test.key" 2>/dev/null
+openssl pkey -in "$TMP/test.key" -pubout -out "$TMP/test.pub" 2>/dev/null
+REL_ID='https://github.com/zenchron-dynamics/zenchron-foundry/.github/workflows/release.yml@refs/tags/v2026.08.25'
+
+ck "the release identity fixture is one the committed policy declares" \
+   "python3 -c 'import re,sys,yaml
+r=yaml.safe_load(open(\"policies/cosign-identities.yaml\"))[\"roles\"][\"release\"][\"identity_regexp\"]
+sys.exit(0 if re.match(r, sys.argv[1]) else 1)' '$REL_ID'"
+ck "the published-artifact bundle seals" \
+   "seal --bundle '$TMP/pub' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal.json' --today '$DAY' >/dev/null 2>&1"
+ck "the seal verifies against the bundle it was made over" \
+   "vsl --seal '$TMP/seal.json' --bundle '$TMP/pub' --pubkey '$TMP/test.pub' \
+      --version v2026.08.25 --today '$DAY' >/dev/null 2>&1"
+ck "the seal is unmistakably a test seal" \
+   "python3 -c 'import json,sys
+s=json.load(open(sys.argv[1]))
+sys.exit(0 if s[\"test_only\"] and s[\"not_a_release\"] else 1)' '$TMP/seal.json'"
+
+# --- the authorization is now BOUND INTO the seal --------------------------
+# WHAT THIS USED TO PIN. The seal bound no authorization identity at all — only
+# a boolean it had copied out of a four-field summary — so the canonical record
+# was never an input to any seal it could contradict.
+ck "the seal BINDS the authorization record's file, digest, revision and scope" \
+   "python3 -c 'import json,sys
+s=json.load(open(sys.argv[1]))
+a=s[\"authorization\"]
+sys.exit(0 if a[\"record_sha256\"] and a[\"source_revision\"]==s[\"source_revision\"]
+             and a[\"record_file\"].endswith(\"post-build-authorization.json\")
+             and a[\"authorization_scope\"] and a[\"verdict\"]==\"PASS\"
+             and a[\"authorized_children\"]==len(s[\"promoted_digests\"]) else 1)' '$TMP/seal.json'"
+ck "...and release-seal.sh names the canonical record it can now contradict" \
+   "grep -q 'post-build-authorization' '$SEAL' && grep -q 'R13' '$SEAL'"
+
+# --- S-S1  a bundle whose index no longer holds ----------------------------
+cp -R "$TMP/pub" "$TMP/unsealed"
+printf 'planted after sealing\n' > "$TMP/unsealed/content/planted.txt"
+ck "S-S1 SABOTAGE: a bundle with a file outside coverage cannot be sealed" \
+   "! seal --bundle '$TMP/unsealed' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal-bad.json' --today '$DAY' >/dev/null 2>&1"
+ck "S-S1 ...for R6, the refusal to sign an unverifiable bundle" \
+   "says 'R6' seal --bundle '$TMP/unsealed' --version v2026.08.25 --candidate rc1 \
+      --identity '$REL_ID' --test-key '$TMP/test.key' --out '$TMP/seal-bad2.json' --today '$DAY'"
+
+# --- S-S2  REQUIRED SABOTAGE: changed bundle content after checksum --------
+cp -R "$TMP/pub" "$TMP/seal-drift"
+python3 - "$TMP/seal-drift" <<'PY'
+import glob, json, os, sys
+p = sorted(glob.glob(os.path.join(sys.argv[1], "content/children/*.json")))[0]
+d = json.load(open(p))
+d["record"]["severity_counts"] = {"HIGH": 0}
+json.dump(d, open(p, "w"), indent=2)
+PY
+ck "S-S2 SABOTAGE: a valid seal does NOT verify once the bundle's bytes change" \
+   "! vsl --seal '$TMP/seal.json' --bundle '$TMP/seal-drift' --pubkey '$TMP/test.pub' \
+      --version v2026.08.25 --today '$DAY' >/dev/null 2>&1"
+ck "S-S2 SABOTAGE: nor does it verify against a DIFFERENT bundle" \
+   "! vsl --seal '$TMP/seal.json' --bundle '$TMP/cand' --pubkey '$TMP/test.pub' \
+      --version v2026.08.25 --today '$DAY' >/dev/null 2>&1"
+
+# --- S-S3  the class boundary at the seal ----------------------------------
+ck "S-S3 SABOTAGE: a staged-candidate bundle cannot be sealed as a release" \
+   "! seal --bundle '$TMP/cand' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal-cand.json' --today '$DAY' >/dev/null 2>&1"
+ck "S-S3 ...for R8, the evidence-class refusal" \
+   "says 'R8' seal --bundle '$TMP/cand' --version v2026.08.25 --candidate rc1 \
+      --identity '$REL_ID' --test-key '$TMP/test.key' --out '$TMP/seal-cand2.json' --today '$DAY'"
+
+# --- S-S4  REQUIRED SABOTAGE: expired governance ---------------------------
+# The bundle is unchanged; only the date the seal is evaluated on moves past the
+# retention window the class policy promises.
+RETAIN="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["retention"]["retain_until"])' "$TMP/pub/manifest.json")"
+LAPSED="$(python3 -c 'import datetime,sys;print((datetime.date.fromisoformat(sys.argv[1])+datetime.timedelta(days=1)).isoformat())' "$RETAIN")"
+ck "S-S4 SABOTAGE: sealing after the governance window closed is REFUSED" \
+   "! seal --bundle '$TMP/pub' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal-lapsed.json' --today '$LAPSED' >/dev/null 2>&1"
+ck "S-S4 ...for R5, the expired-governance refusal" \
+   "says 'R5' seal --bundle '$TMP/pub' --version v2026.08.25 --candidate rc1 \
+      --identity '$REL_ID' --test-key '$TMP/test.key' --out '$TMP/seal-lapsed2.json' --today '$LAPSED'"
+ck "S-S4 NON-VACUOUS: the same bundle seals inside the window" \
+   "seal --bundle '$TMP/pub' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal-inwindow.json' --today '$DAY' >/dev/null 2>&1"
+
+# --- S-S5  REQUIRED SABOTAGE: QEMU evidence presented as native arm64 ------
+ck "S-S5 the accepted run really did run arm64 under emulation (non-vacuity)" \
+   "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+q=[c for c in m[\"children\"] if c[\"platform\"]==\"linux/arm64\" and c[\"execution_mode\"]==\"qemu\"]
+sys.exit(0 if len(q)==int(sys.argv[2]) else 1)' '$TMP/pub/manifest.json' '$MATRIX_COUNT'"
+ck "S-S5 SABOTAGE: claiming native arm64 over QEMU evidence is REFUSED" \
+   "! seal --bundle '$TMP/pub' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --claim-native-arm64 --test-key '$TMP/test.key' --out '$TMP/seal-native.json' \
+      --today '$DAY' >/dev/null 2>&1"
+ck "S-S5 ...for R9, explaining what emulation does not establish" \
+   "says 'R9' seal --bundle '$TMP/pub' --version v2026.08.25 --candidate rc1 \
+      --identity '$REL_ID' --claim-native-arm64 --test-key '$TMP/test.key' \
+      --out '$TMP/seal-native2.json' --today '$DAY'"
+ck "S-S5 ...and the seal that DOES succeed records arm64 as emulated" \
+   "python3 -c 'import json,sys
+s=json.load(open(sys.argv[1]))
+sys.exit(0 if s[\"native_arm64_claimed\"] is False
+             and all(p[\"execution_mode\"]==\"qemu\"
+                     for p in s[\"promoted_digests\"] if p[\"platform\"]==\"linux/arm64\") else 1)' \
+      '$TMP/seal.json'"
+
+# --- S-S6  R13: an unauthorised bundle cannot be sealed --------------------
+# The bundle is COMPLETE in every other respect — full SBOM set, provenance
+# attestation, intact checksums, the right class and release — so the seal's
+# earlier refusals (R6 an unverifiable bundle, R7 a missing bill of materials,
+# R8 the wrong class) all pass and R13 is the reason it is refused. A sabotage
+# that trips an earlier rule proves nothing about the rule under test.
+ck "S-S6 the argued-absence bundle really exists and verifies (non-vacuity)" \
+   "ver '$TMP/absent' >/dev/null 2>&1"
+gen --evidence "$ACCEPTED" --out "$TMP/noauth-pub" --evidence-class staged-candidate \
+    --sbom-dir "$TMP/sbom" --provenance "$TMP/prov.json" \
+    --authorization-absent 'the 30-day workflow artifact holding this run authorization expired before the bundle was built' \
+    --today "$DAY" >/dev/null 2>&1
+python3 - "$TMP/noauth-pub/manifest.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+m["evidence_class"] = "published-artifact"
+m["release"] = {"version": "v2026.08.25", "candidate": "rc1"}
+json.dump(m, open(sys.argv[1], "w"), indent=2)
+PY
+reindex "$TMP/noauth-pub"
+ck "S-S6 the unauthorised bundle is otherwise complete: SBOMs, provenance, class" \
+   "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+sys.exit(0 if m[\"sbom\"][\"complete\"] and m[\"provenance\"][\"attestation_file\"]
+             and m[\"evidence_class\"]==\"published-artifact\"
+             and m[\"authorization\"][\"record_present\"] is False else 1)' \
+      '$TMP/noauth-pub/manifest.json'"
+ck "S-S6 SABOTAGE: a bundle naming NO authorization cannot be sealed as a release" \
+   "! seal --bundle '$TMP/noauth-pub' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal-noauth.json' --today '$DAY' >/dev/null 2>&1"
+ck "S-S6 ...for R13 specifically, not for R6, R7 or R8" \
+   "says 'R13' seal --bundle '$TMP/noauth-pub' --version v2026.08.25 --candidate rc1 \
+      --identity '$REL_ID' --test-key '$TMP/test.key' --out '$TMP/seal-noauth2.json' --today '$DAY'"
+ck "S-S6 ...quoting the argued absence back, so the reader knows what is missing" \
+   "says 'workflow artifact' seal --bundle '$TMP/noauth-pub' --version v2026.08.25 \
+      --candidate rc1 --identity '$REL_ID' --test-key '$TMP/test.key' \
+      --out '$TMP/seal-noauth3.json' --today '$DAY'"
+ck "S-S6 NON-VACUOUS: the SAME bundle content WITH an authorization seals cleanly" \
+   "seal --bundle '$TMP/pub' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal-ok.json' --today '$DAY' >/dev/null 2>&1"
+
+echo
+echo "== stage 7: continuity — the governance surface travels ==================="
+
+ck "the offline recovery drill runs, offline, and passes" \
+   "bash '$CVERIFY' --drill '$TMP/drill' > '$TMP/drill.log' 2>&1"
+ck "...and it refuses right-digest/wrong-bytes" "grep -q 'WRONG BYTES is refused' '$TMP/drill.log'"
+ck "...and a mirror missing a referenced blob" "grep -q 'missing a referenced blob' '$TMP/drill.log'"
+ck "...and it cannot be mistaken for evidence a mirror exists" \
+   "grep -q 'No independent mirror is provisioned' '$TMP/drill.log'"
+
+# WHAT THIS STAGE USED TO PIN. The drill proves image BYTES survive. It said
+# nothing about whether they could still be JUDGED: the export's universe was
+# image references, so it carried no schema, no policy, and no verifier —
+# everything that makes a restored digest interpretable lived only in the git
+# repository the continuity plan exists to survive the loss of.
+ck "the continuity export DOES carry the governance surface now" \
+   "cexp --export-governance '$TMP/gov' >/dev/null 2>&1"
+ck "...schemas, policies AND the offline verifiers, each bound by digest" \
+   "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+ids={f[\"artifact_class\"] for f in m[\"files\"]}
+sys.exit(0 if {\"schemas\",\"policies\",\"verification-tools\"} <= ids and m[\"file_count\"]>0 else 1)' \
+      '$TMP/gov/GOVERNANCE-MANIFEST.json'"
+ck "...including the schemas this whole path is validated against" \
+   "test -f '$TMP/gov/files/schemas/release-evidence-bundle-v1.schema.json' \
+    && test -f '$TMP/gov/files/schemas/post-build-authorization-v1.schema.json' \
+    && test -f '$TMP/gov/files/schemas/vex-openvex-v1.schema.json'"
+ck "...and the policies whose CONTENT decided the verdict" \
+   "test -f '$TMP/gov/files/policies/retention.yaml' \
+    && test -f '$TMP/gov/files/policies/evidence-classes.yaml'"
+ck "the selector lives in policy, not in a second list inside the script" \
+   "python3 -c 'import sys,yaml
+m=yaml.safe_load(open(\"policies/continuity-mirror.yaml\"))
+cl={c[\"id\"]: c for c in m[\"critical_release_inventory\"][\"artifact_classes\"]}
+sys.exit(0 if all(cl[i].get(\"paths\") for i in (\"schemas\",\"policies\",\"verification-tools\")) else 1)' \
+    && ! grep -q 'schemas/\\*\\.schema\\.json' '$CEXPORT'"
+ck "continuity-mirror.yaml now names classes for schemas, policies and tooling" \
+   "python3 -c 'import sys,yaml
+m=yaml.safe_load(open(\"policies/continuity-mirror.yaml\"))
+ids={c[\"id\"] for c in m[\"critical_release_inventory\"][\"artifact_classes\"]}
+sys.exit(0 if {\"schemas\",\"policies\",\"verification-tools\"} <= ids else 1)'"
+ck "the restored export revalidates against its own aggregate" \
+   "cexp --verify-governance '$TMP/gov' >/dev/null 2>&1"
+ck "NON-VACUOUS: relocating the COMPLETE export leaves the aggregate unchanged" \
+   "cp -R '$TMP/gov' '$TMP/gov-moved' && cexp --verify-governance '$TMP/gov-moved' >/dev/null 2>&1"
+
+# --- C-S1  REQUIRED SABOTAGE: restoration missing one bound artifact -------
+cp -R "$TMP/gov" "$TMP/gov-short"
+rm -f "$TMP/gov-short/files/schemas/vex-openvex-v1.schema.json"
+ck "C-S1 SABOTAGE: a restoration missing ONE bound artifact is REFUSED" \
+   "! cexp --verify-governance '$TMP/gov-short' >/dev/null 2>&1"
+ck "C-S1 ...naming the artifact that did not come back" \
+   "says 'vex-openvex-v1.schema.json' cexp --verify-governance '$TMP/gov-short'"
+cp -R "$TMP/gov" "$TMP/gov-extra"
+printf 'planted\n' > "$TMP/gov-extra/files/policies/planted.yaml"
+ck "C-S1 SABOTAGE: an artifact bound by no digest is REFUSED too" \
+   "! cexp --verify-governance '$TMP/gov-extra' >/dev/null 2>&1"
+cp -R "$TMP/gov" "$TMP/gov-drift"
+printf '\n' >> "$TMP/gov-drift/files/policies/retention.yaml"
+ck "C-S1 SABOTAGE: an artifact whose bytes drifted in transit is REFUSED" \
+   "! cexp --verify-governance '$TMP/gov-drift' >/dev/null 2>&1"
+ck "C-S1 NON-VACUOUS: the intact export still revalidates after all three" \
+   "cexp --verify-governance '$TMP/gov' >/dev/null 2>&1"
+
+# --- INTENTIONALLY UNSUPPORTED, WITH AN ENFORCED REFUSAL -------------------
+# Every artifact class still carries `mirrored: false`, and that is not an
+# oversight to be tidied up by editing the value: no independent mirror is
+# provisioned, so `mirrored: true` would be a false statement about where a copy
+# is held — and it is the one field a reader checks during an outage. The
+# shortfall is real, it is declared, and setting the flag now REFUSES.
+ck "the mirror is still honestly declared not-provisioned" \
+   "python3 -c 'import sys,yaml
+m=yaml.safe_load(open(\"policies/continuity-mirror.yaml\"))
+sys.exit(0 if m[\"mirror\"][\"status\"]==\"not-provisioned\"
+             and m[\"mirror\"][\"independent\"] is False else 1)'"
+ck "...and the policy states the rule under which a class MAY claim to be mirrored" \
+   "python3 -c 'import sys,yaml
+m=yaml.safe_load(open(\"policies/continuity-mirror.yaml\"))
+r=m[\"mirrored_claims\"]
+sys.exit(0 if r[\"permitted_only_when\"] and r[\"enforced_by\"]==\"scripts/continuity-verify.sh\" else 1)'"
+ck "the committed policy passes its own claim check" \
+   "bash '$CVERIFY' --assert-mirror-claims >/dev/null 2>&1"
+python3 - "policies/continuity-mirror.yaml" "$TMP/mirror-claimed.yaml" <<'PY'
+import sys, yaml
+m = yaml.safe_load(open(sys.argv[1]))
+for c in m["critical_release_inventory"]["artifact_classes"]:
+    if c["id"] in ("evidence-bundle", "vex"):
+        c["mirrored"] = True
+yaml.safe_dump(m, open(sys.argv[2], "w"))
+PY
+ck "SABOTAGE: claiming evidence-bundle and vex are mirrored with NO mirror is REFUSED" \
+   "! ( MIRROR_POLICY='$TMP/mirror-claimed.yaml' bash '$CVERIFY' --assert-mirror-claims ) >/dev/null 2>&1"
+ck "...naming the classes and the status that contradicts them" \
+   "grep -q 'evidence-bundle' <<<\"\$( ( MIRROR_POLICY='$TMP/mirror-claimed.yaml' bash '$CVERIFY' --assert-mirror-claims ) 2>&1 )\""
+python3 - "policies/continuity-mirror.yaml" "$TMP/mirror-norule.yaml" <<'PY'
+import sys, yaml
+m = yaml.safe_load(open(sys.argv[1]))
+m.pop("mirrored_claims", None)
+yaml.safe_dump(m, open(sys.argv[2], "w"))
+PY
+ck "SABOTAGE: deleting the rule is REFUSED, never read as permission" \
+   "! ( MIRROR_POLICY='$TMP/mirror-norule.yaml' bash '$CVERIFY' --assert-mirror-claims ) >/dev/null 2>&1"
+ck "NON-VACUOUS: the committed policy still passes after both sabotages" \
+   "bash '$CVERIFY' --assert-mirror-claims >/dev/null 2>&1"
+
+echo
+echo "== stage 8: offline restore, and REVALIDATION of the restored copy ========"
+
+BID="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["bundle_id"])' "$TMP/pub/manifest.json")"
+ck "the sealed bundle archives" \
+   "arch archive --bundle '$TMP/pub' --archive-root '$TMP/archive' >/dev/null 2>&1"
+ck "the archive verifies and reports a non-empty result" \
+   "arch verify --archive-root '$TMP/archive' >/dev/null 2>&1"
+ck "the working copy can be destroyed" "rm -rf '$TMP/pub' && [ ! -e '$TMP/pub' ]"
+ck "the bundle restores from the archive alone" \
+   "arch restore --archive-root '$TMP/archive' --bundle-id '$BID' --dest '$TMP/restored' >/dev/null 2>&1"
+
+# REVALIDATION, past the checksums the restore already re-ran. These are the
+# contracts the other PRs added, re-asserted against bytes that came back off
+# the archive rather than out of the generator.
+ck "REVALIDATED: the restored bundle verifies against its own index" \
+   "ver '$TMP/restored' >/dev/null 2>&1"
+ck "REVALIDATED: the restored dispositions still re-derive from the accepted run" \
+   "vexv --vex '$TMP/restored/content/vex/openvex.json' --evidence '$ACCEPTED' \
+      --evidence-class published-artifact --today '$DAY' >/dev/null 2>&1"
+ck "REVALIDATED: the restored manifest still satisfies release-evidence-bundle-v1" \
+   "python3 -c 'import json,sys
+from jsonschema import Draft202012Validator
+s=json.load(open(\"schemas/release-evidence-bundle-v1.schema.json\"))
+m=json.load(open(sys.argv[1]))
+sys.exit(0 if not list(Draft202012Validator(s).iter_errors(m)) else 1)' '$TMP/restored/manifest.json'"
+ck "REVALIDATED: the restored AUTHORIZATION still satisfies post-build-authorization-v1" \
+   "bash '$AUTHV' '$TMP/restored/content/authorization/post-build-authorization.json' >/dev/null 2>&1"
+ck "REVALIDATED: ...and it still authorises THIS revision and THIS child set" \
+   "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+a=json.load(open(sys.argv[2]))
+sys.exit(0 if a[\"source_revision\"]==m[\"source_revision\"]
+             and {c[\"child_key\"] for c in a[\"children\"]}=={c[\"child_key\"] for c in m[\"children\"]} else 1)' \
+      '$TMP/restored/manifest.json' '$TMP/restored/content/authorization/post-build-authorization.json'"
+ck "REVALIDATED: every restored SBOM still describes the child it is filed under" \
+   "python3 -c 'import json,os,sys
+d=sys.argv[1]
+m=json.load(open(os.path.join(d,\"manifest.json\")))
+for c in m[\"children\"]:
+    doc=json.load(open(os.path.join(d,c[\"sbom\"][\"file\"])))
+    if c[\"manifest_digest\"] not in (doc.get(\"documentDescribes\") or []):
+        sys.exit(1)
+sys.exit(0)' '$TMP/restored'"
+ck "REVALIDATED: the restored evidence class is still one policy promises to keep" \
+   "python3 -c 'import json,sys,yaml
+m=json.load(open(sys.argv[1]))
+p=yaml.safe_load(open(\"policies/retention.yaml\"))
+sys.exit(0 if m[\"evidence_class\"] in [c[\"evidence_class\"] for c in p[\"classes\"]] else 1)' \
+      '$TMP/restored/manifest.json'"
+ck "REVALIDATED: the seal still verifies against the RESTORED bytes" \
+   "vsl --seal '$TMP/seal.json' --bundle '$TMP/restored' --pubkey '$TMP/test.pub' \
+      --version v2026.08.25 --today '$DAY' >/dev/null 2>&1"
+
+# --- X-S1  REQUIRED SABOTAGE: restoration missing one bound artifact -------
+ARCH_DIR="$(dirname "$(grep -m1 "/$BID\$" "$TMP/archive/INDEX.sha256" | awk '{print $2}')")"
+chmod -R u+w "$TMP/archive"
+cp -R "$TMP/archive" "$TMP/archive-b"
+cp -R "$TMP/archive" "$TMP/archive-c"
+python3 - "$TMP/archive/$ARCH_DIR/$BID" <<'PY'
+import glob, json, os, sys
+p = sorted(glob.glob(os.path.join(sys.argv[1], "content/children/*.json")))[0]
+d = json.load(open(p))
+d["record"]["severity_counts"] = {"HIGH": 0}
+json.dump(d, open(p, "w"), indent=2)
+PY
+ck "X-S1 SABOTAGE: a restored archive whose content drifted is REFUSED at restore" \
+   "! arch restore --archive-root '$TMP/archive' --bundle-id '$BID' --dest '$TMP/r2' >/dev/null 2>&1"
+ck "X-S1 ...for the restored-copy-does-not-verify diagnostic" \
+   "says 'restored copy does not verify' \
+      arch restore --archive-root '$TMP/archive' --bundle-id '$BID' --dest '$TMP/r3'"
+printf '%s  SHA256SUMS\n' "$(printf '0%.0s' {1..64})" \
+  > "$TMP/archive-b/$ARCH_DIR/$BID/BUNDLE.sha256"
+ck "X-S1 SABOTAGE: an archived aggregate that no longer matches the index is REFUSED" \
+   "! arch restore --archive-root '$TMP/archive-b' --bundle-id '$BID' --dest '$TMP/r4' >/dev/null 2>&1"
+ck "X-S1 ...for the changed-after-indexing diagnostic" \
+   "says 'changed after it was indexed' \
+      arch restore --archive-root '$TMP/archive-b' --bundle-id '$BID' --dest '$TMP/r5'"
+# ONE bound artifact simply absent from the archive: the restoration is short,
+# not corrupt, which is the case a digest-equality check alone would miss.
+rm -f "$TMP/archive-c/$ARCH_DIR/$BID/content/authorization/post-build-authorization.json"
+ck "X-S1 SABOTAGE: an archive missing ONE bound artifact cannot be restored" \
+   "! arch restore --archive-root '$TMP/archive-c' --bundle-id '$BID' --dest '$TMP/r6' >/dev/null 2>&1"
+ck "X-S1 NON-VACUOUS: the untouched restored copy still verifies after all three" \
+   "ver '$TMP/restored' >/dev/null 2>&1"
+
+echo
+echo "== stage 9: licence gate over the SAME SBOMs the bundle sealed ============"
+
+ck "a licence inventory builds from the release-path SBOM set" \
+   "bash '$LINV' --sbom-dir '$TMP/sbom' --out '$TMP/inventory.json' >/dev/null 2>&1"
+ck "the fail-closed licence gate passes over it" \
+   "bash '$LGATE' --inventory '$TMP/inventory.json' >/dev/null 2>&1"
+cp -R "$TMP/sbom" "$TMP/sbom-copyleft"
+python3 - "$TMP/sbom-copyleft" <<'PY'
+import glob, json, os, sys
+p = sorted(glob.glob(os.path.join(sys.argv[1], "*.spdx.json")))[0]
+d = json.load(open(p))
+d["packages"][0]["licenseConcluded"] = "GPL-3.0-or-later"
+d["packages"][0]["licenseDeclared"] = "GPL-3.0-or-later"
+json.dump(d, open(p, "w"), indent=2)
+PY
+ck "SABOTAGE: one unreviewed copyleft component in the same set REFUSES" \
+   "bash '$LINV' --sbom-dir '$TMP/sbom-copyleft' --out '$TMP/inv-gpl.json' >/dev/null 2>&1 && \
+    ! bash '$LGATE' --inventory '$TMP/inv-gpl.json' >/dev/null 2>&1"
+ck "...for the unreviewed-licence diagnostic, naming the component" \
+   "says 'GPL-3.0-or-later' bash '$LGATE' --inventory '$TMP/inv-gpl.json'"
+
+# WHAT THIS STAGE USED TO PIN. The gate CAN consume the release path and nothing
+# made it: it read a bare directory, so an inventory could be built over any
+# SPDX files at all and still satisfy the policy. Nothing tied a licence verdict
+# to a shipped artifact, an evidence class or a source revision, no workflow
+# invoked it, and the bundle recorded no licence fact — so the two halves never
+# met on one artifact.
+ck "the licence gate CONSUMES the release artifact now" \
+   "bash '$LINV' --bundle '$TMP/cand' --out '$TMP/inv-bound.json' >/dev/null 2>&1"
+ck "...and the inventory names the bundle, class and revision it is a verdict FOR" \
+   "python3 -c 'import json,sys
+i=json.load(open(sys.argv[1])); m=json.load(open(sys.argv[2]))
+r=i[\"release_binding\"]
+sys.exit(0 if r[\"bundle_id\"]==m[\"bundle_id\"] and r[\"evidence_class\"]==m[\"evidence_class\"]
+             and r[\"source_revision\"]==m[\"source_revision\"]
+             and r[\"bundle_content_checksum\"]==m[\"checksums\"][\"content_checksum\"] else 1)' \
+      '$TMP/inv-bound.json' '$TMP/cand/manifest.json'"
+ck "...over exactly the SBOMs the bundle sealed, not a directory somebody chose" \
+   "python3 -c 'import json,os,sys
+i=json.load(open(sys.argv[1])); m=json.load(open(sys.argv[2]))
+sealed={os.path.basename(c[\"sbom\"][\"file\"]) for c in m[\"children\"]}
+sys.exit(0 if set(i[\"sbom_files\"])==sealed else 1)' \
+      '$TMP/inv-bound.json' '$TMP/cand/manifest.json'"
+ck "the bound inventory passes the gate with the binding REQUIRED" \
+   "bash '$LGATE' --inventory '$TMP/inv-bound.json' --require-release-binding >/dev/null 2>&1"
+ck "SABOTAGE: an UNBOUND inventory is REFUSED once the binding is required" \
+   "! bash '$LGATE' --inventory '$TMP/inventory.json' --require-release-binding >/dev/null 2>&1"
+ck "...telling the reader what to rebuild it with" \
+   "says 'license-inventory.sh --bundle' bash '$LGATE' --inventory '$TMP/inventory.json' --require-release-binding"
+ck "SABOTAGE: a candidate's licence verdict presented as a published release is REFUSED" \
+   "! bash '$LGATE' --inventory '$TMP/inv-bound.json' --evidence-class published-artifact >/dev/null 2>&1"
+ck "NON-VACUOUS: it passes for the class it was actually built for" \
+   "bash '$LGATE' --inventory '$TMP/inv-bound.json' --evidence-class staged-candidate >/dev/null 2>&1"
+ck "a workflow DOES invoke the licence gate now" \
+   "grep -rq 'scripts/license/' .github/workflows/"
+ck "the bundle RECORDS a licence fact, so the two meet on one artifact" \
+   "grep -qi 'licen' schemas/release-evidence-bundle-v1.schema.json \
+    && python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+l=m[\"licenses\"]
+sys.exit(0 if l[\"present\"] and l[\"distinct_licenses\"]
+             and l[\"policy_file\"]==\"policies/license-policy.yaml\" else 1)' '$TMP/cand/manifest.json'"
+ck "...as a FACT inside checksum coverage, with the verdict left to the gate" \
+   "grep -q 'content/licenses/license-facts.json' '$TMP/cand/SHA256SUMS' \
+    && python3 -c 'import json,sys
+d=json.load(open(sys.argv[1]))
+sys.exit(0 if d[\"record_type\"]==\"evidence-bundle-license-facts\"
+             and d[\"gate\"]==\"scripts/license/assert-license-policy.sh\" else 1)' \
+      '$TMP/cand/content/licenses/license-facts.json'"
+ck "...and policies/license-policy.yaml is among the digests the bundle seals" \
+   "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+sys.exit(0 if \"policies/license-policy.yaml\" in m[\"policy_digests\"] else 1)' '$TMP/cand/manifest.json'"
+
+echo
+echo "== stage 10: reproducibility has a value to join on ======================="
+
+ck "the committed build-input lock verifies offline" \
+   "bash scripts/repro-lock.sh verify tests/reproducibility/evidence/php-cli-8.4-linux-amd64.lock.json >/dev/null 2>&1"
+ck "the guarantee gate passes on the committed tree" \
+   "bash scripts/repro-guarantees.sh >/dev/null 2>&1"
+ck "the evidence-class contract REQUIRES a build-input identity" \
+   "python3 -c 'import json,sys
+s=json.load(open(\"schemas/evidence-class-v1.schema.json\"))
+sys.exit(0 if \"build_input_digest\" in s[\"required\"] else 1)'"
+
+# WHAT THIS STAGE USED TO PIN. The bundle carried no build-input identity for
+# ANY child, and the lock's only image identity is null — so there was no value
+# on which a reproducibility lock and a shipped image could ever be joined.
+# reproducibility.yaml was not among the policies the bundle digested either, so
+# a reproducibility claim could be reworded with no bundle digest changing.
+ck "the bundle carries a build-input identity FIELD for every child" \
+   "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+sys.exit(0 if all(\"build_input_digest\" in c for c in m[\"children\"]) else 1)' \
+      '$TMP/restored/manifest.json'"
+ck "...and release-evidence-bundle-v1 REQUIRES it, so it cannot be dropped again" \
+   "python3 -c 'import json,sys
+s=json.load(open(\"schemas/release-evidence-bundle-v1.schema.json\"))
+sys.exit(0 if \"build_input_digest\" in s[\"properties\"][\"children\"][\"items\"][\"required\"] else 1)'"
+ck "policies/reproducibility.yaml IS among the policies the bundle digests" \
+   "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+sys.exit(0 if \"policies/reproducibility.yaml\" in m[\"policy_digests\"] else 1)' \
+      '$TMP/restored/manifest.json'"
+ck "the generator names reproducibility, so the claim cannot be reworded silently" \
+   "grep -q 'reproducibility' '$GEN'"
+
+# INTENTIONALLY UNSUPPORTED FOR THIS RUN, WITH AN ENFORCED REFUSAL. The
+# acceptance run predates build-input locking, and a lock emitted from a locally
+# built image records manifest_digest as an explicit null rather than inventing
+# one. Neither is fabricated; both are declared, and the join REFUSES.
+ck "the bundle STATES that no child is joinable, and what would close it" \
+   "python3 -c 'import json,sys
+r=json.load(open(sys.argv[1]))[\"reproducibility\"]
+sys.exit(0 if r[\"joinable\"] is False and r[\"children_with_build_input_digest\"]==0
+             and r[\"children_total\"]>0 and \"REFUSES\" in r[\"note\"] else 1)' \
+      '$TMP/restored/manifest.json'"
+ck "SABOTAGE: binding a lock that names NO shipped image is REFUSED" \
+   "! bash scripts/repro-lock.sh bind \
+      tests/reproducibility/evidence/php-cli-8.4-linux-amd64.lock.json '$TMP/cand' >/dev/null 2>&1"
+ck "...saying WHICH side of the join is missing" \
+   "says 'manifest_digest = null' bash scripts/repro-lock.sh bind \
+      tests/reproducibility/evidence/php-cli-8.4-linux-amd64.lock.json '$TMP/cand'"
+python3 - tests/reproducibility/evidence/php-cli-8.4-linux-amd64.lock.json \
+         "$TMP/cand/manifest.json" "$TMP/lock-shipped.json" <<'PY'
+import json, sys
+lock = json.load(open(sys.argv[1]))
+man = json.load(open(sys.argv[2]))
+c = [x for x in man["children"]
+     if x["image_label"] == "php-cli/8.4" and x["platform"] == "linux/amd64"][0]
+lock["build_outputs"]["manifest_digest"] = c["manifest_digest"]
+json.dump(lock, open(sys.argv[3], "w"), indent=2)
+PY
+ck "NON-VACUOUS: give the lock a shipped digest and the refusal MOVES to the other side" \
+   "says 'build_input_digest = null' bash scripts/repro-lock.sh bind '$TMP/lock-shipped.json' '$TMP/cand'"
+python3 - "$TMP/lock-shipped.json" "$TMP/lock-foreign.json" <<'PY'
+import json, sys
+lock = json.load(open(sys.argv[1]))
+lock["build_outputs"]["manifest_digest"] = "sha256:" + "a" * 64
+json.dump(lock, open(sys.argv[2], "w"), indent=2)
+PY
+ck "SABOTAGE: a lock naming a digest this bundle never shipped is REFUSED" \
+   "says 'no child with that digest' bash scripts/repro-lock.sh bind '$TMP/lock-foreign.json' '$TMP/cand'"
+
+echo
+echo "== stage 11: repository governance REQUIRES the new checks ================"
+
+ck "the required-check policy is internally consistent with the workflows it names" \
+   "bash scripts/assert-required-checks.sh >/dev/null 2>&1"
+for s in scripts/license/assert-license-policy.sh scripts/cra/assert-cra-controls.sh \
+         scripts/continuity-verify.sh scripts/repro-guarantees.sh \
+         scripts/release/generate-evidence-bundle.sh; do
+  ck "a required check now DIRECTLY produces $s" \
+     "grep -rq -- '$s' .github/workflows/"
+done
+ck "NON-VACUOUS: a script no workflow names is still not found" \
+   "! grep -rq 'scripts/this-subsystem-is-not-wired.sh' .github/workflows/"
+ck "those direct gates live in the job whose name is a REQUIRED pr check" \
+   "python3 -c 'import sys,yaml
+w=yaml.safe_load(open(\".github/workflows/ci.yml\"))
+p=yaml.safe_load(open(\"policies/required-release-checks.yaml\"))
+job=w[\"jobs\"][\"structure\"]
+runs=\" \".join(str(s.get(\"run\") or \"\") for s in job[\"steps\"])
+need=[\"scripts/license/assert-license-policy.sh\",\"scripts/cra/assert-cra-controls.sh\",
+      \"scripts/continuity-verify.sh\",\"scripts/repro-guarantees.sh\",
+      \"scripts/release/generate-evidence-bundle.sh\"]
+sys.exit(0 if all(n in runs for n in need)
+             and job[\"name\"] in p[\"pr_required_checks\"] else 1)'"
+ck "the offline suite that transitively covers them is STILL in CI" \
+   "grep -rq 'tests/run-all.sh' .github/workflows/"
+ck "...so losing either the transitive chain or a direct gate is a red check" \
+   "python3 -c 'import sys,yaml
+p=yaml.safe_load(open(\"policies/required-release-checks.yaml\"))
+sys.exit(0 if \"repo structure\" in p[\"pr_required_checks\"] else 1)'"
+
+# THIS FILE'S OWN PLACE IN THE CHAIN. run-all discovered it by pattern and
+# nothing named it, and test_subsystem_ci_coverage.sh deliberately skips
+# tests/integration/* so it could not count as coverage either — so nothing
+# asserted the presence of the only test that checks the composition.
+ck "tests/run-all.sh NAMES this test as required, so a rename cannot be silent" \
+   "grep -q 'tests/integration/test_evidence_path_e2e.sh' tests/run-all.sh"
+ck "...and run-all's discovery actually finds it" \
+   "grep -qx -- 'tests/integration/test_evidence_path_e2e.sh' <<<\"\$(find tests -name 'test_*.sh' | sort)\""
+ck "the subsystem CI-coverage control binds this file explicitly" \
+   "grep -q 'REQUIRED_INTEGRATION' tests/governance/test_subsystem_ci_coverage.sh \
+    && grep -q 'tests/integration/test_evidence_path_e2e.sh' tests/governance/test_subsystem_ci_coverage.sh"
+ck "...WITHOUT relaxing the exclusion that stops one file covering every subsystem" \
+   "grep -q 'tests/integration/\\*) continue' tests/governance/test_subsystem_ci_coverage.sh"
+# NON-VACUITY: removing this file must turn that control red. Proven on a
+# DISPOSABLE COPY — the ambient checkout is never touched.
+ck "NON-VACUOUS: deleting this test is DETECTED by the coverage control" \
+   "d=\$(mktemp -d) && cp -R tests \"\$d/\" \
+    && rm -f \"\$d/tests/integration/test_evidence_path_e2e.sh\" \
+    && ! ( cd \"\$d\" && bash tests/governance/test_subsystem_ci_coverage.sh ) >/dev/null 2>&1 \
+    && ( cd \"\$d\" && bash tests/governance/test_subsystem_ci_coverage.sh 2>&1 ) \
+       | grep -q 'FAIL - exists: tests/integration/test_evidence_path_e2e.sh' \
+    && rm -rf \"\$d\""
+
+echo
+echo "== stage 12: no stale matrix assumption outside a declared boundary ======="
+
+ck "MATRIX_COUNT still agrees with MATRIX_IMAGES" \
+   "[ \"\$(matrix_images | wc -l | tr -d ' ')\" = \"\$MATRIX_COUNT\" ]"
+ck "the accepted run, the bundle and the seal all derive from MATRIX_COUNT" \
+   "[ \"\$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))[\"promoted_digests\"]))' '$TMP/seal.json')\" = '$CHILDREN' ]"
+ck "PHP 8.5 is on disk but deliberately outside the shipping matrix" \
+   "test -f images/php-cli/8.5/Dockerfile && ! matrix_images | grep -q '8.5'"
+
+# --- M-S1..M-S3  REQUIRED SABOTAGE: PHP 8.5 in a production bundle ---------
+# INTENTIONALLY UNSUPPORTED, AND REFUSED AT EVERY LAYER. The 8.5 images exist,
+# are contracted and are tested, but they DO NOT BUILD (policies/lifecycle.yaml,
+# php-8.5), so an 8.5 line must be unable to enter a release manifest, an
+# authorization, or a bundle's bill of materials. The schema's two literals are
+# no longer an unchecked assumption: assert-image-matrix.sh compares both
+# against MATRIX_IMAGES on every pull request.
+ck "M-S1 release-manifest.schema.json still pins the matrix size" \
+   "python3 -c 'import json,sys
+s=json.load(open(\"schemas/release-manifest.schema.json\"))[\"properties\"][\"images\"]
+sys.exit(0 if s.get(\"minProperties\")==s.get(\"maxProperties\")==int(sys.argv[1]) else 1)' \"\$MATRIX_COUNT\""
+ck "M-S1 ...and that literal is now ASSERTED against MATRIX_IMAGES by a shipped check" \
+   "grep -q 'Release-manifest schema boundary' scripts/assert-image-matrix.sh \
+    && bash scripts/assert-image-matrix.sh >/dev/null 2>&1"
+ck "M-S2 an 8.5 key stays UNREPRESENTABLE in a release manifest, on purpose" \
+   "python3 -c 'import json,re,sys
+s=json.load(open(\"schemas/release-manifest.schema.json\"))[\"properties\"][\"images\"]
+pat=list(s[\"patternProperties\"])[0]
+sys.exit(0 if s.get(\"additionalProperties\") is False
+             and not re.match(pat, \"php-cli-8.5\") else 1)'"
+ck "M-S2 ...and the schema DOCUMENTS that the exclusion is deliberate" \
+   "python3 -c 'import json,sys
+d=json.load(open(\"schemas/release-manifest.schema.json\"))[\"properties\"][\"images\"][\"description\"]
+sys.exit(0 if \"8.5\" in d and \"assert-image-matrix.sh\" in d else 1)'"
+ck "M-S2 NON-VACUOUS: every SHIPPING image key does match that pattern" \
+   "python3 -c 'import json,re,sys
+s=json.load(open(\"schemas/release-manifest.schema.json\"))[\"properties\"][\"images\"]
+pat=list(s[\"patternProperties\"])[0]
+toks=sys.argv[1].split()
+keys=[(t.split(\":\")[0] if t.endswith(\":prod\") else t.replace(\":\",\"-\")) for t in toks]
+sys.exit(0 if all(re.match(pat,k) for k in keys) else 1)' \"\$MATRIX_IMAGES\""
+# SABOTAGE at the bundle layer: widening the schema to accept 8.5 must be caught.
+python3 - "schemas/release-manifest.schema.json" "$TMP/schema-85.json" <<'PY'
+import json, sys
+s = json.load(open(sys.argv[1]))
+im = s["properties"]["images"]
+old = list(im["patternProperties"])[0]
+im["patternProperties"] = {
+    r"^(php-(cli|fpm|worker|frankenphp)-8\.[345]|nginx|caddy)$": im["patternProperties"][old]}
+json.dump(s, open(sys.argv[2], "w"), indent=2)
+PY
+ck "M-S3 SABOTAGE: widening the pattern to accept 8.5 is DETECTED, not silent" \
+   "python3 -c 'import json,re,sys
+s=json.load(open(sys.argv[1]))[\"properties\"][\"images\"]
+pat=list(s[\"patternProperties\"])[0]
+sys.exit(0 if re.match(pat, \"php-cli-8.5\") else 1)' '$TMP/schema-85.json' \
+    && ! grep -q '8\\.\\[345\\]' schemas/release-manifest.schema.json"
+ck "M-S3 ...the shipped check refuses that widened schema" \
+   "d=\$(mktemp -d) && cp -R scripts images schemas contracts policies \"\$d/\" 2>/dev/null
+    cp '$TMP/schema-85.json' \"\$d/schemas/release-manifest.schema.json\"
+    ! ( cd \"\$d\" && bash scripts/assert-image-matrix.sh ) >/dev/null 2>&1
+    rc=\$?; rm -rf \"\$d\"; [ \"\$rc\" -eq 0 ]"
+ck "M-S3 NON-VACUOUS: the committed schema passes the same check" \
+   "bash scripts/assert-image-matrix.sh >/dev/null 2>&1"
+
+echo
+echo "== ambient safety ========================================================="
+
+ck "the test mutated nothing tracked in the checkout" \
+   "[ -z \"\$(git status --porcelain -- policies scripts schemas docs contracts images .github)\" ]"
+ck "every byte it wrote is under one disposable root" \
+   "[ \"\${TMP#/}\" != \"\$TMP\" ] && [ -d '$TMP' ]"
+
+echo
+echo "----"
+printf 'assertions: %d proven, %d pinned gaps\n' "$nck" "$ngap"
+if [ "$ngap" -ne 0 ]; then
+  echo "NOTE: every pinned gap must name what would close it. Zero is the goal;"
+  echo "      a gap that silently starts passing is a gap nobody notices was fixed."
+fi
+[ "$fail" -eq 0 ] && echo "test_evidence_path_e2e: PASS" || echo "test_evidence_path_e2e: FAIL"
+exit "$fail"
