@@ -340,11 +340,23 @@ PYD
     mkdir -p "$out"; printf '{"Results":[]}' > "$out/empty-scan.json"
     while read -r spec; do
       fam="${spec%:*}"; ver="${spec##*:}"; n=$((n + 1))
-      ARCH=linux/amd64 OUT_JSON="$out/img${n}.json" \
+      # Keep the reconciler's own diagnostics. They used to go to /dev/null,
+      # so when this loop failed the two subtests below reported a bare
+      # `false` with NOTHING to explain it — which is what happened on CI run
+      # 32814974957, where the same self-test had passed nine minutes earlier
+      # in the same job and passed again on re-run of identical code. An
+      # intermittent gate whose failure path discards its evidence cannot be
+      # diagnosed, only re-run until green, which is how a real refusal gets
+      # mistaken for noise.
+      if ! ARCH=linux/amd64 OUT_JSON="$out/img${n}.json" \
         bash "${ROOT}/scripts/reconcile-vulnerabilities.sh" \
-          "$out/empty-scan.json" "$fam" "$ver" >/dev/null 2>&1 || return 1
+          "$out/empty-scan.json" "$fam" "$ver" >"$out/reconcile-$n.log" 2>&1; then
+        echo "  reconciler FAILED for ${fam}:${ver} — its output follows:" >&2
+        sed 's/^/    /' "$out/reconcile-$n.log" >&2
+        return 1
+      fi
     done < <(matrix_images)
-    rm -f "$out/empty-scan.json"
+    rm -f "$out/empty-scan.json" "$out"/reconcile-*.log
   }
   if _labels_from_reconciler "$tmp/real"; then
     t "the real reconciler emits exactly the canonical labels" \
