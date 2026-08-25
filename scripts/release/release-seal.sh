@@ -39,6 +39,8 @@
 #       experimental cohort, deliberately outside production)
 #   R11 public exposure without a separate public-exposure authorization
 #   R12 an RC or scheduled-rebuild identity presented for the release role
+#   R13 a bundle that names no post-build authorization, or one whose
+#       authorization was granted to another revision or another child set
 #
 # Usage:
 #   release-seal.sh seal --bundle <dir> --version vYYYY.MM.DD --candidate rcN
@@ -304,8 +306,59 @@ if retain_until <= d_today:
                  "deletion and must not be the basis of a new seal"
            % retain_until.isoformat())
 
-# --- R11 public exposure -----------------------------------------------------
+# --- R13 the authorization that let this build proceed -----------------------
+# A seal is a statement that THESE digests, from THIS revision, may be released.
+# It used to bind no authorization identity at all — only a boolean the bundle
+# had copied out of a four-field summary — so the canonical post-build
+# authorization record was never an input to any seal it could contradict.
 auth = m["authorization"]
+if not auth.get("record_present"):
+    refuse("R13", "the bundle names no post-build authorization record%s. A "
+                  "release seal asserts that an authorised build may be "
+                  "released; over a bundle that cannot name its authorization "
+                  "it asserts nothing. Regenerate the bundle with "
+                  "--authorization <post-build-authorization.json>"
+           % ((" (%s)" % auth["absence_reason"]) if auth.get("absence_reason") else ""))
+arec_p = os.path.join(bundle, auth["record_file"])
+if not os.path.exists(arec_p):
+    refuse("R13", "the authorization record %s is not in the bundle" % auth["record_file"])
+if sha256_file(arec_p) != auth["record_sha256"]:
+    refuse("R13", "the authorization record does not match the digest the "
+                  "manifest records")
+arec = json.load(open(arec_p))
+if arec.get("source_revision") != m["source_revision"]:
+    refuse("R13", "the authorization record authorises revision %s; this bundle "
+                  "is for %s. Signing it would seal a release under an "
+                  "authorization granted to a different source SHA"
+           % (arec.get("source_revision"), m["source_revision"]))
+if arec.get("verdict") != "PASS":
+    refuse("R13", "the authorization record's verdict is %r" % arec.get("verdict"))
+auth_children = {c.get("child_key"): c for c in arec.get("children") or []}
+bundle_children = {c["child_key"]: c for c in m["children"]}
+if set(auth_children) != set(bundle_children):
+    refuse("R13", "the authorization covers %d child(ren), the bundle carries %d; "
+                  "the sets differ by %s"
+           % (len(auth_children), len(bundle_children),
+              ", ".join(sorted(set(auth_children) ^ set(bundle_children))[:5])))
+for k, bc in sorted(bundle_children.items()):
+    if auth_children[k].get("manifest_digest") != bc["manifest_digest"]:
+        refuse("R13", "child %s: the authorization names digest %s, the bundle "
+                      "carries %s" % (k, auth_children[k].get("manifest_digest"),
+                                      bc["manifest_digest"]))
+authorization_binding = collections.OrderedDict([
+    ("record_file", auth["record_file"]),
+    ("record_sha256", auth["record_sha256"]),
+    ("schema", "schemas/post-build-authorization-v1.schema.json"),
+    ("source_revision", arec["source_revision"]),
+    ("workflow_run_id", int(arec["workflow_run_id"])),
+    ("workflow_run_attempt", int(arec["workflow_run_attempt"])),
+    ("workflow_ref", arec.get("workflow_ref")),
+    ("authorization_scope", arec["authorization_scope"]),
+    ("authorized_children", len(auth_children)),
+    ("verdict", arec["verdict"]),
+])
+
+# --- R11 public exposure -----------------------------------------------------
 pea_sha = None
 if public:
     if not pea:
@@ -362,6 +415,7 @@ seal = collections.OrderedDict([
         ("manifest_digest", c["manifest_digest"]),
         ("execution_mode", c["execution_mode"]),
     ]) for c in sorted(m["children"], key=lambda c: c["child_key"])]),
+    ("authorization", authorization_binding),
     ("vulnerability_database", m["vulnerability_database"]["identity"]),
     ("dispositions_sha256", m["dispositions"]["sha256"]),
     ("policy_digests", m["policy_digests"]),
@@ -470,12 +524,26 @@ _rs_self_test() {
   set +o pipefail
   t() { if eval "$2"; then ok=$((ok+1)); echo "ok   - $1"; else bad=$((bad+1)); echo "FAIL - $1"; fi; }
   seal() { ( rs_seal "$@" ); }
-  bundle_gen() { ( bash "$_RS_D/generate-evidence-bundle.sh" generate "$@" ); }
+  bundle_gen() {
+    # The bundle now requires an authorization decision; inject the canonical
+    # fixture unless a case is deliberately exercising its absence.
+    case " $* " in
+      *" --authorization "*|*" --authorization-absent "*) : ;;
+      *) set -- "$@" --authorization "$RS_AUTHREC" ;;
+    esac
+    ( bash "$_RS_D/generate-evidence-bundle.sh" generate "$@" )
+  }
 
   local EV="$RS_ROOT/docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json"
   [ -f "$EV" ] || { echo "SKIP - accepted evidence absent"; return 0; }
   python3 -c 'import yaml' 2>/dev/null || { echo "SKIP - PyYAML absent"; return 0; }
   command -v openssl >/dev/null 2>&1 || { echo "SKIP - openssl absent"; return 0; }
+  # See tests/lib/make_authorization_fixture.py: the canonical authorization is
+  # a 30-day workflow artifact and this run's has expired, so the seal's own
+  # self-test rebuilds it offline from the accepted evidence.
+  local RS_AUTHREC="$tmp/post-build-authorization.json"
+  python3 "$RS_ROOT/tests/lib/make_authorization_fixture.py" "$EV" "$RS_AUTHREC" \
+    || { echo "SKIP - authorization fixture unavailable"; return 0; }
   local DAY=2026-08-25
 
   # --- fixtures -------------------------------------------------------------
@@ -547,11 +615,28 @@ PY
 import json, sys
 d = json.load(open(sys.argv[1])); d["children"] = d["children"][:-1]
 d["matrix"]["observed_children"] = len(d["children"])
+# expected_children moves too, so this record is INTERNALLY consistent and
+# short. Leaving it at 20 would make the bundle refuse for an authorization
+# mismatch and R1 below would then pass for the wrong reason.
+d["matrix"]["expected_children"] = len(d["children"])
 json.dump(d, open(sys.argv[2], "w"), indent=2)
 PY
+  # The authorization has to be built from the SHORTENED run too. Reusing the
+  # full one would make the bundle refuse at R13 (an authorization naming a
+  # child the run never produced) and the R1 assertion below would then pass
+  # for the wrong reason — which is itself evidence the binding is not vacuous.
+  python3 "$RS_ROOT/tests/lib/make_authorization_fixture.py" \
+    "$tmp/ev-short.json" "$tmp/auth-short.json"
+  rm -rf "$tmp/sboms-short"; cp -R "$tmp/sboms" "$tmp/sboms-short"
+  rm -f "$tmp/sboms-short/$(python3 -c 'import json,sys
+ev=json.load(open(sys.argv[1]))
+c=ev["children"][-1]
+fam,_,ver=c["image_label"].partition("/")
+print("%s-%s-linux-%s.spdx.json"%(fam,ver,c["platform"].rsplit("/",1)[-1]))' "$EV")"
   bundle_gen --evidence "$tmp/ev-short.json" --out "$tmp/short" \
     --evidence-class published-artifact --release v2026.08.25 --candidate rc1 \
-    --sbom-dir "$tmp/sboms" --provenance "$tmp/prov.json" --today "$DAY" >/dev/null 2>&1
+    --sbom-dir "$tmp/sboms-short" --provenance "$tmp/prov.json" \
+    --authorization "$tmp/auth-short.json" --today "$DAY" >/dev/null 2>&1
   t "R1 an incomplete child set is REFUSED" \
     "! seal --bundle '$tmp/short' --version v2026.08.25 --identity '$REL_ID' \
        --test-key '$tmp/test.key' --out '$tmp/r1.json' --today '$DAY' >/dev/null 2>&1"

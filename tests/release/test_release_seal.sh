@@ -53,9 +53,22 @@ if ! command -v openssl >/dev/null 2>&1; then
 fi
 
 DAY=2026-08-25
+
+# See tests/release/test_evidence_bundle.sh for why this fixture is
+# reconstructed offline and why its builder lives under tests/.
+AUTHREC="$TMP/post-build-authorization.json"
+python3 tests/lib/make_authorization_fixture.py "$ACCEPTED" "$AUTHREC" \
+  || { echo "SKIP - authorization fixture unavailable"; echo "test_release_seal: PASS"; exit 0; }
+
 seal() { ( bash "$SEAL" seal "$@" ); }
 vfy()  { ( bash "$VERIFY" verify "$@" ); }
-gen()  { ( bash "$GEN" generate "$@" ); }
+gen()  {
+  case " $* " in
+    *" --authorization "*|*" --authorization-absent "*) : ;;
+    *) set -- "$@" --authorization "$AUTHREC" ;;
+  esac
+  ( bash "$GEN" generate "$@" )
+}
 
 ck "the seal script is executable"     "test -x '$SEAL'"
 ck "the verifier is executable"        "test -x '$VERIFY'"

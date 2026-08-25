@@ -674,6 +674,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "record_present",
         "scope",
         "public_exposure_authorized",
         "verdict",
@@ -705,9 +706,181 @@
           ]
         },
         "record_file": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "content/authorization/post-build-authorization.json \u2014 the canonical record, verbatim. Null when record_present is false."
+        },
+        "record_present": {
+          "type": "boolean",
+          "description": "Whether a canonical post-build authorization record was supplied and bound. False is a stated position, not a default: the generator refuses unless one of --authorization or --authorization-absent is given."
+        },
+        "record_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([0-9a-f]{64})?$"
+        },
+        "absence_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 20,
+          "description": "Why no authorization record accompanies this bundle. Required when record_present is false."
+        },
+        "summary_file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A manifest-level PROJECTION of the canonical record. It is not an authorization, satisfies no authorization schema, and is never written without the record it projects."
+        },
+        "record_binding": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "description": "The facts the canonical record was checked against. Present exactly when record_present is true.",
+          "required": [
+            "schema",
+            "validator",
+            "source_revision",
+            "workflow_run_id",
+            "authorized_children",
+            "platforms",
+            "trivy_db_identity",
+            "verdict"
+          ],
+          "properties": {
+            "schema": {
+              "type": "string"
+            },
+            "validator": {
+              "type": "string"
+            },
+            "source_revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "repository": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "workflow_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "workflow_run_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "workflow_run_attempt": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "authorized_children": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "platforms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "trivy_db_identity": {
+              "type": "string"
+            },
+            "staging_package": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "verdict": {
+              "enum": [
+                "PASS"
+              ]
+            }
+          }
         }
-      }
+      },
+      "description": "The authorization this bundle records. Until the canonical record became an INPUT, this block was a four-field summary written to a file named authorization-record.json that failed post-build-authorization-v1 on all fifteen of its required properties and carried no source_revision \u2014 so a wrong-SHA authorization was undetectable by construction. The canonical record (schemas/post-build-authorization-v1) now travels verbatim inside checksum coverage and is bound field by field to the acceptance record: revision, run, verdict, frozen database, platform set, the exact child set with its digests and per-child evidence checksums, and the staging package. record_present=false is the explicit, argued absence; such a bundle cannot be sealed as a release.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "record_present": {
+                "const": true
+              }
+            },
+            "required": [
+              "record_present"
+            ]
+          },
+          "then": {
+            "required": [
+              "record_file",
+              "record_sha256",
+              "record_binding",
+              "summary_file"
+            ],
+            "properties": {
+              "record_file": {
+                "type": "string",
+                "minLength": 1
+              },
+              "record_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_binding": {
+                "type": "object"
+              },
+              "absence_reason": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_present": {
+                "const": false
+              }
+            },
+            "required": [
+              "record_present"
+            ]
+          },
+          "then": {
+            "required": [
+              "absence_reason"
+            ],
+            "properties": {
+              "record_file": {
+                "type": "null"
+              },
+              "record_binding": {
+                "type": "null"
+              },
+              "absence_reason": {
+                "type": "string",
+                "minLength": 20
+              }
+            }
+          }
+        }
+      ]
     },
     "retention": {
       "type": "object",

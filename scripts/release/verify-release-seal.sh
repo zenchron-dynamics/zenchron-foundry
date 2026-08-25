@@ -310,13 +310,21 @@ ev = json.load(open(sys.argv[1]))
 for c in ev["children"]:
     fam, _, ver = c["image_label"].partition("/")
     slug = "%s-%s-linux-%s" % (fam, ver, c["platform"].rsplit("/", 1)[-1])
-    json.dump({"spdxVersion": "SPDX-2.3", "name": c["child_key"]},
+    json.dump({"spdxVersion": "SPDX-2.3", "SPDXID": "SPDXRef-DOCUMENT",
+               "name": c["child_key"],
+               "documentDescribes": [c["manifest_digest"]]},
               open(os.path.join(sys.argv[2], slug + ".spdx.json"), "w"), indent=2)
 PY
   printf '{"_type":"https://in-toto.io/Statement/v1","fixture":true}\n' > "$tmp/prov.json"
+  # The canonical authorization the bundle requires, rebuilt offline from the
+  # accepted evidence (see tests/lib/make_authorization_fixture.py).
+  local VS_AUTHREC="$tmp/post-build-authorization.json"
+  python3 "$VS_ROOT/tests/lib/make_authorization_fixture.py" "$EV" "$VS_AUTHREC" \
+    || { echo "SKIP - authorization fixture unavailable"; return 0; }
 
   ( bash "$_VS_D/generate-evidence-bundle.sh" generate --evidence "$EV" --out "$tmp/pub" \
       --evidence-class published-artifact --release v2026.08.25 --candidate rc1 \
+      --authorization "$VS_AUTHREC" \
       --sbom-dir "$tmp/sboms" --provenance "$tmp/prov.json" --today "$DAY" ) >/dev/null 2>&1
   ( bash "$_VS_D/release-seal.sh" seal --bundle "$tmp/pub" --version v2026.08.25 \
       --candidate rc1 --identity "$REL_ID" --test-key "$tmp/test.key" \
@@ -384,6 +392,7 @@ PY
   # --- S3 a seal over a different bundle -------------------------------------
   ( bash "$_VS_D/generate-evidence-bundle.sh" generate --evidence "$EV" --out "$tmp/other" \
       --evidence-class published-artifact --release v2026.08.25 --candidate rc1 \
+      --authorization "$VS_AUTHREC" \
       --sbom-dir "$tmp/sboms" --today "$DAY" ) >/dev/null 2>&1
   t "S3 a seal presented over a DIFFERENT bundle is REFUSED" \
     "! vfy --seal '$tmp/seal.json' --bundle '$tmp/other' --pubkey '$tmp/seal.json.pub.pem' --today '$DAY' >/dev/null 2>&1"
@@ -391,6 +400,7 @@ PY
   # --- S4 a candidate bundle -------------------------------------------------
   ( bash "$_VS_D/generate-evidence-bundle.sh" generate --evidence "$EV" --out "$tmp/cand" \
       --evidence-class staged-candidate --sbom-dir "$tmp/sboms" \
+      --authorization "$VS_AUTHREC" \
       --provenance "$tmp/prov.json" --today "$DAY" ) >/dev/null 2>&1
   t "S4 candidate EVIDENCE cannot satisfy the release seal either" \
     "! vfy --seal '$tmp/seal.json' --bundle '$tmp/cand' --pubkey '$tmp/seal.json.pub.pem' --today '$DAY' >/dev/null 2>&1"

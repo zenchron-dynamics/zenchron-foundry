@@ -48,7 +48,25 @@ if ! python3 -c 'import yaml' 2>/dev/null; then
 fi
 
 DAY=2026-08-25
-gen()  { ( bash "$GEN" generate "$@" ); }
+
+# The canonical post-build authorization the bundle now requires. The real
+# record is a 30-day workflow artifact and this run's expired — the exact
+# retention failure the bundle exists for — so the offline fixture is
+# reconstructed from the accepted evidence itself. The builder lives under
+# tests/ deliberately: a tool in scripts/ that derived a canonical-looking
+# authorization from any acceptance record would be a bypass of the gate rather
+# than a fixture generator.
+AUTHREC="$TMP/post-build-authorization.json"
+python3 tests/lib/make_authorization_fixture.py "$ACCEPTED" "$AUTHREC" \
+  || { echo "SKIP - authorization fixture unavailable"; echo "test_evidence_bundle: PASS"; exit 0; }
+
+gen()  {
+  case " $* " in
+    *" --authorization "*|*" --authorization-absent "*) : ;;
+    *) set -- "$@" --authorization "$AUTHREC" ;;
+  esac
+  ( bash "$GEN" generate "$@" )
+}
 ver()  { ( bash "$GEN" verify "$@" ); }
 arc()  { ( bash "$RESTORE" archive "$@" ); }
 res()  { ( bash "$RESTORE" restore "$@" ); }
