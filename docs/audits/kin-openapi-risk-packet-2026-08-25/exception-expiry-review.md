@@ -54,7 +54,7 @@ against its own recorded evidence:
 3. A record was called **matched** only if the gate itself paired it with a real
    finding. Nothing was inferred from the record's own claims.
 
-Eleven reconciliations were run:
+Twelve reconciliations were run:
 
 | image | arch | verdict | findings | governed | not-affected | violations |
 |---|---|---|---|---|---|---|
@@ -68,15 +68,16 @@ Eleven reconciliations were run:
 | `php-worker/8.4` | linux/arm64 | PASS | 47 | 42 | 5 | 0 |
 | `php-frankenphp/8.3` | linux/arm64 | **FAIL** | 81 | 75 | 4 | **2** |
 | `php-frankenphp/8.4` | linux/arm64 | **FAIL** | 81 | 75 | 4 | **2** |
+| `php-frankenphp/8.3` | linux/amd64 | **FAIL** | 81 | 75 | 4 | **2** |
 | `php-frankenphp/8.4` | linux/amd64 | **FAIL** | 81 | 75 | 4 | **2** |
 
-`shadowed_exception_ids` was empty in all eleven — no record is unreachable
+`shadowed_exception_ids` was empty in all twelve — no record is unreachable
 behind another.
 
 ### Coverage limits, stated rather than glossed
 
-- Nine of the eleven reconciliations are `linux/arm64`; one FrankenPHP child was
-  also built and reconciled under QEMU for `linux/amd64`, and every upstream
+- Eight of the twelve reconciliations are `linux/arm64`; **both** FrankenPHP
+  children were also built and reconciled under QEMU for `linux/amd64`, and every upstream
   FrankenPHP artifact was scanned on **both** platforms directly from the
   registry (see `README.md` §3). `caddy`, `nginx` and the `php-cli`/`php-fpm`/
   `php-worker` families were **not** re-measured on `linux/amd64` in this lane.

@@ -1082,6 +1082,31 @@
       "violations": [],
       "shadowed_exception_ids": []
     },
+    "php-frankenphp/8.3|linux/amd64": {
+      "verdict": "FAIL",
+      "findings_total": 81,
+      "governed": 75,
+      "not_affected": 4,
+      "violations": [
+        {
+          "id": "CVE-2026-76905",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.141.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        },
+        {
+          "id": "CVE-2026-77354",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.142.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        }
+      ],
+      "shadowed_exception_ids": []
+    },
     "php-frankenphp/8.3|linux/arm64": {
       "verdict": "FAIL",
       "findings_total": 81,
@@ -1313,6 +1338,36 @@
       "target": "lane4/php-fpm:8.4-arm64 (debian 12.15)",
       "high_crit_total": 47,
       "gobinary_findings": {}
+    },
+    "child-php-frankenphp_8.3-amd64.json": {
+      "target": "lane4/php-frankenphp:8.3-amd64 (debian 12.15)",
+      "high_crit_total": 81,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
     },
     "child-php-frankenphp_8.3-arm64.json": {
       "target": "lane4/php-frankenphp:8.3-arm64 (debian 12.15)",

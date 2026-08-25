@@ -191,7 +191,9 @@ finding count by roughly 3×. The four gobinary findings, however, survive the
 purge unchanged — the Dockerfile only strips a file capability from
 `/usr/local/bin/frankenphp` (`setcap -r`) and never rebuilds it.
 
-Child scan, `php-frankenphp` 8.4, `linux/arm64`, target `usr/local/bin/frankenphp` (gobinary):
+All four FrankenPHP children were built and scanned — 8.3 and 8.4 on both
+`linux/amd64` and `linux/arm64` — and all four report the identical gobinary set.
+Child scan, target `usr/local/bin/frankenphp` (gobinary), 81 HIGH/CRITICAL total each:
 
 ```text
 GHSA-r277-6w6q-xmqw  github.com/getkin/kin-openapi  v0.140.0 -> 0.144.0  CRITICAL  fixed
@@ -204,7 +206,7 @@ Affected / not affected, from measured child and per-platform upstream evidence:
 
 | image | 8.3 | 8.4 | `linux/amd64` | `linux/arm64` |
 |---|---|---|---|---|
-| `php-frankenphp` | **affected** | **affected** | **affected** | **affected** |
+| `php-frankenphp` | **affected** | **affected** | **affected** (built + reconciled, both versions) | **affected** (built + reconciled, both versions) |
 | `php-cli` | not affected | not affected | — | — |
 | `php-fpm` | not affected | not affected | — | — |
 | `php-worker` | not affected | not affected | — | — |
@@ -218,7 +220,20 @@ Go binary and therefore no gobinary result section.
 
 Architecture: both new CVEs are identical on `linux/amd64` and `linux/arm64`.
 `kin-openapi` is a pure-Go module and the same version is linked into both
-per-platform manifests — verified on all four per-platform upstream scans above.
+per-platform manifests — verified on all four per-platform upstream scans above
+**and** on all four locally built children.
+
+The repository's own gate agrees. Run today against those children,
+`scripts/reconcile-vulnerabilities.sh` refuses all four:
+
+```text
+REFUSE: 2 ungoverned CRITICAL/HIGH finding(s) in php-frankenphp/8.3:
+  CVE-2026-76905  github.com/getkin/kin-openapi v0.140.0  no in-scope exception in the ledger
+  CVE-2026-77354  github.com/getkin/kin-openapi v0.140.0  no in-scope exception in the ledger
+```
+
+and PASSES on `caddy/prod`, `nginx/prod` and all six `php-cli`/`php-fpm`/
+`php-worker` children. Full per-image verdicts: `exception-expiry-review.md`.
 `php-frankenphp` 8.5 exists in the tree but is **not** in the `scan-images.yml`
 gate matrix and is not published; it is out of scope for this packet.
 
