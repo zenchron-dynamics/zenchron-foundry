@@ -56,8 +56,20 @@ DAY=2026-08-25
 
 # See tests/release/test_evidence_bundle.sh for why this fixture is
 # reconstructed offline and why its builder lives under tests/.
+# The accepted run is EMULATED arm64 and release-seal.sh now refuses to seal it
+# while policies/native-arch-requirements.yaml requires native (#111). THIS
+# file's subject is the seal's other rules, so the default fixture is a stamped
+# native variant of the same run — otherwise R1/R5/R8/R11/R12 would all start
+# passing for the native-architecture reason instead of their own. The emulated
+# record is used directly, below, as the R9 case.
+python3 tests/lib/make_native_arm64_fixture.py "$ACCEPTED" "$TMP/ev-native.json" >/dev/null \
+  || { echo "SKIP - native fixture unavailable"; echo "test_release_seal: PASS"; exit 0; }
+ACCEPTED_NATIVE="$TMP/ev-native.json"
 AUTHREC="$TMP/post-build-authorization.json"
-python3 tests/lib/make_authorization_fixture.py "$ACCEPTED" "$AUTHREC" \
+python3 tests/lib/make_authorization_fixture.py "$ACCEPTED_NATIVE" "$AUTHREC" \
+  || { echo "SKIP - authorization fixture unavailable"; echo "test_release_seal: PASS"; exit 0; }
+AUTHREC_EMUL="$TMP/post-build-authorization-emulated.json"
+python3 tests/lib/make_authorization_fixture.py "$ACCEPTED" "$AUTHREC_EMUL" \
   || { echo "SKIP - authorization fixture unavailable"; echo "test_release_seal: PASS"; exit 0; }
 
 seal() { ( bash "$SEAL" seal "$@" ); }
@@ -131,8 +143,6 @@ printf '{"_type":"https://in-toto.io/Statement/v1","fixture":true}\n' > "$TMP/pr
 # end-to-end test. THIS file's subject is the seal's other twelve rules, so it
 # needs a bundle that would otherwise seal; otherwise R1/R5/R8/R12 all start
 # passing for the native-architecture reason instead of their own.
-python3 tests/lib/make_native_arm64_fixture.py "$ACCEPTED" "$TMP/ev-native.json" >/dev/null
-ACCEPTED_NATIVE="$TMP/ev-native.json"
 ck "a published-artifact bundle is generated from the real accepted run" \
    "gen --evidence '$ACCEPTED_NATIVE' --out '$TMP/pub' --evidence-class published-artifact \
       --release v2026.08.25 --candidate rc1 --sbom-dir '$TMP/sboms' \
@@ -216,7 +226,7 @@ ck "P5 a TEST seal cannot satisfy a production release gate" \
 ck "R9 the real emulated accepted run cannot be sealed at all while the policy requires native" \
    "gen --evidence '$ACCEPTED' --out '$TMP/pub-emul' --evidence-class published-artifact \
       --release v2026.08.25 --candidate rc1 --sbom-dir '$TMP/sboms' \
-      --provenance '$TMP/prov.json' --today '$DAY' >/dev/null 2>&1 \
+      --provenance '$TMP/prov.json' --authorization '$AUTHREC_EMUL' --today '$DAY' >/dev/null 2>&1 \
     && ! seal --bundle '$TMP/pub-emul' --version v2026.08.25 --identity '$REL_ID' \
       --test-key '$TMP/test.key' --out '$TMP/r9p.json' --today '$DAY' >/dev/null 2>&1"
 ck "R9 ...and the refusal belongs to the policy, not to the caller" \
