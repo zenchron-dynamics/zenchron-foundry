@@ -202,6 +202,7 @@ export_governance() {
   if ! gov_paths > "$tsv"; then rm -f "$tsv"; return 1; fi
   mkdir -p "$dir/files"
   local cid f n=0
+  # shellcheck disable=SC2034  # cid is the class column; read needs it named
   while IFS="$(printf '\t')" read -r cid f; do
     [ -n "$f" ] || continue
     mkdir -p "$dir/files/$(dirname "$f")"

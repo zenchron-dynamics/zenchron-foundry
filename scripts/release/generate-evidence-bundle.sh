@@ -195,7 +195,7 @@ geb_generate() {
   # The dispositions are part of the bundle, so they are generated INTO it
   # before the aggregate exists. Generating them afterwards is how a file ends
   # up outside checksum coverage.
-  bash "$_GEB_D/generate-vex.sh" generate --evidence "$ev" \
+  bash "$_GEB_D/generate-vex.sh" generate --evidence "$ev" --evidence-class "$cls" \
        --out "$out/content/vex/openvex.json" --ledger "$ledger" --today "$today" >/dev/null \
     || die "VEX generation failed; the bundle is not written with a missing disposition set"
 
@@ -1113,6 +1113,24 @@ if len(set(keys)) != len(keys):
 vp = os.path.join(dir_, m["dispositions"]["file"])
 if sha256_file(vp) != m["dispositions"]["sha256"]:
     refuse("the disposition document does not match the digest the manifest records")
+# ...and they must be the dispositions for THIS revision and THIS class. The
+# digest check above proves only that the file has not changed since sealing;
+# it says nothing about whether the document is about this bundle at all.
+vdoc = json.load(open(vp))
+vfd = vdoc.get("foundry") or {}
+if vfd.get("source_revision") != m["source_revision"]:
+    refuse("the disposition document binds source_revision %r; this bundle is "
+           "for %r. Dispositions are only meaningful for the revision they were "
+           "derived from" % (vfd.get("source_revision"), m["source_revision"]))
+if vfd.get("evidence_class") != m["evidence_class"]:
+    refuse("the disposition document was published for evidence class %r; this "
+           "bundle is %r. 'What may ship' and 'what shipped' are different "
+           "published statements and one does not stand in for the other"
+           % (vfd.get("evidence_class"), m["evidence_class"]))
+if vfd.get("exception_policy_sha256") != m["dispositions"]["exception_policy_sha256"]:
+    refuse("the disposition document names exception policy %s, the manifest "
+           "records %s" % (vfd.get("exception_policy_sha256"),
+                           m["dispositions"]["exception_policy_sha256"]))
 
 # --- 6. the authorization, re-bound from the bytes on disk --------------------
 # Re-checked here so it holds for a bundle that came back off an archive as
