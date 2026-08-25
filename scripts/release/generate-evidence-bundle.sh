@@ -87,19 +87,40 @@ _geb_need_py() {
 }
 
 # The ONE identity derivation, same as every other consumer.
-_geb_identity_table() { # <acceptance.json>
-  local fam ver plat
+#
+# The table carries the SBOM filenames too, derived by sbom_filename() — the
+# function scripts/generate-sbom.sh calls to WRITE them. Python never re-derives
+# a name here: a second derivation of one identity is exactly how the producer's
+# output set and this consumer's lookup set stopped intersecting, and the bundle
+# reported `sbom.present: false` over a complete SBOM directory with exit 0.
+#
+# Columns: child_key, child_slug, <format>=<filename> for every declared format.
+_geb_identity_table() { # <record.json>   (acceptance evidence OR a bundle manifest)
+  local fam ver plat row f name
   python3 - "$1" <<'PY' |
 import json, sys
 rec = json.load(open(sys.argv[1]))
 for c in rec.get("children") or []:
-    fam, _, ver = (c.get("image_label") or "").partition("/")
-    print("%s\t%s\t%s" % (fam, ver, c.get("platform") or ""))
+    fam = c.get("image_family")
+    ver = c.get("image_version")
+    if fam is None:
+        fam, _, ver = (c.get("image_label") or "").partition("/")
+    print("%s	%s	%s" % (fam or "", ver or "", c.get("platform") or ""))
 PY
-  while IFS="$(printf '\t')" read -r fam ver plat; do
-    printf '%s\t%s\n' "$(child_key "$fam" "$ver" "$plat")" "$(child_slug "$fam" "$ver" "$plat")"
+  while IFS="$(printf '	')" read -r fam ver plat; do
+    row="$(child_key "$fam" "$ver" "$plat")	$(child_slug "$fam" "$ver" "$plat")"
+    for f in $SBOM_FORMATS; do
+      name="$(sbom_filename "$fam" "$ver" "$plat" "$f")" || return 1
+      row="$row	$f=$name"
+    done
+    printf '%s\n' "$row"
   done
 }
+
+# The SBOM document format of record. SPDX is what the licence inventory, the
+# release seal and every downstream consumer read; a CycloneDX companion is
+# accepted alongside it but does not substitute for it.
+GEB_SBOM_REQUIRED_FORMAT=spdx-json
 
 # =============================================================================
 # generate
@@ -161,6 +182,7 @@ geb_generate() {
 
   GEB_SCHEMA="$GEB_SCHEMA" GEB_ROOT="$GEB_ROOT" GEB_RETENTION="$GEB_RETENTION" \
   GEB_CLASS_POLICY="$GEB_CLASS_POLICY" GEB_POLICY_FILES="$GEB_POLICY_FILES" \
+  GEB_SBOM_REQUIRED_FORMAT="$GEB_SBOM_REQUIRED_FORMAT" \
   python3 - "$ev" "$out" "$cls" "$rel" "$cand" "$sbom_dir_arg" "$prov" "$ledger" \
                   "$tmp/ident.tsv" <<'PY' || return 1
 import json, os, re, sys, hashlib, datetime, shutil, collections
@@ -258,11 +280,95 @@ if rel and not re.match(r"^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$", rel):
 if cand and not re.match(r"^rc[1-9][0-9]*$", cand):
     refuse("--candidate %r must match rc[1-9][0-9]*" % cand)
 
+# --- the SBOM subject binding ------------------------------------------------
+# The bundle used to record exactly three facts about an SBOM — its format, its
+# path and the sha256 OF THE FILE — and nothing about what the document is a
+# bill of materials FOR. An SPDX document describing a completely different
+# child, saved under the correct filename, satisfied all three and verified
+# clean. The bytes the bundle inspected all lined up; the SUBJECT was never
+# read.
+#
+# So it is read here, and again in verify(). A document that does not name this
+# child's manifest digest is not this child's SBOM, however it is filed.
+REQUIRED_FMT = os.environ["GEB_SBOM_REQUIRED_FORMAT"]
+
+
+def sbom_subjects(doc):
+    """Every digest this document claims to describe, lowercased."""
+    out = set()
+    for v in doc.get("documentDescribes") or []:
+        if isinstance(v, str):
+            out.add(v.strip().lower())
+    # CycloneDX spells the subject as metadata.component
+    comp = ((doc.get("metadata") or {}).get("component") or {})
+    for h in comp.get("hashes") or []:
+        if isinstance(h, dict) and h.get("content"):
+            alg = (h.get("alg") or "SHA-256").lower().replace("-", "")
+            out.add("%s:%s" % ("sha256" if alg == "sha256" else alg,
+                               str(h["content"]).lower()))
+    for ref in (comp.get("purl"), comp.get("bom-ref")):
+        if isinstance(ref, str) and "sha256:" in ref:
+            out.add("sha256:" + ref.rsplit("sha256:", 1)[1].strip().lower())
+    return out
+
+
+def check_sbom_subject(path, key, digest, platform, revision):
+    try:
+        doc = json.load(open(path))
+    except (ValueError, OSError) as exc:
+        refuse("child %s: %s is not readable JSON (%s). An SBOM the release path "
+               "cannot parse is an SBOM whose subject nobody checked"
+               % (key, os.path.basename(path), exc))
+    if not (doc.get("spdxVersion") or doc.get("bomFormat") or doc.get("SPDXID")):
+        refuse("child %s: %s declares neither spdxVersion nor bomFormat — it is "
+               "not an SBOM in a format this repository declares"
+               % (key, os.path.basename(path)))
+    subjects = sbom_subjects(doc)
+    if not subjects:
+        refuse("child %s: %s names no subject at all (no documentDescribes, no "
+               "metadata.component hash). An SBOM that does not say what it "
+               "describes cannot be bound to a child, and an unbindable SBOM is "
+               "how a foreign bill of materials passes for this one"
+               % (key, os.path.basename(path)))
+    if digest.lower() not in subjects:
+        refuse("child %s: %s describes %s, not this child's manifest digest %s. "
+               "The filename matched and the file hashed cleanly — the SUBJECT "
+               "did not. An SBOM for another digest, platform or source cannot "
+               "substitute for this one"
+               % (key, os.path.basename(path), ", ".join(sorted(subjects)[:3]), digest))
+    named = doc.get("name")
+    if isinstance(named, str) and named and named != key:
+        refuse("child %s: %s names itself %r. The document's own identity "
+               "disagrees with the child it is filed under (platform %s, "
+               "revision %s)" % (key, os.path.basename(path), named, platform, revision))
+
+
 # --- identity ----------------------------------------------------------------
 children_in = ev.get("children") or []
-ident = [ln.split("\t") for ln in open(ident_p).read().splitlines() if ln.strip()]
+ident = []
+for ln in open(ident_p).read().splitlines():
+    if not ln.strip():
+        continue
+    cols = ln.split("\t")
+    key, slug, fmts = cols[0], cols[1], collections.OrderedDict()
+    for col in cols[2:]:
+        fmt, _eq, name = col.partition("=")
+        fmts[fmt] = name
+    ident.append((key, slug, fmts))
 if len(ident) != len(children_in):
     refuse("identity table has %d row(s) for %d child record(s)" % (len(ident), len(children_in)))
+
+# NO TWO CHILDREN MAY COLLIDE ONTO ONE SBOM. Asserted over the table itself, so
+# a future identity change that stopped being injective is caught here rather
+# than by one child silently reading another's bill of materials.
+_slugs = [row[1] for row in ident]
+if len(set(_slugs)) != len(_slugs):
+    refuse("two children derive the same child_slug — an identity that can be "
+           "produced two ways is not one")
+for _f in (ident[0][2] if ident else {}):
+    _names = [row[2][_f] for row in ident]
+    if len(set(_names)) != len(_names):
+        refuse("two children derive the same %s SBOM filename" % _f)
 
 # --- one revision, one database ---------------------------------------------
 db = ev.get("frozen_vulnerability_database") or {}
@@ -275,8 +381,9 @@ if "@sha256:" not in (scanner.get("image") or ""):
 
 # --- children ----------------------------------------------------------------
 sbom_index = []
+bound_names = set()
 children = []
-for c, (key, slug) in zip(children_in, ident):
+for c, (key, slug, ident_fmts) in zip(children_in, ident):
     if c.get("child_key") != key:
         refuse("child identity mismatch: the record says %r, child_key() derives "
                "%r. There is exactly ONE identity derivation in this repository"
@@ -295,20 +402,51 @@ for c, (key, slug) in zip(children_in, ident):
 
     child_sbom = None
     if sbom_dir:
-        found = None
-        for ext in (".spdx.json", ".cdx.json", ".json"):
-            cand_p = os.path.join(sbom_dir, slug + ext)
-            if os.path.exists(cand_p):
-                found = (cand_p, ext)
-                break
-        if found:
-            src, ext = found
-            dest_rel = "content/sbom/%s%s" % (slug, ext)
-            shutil.copyfile(src, os.path.join(out, dest_rel))
-            child_sbom = {"format": "spdx-json" if ext == ".spdx.json" else "json",
-                          "sha256": sha256_file(src), "file": dest_rel}
-            sbom_index.append({"child_key": key, "file": dest_rel,
-                               "sha256": child_sbom["sha256"]})
+        # The filename is NEVER guessed here. It comes from the identity table,
+        # which sbom_filename() built — the same function the producer calls to
+        # write the file. A wrong filename is therefore a MISSING SBOM, not a
+        # near-miss the loop can recover from with a looser pattern.
+        req_name = ident_fmts[REQUIRED_FMT]
+        src = os.path.join(sbom_dir, req_name)
+        if not os.path.exists(src):
+            refuse("child %s: no %s SBOM at %s. A release whose bill of materials "
+                   "for a shipped child is absent is not a release with a bill of "
+                   "materials; this used to be recorded as sbom.present=false and "
+                   "exit 0. Producer and consumer derive this name from ONE "
+                   "function, scripts/lib/common.sh sbom_filename() — regenerate "
+                   "with scripts/generate-sbom.sh, which writes exactly this name"
+                   % (key, REQUIRED_FMT, os.path.join(sbom_dir, req_name)))
+        bound_names.add(req_name)
+        check_sbom_subject(src, key, dig, c.get("platform") or "", source_revision)
+        dest_rel = "content/sbom/%s" % req_name
+        shutil.copyfile(src, os.path.join(out, dest_rel))
+        child_sbom = collections.OrderedDict([
+            ("format", REQUIRED_FMT),
+            ("sha256", sha256_file(src)),
+            ("file", dest_rel),
+            ("subject_digest", dig),
+        ])
+        companions = []
+        for fmt, name in ident_fmts.items():
+            if fmt == REQUIRED_FMT:
+                continue
+            cp = os.path.join(sbom_dir, name)
+            if not os.path.exists(cp):
+                continue
+            bound_names.add(name)
+            check_sbom_subject(cp, key, dig, c.get("platform") or "", source_revision)
+            crel = "content/sbom/%s" % name
+            shutil.copyfile(cp, os.path.join(out, crel))
+            companions.append(collections.OrderedDict([
+                ("format", fmt), ("sha256", sha256_file(cp)), ("file", crel)]))
+        if companions:
+            child_sbom["companions"] = companions
+        sbom_index.append(collections.OrderedDict([
+            ("child_key", key), ("child_slug", slug),
+            ("platform", c.get("platform")), ("manifest_digest", dig),
+            ("format", REQUIRED_FMT), ("file", dest_rel),
+            ("sha256", child_sbom["sha256"]),
+            ("companions", companions)]))
 
     rec = collections.OrderedDict([
         ("child_key", key), ("child_slug", slug),
@@ -343,8 +481,32 @@ for c, (key, slug) in zip(children_in, ident):
                                         ("record", c)]))
 
 if sbom_dir:
+    # NOTHING UNBOUND. A file sitting in the SBOM directory that no child claims
+    # is either an SBOM for a child this bundle does not carry, or a document
+    # nobody derived an identity for. Copying it in would put an unattributable
+    # bill of materials inside checksum coverage, where it reads as evidence.
+    on_disk = sorted(n for n in os.listdir(sbom_dir)
+                     if os.path.isfile(os.path.join(sbom_dir, n)))
+    orphans = [n for n in on_disk if n not in bound_names]
+    if orphans:
+        refuse("%d file(s) in %s are bound to no child in this bundle: %s. Every "
+               "SBOM name comes from sbom_filename() in scripts/lib/common.sh; a "
+               "name outside that set is not an identity this repository issues"
+               % (len(orphans), sbom_dir, ", ".join(orphans[:5])))
+    # EXACTLY ONE SBOM OF RECORD PER CHILD, and no child without one.
+    if len(sbom_index) != len(children):
+        refuse("%d of %d children carry an SBOM. --sbom-dir was supplied, so the "
+               "bundle claims a complete bill of materials; an incomplete one is "
+               "refused rather than recorded as sbom.present=false"
+               % (len(sbom_index), len(children)))
+    idx_keys = [e["child_key"] for e in sbom_index]
+    if len(set(idx_keys)) != len(idx_keys):
+        refuse("two SBOM index entries claim the same child_key")
     write_json(os.path.join(out, "content/sbom/INDEX.json"),
-               {"schema_version": 1, "children": sbom_index})
+               {"schema_version": 1,
+                "identity_function": "scripts/lib/common.sh sbom_filename()",
+                "required_format": REQUIRED_FMT,
+                "children": sbom_index})
 
 # --- findings roll-up --------------------------------------------------------
 sev = collections.Counter()
@@ -505,7 +667,11 @@ manifest = collections.OrderedDict([
     ("execution_disclosure", execution),
     ("sbom", collections.OrderedDict([
         ("present", bool(sbom_index)),
-        ("format", sbom_index and "spdx-json" or None),
+        # `complete` is the fact a release decision needs and `present` never
+        # was: present=true said only that SOME child had a document.
+        ("complete", bool(sbom_index) and len(sbom_index) == len(children)),
+        ("format", REQUIRED_FMT if sbom_index else None),
+        ("identity_function", "scripts/lib/common.sh sbom_filename()"),
         ("children_with_sbom", len(sbom_index)),
         ("children_total", len(children)),
         ("index_file", "content/sbom/INDEX.json" if sbom_dir else None),
@@ -603,10 +769,25 @@ geb_verify() { # <dir>
   local content_sum
   content_sum="$(evidence_checksum "$dir/content")" || return 1
 
-  GEB_SCHEMA="$GEB_SCHEMA" python3 - "$dir" "$content_sum" <<'PY' || return 1
+  # The expected SBOM names are re-derived HERE, by the same sbom_filename()
+  # the producer used, from the manifest's own (family, selector, platform).
+  # Verify therefore checks the recorded path against a freshly derived
+  # identity instead of trusting the string the generator wrote.
+  # NOT a RETURN trap: under `set -T` (bash -T) a RETURN trap fires on EVERY
+  # inner function's return and would delete this table before python reads it.
+  # The scratch directory is removed explicitly on both paths instead.
+  local vtmp rc; vtmp="$(mktemp -d)"
+  if ! _geb_identity_table "$dir/manifest.json" > "$vtmp/ident.tsv"; then
+    rm -rf "$vtmp"; return 1
+  fi
+
+  GEB_SCHEMA="$GEB_SCHEMA" GEB_SBOM_REQUIRED_FORMAT="$GEB_SBOM_REQUIRED_FORMAT" \
+  python3 - "$dir" "$content_sum" "$vtmp/ident.tsv" <<'PY'
+
 import json, os, sys, hashlib, collections
-dir_, content_sum = sys.argv[1], sys.argv[2]
+dir_, content_sum, ident_p = sys.argv[1], sys.argv[2], sys.argv[3]
 schema_p = os.environ["GEB_SCHEMA"]
+REQUIRED_FMT = os.environ["GEB_SBOM_REQUIRED_FORMAT"]
 
 
 def refuse(msg):
@@ -711,11 +892,164 @@ vp = os.path.join(dir_, m["dispositions"]["file"])
 if sha256_file(vp) != m["dispositions"]["sha256"]:
     refuse("the disposition document does not match the digest the manifest records")
 
+# --- 6. the bill of materials, re-bound to the children it claims to describe -
+# Re-run over the bytes on disk, so this holds for a bundle that came back off
+# an archive as much as for one straight out of the generator.
+ident = []
+for ln in open(ident_p).read().splitlines():
+    if not ln.strip():
+        continue
+    cols = ln.split("\t")
+    fmts = collections.OrderedDict()
+    for col in cols[2:]:
+        f, _eq, n = col.partition("=")
+        fmts[f] = n
+    ident.append((cols[0], cols[1], fmts))
+if len(ident) != len(m["children"]):
+    refuse("identity re-derivation produced %d row(s) for %d child record(s)"
+           % (len(ident), len(m["children"])))
+
+sb = m["sbom"]
+with_sbom = [c for c in m["children"] if c.get("sbom")]
+if sb["children_total"] != len(m["children"]):
+    refuse("sbom.children_total=%d but the manifest carries %d child record(s)"
+           % (sb["children_total"], len(m["children"])))
+if sb["children_with_sbom"] != len(with_sbom):
+    refuse("sbom.children_with_sbom=%d but %d child record(s) carry one"
+           % (sb["children_with_sbom"], len(with_sbom)))
+if bool(sb["present"]) != bool(with_sbom):
+    refuse("sbom.present=%r while %d child record(s) carry an SBOM. A bundle "
+           "that reports no bill of materials while carrying one — or the "
+           "reverse — is the exact silent-false state this field exists to "
+           "make impossible" % (sb["present"], len(with_sbom)))
+if sb.get("complete") != (bool(with_sbom) and len(with_sbom) == len(m["children"])):
+    refuse("sbom.complete=%r disagrees with %d of %d children carrying an SBOM"
+           % (sb.get("complete"), len(with_sbom), len(m["children"])))
+if sb["present"] and not sb.get("complete"):
+    refuse("the bundle carries SBOMs for %d of %d children. A partial bill of "
+           "materials is refused: it reads as a complete one to every consumer "
+           "that only checks `present`"
+           % (sb["children_with_sbom"], sb["children_total"]))
+
+sbom_files_claimed = set()
+for c, (key, slug, fmts) in zip(m["children"], ident):
+    if c["child_key"] != key or c["child_slug"] != slug:
+        refuse("child identity re-derivation disagrees with the manifest: the "
+               "record says %r/%r, common.sh derives %r/%r"
+               % (c["child_key"], c["child_slug"], key, slug))
+    cs = c.get("sbom")
+    if cs is None:
+        if sb["present"]:
+            refuse("child %s carries no SBOM in a bundle that reports one for "
+                   "every child" % key)
+        continue
+    docs = [cs] + list(cs.get("companions") or [])
+    for d in docs:
+        want = "content/sbom/%s" % fmts[d["format"]]
+        if d["file"] != want:
+            refuse("child %s: the %s SBOM is recorded at %r; sbom_filename() in "
+                   "scripts/lib/common.sh derives %r. Producer and consumer "
+                   "derive ONE identity, and a document filed under any other "
+                   "name is not this child's"
+                   % (key, d["format"], d["file"], want))
+        ap = os.path.join(dir_, d["file"])
+        if not os.path.exists(ap):
+            refuse("child %s: the recorded SBOM %s is not in the bundle" % (key, d["file"]))
+        # The SBOM's digest is inside the bundle's own coverage: SHA256SUMS
+        # names the file, and the manifest — itself covered — records the same
+        # value. Both are re-checked so neither can drift alone.
+        if d["file"] not in indexed:
+            refuse("child %s: the SBOM %s is covered by no checksum" % (key, d["file"]))
+        actual = sha256_file(ap)
+        if actual != d["sha256"]:
+            refuse("child %s: the SBOM %s hashes to %s, the manifest records %s"
+                   % (key, d["file"], actual, d["sha256"]))
+        if indexed[d["file"]] != actual:
+            refuse("child %s: SHA256SUMS records %s for %s, the file hashes to %s"
+                   % (key, indexed[d["file"]], d["file"], actual))
+        sbom_files_claimed.add(d["file"])
+        # THE SUBJECT, again. The filename matching and the file hashing cleanly
+        # is exactly the state in which a foreign bill of materials passes.
+        doc = json.load(open(ap))
+        subj = set(str(x).strip().lower() for x in (doc.get("documentDescribes") or [])
+                   if isinstance(x, str))
+        comp = ((doc.get("metadata") or {}).get("component") or {})
+        for h in comp.get("hashes") or []:
+            if isinstance(h, dict) and h.get("content"):
+                subj.add("sha256:" + str(h["content"]).lower())
+        if c["manifest_digest"].lower() not in subj:
+            refuse("child %s: %s describes %s, not this child's manifest digest "
+                   "%s. An SBOM for another digest, platform or source does not "
+                   "become this child's by being filed under its name"
+                   % (key, d["file"], ", ".join(sorted(subj)[:3]) or "nothing",
+                      c["manifest_digest"]))
+    if cs.get("subject_digest") and cs["subject_digest"] != c["manifest_digest"]:
+        refuse("child %s: the SBOM record binds subject %s, the child is %s"
+               % (key, cs["subject_digest"], c["manifest_digest"]))
+
+# Nothing unbound inside the bundle either: an SBOM file no child claims is an
+# unattributable bill of materials sitting inside checksum coverage.
+sbom_on_disk = set(p for p in on_disk
+                   if p.startswith("content/sbom/") and not p.endswith("/INDEX.json"))
+unbound = sorted(sbom_on_disk - sbom_files_claimed)
+if unbound:
+    refuse("%d SBOM file(s) in the bundle are claimed by no child: %s"
+           % (len(unbound), ", ".join(unbound[:5])))
+if sb["present"] and not os.path.exists(os.path.join(dir_, "content/sbom/INDEX.json")):
+    refuse("the bundle reports a bill of materials but carries no SBOM index")
+
 print("ok - %s: %d file(s) covered, %d child record(s), content_checksum=%s"
       % (dir_, len(indexed), len(m["children"]), content_sum))
 print("   evidence_class=%s  source_revision=%s  retain_until=%s"
       % (m["evidence_class"], m["source_revision"], m["retention"]["retain_until"]))
+print("   sbom present=%s complete=%s (%d/%d children, format=%s)"
+      % (sb["present"], sb.get("complete"), sb["children_with_sbom"],
+         sb["children_total"], sb["format"]))
 PY
+  rc=$?
+  rm -rf "$vtmp"
+  return "$rc"
+}
+
+# =============================================================================
+# _mk_sboms <acceptance.json> <dir> good|foreign|trname
+# Buildless SPDX fixtures for the self-test. `good` files are named by
+# sbom_filename() and describe their own child; `foreign` are named correctly
+# and describe a DIFFERENT child; `trname` reproduce the blind tr-substitution
+# the producer used to emit.
+_mk_sboms() {
+  # `local` BEFORE the pipeline. Declared between the pipe and the `while` it
+  # feeds, it becomes the pipeline's right-hand side and swallows every row —
+  # the fixtures silently came out empty and three sabotage cases passed
+  # vacuously for "no SBOM at all".
+  local fam ver plat key subj tr name
+  rm -rf "$2"; mkdir -p "$2"
+  python3 - "$1" "$2" "$3" <<'PY' |
+import json, sys
+ev = json.load(open(sys.argv[1]))
+mode = sys.argv[3]
+other = ev["children"][-1]["manifest_digest"]
+first = ev["children"][0]["manifest_digest"]
+for c in ev["children"]:
+    fam, _, ver = c["image_label"].partition("/")
+    subj = c["manifest_digest"]
+    if mode == "foreign":
+        subj = other if c["manifest_digest"] != other else first
+    tr = c["digest_reference"].replace("/", "_").replace(":", "_").replace("@", "_")
+    print("\t".join([fam, ver, c["platform"], c["child_key"], subj, tr]))
+PY
+  while IFS="$(printf '\t')" read -r fam ver plat key subj tr; do
+    if [ "$3" = "trname" ]; then name="$tr.spdx.json"
+    else name="$(sbom_filename "$fam" "$ver" "$plat" spdx-json)"; fi
+    python3 - "$2/$name" "$key" "$subj" <<'PY'
+import json, sys
+json.dump({"spdxVersion": "SPDX-2.3", "SPDXID": "SPDXRef-DOCUMENT",
+           "name": sys.argv[2], "documentDescribes": [sys.argv[3]],
+           "packages": [{"name": "zlib1g", "versionInfo": "1:1.2.13.dfsg-1",
+                         "licenseConcluded": "Zlib", "licenseDeclared": "Zlib"}]},
+          open(sys.argv[1], "w"), indent=2)
+PY
+  done
 }
 
 # =============================================================================
@@ -848,6 +1182,105 @@ PY
   # --- S10 refusing to overwrite an existing bundle ------------------------
   t "S10 writing a bundle over an existing path is REFUSED" \
     "! gen --evidence '$EV' --out '$tmp/b1' --evidence-class staged-candidate --today '$DAY' >/dev/null 2>&1"
+
+  # --- S11..S16 the bill of materials ---------------------------------------
+  # ONE identity, derived by sbom_filename(), producer and consumer. Every case
+  # below is paired with the non-vacuity line that follows it.
+  _mk_sboms "$EV" "$tmp/sbom" good
+  _mk_sboms "$EV" "$tmp/sbom-foreign" foreign
+  _mk_sboms "$EV" "$tmp/sbom-trname" trname
+  t "S11 a complete SBOM set produces a COMPLETE bundle, not a silent false" \
+    "gen --evidence '$EV' --out '$tmp/sb' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom' --today '$DAY' >/dev/null \
+     && python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+s=m[\"sbom\"]
+sys.exit(0 if s[\"present\"] and s[\"complete\"]
+             and s[\"children_with_sbom\"]==s[\"children_total\"]==len(m[\"children\"]) else 1)' \
+        '$tmp/sb/manifest.json'"
+  t "S11 ...and it verifies, with every SBOM inside checksum coverage" \
+    "ver '$tmp/sb' >/dev/null \
+     && [ \"\$(grep -c 'content/sbom/.*\.spdx\.json' '$tmp/sb/SHA256SUMS')\" = \"\$(( MATRIX_COUNT * 2 ))\" ]"
+  t "S11 ...each child bound to the digest its own SBOM describes" \
+    "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+sys.exit(0 if all(c[\"sbom\"][\"subject_digest\"]==c[\"manifest_digest\"] for c in m[\"children\"]) else 1)' \
+        '$tmp/sb/manifest.json'"
+  t "S12 the filename scripts/generate-sbom.sh USED to write is a MISSING SBOM" \
+    "! gen --evidence '$EV' --out '$tmp/sb-tr' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-trname' --today '$DAY' >/dev/null 2>&1"
+  t "S12 ...fatally, naming the one identity function both sides derive from" \
+    "gen --evidence '$EV' --out '$tmp/sb-tr2' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-trname' --today '$DAY' 2>&1 | grep -q 'sbom_filename()'"
+  t "S13 an SBOM whose SUBJECT is another child is REFUSED at generate" \
+    "! gen --evidence '$EV' --out '$tmp/sb-fg' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-foreign' --today '$DAY' >/dev/null 2>&1"
+  t "S13 ...for the subject diagnostic, not a checksum one" \
+    "gen --evidence '$EV' --out '$tmp/sb-fg2' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-foreign' --today '$DAY' 2>&1 | grep -q 'not this child'"
+  rm -rf "$tmp/sbom-short"; cp -R "$tmp/sbom" "$tmp/sbom-short"
+  rm -f "$tmp/sbom-short/$(child_slug nginx prod linux/arm64).spdx.json"
+  t "S14 ONE missing SBOM is FATAL — never sbom.present=false with exit 0" \
+    "! gen --evidence '$EV' --out '$tmp/sb-short' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-short' --today '$DAY' >/dev/null 2>&1"
+  rm -rf "$tmp/sbom-extra"; cp -R "$tmp/sbom" "$tmp/sbom-extra"
+  cp "$tmp/sbom/$(child_slug nginx prod linux/amd64).spdx.json" \
+     "$tmp/sbom-extra/$(child_slug php-cli 8.5 linux/amd64).spdx.json"
+  t "S15 an SBOM bound to no child in the bundle is REFUSED (8.5 is not shipped)" \
+    "! gen --evidence '$EV' --out '$tmp/sb-extra' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-extra' --today '$DAY' >/dev/null 2>&1"
+  # A foreign SBOM planted into a SEALED bundle and re-sealed COMPLETELY
+  # honestly: the file's own digest, the manifest's copy of it, the file index,
+  # the path-independent aggregate and BUNDLE.sha256 all agree afterwards. This
+  # is the attacker's best case, so only re-reading the document's SUBJECT can
+  # refuse it.
+  rm -rf "$tmp/sb-swap"; cp -R "$tmp/sb" "$tmp/sb-swap"
+  local swapped
+  swapped="$(python3 - "$tmp/sb-swap" "$tmp/sbom-foreign" <<'PY2'
+import glob, os, shutil, sys
+b, foreign = sys.argv[1], sys.argv[2]
+tgt = sorted(glob.glob(os.path.join(b, "content/sbom/*.spdx.json")))[0]
+shutil.copyfile(os.path.join(foreign, os.path.basename(tgt)), tgt)
+print(os.path.relpath(tgt, b))
+PY2
+)"
+  local swap_sum; swap_sum="$(evidence_checksum "$tmp/sb-swap/content")"
+  python3 - "$tmp/sb-swap" "$swapped" "$swap_sum" <<'PY2'
+import hashlib, json, os, sys
+b, rel, content_sum = sys.argv[1], sys.argv[2], sys.argv[3]
+h = hashlib.sha256(open(os.path.join(b, rel), "rb").read()).hexdigest()
+mp = os.path.join(b, "manifest.json")
+m = json.load(open(mp))
+for c in m["children"]:
+    if c["sbom"] and c["sbom"]["file"] == rel:
+        c["sbom"]["sha256"] = h
+for f in m["files"]:
+    if f["path"] == rel:
+        f["sha256"] = h
+m["checksums"]["content_checksum"] = content_sum
+json.dump(m, open(mp, "w"), indent=2)
+lines = []
+for dp, _d, ns in os.walk(b):
+    for n in ns:
+        ap = os.path.join(dp, n)
+        r = os.path.relpath(ap, b)
+        if r in ("SHA256SUMS", "BUNDLE.sha256"):
+            continue
+        lines.append("%s  %s" % (hashlib.sha256(open(ap, "rb").read()).hexdigest(), r))
+lines.sort(key=lambda s: s.split("  ", 1)[1])
+mn = [l for l in lines if l.endswith("  manifest.json")]
+open(os.path.join(b, "SHA256SUMS"), "w").write(
+    "\n".join(mn + [l for l in lines if l not in mn]) + "\n")
+open(os.path.join(b, "BUNDLE.sha256"), "w").write(
+    "%s  SHA256SUMS\n"
+    % hashlib.sha256(open(os.path.join(b, "SHA256SUMS"), "rb").read()).hexdigest())
+PY2
+  t "S16 a foreign SBOM swapped in and honestly re-sealed is REFUSED by verify" \
+    "! ver '$tmp/sb-swap' >/dev/null 2>&1"
+  t "S16 ...because the SUBJECT is re-read, not just the file's own digest" \
+    "ver '$tmp/sb-swap' 2>&1 | grep -q 'not this child'"
+  t "NON-VACUOUS: the honest SBOM bundle still verifies after S12-S16" \
+    "ver '$tmp/sb' >/dev/null"
 
   # --- NON-VACUITY ---------------------------------------------------------
   t "NON-VACUOUS: the untampered bundle still verifies after every sabotage above" \
