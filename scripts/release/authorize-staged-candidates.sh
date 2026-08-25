@@ -101,6 +101,26 @@ CANONICAL_WORKFLOW_REF="${CANONICAL_WORKFLOW_REF:-zenchron-dynamics/zenchron-fou
 # shellcheck source=evidence-checksum.sh
 . "$_d/evidence-checksum.sh"
 
+# --- THE NATIVE-ARCHITECTURE GATE (#111) -------------------------------------
+# policies/native-arch-requirements.yaml carried `require_native_arm64: true`
+# alongside a `known_gap` admitting the flag was not load-bearing: the gate was
+# invoked by the native smoke workflow and by NO release-gating path, so a
+# release built entirely on emulated arm64 evidence would have been authorized
+# without ever consulting it. That is closed HERE, in the canonical post-build
+# authorizer, because this is the one place the release path decides whether the
+# staged children may become RC manifest inputs.
+#
+# The binding is on THIS run's own children: the digest map handed to the gate is
+# built from the manifest digests being authorized, so native evidence about some
+# other build, some other revision or some other platform cannot satisfy it.
+#
+# NATIVE_EVIDENCE_DIR is MANDATORY whenever the policy requires native arm64 and
+# this run requests linux/arm64. Its absence is a refusal, not a skip — an
+# optional gate is a gate that disappears exactly when nobody wires it.
+NATIVE_GATE="${NATIVE_GATE:-$_d/assert-native-arch-evidence.sh}"
+NATIVE_POLICY="${NATIVE_POLICY:-$_d/../../policies/native-arch-requirements.yaml}"
+NATIVE_PLATFORM="${NATIVE_PLATFORM:-linux/arm64}"
+
 # ---------------------------------------------------------------------------
 # Evaluation. Collects EVERY refusal rather than exiting on the first, so one
 # run tells the operator everything that is wrong.
@@ -340,6 +360,70 @@ authorize() { # authorize <evidence-dir> <out.json>
     fi
   done
 
+  # --- native-architecture evidence, on the RELEASE path (#111) ------------
+  # Runs on this run's own children, after they have been collected, so the
+  # digests it binds against are exactly the digests being authorized.
+  local ng_required=false ng_verdict=NOT_REQUIRED ng_covered=0 ng_expected=0 ng_records=0
+  local ng_wants_arm=0
+  case " ${EXPECTED_PLATFORMS//,/ } " in *" $NATIVE_PLATFORM "*) ng_wants_arm=1 ;; esac
+
+  if ! ng_required="$(python3 - "$NATIVE_POLICY" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1])) or {}
+print("true" if (d.get("release_gate") or {}).get("require_native_arm64") else "false")
+PY
+  )"; then
+    # A gate that cannot read its own policy must refuse. Treating an unreadable
+    # policy as "not required" is how a control silently switches itself off.
+    ng_required=unreadable
+    ng_verdict=FAIL
+    refusals+=("the native-architecture policy at '$NATIVE_POLICY' is unreadable — an unreadable policy is a refusal, never a skipped gate")
+  fi
+
+  if [ "$ng_required" = true ] && [ "$ng_wants_arm" -eq 1 ]; then
+    ng_verdict=FAIL
+    if [ -z "${NATIVE_EVIDENCE_DIR:-}" ]; then
+      refusals+=("policies/native-arch-requirements.yaml requires native $NATIVE_PLATFORM runtime evidence and this run requests $NATIVE_PLATFORM, but NATIVE_EVIDENCE_DIR was not supplied — the release path must PRESENT native evidence, and its absence is a refusal, not a pass")
+    elif [ ! -d "$NATIVE_EVIDENCE_DIR" ]; then
+      refusals+=("NATIVE_EVIDENCE_DIR '$NATIVE_EVIDENCE_DIR' does not exist — native $NATIVE_PLATFORM evidence is required and cannot be assumed")
+    else
+      local want_file gate_out line gate_rc=0 had_detail=0
+      want_file="$(mktemp)"
+      # The candidate set IS this run's arm64 children. Nothing external decides
+      # which digests count, so evidence cannot be pointed at a friendlier build.
+      jq --arg p "$NATIVE_PLATFORM" -c \
+        '[.[] | select(.platform==$p and (.image_label|length>0) and (.manifest_digest|length>0))
+              | {key:.image_label, value:.manifest_digest}] | from_entries' \
+        <<<"$children" > "$want_file"
+      ng_expected="$(jq 'length' "$want_file")"
+      ng_records="$(find "$NATIVE_EVIDENCE_DIR" -maxdepth 1 -name '*.json' | wc -l | tr -d ' ')"
+
+      gate_out="$(bash "$NATIVE_GATE" "$NATIVE_EVIDENCE_DIR" \
+                    --require-native "$NATIVE_PLATFORM" --gate-release \
+                    --expect-revision "$EXPECTED_REVISION" \
+                    --expect-digests "$want_file" 2>&1)" || gate_rc=$?
+      rm -f "$want_file"
+      if [ "$gate_rc" -eq 0 ]; then
+        ng_verdict=PASS
+        ng_covered="$ng_expected"
+      else
+        # The gate's own diagnostics are carried through VERBATIM. A refusal that
+        # says only "the native gate failed" cannot distinguish a wrong-digest
+        # refusal from an unreadable file, which is the whole point of having a
+        # diagnostic at all.
+        while IFS= read -r line; do
+          case "$line" in "  - "*) refusals+=("native-arch gate: ${line#  - }"); had_detail=1 ;; esac
+        done <<<"$gate_out"
+        if [ "$had_detail" -eq 0 ]; then
+          while IFS= read -r line; do
+            case "$line" in "REFUSE: "*) refusals+=("native-arch gate: ${line#REFUSE: }"); had_detail=1 ;; esac
+          done <<<"$gate_out"
+        fi
+        [ "$had_detail" -eq 1 ] || refusals+=("native-arch gate: refused without a diagnostic (exit $gate_rc)")
+      fi
+    fi
+  fi
+
   # --- verdict -------------------------------------------------------------
   local verdict=PASS
   [ "${#refusals[@]}" -eq 0 ] || verdict=FAIL
@@ -360,6 +444,9 @@ authorize() { # authorize <evidence-dir> <out.json>
     --argjson plats "$(printf '%s' "$EXPECTED_PLATFORMS" | tr ',' '\n' | jq -R . | jq -sc .)" \
     --argjson exp "$expected_children" \
     --argjson children "$children" --arg scope "$SCOPE" \
+    --arg ngreq "$ng_required" --arg ngplat "$NATIVE_PLATFORM" \
+    --arg ngverdict "$ng_verdict" --argjson ngcov "$ng_covered" \
+    --argjson ngexp "$ng_expected" --argjson ngrec "$ng_records" \
     --arg verdict "$verdict" --argjson refusals "$refusals_json" '
     {schema_version: 1, repository: $repo, source_revision: $rev,
      workflow_run_id: $rid, workflow_run_attempt: $ratt, workflow_ref: $wref,
@@ -368,6 +455,12 @@ authorize() { # authorize <evidence-dir> <out.json>
      staging_package: $pkg,
      expected_matrix: {images: $imgs, platforms: $plats, expected_children: $exp},
      children: $children,
+     native_arch_gate: {
+       policy: "policies/native-arch-requirements.yaml",
+       required: $ngreq, platform: $ngplat, verdict: $ngverdict,
+       evidence_records: $ngrec,
+       covered_images: $ngcov, expected_images: $ngexp
+     },
      authorization_scope: $scope,
      public_exposure_authorized: false,
      verdict: $verdict}
@@ -442,6 +535,51 @@ _asc_self_test() {
         printf '%s' "$base" > "$d/child-$i.json"
       done
     done < <(matrix_image_labels)
+    _mk_native "$d"
+  }
+
+  # NATIVE ARM64 RUNTIME EVIDENCE for the same candidate digests (#111). The
+  # release gate now requires it whenever linux/arm64 is requested, so the
+  # fixture has to be able to SATISFY it — a fixture that never could would only
+  # prove the gate refuses everything, which is not the property under test.
+  # The directory is a SIBLING of the child-evidence directory, never inside it:
+  # the authorizer collects children with an unbounded `find`, so native records
+  # nested under the evidence root would be read back as malformed children and
+  # the gate would appear to fail for a reason that was never under test.
+  _mk_native() { # _mk_native <dir> [label-to-mutate] [jq-filter]
+    local d="${1}-native" target="${2:-}" filt="${3:-.}" lbl rec
+    mkdir -p "$d"
+    while IFS= read -r lbl; do
+      rec="$(jq -nc --arg l "$lbl" --arg ck "$lbl/linux/arm64" --arg dg "$DIG" \
+                    --arg p "$PKG" --arg rev "$REV" '{
+        record_type:"native-arch-runtime-evidence",
+        child_key:$ck, image_label:$l, platform:"linux/arm64",
+        host_architecture:"arm64", execution_mode:"native",
+        architecture_source:"measured", uname_m:"aarch64",
+        runner_kind:"ephemeral-hosted", runner_label:"ubuntu-24.04-arm",
+        source_revision:$rev, manifest_digest:$dg,
+        digest_reference:($p+"@"+$dg), runtime_smoke:"PASS", authoritative:true}')"
+      if [ -n "$target" ] && [ "$lbl" = "$target" ]; then
+        rec="$(jq -c "$filt" <<<"$rec")"
+      fi
+      printf '%s' "$rec" > "$d/$(printf '%s' "$lbl" | tr '/' '-').json"
+    done < <(matrix_image_labels)
+    export NATIVE_EVIDENCE_DIR="$d"
+  }
+
+  # Assert a refusal by its DIAGNOSTIC, not merely by a non-zero exit. A test
+  # that accepts any failure cannot tell a wrong-architecture refusal from a
+  # typo in the fixture.
+  tr_() { # tr_ <name> <dir> <substring the refusal must contain>
+    local name="$1" d="$2" want="$3"
+    authorize "$d" "$d/out.json" >/dev/null 2>&1 || true
+    if [ -s "$d/out.json" ] \
+       && [ "$(jq -r .verdict "$d/out.json")" = FAIL ] \
+       && jq -e --arg w "$want" 'any(.refusals[]?; contains($w))' "$d/out.json" >/dev/null 2>&1; then
+      echo "ok   - $name"; ok=$((ok+1))
+    else
+      echo "FAIL - $name (no refusal containing '$want')"; bad=$((bad+1))
+    fi
   }
 
   t() { # t <name> <expect pass|fail> <dir>
@@ -587,6 +725,97 @@ _asc_self_test() {
     authorize "$d" "$d/out.json" >/dev/null 2>&1 ) \
     && { echo "ok   - linux/arm64 alone is also evidenced, not refused"; ok=$((ok+1)); } \
     || { echo "FAIL - linux/arm64 was refused"; bad=$((bad+1)); }
+
+  # --- THE NATIVE-ARCHITECTURE GATE, ON THE CANONICAL RELEASE PATH (#111) ---
+  # Every one of these asserts the INTENDED DIAGNOSTIC. Exit status alone cannot
+  # distinguish a wrong-architecture refusal from a broken fixture.
+  d="$tmp/n-ok"; _mk "$d"
+  authorize "$d" "$d/out.json" >/dev/null 2>&1 || true
+  if [ "$(jq -r .native_arch_gate.verdict "$d/out.json")" = PASS ] \
+     && [ "$(jq -r .native_arch_gate.required "$d/out.json")" = true ] \
+     && [ "$(jq -r .native_arch_gate.covered_images "$d/out.json")" = "$(jq -r .native_arch_gate.expected_images "$d/out.json")" ]; then
+    echo "ok   - the authorization record REPORTS the native gate result, not just the verdict"; ok=$((ok+1))
+  else echo "FAIL - native gate result missing from the record"; bad=$((bad+1)); fi
+
+  d="$tmp/n-absent"; _mk "$d"; rm -rf "${d}-native"
+  ( export NATIVE_EVIDENCE_DIR=""
+    authorize "$d" "$d/out.json" >/dev/null 2>&1 ) || true
+  if jq -e 'any(.refusals[]?; contains("NATIVE_EVIDENCE_DIR was not supplied"))' "$d/out.json" >/dev/null 2>&1; then
+    echo "ok   - a release path that presents NO native evidence is REFUSED, not skipped"; ok=$((ok+1))
+  else echo "FAIL - missing native evidence did not refuse by name"; bad=$((bad+1)); fi
+
+  d="$tmp/n-qemu"; _mk "$d"
+  _mk_native "$d" "nginx/prod" '.execution_mode="qemu" | .host_architecture="amd64"'
+  tr_ "QEMU evidence does not satisfy the release native requirement" "$d" "ran emulated"
+
+  d="$tmp/n-emulated"; _mk "$d"
+  _mk_native "$d" "nginx/prod" '.execution_mode="emulated" | .host_architecture="amd64"'
+  tr_ "...and the 'emulated' spelling is diagnosed as emulation too" "$d" "ran emulated"
+
+  d="$tmp/n-partial"; _mk "$d"; rm -f "${d}-native/nginx-prod.json"
+  tr_ "9 of 10 native results is a REFUSAL, not a pass" "$d" \
+      "a partial native result is a refusal, not a pass"
+
+  d="$tmp/n-digest"; _mk "$d"
+  _mk_native "$d" "nginx/prod" '.manifest_digest="sha256:'"$(printf 'f%.0s' {1..64})"'"'
+  tr_ "native evidence for another digest REFUSES" "$d" \
+      "evidence for another digest cannot authorize this one"
+
+  d="$tmp/n-rev"; _mk "$d"
+  _mk_native "$d" "nginx/prod" '.source_revision="0000000000000000000000000000000000000000"'
+  tr_ "native evidence for another source revision REFUSES" "$d" \
+      "evidence for another source cannot authorize this one"
+
+  d="$tmp/n-plat"; _mk "$d"
+  _mk_native "$d" "nginx/prod" '.platform="linux/amd64" | .host_architecture="amd64"'
+  tr_ "native evidence for another platform REFUSES" "$d" \
+      "evidence for another platform cannot satisfy it"
+
+  d="$tmp/n-label"; _mk "$d"
+  _mk_native "$d" "nginx/prod" '.architecture_source="runner-label"'
+  tr_ "architecture inferred from the runner label REFUSES" "$d" \
+      "execution_mode must never be inferred from it"
+
+  d="$tmp/n-uname"; _mk "$d"
+  _mk_native "$d" "nginx/prod" '.uname_m="x86_64"'
+  tr_ "a uname -m that contradicts the claimed host REFUSES" "$d" \
+      "the measurement and the claim disagree"
+
+  d="$tmp/n-ident"; _mk "$d"
+  _mk_native "$d" "nginx/prod" 'del(.runner_kind)'
+  tr_ "native evidence that does not identify its runner kind REFUSES" "$d" \
+      "native evidence does not identify runner_kind"
+
+  d="$tmp/n-auth"; _mk "$d"
+  _mk_native "$d" "nginx/prod" '.authoritative=false'
+  tr_ "branch (non-authoritative) native evidence cannot gate a release" "$d" \
+      "produced on a non-default ref and cannot gate a release"
+
+  d="$tmp/n-policy"; _mk "$d"
+  ( export NATIVE_POLICY="$tmp/no-such-policy.yaml"
+    authorize "$d" "$d/out.json" >/dev/null 2>&1 ) || true
+  if jq -e 'any(.refusals[]?; contains("unreadable policy is a refusal"))' "$d/out.json" >/dev/null 2>&1; then
+    echo "ok   - an unreadable native-arch policy REFUSES rather than switching the gate off"; ok=$((ok+1))
+  else echo "FAIL - unreadable policy did not refuse"; bad=$((bad+1)); fi
+
+  # NON-VACUITY: with the policy saying native is NOT required, the same
+  # emulated evidence is authorized. The gate is reading the policy, not simply
+  # refusing everything.
+  d="$tmp/n-off"; _mk "$d"
+  _mk_native "$d" "nginx/prod" '.execution_mode="qemu" | .host_architecture="amd64"'
+  python3 - "$NATIVE_POLICY" "$tmp/off.yaml" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+d["release_gate"]["require_native_arm64"] = False
+yaml.safe_dump(d, open(sys.argv[2], "w"))
+PY
+  ( export NATIVE_POLICY="$tmp/off.yaml"
+    authorize "$d" "$d/out.json" >/dev/null 2>&1 ) \
+    && { echo "ok   - NON-VACUOUS: with require_native_arm64 false the same evidence passes"; ok=$((ok+1)); } \
+    || { echo "FAIL - the gate refuses regardless of policy"; bad=$((bad+1)); }
+  if [ "$(jq -r .native_arch_gate.verdict "$d/out.json")" = NOT_REQUIRED ]; then
+    echo "ok   - ...and the record says NOT_REQUIRED rather than implying it ran"; ok=$((ok+1))
+  else echo "FAIL - NOT_REQUIRED not recorded"; bad=$((bad+1)); fi
 
   # a FAIL record is still written
   d="$tmp/writefail"; _mk "$d"; rm -f "$d/child-1.json"

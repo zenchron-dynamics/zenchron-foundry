@@ -34,7 +34,8 @@
 #   R6  a checksum mismatch anywhere in the bundle
 #   R7  a missing SBOM or missing provenance
 #   R8  the wrong evidence class — a staged-candidate is not a release
-#   R9  QEMU evidence presented as native arm64
+#   R9  QEMU evidence where the policy requires native arm64 — whether or
+#       not the caller claimed it (policies/native-arch-requirements.yaml)
 #   R10 an image line that is not in the shipping matrix (PHP 8.5: an
 #       experimental cohort, deliberately outside production)
 #   R11 public exposure without a separate public-exposure authorization
@@ -58,6 +59,9 @@ RS_ROOT="${RS_ROOT:-$(cd "$_RS_D/../.." && pwd)}"
 
 RS_IDENTITIES="$RS_ROOT/policies/cosign-identities.yaml"
 RS_LIFECYCLE="$RS_ROOT/policies/lifecycle.yaml"
+# The #111 boundary, read rather than assumed. Overridable ONLY so the
+# self-test can prove the gate reads it — see the non-vacuity case.
+RS_NATIVE_ARCH="${RS_NATIVE_ARCH:-$RS_ROOT/policies/native-arch-requirements.yaml}"
 
 # --- the test-only boundary ---------------------------------------------------
 # Refuse to run anywhere a real signature could be produced or mistaken for one.
@@ -116,6 +120,7 @@ rs_seal() {
   trap "rm -rf '$tmp'" EXIT
 
   RS_IDENTITIES="$RS_IDENTITIES" RS_LIFECYCLE="$RS_LIFECYCLE" \
+  RS_NATIVE_ARCH="$RS_NATIVE_ARCH" \
   RS_MATRIX_COUNT="$MATRIX_COUNT" RS_MATRIX_IMAGES="$MATRIX_IMAGES" \
   python3 - "$bundle" "$version" "$candidate" "$identity" "$platforms" \
               "$public" "$pea" "$claim_native" "$today" "$tmp/payload.json" <<'PY' || return 1
@@ -261,9 +266,30 @@ for c in m["children"]:
                       (ln.get("blocker") or {}).get("summary", "see policies/lifecycle.yaml")))
 
 # --- R9 emulation is not native ----------------------------------------------
+# The POLICY decides whether this matters, not the caller. `--claim-native-arm64`
+# used to be the only thing that armed R9, which made the strongest refusal in
+# this script opt-in: a release that simply never claimed nativeness sealed over
+# emulated arm64 children without the boundary ever being consulted. It is now
+# read from policies/native-arch-requirements.yaml, and the claim flag only adds
+# the narrower "you asserted something your evidence does not support" case.
+_nap = yaml.safe_load(open(os.environ["RS_NATIVE_ARCH"])) or {}
+native_required = bool((_nap.get("release_gate") or {}).get("require_native_arm64"))
+
 disc = m["execution_disclosure"]
 arm = [c for c in m["children"] if c["platform"] == "linux/arm64"]
 emulated = [c for c in arm if c["execution_mode"] != "native"]
+
+if native_required and arm and emulated:
+    refuse("R9", "policies/native-arch-requirements.yaml sets "
+                 "release_gate.require_native_arm64: true, so a release bundle "
+                 "shipping linux/arm64 MUST carry native arm64 runtime evidence — "
+                 "but %d of %d linux/arm64 child(ren) ran under %s emulation. This "
+                 "refusal does NOT depend on --claim-native-arm64: the requirement "
+                 "belongs to the policy, not to the caller, and a control the caller "
+                 "can decline to invoke is not a control."
+           % (len(emulated), len(arm), emulated[0]["execution_mode"]))
+
+
 if claim_native and emulated:
     refuse("R9", "--claim-native-arm64 was requested, but %d of %d linux/arm64 "
                  "child(ren) ran under %s emulation on an x86 host. QEMU establishes "
@@ -345,6 +371,20 @@ for k, bc in sorted(bundle_children.items()):
         refuse("R13", "child %s: the authorization names digest %s, the bundle "
                       "carries %s" % (k, auth_children[k].get("manifest_digest"),
                                       bc["manifest_digest"]))
+# The seal does not re-derive nativeness from the bundle's own self-description.
+# The canonical post-build authorizer runs the native-architecture gate against
+# the candidate digests; the seal REQUIRES that gate to have run and passed.
+if native_required and arm:
+    _ng = arec.get("native_arch_gate") or {}
+    if _ng.get("verdict") != "PASS":
+        refuse("R9", "the post-build authorization record reports "
+                     "native_arch_gate.verdict=%r (%d of %d required images covered). "
+                     "A release requiring native arm64 evidence must be authorized by "
+                     "a run that EXECUTED that gate against the candidate digests; a "
+                     "bundle cannot vouch for its own architecture"
+               % (_ng.get("verdict"), _ng.get("covered_images", 0),
+                  _ng.get("expected_images", 0)))
+
 authorization_binding = collections.OrderedDict([
     ("record_file", auth["record_file"]),
     ("record_sha256", auth["record_sha256"]),
@@ -409,6 +449,7 @@ seal = collections.OrderedDict([
     ("platforms", want),
     ("arm64_execution", arm64_execution),
     ("native_arm64_claimed", bool(claim_native)),
+    ("native_arm64_required_by_policy", native_required),
     ("promoted_digests", [collections.OrderedDict([
         ("child_key", c["child_key"]),
         ("platform", c["platform"]),
@@ -512,6 +553,18 @@ open(os.path.join(d, "BUNDLE.sha256"), "w").write(
 PY
 }
 
+# Writes a copy of the native-arch policy with release_gate.require_native_arm64
+# turned off. Used ONLY by the self-test, to prove the refusal is the policy's
+# and not a blanket refusal. It never touches the real policy file.
+_rs_policy_off() {
+  python3 - "$1" "$2" <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+d["release_gate"]["require_native_arm64"] = False
+yaml.safe_dump(d, open(sys.argv[2], "w"))
+PY
+}
+
 _rs_self_test() {
   local tmp ok=0 bad=0
   tmp="$(mktemp -d)"
@@ -541,8 +594,20 @@ _rs_self_test() {
   # See tests/lib/make_authorization_fixture.py: the canonical authorization is
   # a 30-day workflow artifact and this run's has expired, so the seal's own
   # self-test rebuilds it offline from the accepted evidence.
+  # THE ACCEPTED RECORD IS EMULATED, AND UNDER A MANDATORY NATIVE POLICY IT NO
+  # LONGER SEALS. That is asserted directly further down. Every OTHER refusal
+  # needs a bundle that would otherwise seal, or R1/R4/R5/R6/R7/R8/R11/R12/R13
+  # start passing for the native-architecture reason instead of their own. $EVN
+  # is that bundle: the same run with its arm64 children recorded native, built
+  # by a fixture generator that lives under tests/ and stamps its output.
+  local EVN="$tmp/ev-native.json"
+  python3 "$RS_ROOT/tests/lib/make_native_arm64_fixture.py" "$EV" "$EVN" >/dev/null \
+    || { echo "SKIP - native fixture unavailable"; return 0; }
   local RS_AUTHREC="$tmp/post-build-authorization.json"
-  python3 "$RS_ROOT/tests/lib/make_authorization_fixture.py" "$EV" "$RS_AUTHREC" \
+  python3 "$RS_ROOT/tests/lib/make_authorization_fixture.py" "$EVN" "$RS_AUTHREC" \
+    || { echo "SKIP - authorization fixture unavailable"; return 0; }
+  local RS_AUTH_EMUL="$tmp/post-build-authorization-emulated.json"
+  python3 "$RS_ROOT/tests/lib/make_authorization_fixture.py" "$EV" "$RS_AUTH_EMUL" \
     || { echo "SKIP - authorization fixture unavailable"; return 0; }
   local DAY=2026-08-25
 
@@ -570,11 +635,11 @@ PY
 
   # A publishable bundle, and the candidate bundle it was promoted from.
   t "F1 a published-artifact bundle is generated (SBOMs + provenance)" \
-    "bundle_gen --evidence '$EV' --out '$tmp/pub' --evidence-class published-artifact \
+    "bundle_gen --evidence '$EVN' --out '$tmp/pub' --evidence-class published-artifact \
        --release v2026.08.25 --candidate rc1 --sbom-dir '$tmp/sboms' \
        --provenance '$tmp/prov.json' --today '$DAY' >/dev/null"
   t "F2 a staged-candidate bundle is generated from the same run" \
-    "bundle_gen --evidence '$EV' --out '$tmp/cand' --evidence-class staged-candidate \
+    "bundle_gen --evidence '$EVN' --out '$tmp/cand' --evidence-class staged-candidate \
        --sbom-dir '$tmp/sboms' --provenance '$tmp/prov.json' --today '$DAY' >/dev/null"
 
   # --- H the happy path -----------------------------------------------------
@@ -586,8 +651,10 @@ PY
   t "H3 the seal carries every promoted digest" \
     "[ \"\$(python3 -c 'import json;print(len(json.load(open(\"$tmp/seal.json\"))[\"promoted_digests\"]))')\" \
       = \"\$(( MATRIX_COUNT * 2 ))\" ]"
-  t "H4 the seal records arm64 as emulated, because it was" \
-    "[ \"\$(python3 -c 'import json;print(json.load(open(\"$tmp/seal.json\"))[\"arm64_execution\"])')\" = qemu ]"
+  t "H4 the seal records arm64 execution, and the fixture is native" \
+    "[ \"\$(python3 -c 'import json;print(json.load(open(\"$tmp/seal.json\"))[\"arm64_execution\"])')\" = native ]"
+  t "H5 the seal records that the POLICY required native arm64, not the caller" \
+    "python3 -c 'import json,sys;d=json.load(open(\"$tmp/seal.json\"));sys.exit(0 if d[\"native_arm64_required_by_policy\"] and not d[\"native_arm64_claimed\"] else 1)'"
 
   # --- R8 / R12: an RC or candidate cannot satisfy the release role ----------
   t "R8 a staged-candidate bundle CANNOT be sealed as a release" \
@@ -611,7 +678,7 @@ PY
        --test-key '$tmp/test.key' --out '$tmp/r12c.json' --today '$DAY' >/dev/null 2>&1"
 
   # --- R1 an incomplete child set -------------------------------------------
-  python3 - "$EV" "$tmp/ev-short.json" <<'PY'
+  python3 - "$EVN" "$tmp/ev-short.json" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1])); d["children"] = d["children"][:-1]
 d["matrix"]["observed_children"] = len(d["children"])
@@ -632,7 +699,7 @@ PY
 ev=json.load(open(sys.argv[1]))
 c=ev["children"][-1]
 fam,_,ver=c["image_label"].partition("/")
-print("%s-%s-linux-%s.spdx.json"%(fam,ver,c["platform"].rsplit("/",1)[-1]))' "$EV")"
+print("%s-%s-linux-%s.spdx.json"%(fam,ver,c["platform"].rsplit("/",1)[-1]))' "$EVN")"
   bundle_gen --evidence "$tmp/ev-short.json" --out "$tmp/short" \
     --evidence-class published-artifact --release v2026.08.25 --candidate rc1 \
     --sbom-dir "$tmp/sboms-short" --provenance "$tmp/prov.json" \
@@ -650,21 +717,66 @@ print("%s-%s-linux-%s.spdx.json"%(fam,ver,c["platform"].rsplit("/",1)[-1]))' "$E
        --platforms 'linux/amd64 linux/arm64 linux/s390x' \
        --test-key '$tmp/test.key' --out '$tmp/r4.json' --today '$DAY' >/dev/null 2>&1"
 
-  # --- R9 QEMU presented as native ------------------------------------------
+  # --- R9 the native-architecture boundary ----------------------------------
+  # THE CASES THAT FAIL ON THE PREVIOUS STATE. R9 used to fire ONLY when the
+  # caller passed --claim-native-arm64, so a release that simply never made the
+  # claim sealed straight over emulated arm64 children and the boundary was
+  # never consulted. These use the REAL accepted record, whose ten linux/arm64
+  # children genuinely ran under QEMU on x86 hosts.
+  bundle_gen --evidence "$EV" --out "$tmp/pub-emul" --evidence-class published-artifact \
+    --release v2026.08.25 --candidate rc1 --sbom-dir "$tmp/sboms" \
+    --provenance "$tmp/prov.json" --authorization "$RS_AUTH_EMUL" \
+    --today "$DAY" >/dev/null 2>&1
+  t "R9 the REAL emulated accepted bundle cannot be sealed while the policy requires native" \
+    "! seal --bundle '$tmp/pub-emul' --version v2026.08.25 --identity '$REL_ID' \
+       --test-key '$tmp/test.key' --out '$tmp/r9p.json' --today '$DAY' >/dev/null 2>&1"
+  t "R9 ...refused by the POLICY, with no claim flag anywhere near the command" \
+    "seal --bundle '$tmp/pub-emul' --version v2026.08.25 --identity '$REL_ID' \
+       --test-key '$tmp/test.key' --out '$tmp/r9p.json' --today '$DAY' 2>&1 \
+       | grep -q 'does NOT depend on --claim-native-arm64'"
+
+  # NON-VACUITY: aimed at a policy that does NOT require native arm64, the very
+  # same bundle seals. The refusal belongs to the policy, and is not a blanket
+  # refusal of everything.
+  _rs_policy_off "$RS_NATIVE_ARCH" "$tmp/native-off.yaml"
+  t "R9 NON-VACUOUS: with require_native_arm64 false the same emulated bundle SEALS" \
+    "( export RS_NATIVE_ARCH='$tmp/native-off.yaml'
+       seal --bundle '$tmp/pub-emul' --version v2026.08.25 --identity '$REL_ID' \
+         --test-key '$tmp/test.key' --out '$tmp/r9n.json' --today '$DAY' >/dev/null 2>&1 )"
+
+  # The seal does not take the bundle's own word for it. The CANONICAL
+  # post-build authorizer runs the native gate against the candidate digests,
+  # and its recorded verdict has to say PASS.
+  python3 "$RS_ROOT/tests/lib/make_authorization_fixture.py" "$EVN" \
+    "$tmp/auth-gatefail.json" --native-gate FAIL >/dev/null 2>&1
+  bundle_gen --evidence "$EVN" --out "$tmp/pub-gatefail" --evidence-class published-artifact \
+    --release v2026.08.25 --candidate rc1 --sbom-dir "$tmp/sboms" \
+    --provenance "$tmp/prov.json" --authorization "$tmp/auth-gatefail.json" \
+    --today "$DAY" >/dev/null 2>&1
+  t "R9 native children whose AUTHORIZATION never passed the gate are REFUSED" \
+    "! seal --bundle '$tmp/pub-gatefail' --version v2026.08.25 --identity '$REL_ID' \
+       --test-key '$tmp/test.key' --out '$tmp/r9g.json' --today '$DAY' >/dev/null 2>&1"
+  t "R9 ...saying a bundle cannot vouch for its own architecture" \
+    "seal --bundle '$tmp/pub-gatefail' --version v2026.08.25 --identity '$REL_ID' \
+       --test-key '$tmp/test.key' --out '$tmp/r9g.json' --today '$DAY' 2>&1 \
+       | grep -q 'cannot vouch for its own architecture'"
+
   t "R9 claiming native arm64 over QEMU evidence is REFUSED" \
-    "! seal --bundle '$tmp/pub' --version v2026.08.25 --identity '$REL_ID' \
+    "! seal --bundle '$tmp/pub-emul' --version v2026.08.25 --identity '$REL_ID' \
        --claim-native-arm64 --test-key '$tmp/test.key' --out '$tmp/r9.json' --today '$DAY' >/dev/null 2>&1"
   t "R9 ...explaining what emulation does not establish" \
-    "seal --bundle '$tmp/pub' --version v2026.08.25 --identity '$REL_ID' \
-       --claim-native-arm64 --test-key '$tmp/test.key' --out '$tmp/r9.json' --today '$DAY' 2>&1 | grep -q 'does NOT establish'"
+    "( export RS_NATIVE_ARCH='$tmp/native-off.yaml'
+       seal --bundle '$tmp/pub-emul' --version v2026.08.25 --identity '$REL_ID' \
+         --claim-native-arm64 --test-key '$tmp/test.key' --out '$tmp/r9.json' \
+         --today '$DAY' 2>&1 ) | grep -q 'does NOT establish'"
 
   # --- R7 missing SBOM / provenance -----------------------------------------
-  bundle_gen --evidence "$EV" --out "$tmp/nosbom" --evidence-class published-artifact \
+  bundle_gen --evidence "$EVN" --out "$tmp/nosbom" --evidence-class published-artifact \
     --release v2026.08.25 --candidate rc1 --provenance "$tmp/prov.json" --today "$DAY" >/dev/null 2>&1
   t "R7 a bundle with no SBOM is REFUSED" \
     "! seal --bundle '$tmp/nosbom' --version v2026.08.25 --identity '$REL_ID' \
        --test-key '$tmp/test.key' --out '$tmp/r7.json' --today '$DAY' >/dev/null 2>&1"
-  bundle_gen --evidence "$EV" --out "$tmp/noprov" --evidence-class published-artifact \
+  bundle_gen --evidence "$EVN" --out "$tmp/noprov" --evidence-class published-artifact \
     --release v2026.08.25 --candidate rc1 --sbom-dir "$tmp/sboms" --today "$DAY" >/dev/null 2>&1
   t "R7 a bundle with no provenance attestation is REFUSED" \
     "! seal --bundle '$tmp/noprov' --version v2026.08.25 --identity '$REL_ID' \
