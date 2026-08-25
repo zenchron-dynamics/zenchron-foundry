@@ -1237,8 +1237,25 @@ ck "SABOTAGE: a candidate's licence verdict presented as a published release is 
    "! bash '$LGATE' --inventory '$TMP/inv-bound.json' --evidence-class published-artifact >/dev/null 2>&1"
 ck "NON-VACUOUS: it passes for the class it was actually built for" \
    "bash '$LGATE' --inventory '$TMP/inv-bound.json' --evidence-class staged-candidate >/dev/null 2>&1"
-ck "a workflow DOES invoke the licence gate now" \
-   "grep -rq 'scripts/license/' .github/workflows/"
+# A --self-test invocation is the gate testing ITSELF. It proves the script
+# runs; it proves nothing about any workflow gating a release on licence
+# policy. The previous form of this assertion was
+#     grep -rq 'scripts/license/' .github/workflows/
+# which matched exactly one line — ci.yml's `--self-test` step — so it was
+# literally true, substantively false, and green forever regardless of whether
+# the gate was ever wired to a real artifact. That is the vacuous-check class
+# this suite exists to eliminate, so it does not get to live inside it.
+_lic_real() {
+  # any invocation that is NOT a self-test
+  grep -rn 'scripts/license/' .github/workflows/ 2>/dev/null | grep -v -- '--self-test'
+}
+gap "no workflow invokes the licence gate against a real inventory" \
+    "[ -z \"$(_lic_real)\" ]"
+gap "...ci.yml runs it only as --self-test, which gates no artifact" \
+    "grep -rq -- 'scripts/license/assert-license-policy.sh --self-test' .github/workflows/ci.yml"
+ck "NON-VACUOUS: the real-invocation search would match a non-self-test call" \
+   "printf 'run: bash scripts/license/assert-license-policy.sh --inventory x\n' > '$TMP/wf-probe' &&
+    grep -n 'scripts/license/' '$TMP/wf-probe' | grep -vq -- '--self-test'"
 ck "the bundle RECORDS a licence fact, so the two meet on one artifact" \
    "grep -qi 'licen' schemas/release-evidence-bundle-v1.schema.json \
     && python3 -c 'import json,sys
