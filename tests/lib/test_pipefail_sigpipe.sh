@@ -100,9 +100,12 @@ ck "...while capture-then-here-string is unaffected by the same producer, got $n
    "[ '$newrc' -eq 0 ]"
 
 # --- ARM 1: the REAL script, under the producer that guarantees the race ----
-# Three times, and once under functrace, because both self-test call sites in
-# CI ran it in both modes and disagreed.
-for mode in plain plain plain functrace; do
+# Twice plain and once under functrace, because the two CI call sites ran it in
+# both modes and disagreed (`plain=1, traced=0` on run 32815714210). The slowed
+# producer makes each run deterministic, so repetition is a cheap sanity margin
+# rather than the sampling this used to need. Each run drives the real
+# reconciler ten times and costs ~9s; three is the budget.
+for mode in plain plain functrace; do
   case "$mode" in
     plain)     bash    "$MIRROR/scripts/ci/assert-no-stale-exceptions.sh" --self-test >"$TMP/real.out" 2>&1 ;;
     functrace) bash -T "$MIRROR/scripts/ci/assert-no-stale-exceptions.sh" --self-test >"$TMP/real.out" 2>&1 ;;
