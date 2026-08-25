@@ -141,11 +141,15 @@ run_trial() { # run_trial <n>
     echo "tmpdir mode: $dirty"
     echo "TMPDIR     : $tmp"
     echo "TODAY      : ${TODAY:-<unset, script uses date -u +%F>}"
-    echo "command    : LC_ALL=$loc LANG=$loc TZ=$zone TMPDIR='$tmp' ${TODAY:+TODAY=$TODAY }${cmd[*]}"
+    echo "command    : env LC_ALL=$loc LANG=$loc TZ=$zone TMPDIR='$tmp' ${TODAY:+TODAY=$TODAY }${cmd[*]}"
     echo "--- stdout+stderr ---"
   } > "$log"
 
-  LC_ALL="$loc" LANG="$loc" TZ="$zone" TMPDIR="$tmp" ${TODAY:+TODAY="$TODAY"} \
+  # `env`, not a bare assignment prefix. Bash recognises assignment prefixes
+  # BEFORE expansion, so `${TODAY:+TODAY="$TODAY"} cmd` expands to a plain word
+  # and bash tries to EXECUTE `TODAY=2026-08-31`, giving 127 rather than running
+  # anything. `env` takes NAME=VALUE as an ordinary argument, so it works.
+  env LC_ALL="$loc" LANG="$loc" TZ="$zone" TMPDIR="$tmp" ${TODAY:+TODAY="$TODAY"} \
     "${cmd[@]}" >>"$log" 2>&1
   rc=$?
   echo "--- exit status: $rc ---" >> "$log"
@@ -197,7 +201,14 @@ echo "per-trial evidence (env, seed, fixture, command, exit, full output): $OUTD
 if [ "$fails" -gt 0 ]; then
   echo "exit statuses observed on failure:"
   awk '$2 != 0 {print "  rc=" $2 "  " "trial " $1}' "$OUTDIR/results.tsv" | sort -u
-  echo "  (rc=141 is SIGPIPE — a producer killed by a short-circuiting reader"
-  echo "   under set -o pipefail, NOT a policy refusal)"
+  # Read the status carefully before calling anything a refusal:
+  #   141 = the producer was KILLED by SIGPIPE
+  #     1 = ambiguous. Either a genuine refusal, OR a write that returned EPIPE
+  #         because SIGPIPE was IGNORED (what GitHub-hosted runners do) — check
+  #         the trial log for "write error: Broken pipe" before concluding.
+  #   127 = harness bug, not a finding: something was not executable.
+  echo "  141=SIGPIPE, 1=refusal OR EPIPE-with-SIGPIPE-ignored (grep the trial"
+  echo "  log for 'Broken pipe'), 127=harness bug. Do not read any of these as a"
+  echo "  policy refusal without opening the log."
 fi
 [ "$fails" -eq 0 ]
