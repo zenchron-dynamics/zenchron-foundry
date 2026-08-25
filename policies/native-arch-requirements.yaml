@@ -49,13 +49,39 @@ accepted_runners:
     labels: [ubuntu-24.04-arm]
     minimum_vcpu: 4
     minimum_ram_gb: 16
-    # MEASURED, not inherited. See disk_basis below.
-    minimum_free_disk_gb: 8
-    disk_basis: provisional-pending-measurement
+    # Observed on run 32828707281 (2026-08-25): uname -m = aarch64.
+    # MEASURED, not inherited. See disk_measurement below.
+    minimum_free_disk_gb: 12
+    disk_basis: measured
     disk_rationale: >-
-      Provisional floor, deliberately below the runner's advertised free disk so
-      the first instrumented run can MEASURE the real figure instead of asserting
-      one. Replaced by a measured number plus headroom once a run reports it.
+      12 GB is roughly 2.3x the largest measured consumption of the full 10-image
+      smoke, and still fits inside the 14 GB free-disk figure GitHub's runner
+      reference advertises for this label — so the floor holds even if a future
+      runner image only offers the advertised amount. It is NOT the 60 GB the
+      persistent self-hosted entry carries, because nothing this job does needs
+      that, and it is not a number lowered to fit: it is a measurement plus
+      headroom.
+    disk_measurement:
+      workflow_run_id: 32828707281
+      measured_on: 2026-08-25
+      runner_label: ubuntu-24.04-arm
+      scope: full matrix, all 6 families / 10 images, built from source on the runner
+      # Two independent accountings of the same run, both recorded because they
+      # do not agree and the larger is what the floor is set from.
+      free_before_kb: 113641780       # 108 GB free — see note below
+      free_after_kb: 110099612
+      filesystem_delta_kb: 3542168    # 3.4 GiB, the df(1) ground truth
+      docker_images_gb: 4.964         # 16 images incl. multi-stage build stages
+      docker_build_cache_gb: 0.311    # 173 cache records
+      docker_total_gb: 5.275          # the larger accounting; the floor is set from this
+      largest_single_image_mb: 677    # php-frankenphp:8.4
+      smoke_result: 10/10 images, 108 checks passed, 0 failed
+      note: >-
+        The runner reference advertises 14 GB of SSD for this label. The runner
+        this actually landed on reported a 145 GB root filesystem with 109 GB
+        free before the job. Both figures are recorded rather than reconciled:
+        the floor is deliberately set against the SMALLER, advertised figure, so
+        it does not depend on the larger one continuing to hold.
     trust:
       - >-
         ephemeral — the VM is destroyed after the job, so no work volume is

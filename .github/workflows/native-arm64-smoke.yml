@@ -7,10 +7,13 @@
 #
 # That framing modelled #111 as blocked on hardware. It is not. This repository
 # is public, and GitHub's STANDARD hosted Linux arm64 runners are free and
-# unlimited on public repositories (label `ubuntu-24.04-arm`, 4 vCPU / 16 GB RAM
-# / 14 GB SSD, GA since 2025-08-07). Nothing had to be provisioned, funded or
-# enrolled; the label had simply never been considered. See
-# policies/native-arch-requirements.yaml for the citations.
+# unlimited on public repositories (label `ubuntu-24.04-arm`, 4 vCPU / 16 GB RAM,
+# GA since 2025-08-07). Nothing had to be provisioned, funded or enrolled; the
+# label had simply never been considered. See
+# policies/native-arch-requirements.yaml for the citations and for the MEASURED
+# disk figures from run 32828707281 (2026-08-25): the full 10-image smoke
+# consumed 3.4 GiB by df(1) and 5.3 GB by Docker's own accounting, against a
+# 12 GB floor.
 #
 # WHAT IT CLAIMS, ACCURATELY. It was once described as "the executable half of
 # #111", which overstated it twice over: it declared a `families` input and
