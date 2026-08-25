@@ -57,11 +57,14 @@ accepted_runners:
       the first instrumented run can MEASURE the real figure instead of asserting
       one. Replaced by a measured number plus headroom once a run reports it.
     trust:
-      - ephemeral: the VM is destroyed after the job, so no work volume is shared
-        with any other job, trusted or not
-      - holds no repository or organization secrets; permissions are
-        contents:read and packages:read
-      - not subject to a self-hosted runner group, so it cannot be widened by a
+      - >-
+        ephemeral — the VM is destroyed after the job, so no work volume is
+        shared with any other job, trusted or not
+      - >-
+        holds no repository or organization secrets; the job's permissions are
+        contents read and packages read
+      - >-
+        not subject to a self-hosted runner group, so it cannot be widened by a
         runner-group membership change
     validation_command: "uname -m   # must print aarch64"
     validation_evidence_field: "execution_mode == native AND host_architecture == arm64"
