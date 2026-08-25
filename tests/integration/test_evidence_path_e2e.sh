@@ -1353,6 +1353,35 @@ need=[\"scripts/license/assert-license-policy.sh\",\"scripts/cra/assert-cra-cont
       \"scripts/release/generate-evidence-bundle.sh\"]
 sys.exit(0 if all(n in runs for n in need)
              and job[\"name\"] in p[\"pr_required_checks\"] else 1)'"
+# macro-validate stays LOCAL, deliberately. Its own header calls it "the gate a
+# maintainer runs before pushing", and it invokes scripts/release-dry-run.sh;
+# making it a CI entry point would import that scope into every pull request.
+# The real shortfall was that the subsystems it wires were gated only
+# transitively, and each is now gated directly above — so the fix is the direct
+# wiring, not promoting the local harness.
+ck "macro-validate remains the pre-push maintainer harness, not a CI entry point" \
+   "grep -q 'the gate a maintainer runs before pushing' scripts/macro-validate.sh \
+    && grep -q 'release-dry-run' scripts/macro-validate.sh \
+    && python3 -c 'import glob,sys,yaml
+# Read the RUN STEPS, not the file text: ci.yml mentions macro-validate in a
+# comment explaining why the subsystems are wired individually, and a bare grep
+# would read that explanation as an invocation.
+for f in glob.glob(\".github/workflows/*.yml\"):
+    w=yaml.safe_load(open(f)) or {}
+    for j in (w.get(\"jobs\") or {}).values():
+        for st in (j.get(\"steps\") or []):
+            if \"macro-validate\" in str(st.get(\"run\") or \"\"):
+                sys.exit(1)
+sys.exit(0)'"
+ck "...and every subsystem it gates locally is independently gated in CI" \
+   "python3 -c 'import re,sys
+mv=open(\"scripts/macro-validate.sh\").read()
+import glob
+wf=\"\".join(open(f).read() for f in glob.glob(\".github/workflows/*.yml\"))
+need=[\"scripts/license/assert-license-policy.sh\",\"scripts/cra/assert-cra-controls.sh\",
+      \"scripts/continuity-verify.sh\",\"scripts/repro-guarantees.sh\",
+      \"scripts/release/assert-evidence-class.sh\"]
+sys.exit(0 if all(n in mv and n in wf for n in need) else 1)'"
 ck "the offline suite that transitively covers them is STILL in CI" \
    "grep -rq 'tests/run-all.sh' .github/workflows/"
 ck "...so losing either the transitive chain or a direct gate is a red check" \
