@@ -207,8 +207,16 @@ obligations:
       - scripts/release/assert-native-arch-evidence.sh
     enforced_by: execution_mode evidence, derived from the runner rather than declared
     gap: >-
-      No native arm64 runner is enrolled, so arm64 runtime behaviour is
-      evidenced only under emulation. Tracked in issue 111.
+      Status stays `partial`, and the reason CHANGED on 2026-08-25. It was "no
+      native arm64 runner is enrolled". That is no longer the gap: this
+      repository is public and the native arm64 smoke now runs on a GitHub
+      standard hosted arm64 runner (ubuntu-24.04-arm), so native arm64 runtime
+      evidence is producible without provisioning anything. Two things still
+      keep this short of full: the ACCEPTANCE path (stage-and-authorize.yml)
+      still builds and scans arm64 under emulation, and no release-gating
+      workflow invokes assert-native-arch-evidence.sh, so the native
+      requirement is not yet load-bearing on the release path. Tracked in
+      issue 111.
 
   - id: conformity-documentation
     obligation: produce and retain the technical documentation a conformity assessment requires

@@ -1,24 +1,43 @@
 # =============================================================================
 # .github/workflows/native-arm64-smoke.yml — #111 native arm64 runtime evidence.
 # -----------------------------------------------------------------------------
-# This workflow CANNOT RUN until a native arm64 runner is enrolled.
+# THIS WORKFLOW RUNS TODAY. It previously carried the line "CANNOT RUN until a
+# native arm64 runner is enrolled", because it targeted
+# `[self-hosted, Linux, ARM64, zenchron]` and no such runner exists.
 #
-# WHAT IT CLAIMS, ACCURATELY. It was previously described as "the executable half
-# of #111", which overstated it twice over. It declared a `families` input and
-# NEVER READ IT: the job proved `uname -m`, emitted an evidence record, and
-# smoked NO IMAGE. An architecture assertion is not runtime evidence, so the
-# workflow could not have closed #111 even on a real arm64 host. Enrolling a
-# runner is a NECESSARY step toward #111, not a sufficient one.
+# That framing modelled #111 as blocked on hardware. It is not. This repository
+# is public, and GitHub's STANDARD hosted Linux arm64 runners are free and
+# unlimited on public repositories (label `ubuntu-24.04-arm`, 4 vCPU / 16 GB RAM,
+# GA since 2025-08-07). Nothing had to be provisioned, funded or enrolled; the
+# label had simply never been considered. See
+# policies/native-arch-requirements.yaml for the citations and for the MEASURED
+# disk figures from run 32828707281 (2026-08-25): the full 10-image smoke
+# consumed 3.4 GiB by df(1) and 5.3 GB by Docker's own accounting, against a
+# 12 GB floor.
 #
-# It now actually runs the runtime smoke over the selected arm64 images, and the
-# evidence records which families were smoked and the verdict.
+# WHAT IT CLAIMS, ACCURATELY. It was once described as "the executable half of
+# #111", which overstated it twice over: it declared a `families` input and
+# NEVER READ IT, so it smoked no image. That was fixed in #199; the input is now
+# read, validated and drives the run.
 #
 # It refuses loudly rather than silently degrading:
-#   * if it lands on a non-aarch64 host it FAILS — it will not emulate;
-#   * `uname -m` is proven and recorded;
+#   * if it lands on a non-aarch64 host it FAILS — it will not emulate. The
+#     hosted label is not trusted; `uname -m` is proven and recorded;
 #   * an unknown family REFUSES rather than smoking nothing and reporting green;
+#   * it refuses to START if free disk is below the floor that
+#     policies/native-arch-requirements.yaml sets FOR THIS RUNNER KIND, so the
+#     job fails at the boundary instead of dying mid-build on ENOSPC;
 #   * evidence carries execution_mode=native, checked by
 #     scripts/release/assert-native-arch-evidence.sh.
+#
+# PROVENANCE, NOT A BRANCH BAN. The old guard refused any ref but master. On a
+# PERSISTENT self-hosted runner that was also a trust control: branch code on a
+# shared work volume. An ephemeral hosted VM discharges that concern — it is the
+# same isolation every fork PR job already gets, and this job holds no secrets
+# and only `contents: read` / `packages: read`. What master-only ALSO bought was
+# evidence provenance, and that is preserved explicitly instead of implicitly:
+# every record carries `source_ref` and `authoritative`, and only a master run
+# is authoritative. A non-master run must ask for it (`validation_run: true`).
 #
 # QEMU evidence from stage-and-authorize is sufficient for #139 and can never
 # satisfy this workflow's contract.
@@ -35,6 +54,15 @@ on:
         description: "Image families to smoke (space- or comma-separated), e.g. 'php-fpm nginx'; empty means the whole matrix"
         required: false
         default: ""
+      validation_run:
+        # Off by default: the master-only refusal stands unless a human asks for
+        # a branch validation. A validation run smokes for real but stamps its
+        # evidence `authoritative: false`, so it can never be mistaken for
+        # release evidence.
+        description: "Allow this to run on a non-default ref. Evidence is stamped authoritative=false."
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -47,22 +75,37 @@ jobs:
   guard:
     name: refuse any ref but the default branch
     runs-on: ubuntu-latest
+    outputs:
+      authoritative: ${{ steps.ref.outputs.authoritative }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: {fetch-depth: 1}
-      - name: Refuse a non-default ref
+      - name: Refuse a non-default ref unless a validation run was requested
+        id: ref
+        env:
+          VALIDATION_RUN: ${{ inputs.validation_run }}
         run: |
           set -euo pipefail
-          [ "${GITHUB_REF}" = "refs/heads/master" ] \
-            || { echo "REFUSE: native smoke runs only on master, got ${GITHUB_REF}"; exit 1; }
+          if [ "${GITHUB_REF}" = "refs/heads/master" ]; then
+            echo "authoritative=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [ "${VALIDATION_RUN}" = "true" ] \
+            || { echo "REFUSE: native smoke runs only on master, got ${GITHUB_REF}."; \
+                 echo "        Re-dispatch with validation_run=true to validate a branch;"; \
+                 echo "        that evidence is stamped authoritative=false."; exit 1; }
+          echo "validation run on ${GITHUB_REF} — evidence will NOT be authoritative"
+          echo "authoritative=false" >> "$GITHUB_OUTPUT"
 
   native-smoke:
     name: native arm64 smoke
     needs: guard
-    # The label contract from policies/native-arch-requirements.yaml. With no
-    # such runner enrolled this job stays queued and the run is cancelled by the
-    # operator — it never falls back to an X64 host.
-    runs-on: [self-hosted, Linux, ARM64, zenchron]
+    # The label contract from policies/native-arch-requirements.yaml
+    # (accepted_runners[id=hosted-ephemeral-arm64].runs_on). A STANDARD hosted
+    # arm64 runner: free and unlimited on public repositories, ephemeral, and
+    # never a shared work volume. The label is not trusted on its own — the
+    # `uname -m` proof below is what makes the evidence native.
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     permissions:
       contents: read
@@ -90,6 +133,36 @@ jobs:
             echo "host_arch=arm64"
             echo "execution_mode=native"
             echo "uname_m=${m}"
+          } >> "$GITHUB_OUTPUT"
+
+      # THE DISK FLOOR, READ FROM POLICY AND ENFORCED BEFORE ANY BUILD.
+      # `minimum_free_disk_gb` used to be one global number (60) inherited from a
+      # SELF-HOSTED incident in which `_work`/`_update` self-update staging filled
+      # a PERSISTENT volume. That failure mode cannot occur here: this VM is
+      # destroyed after the job. So the floor is scoped by runner kind, and this
+      # step reads the floor for THIS runner's kind rather than the largest one
+      # in the file. It refuses at the boundary; ENOSPC halfway through image 7
+      # is a much worse way to learn the same thing.
+      - name: Enforce the runner-kind disk floor from policy
+        id: disk
+        env:
+          RUNNER_KIND: ephemeral-hosted
+        run: |
+          set -euo pipefail
+          python3 -c "import yaml" 2>/dev/null || pip install --quiet pyyaml
+          floor="$(python3 scripts/release/runner-disk-floor.py "$RUNNER_KIND")"
+          avail_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
+          avail_gb=$(( avail_kb / 1024 / 1024 ))
+          echo "policy floor for kind=${RUNNER_KIND}: ${floor} GB"
+          echo "free on the work volume:            ${avail_gb} GB"
+          df -h . || true
+          [ "$avail_gb" -ge "$floor" ] || {
+            echo "REFUSE: ${avail_gb} GB free is below the ${floor} GB floor this"
+            echo "        policy sets for an ${RUNNER_KIND} runner."
+            exit 1; }
+          {
+            echo "floor_gb=${floor}"
+            echo "free_before_kb=${avail_kb}"
           } >> "$GITHUB_OUTPUT"
 
       # THE INPUT, ACTUALLY READ. An unknown family REFUSES here rather than
@@ -128,6 +201,28 @@ jobs:
           bash scripts/smoke-all.sh
           echo "verdict=PASS" >> "$GITHUB_OUTPUT"
 
+      # MEASURED, NOT ASSUMED. These numbers are what the policy floor is set
+      # from; they are recorded in the evidence so a future change to the floor
+      # has to argue with a measurement instead of with a memory.
+      - name: Measure what the smoke actually consumed
+        id: used
+        if: always()
+        env:
+          FREE_BEFORE_KB: ${{ steps.disk.outputs.free_before_kb }}
+        run: |
+          set -euo pipefail
+          after_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
+          used_kb=$(( FREE_BEFORE_KB - after_kb ))
+          echo "free before: $(( FREE_BEFORE_KB / 1024 / 1024 )) GB"
+          echo "free after:  $(( after_kb / 1024 / 1024 )) GB"
+          echo "consumed:    ${used_kb} KB"
+          docker system df || true
+          docker image ls --format '{{.Repository}}:{{.Tag}} {{.Size}}' || true
+          {
+            echo "free_after_kb=${after_kb}"
+            echo "used_kb=${used_kb}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Record the native runtime evidence
         env:
           HOST_ARCH: ${{ steps.arch.outputs.host_arch }}
@@ -135,19 +230,36 @@ jobs:
           UNAME_M: ${{ steps.arch.outputs.uname_m }}
           SMOKED: ${{ steps.fams.outputs.families }}
           VERDICT: ${{ steps.smoke.outputs.verdict }}
+          AUTHORITATIVE: ${{ needs.guard.outputs.authoritative }}
+          FLOOR_GB: ${{ steps.disk.outputs.floor_gb }}
+          FREE_BEFORE_KB: ${{ steps.disk.outputs.free_before_kb }}
+          FREE_AFTER_KB: ${{ steps.used.outputs.free_after_kb }}
+          USED_KB: ${{ steps.used.outputs.used_kb }}
         run: |
           set -euo pipefail
           mkdir -p native-evidence
           jq -n --arg h "$HOST_ARCH" --arg e "$EXEC_MODE" --arg u "$UNAME_M" \
                 --arg r "$GITHUB_SHA" --arg run "$GITHUB_RUN_ID" \
                 --arg runner "$RUNNER_NAME" \
-                --arg smoked "$SMOKED" --arg verdict "$VERDICT" '{
+                --arg smoked "$SMOKED" --arg verdict "$VERDICT" \
+                --arg ref "$GITHUB_REF" --arg auth "$AUTHORITATIVE" \
+                --arg kind "ephemeral-hosted" --arg label "ubuntu-24.04-arm" \
+                --arg floor "$FLOOR_GB" --arg fb "$FREE_BEFORE_KB" \
+                --arg fa "$FREE_AFTER_KB" --arg uk "$USED_KB" '{
             record_type:"native-arch-runtime-evidence",
             platform:"linux/arm64", host_architecture:$h, execution_mode:$e,
             uname_m:$u, source_revision:$r, workflow_run_id:($run|tonumber),
             runner_name:$runner,
+            runner_kind:$kind, runner_label:$label,
+            source_ref:$ref, authoritative:($auth=="true"),
             smoked_families:($smoked|split(" ")),
-            runtime_smoke:$verdict
+            runtime_smoke:$verdict,
+            disk: {
+              policy_floor_gb:($floor|tonumber),
+              free_before_kb:($fb|tonumber),
+              free_after_kb:($fa|tonumber),
+              consumed_kb:($uk|tonumber)
+            }
           }' > native-evidence/native-arm64.json
           jq . native-evidence/native-arm64.json
 

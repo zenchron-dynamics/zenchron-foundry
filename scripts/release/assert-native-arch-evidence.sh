@@ -166,8 +166,14 @@ _self_test() {
   t "unreadable evidence refuses, never counts as clean" \
     "! chk '$d' >/dev/null 2>&1"
 
-  t "the policy is readable and currently does NOT require native arm64" \
-    "[ \"\$(policy_requires_native)\" = false ]"
+  # Was: "currently does NOT require native arm64". It does now — a hosted
+  # ubuntu-24.04-arm runner produces native evidence, so the gate is armed. The
+  # assertion is kept on the READ, not on the value, so it still catches an
+  # unreadable or malformed policy.
+  t "the policy is readable and states a native-arm64 requirement either way" \
+    "case \"\$(policy_requires_native)\" in true|false) true ;; *) false ;; esac"
+  t "...and it currently DOES require native arm64" \
+    "[ \"\$(policy_requires_native)\" = true ]"
 
   echo "self-test: $ok ok, $bad failed"
   [ "$bad" -eq 0 ]

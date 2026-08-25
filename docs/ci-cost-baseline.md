@@ -47,10 +47,20 @@ outstanding optimisation target.**
 **No build or scan reuse in the acceptance path.** See the contract below: the
 telemetry and the key definition land now, the reuse does not.
 
-**QEMU is not replaced.** A native arm64 runner would remove ~8 hours from the
-critical path and is the single biggest available saving, but enrolling one is a
-control-plane change and outside this batch. It is also what #111 actually needs
-— emulation cannot establish native runtime behaviour.
+**QEMU is not replaced in the acceptance path.** A native arm64 runner would
+remove ~8 hours from the critical path and is the single biggest available
+saving. This paragraph previously said enrolling one is "a control-plane change
+and outside this batch". That was wrong, and it is corrected here rather than
+left standing: this repository is public, and GitHub's standard hosted arm64
+Linux runners (`ubuntu-24.04-arm`) are free and unlimited on public repositories
+and generally available since 2025-08-07. No enrolment, spend or control-plane
+change is involved. `.github/workflows/native-arm64-smoke.yml` runs on one as of
+2026-08-25. What remains is that the ACCEPTANCE path
+(`stage-and-authorize.yml`) still builds and scans under QEMU on the trusted
+self-hosted pair; moving that is a separate change with its own trust argument,
+because the acceptance path handles registry credentials the smoke path does
+not. Emulation still cannot establish native runtime behaviour — that boundary
+is unchanged (#111).
 
 ## The four reuse claims — kept separate on purpose
 
