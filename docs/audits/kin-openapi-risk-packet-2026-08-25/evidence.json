@@ -1,0 +1,1762 @@
+{
+  "schema_version": 1,
+  "record_type": "maintainer-decision-packet-evidence",
+  "prepared_at": "2026-08-25",
+  "source_revision": "4203044 (rebased); packet content measured against a828e07 tree, docs-only delta",
+  "lane": "documentation and evidence only \u2014 no ledger mutation, no dispatch, no publish, no promote, no signing, no release, no upstream compile",
+  "ledger_untouched": "policies/vulnerability-exceptions.yaml unchanged",
+  "scanner": {
+    "tool": "trivy",
+    "version": "0.73.0",
+    "db_schema": 2,
+    "db_updated_at": "2026-08-25T00:59:57.325486492Z",
+    "db_downloaded_at": "2026-08-25T07:48:46.328638Z",
+    "flags": [
+      "--scanners vuln",
+      "--severity HIGH,CRITICAL",
+      "--format json"
+    ],
+    "suppression": "none \u2014 no --ignore-unfixed, no ignore file"
+  },
+  "execution_disclosure": {
+    "host": "darwin/arm64 workstation",
+    "native_children": "linux/arm64",
+    "emulated_children": "linux/amd64 (QEMU)",
+    "upstream_artifacts": "scanned per-platform directly from the registry with --platform; no emulation involved",
+    "not_native_arm64_runtime_evidence": true
+  },
+  "task_a": {
+    "advisories": {
+      "CVE-2026-76905": {
+        "ghsa": "GHSA-mmfr-pmjx-hw9w",
+        "package": "github.com/getkin/kin-openapi",
+        "ecosystem": "Go",
+        "introduced": "0.10.0",
+        "fixed": "0.141.0",
+        "severity": "HIGH",
+        "cvss": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+        "cwe": [
+          "CWE-476"
+        ],
+        "osv_published": "2026-08-21T20:43:07.066Z",
+        "github_reviewed_at": "2026-08-21T20:55:46Z",
+        "nvd_published_at": null,
+        "source": "https://api.osv.dev/v1/vulns/CVE-2026-76905",
+        "retrieved": "2026-08-25"
+      },
+      "CVE-2026-77354": {
+        "ghsa": "GHSA-xhj3-7xw9-vr34",
+        "package": "github.com/getkin/kin-openapi",
+        "ecosystem": "Go",
+        "introduced": "0.124.0",
+        "fixed": "0.142.0",
+        "severity": "HIGH",
+        "cvss": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N",
+        "cwe": [
+          "CWE-400",
+          "CWE-789"
+        ],
+        "osv_published": "2026-08-21T20:44:47.792Z",
+        "github_reviewed_at": "2026-08-21T20:56:56Z",
+        "nvd_published_at": null,
+        "source": "https://api.osv.dev/v1/vulns/CVE-2026-77354",
+        "retrieved": "2026-08-25"
+      }
+    },
+    "kin_openapi_releases": {
+      "v0.140.0": "2026-06-02T15:47:47Z",
+      "v0.141.0": "2026-07-10T08:49:45Z",
+      "v0.142.0": "2026-07-11T22:04:27Z",
+      "v0.144.0": "2026-07-23T23:08:15Z",
+      "v0.147.0": "2026-08-18T14:12:06Z",
+      "source": "https://proxy.golang.org/github.com/getkin/kin-openapi/@v/list",
+      "retrieved": "2026-08-25"
+    },
+    "clearing_floor": ">= 0.144.0 clears GHSA-r277-6w6q-xmqw, CVE-2026-76905 and CVE-2026-77354 together",
+    "upstream_registry_state": {
+      "retrieved": "2026-08-25",
+      "method": "docker buildx imagetools inspect + Docker Hub tags API",
+      "pinned": {
+        "php-frankenphp/8.3": "sha256:ae143d38335e4d8faf3f73205c91b69562b4154a85bf3fdd9ef63d59c8727ead",
+        "php-frankenphp/8.4": "sha256:cef99f108009ed60c6d60261c8edc17104fce06aafaf24c21119cd4b4c704aa7"
+      },
+      "current_tag_heads": {
+        "dunglas/frankenphp:1-php8.3-bookworm": "sha256:9725e5d498b49d01036baec385c07ff787f96ce60a1b79250ce103f6d92dbfda",
+        "dunglas/frankenphp:1-php8.4-bookworm": "sha256:a6e78fd9da1640784cb07d606e313ae9f6013b1de39741643f0c256ecd87c8ae",
+        "dunglas/frankenphp:latest": "sha256:e2fb833fac0135f9a070647a8c70eb80ba282de4a035de56b6a3371cb555eca0"
+      },
+      "tag_head_moved_since_last_disposition": {
+        "1-php8.3-bookworm": "moved 2026-08-25T04:19:59Z; still ships kin-openapi v0.140.0 and grpc v1.81.1"
+      },
+      "newest_upstream_release": {
+        "tag": "v1.12.7",
+        "published": "2026-08-07T07:49:19Z"
+      },
+      "patched_official_artifact_exists": false
+    },
+    "ownership": {
+      "class": "upstream-vendor-binary",
+      "rebuild_can_remediate": false,
+      "root_cause_key": "upstream-vendor-binary:github.com/getkin/kin-openapi:v0.140.0",
+      "foundry_source_compilation": "NOT APPROVED and not proposed"
+    },
+    "consolidation": {
+      "issue": 79,
+      "decision": "CONSOLIDATE",
+      "new_issues_created": 0
+    },
+    "caddyfile_openapi_grep": {
+      "command": "grep -rniE 'openapi|validat|deepobject|multipart' images/php-frankenphp/*/Caddyfile images/caddy/Caddyfile",
+      "matches": 0,
+      "files_checked": [
+        "images/caddy/Caddyfile",
+        "images/php-frankenphp/8.3/Caddyfile",
+        "images/php-frankenphp/8.4/Caddyfile",
+        "images/php-frankenphp/8.5/Caddyfile"
+      ]
+    },
+    "base_vs_child": {
+      "note": "child evidence, not base evidence",
+      "upstream_base_8_4_high_crit": 256,
+      "upstream_base_8_4_linux_libc_dev": 181,
+      "child_php_frankenphp_8_4_high_crit": 81,
+      "child_php_frankenphp_8_4_linux_libc_dev": 0,
+      "cause": "Dockerfile runs apt-get purge -y --auto-remove \u2026 linux-libc-dev \u2026"
+    }
+  },
+  "task_b": {
+    "total_exceptions": 59,
+    "expiry_histogram": {
+      "2026-08-31": 55,
+      "2026-09-01": 4
+    },
+    "buckets": {
+      "upstream now patched": 0,
+      "installed version changed": 0,
+      "finding disappeared": 0,
+      "risk still present": 45,
+      "evidence too old to decide": 14
+    },
+    "stale_exceptions": 0,
+    "entries": [
+      {
+        "n": 1,
+        "cve": "CVE-2023-45853",
+        "image": "php-8.3-8.4",
+        "package": "zlib1g",
+        "bound_installed_version": "1:1.2.13.dfsg-1",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2023-45853|php-8.3-8.4|zlib1g|1:1.2.13.dfsg-1"
+      },
+      {
+        "n": 2,
+        "cve": "CVE-2026-42496",
+        "image": "php-8.3-8.4",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-42496|php-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 3,
+        "cve": "CVE-2026-8376",
+        "image": "php-8.3-8.4",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-8376|php-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 4,
+        "cve": "CVE-2025-7458",
+        "image": "php-8.3-8.4",
+        "package": "libsqlite3-0",
+        "bound_installed_version": "3.40.1-2+deb12u2",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2025-7458|php-8.3-8.4|libsqlite3-0|3.40.1-2+deb12u2"
+      },
+      {
+        "n": 5,
+        "cve": "CVE-2023-6879",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libaom3",
+        "bound_installed_version": "3.6.0-1+deb12u2",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2023-6879|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2"
+      },
+      {
+        "n": 6,
+        "cve": "CVE-2026-27145",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-27145|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 7,
+        "cve": "CVE-2026-42504",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-42504|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 8,
+        "cve": "CVE-2026-33630",
+        "image": "caddy",
+        "package": "c-ares",
+        "bound_installed_version": "1.34.6-r0",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-33630|caddy|c-ares|1.34.6-r0"
+      },
+      {
+        "n": 9,
+        "cve": "CVE-2026-6276",
+        "image": "caddy",
+        "package": "curl,libcurl",
+        "bound_installed_version": "8.19.0-r0",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-6276|caddy|curl,libcurl|8.19.0-r0"
+      },
+      {
+        "n": 10,
+        "cve": "GHSA-hrxh-6v49-42gf",
+        "image": "caddy",
+        "package": "google.golang.org/grpc",
+        "bound_installed_version": "v1.81.0",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "GHSA-hrxh-6v49-42gf|caddy|google.golang.org/grpc|v1.81.0"
+      },
+      {
+        "n": 11,
+        "cve": "GHSA-hrxh-6v49-42gf",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "google.golang.org/grpc",
+        "bound_installed_version": "v1.81.1",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "GHSA-hrxh-6v49-42gf|php-frankenphp-8.3-8.4|google.golang.org/grpc|v1.81.1"
+      },
+      {
+        "n": 12,
+        "cve": "CVE-2026-5773",
+        "image": "caddy",
+        "package": "curl,libcurl",
+        "bound_installed_version": "8.19.0-r0",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-5773|caddy|curl,libcurl|8.19.0-r0"
+      },
+      {
+        "n": 13,
+        "cve": "CVE-2026-39822",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-39822|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 14,
+        "cve": "GHSA-r277-6w6q-xmqw",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "github.com/getkin/kin-openapi",
+        "bound_installed_version": "v0.140.0",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "GHSA-r277-6w6q-xmqw|php-frankenphp-8.3-8.4|github.com/getkin/kin-openapi|v0.140.0"
+      },
+      {
+        "n": 15,
+        "cve": "CVE-2026-57433",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-57433|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 16,
+        "cve": "CVE-2026-42497",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-42497|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 17,
+        "cve": "CVE-2026-9538",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-9538|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 18,
+        "cve": "CVE-2026-48962",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-48962|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 19,
+        "cve": "CVE-2026-57432",
+        "image": "php-8.3-8.4",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-57432|php-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 20,
+        "cve": "CVE-2026-6653",
+        "image": "php-8.3-8.4",
+        "package": "libxml2",
+        "bound_installed_version": "2.9.14+dfsg-1.3~deb12u6",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-6653|php-8.3-8.4|libxml2|2.9.14+dfsg-1.3~deb12u6"
+      },
+      {
+        "n": 21,
+        "cve": "CVE-2026-8286",
+        "image": "php-8.3-8.4",
+        "package": "curl,libcurl4",
+        "bound_installed_version": "7.88.1-10+deb12u15",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-8286|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15"
+      },
+      {
+        "n": 22,
+        "cve": "CVE-2026-8927",
+        "image": "php-8.3-8.4",
+        "package": "curl,libcurl4",
+        "bound_installed_version": "7.88.1-10+deb12u15",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-8927|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15"
+      },
+      {
+        "n": 23,
+        "cve": "CVE-2026-12064",
+        "image": "php-8.3-8.4",
+        "package": "curl,libcurl4",
+        "bound_installed_version": "7.88.1-10+deb12u15",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-12064|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15"
+      },
+      {
+        "n": 24,
+        "cve": "CVE-2026-7598",
+        "image": "php-8.3-8.4",
+        "package": "libssh2-1",
+        "bound_installed_version": "1.10.0-3+b1",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-7598|php-8.3-8.4|libssh2-1|1.10.0-3+b1"
+      },
+      {
+        "n": 25,
+        "cve": "CVE-2023-2953",
+        "image": "php-8.3-8.4",
+        "package": "libldap-2.5-0",
+        "bound_installed_version": "2.5.13+dfsg-5",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2023-2953|php-8.3-8.4|libldap-2.5-0|2.5.13+dfsg-5"
+      },
+      {
+        "n": 26,
+        "cve": "CVE-2025-69720",
+        "image": "php-8.3-8.4",
+        "package": "libtinfo6,ncurses-base,ncurses-bin",
+        "bound_installed_version": "6.4-4",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2025-69720|php-8.3-8.4|libtinfo6,ncurses-base,ncurses-bin|6.4-4"
+      },
+      {
+        "n": 27,
+        "cve": "CVE-2026-53615",
+        "image": "php-8.3-8.4",
+        "package": "bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra",
+        "bound_installed_version": "1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-53615|php-8.3-8.4|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3"
+      },
+      {
+        "n": 28,
+        "cve": "CVE-2026-54369",
+        "image": "php-8.3-8.4",
+        "package": "libacl1",
+        "bound_installed_version": "2.3.1-3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-54369|php-8.3-8.4|libacl1|2.3.1-3"
+      },
+      {
+        "n": 29,
+        "cve": "CVE-2026-41992",
+        "image": "php-8.3-8.4",
+        "package": "gzip",
+        "bound_installed_version": "1.12-1",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-41992|php-8.3-8.4|gzip|1.12-1"
+      },
+      {
+        "n": 30,
+        "cve": "CVE-2026-56211",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libaom3",
+        "bound_installed_version": "3.6.0-1+deb12u2",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56211|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2"
+      },
+      {
+        "n": 31,
+        "cve": "CVE-2026-56208",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libaom3",
+        "bound_installed_version": "3.6.0-1+deb12u2",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56208|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2"
+      },
+      {
+        "n": 32,
+        "cve": "CVE-2026-56209",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libaom3",
+        "bound_installed_version": "3.6.0-1+deb12u2",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56209|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2"
+      },
+      {
+        "n": 33,
+        "cve": "CVE-2026-56210",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libaom3",
+        "bound_installed_version": "3.6.0-1+deb12u2",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56210|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2"
+      },
+      {
+        "n": 34,
+        "cve": "CVE-2023-39616",
+        "image": "php-frankenphp-8.3-8.4",
+        "package": "libaom3",
+        "bound_installed_version": "3.6.0-1+deb12u2",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2023-39616|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2"
+      },
+      {
+        "n": 35,
+        "cve": "CVE-2026-6276",
+        "image": "php-8.3-8.4",
+        "package": "curl,libcurl4",
+        "bound_installed_version": "7.88.1-10+deb12u15",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-6276|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15"
+      },
+      {
+        "n": 36,
+        "cve": "CVE-2026-42496",
+        "image": "nginx",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-42496|nginx|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 37,
+        "cve": "CVE-2026-8376",
+        "image": "nginx",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-8376|nginx|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 38,
+        "cve": "CVE-2026-57432",
+        "image": "nginx",
+        "package": "libperl5.36,perl,perl-base,perl-modules-5.36",
+        "bound_installed_version": "5.36.0-7+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-57432|nginx|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3"
+      },
+      {
+        "n": 39,
+        "cve": "CVE-2023-45853",
+        "image": "nginx",
+        "package": "zlib1g",
+        "bound_installed_version": "1:1.2.13.dfsg-1",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2023-45853|nginx|zlib1g|1:1.2.13.dfsg-1"
+      },
+      {
+        "n": 40,
+        "cve": "CVE-2025-69720",
+        "image": "nginx",
+        "package": "libtinfo6,ncurses-base,ncurses-bin",
+        "bound_installed_version": "6.4-4",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2025-69720|nginx|libtinfo6,ncurses-base,ncurses-bin|6.4-4"
+      },
+      {
+        "n": 41,
+        "cve": "CVE-2026-41992",
+        "image": "nginx",
+        "package": "gzip",
+        "bound_installed_version": "1.12-1",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-41992|nginx|gzip|1.12-1"
+      },
+      {
+        "n": 42,
+        "cve": "CVE-2026-53615",
+        "image": "nginx",
+        "package": "bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra",
+        "bound_installed_version": "1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-53615|nginx|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3"
+      },
+      {
+        "n": 43,
+        "cve": "CVE-2026-54369",
+        "image": "nginx",
+        "package": "libacl1",
+        "bound_installed_version": "2.3.1-3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-54369|nginx|libacl1|2.3.1-3"
+      },
+      {
+        "n": 44,
+        "cve": "CVE-2026-56852",
+        "image": "caddy",
+        "package": "golang.org/x/text",
+        "bound_installed_version": "v0.37.0",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56852|caddy|golang.org/x/text|v0.37.0"
+      },
+      {
+        "n": 45,
+        "cve": "CVE-2026-8458",
+        "image": "php-8.3-8.4",
+        "package": "curl,libcurl4",
+        "bound_installed_version": "7.88.1-10+deb12u15",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-8458|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15"
+      },
+      {
+        "n": 46,
+        "cve": "CVE-2026-58050",
+        "image": "php-8.3-8.4",
+        "package": "libssh2-1",
+        "bound_installed_version": "1.10.0-3+b1",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-58050|php-8.3-8.4|libssh2-1|1.10.0-3+b1"
+      },
+      {
+        "n": 47,
+        "cve": "CVE-2026-46600",
+        "image": "caddy",
+        "package": "golang.org/x/net",
+        "bound_installed_version": "v0.55.0",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-46600|caddy|golang.org/x/net|v0.55.0"
+      },
+      {
+        "n": 48,
+        "cve": "CVE-2026-46600",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-46600|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 49,
+        "cve": "CVE-2026-39821",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-39821|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 50,
+        "cve": "CVE-2026-33818",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-33818|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 51,
+        "cve": "CVE-2026-56853",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56853|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 52,
+        "cve": "CVE-2026-56858",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56858|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 53,
+        "cve": "CVE-2026-56859",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56859|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 54,
+        "cve": "CVE-2026-56860",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56860|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 55,
+        "cve": "CVE-2026-56862",
+        "image": "caddy",
+        "package": "stdlib",
+        "bound_installed_version": "v1.26.3",
+        "expires_at": "2026-08-31",
+        "matched_image_arch": [
+          "caddy/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-56862|caddy|stdlib|v1.26.3"
+      },
+      {
+        "n": 56,
+        "cve": "CVE-2026-14456",
+        "image": "php-8.3-8.4",
+        "package": "openssl,libssl3",
+        "bound_installed_version": "3.0.20-1~deb12u2",
+        "expires_at": "2026-09-01",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-14456|php-8.3-8.4|libssl3,openssl|3.0.20-1~deb12u2"
+      },
+      {
+        "n": 57,
+        "cve": "CVE-2026-14456",
+        "image": "nginx",
+        "package": "openssl,libssl3",
+        "bound_installed_version": "3.0.20-1~deb12u2",
+        "expires_at": "2026-09-01",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-14456|nginx|libssl3,openssl|3.0.20-1~deb12u2"
+      },
+      {
+        "n": 58,
+        "cve": "CVE-2026-53613",
+        "image": "php-8.3-8.4",
+        "package": "bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra",
+        "bound_installed_version": "1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+        "expires_at": "2026-09-01",
+        "matched_image_arch": [
+          "php-cli/8.3@linux/arm64",
+          "php-cli/8.4@linux/arm64",
+          "php-fpm/8.3@linux/arm64",
+          "php-fpm/8.4@linux/arm64",
+          "php-frankenphp/8.3@linux/arm64",
+          "php-frankenphp/8.4@linux/amd64",
+          "php-frankenphp/8.4@linux/arm64",
+          "php-worker/8.3@linux/arm64",
+          "php-worker/8.4@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-53613|php-8.3-8.4|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3"
+      },
+      {
+        "n": 59,
+        "cve": "CVE-2026-53613",
+        "image": "nginx",
+        "package": "bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra",
+        "bound_installed_version": "1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+        "expires_at": "2026-09-01",
+        "matched_image_arch": [
+          "nginx/prod@linux/arm64"
+        ],
+        "exception_id": "CVE-2026-53613|nginx|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3"
+      }
+    ],
+    "expiry_boundary_semantics": {
+      "comparison": "expires_at <= today (INCLUSIVE) in both gates",
+      "validator": "scripts/validate-vulnerability-exceptions.sh:335",
+      "reconciler": "scripts/reconcile-vulnerabilities.sh:384",
+      "date_override": "TODAY env var for the validator; --today flag for the reconciler",
+      "sweep": {
+        "TODAY=2026-08-25": "rc=0, 59 entries valid",
+        "TODAY=2026-08-30": "rc=0, 59 entries valid",
+        "TODAY=2026-08-31": "rc=1, entry 0 EXPIRED/EXPIRING (2026-08-31 <= 2026-08-31)",
+        "TODAY=2026-08-31 (only 2026-09-01 records)": "rc=0, 4 entries valid",
+        "TODAY=2026-09-01 (only 2026-09-01 records)": "rc=1, EXPIRED/EXPIRING (2026-09-01 <= 2026-09-01)"
+      },
+      "note": "a record dated 2026-08-31 is invalid ON 2026-08-31, not the day after"
+    },
+    "stale_exception_flake": {
+      "cause": "canonical_images | grep -qx taking SIGPIPE under set -o pipefail",
+      "fixed_on_master": "4203044 (#215)",
+      "implication": "a reconciliation failure must not be attributed to expiry without comparing expires_at"
+    }
+  },
+  "reconciliations": {
+    "caddy/prod|linux/arm64": {
+      "verdict": "PASS",
+      "findings_total": 19,
+      "governed": 19,
+      "not_affected": 0,
+      "violations": [],
+      "shadowed_exception_ids": []
+    },
+    "nginx/prod|linux/arm64": {
+      "verdict": "PASS",
+      "findings_total": 32,
+      "governed": 27,
+      "not_affected": 5,
+      "violations": [],
+      "shadowed_exception_ids": []
+    },
+    "php-cli/8.3|linux/arm64": {
+      "verdict": "PASS",
+      "findings_total": 47,
+      "governed": 42,
+      "not_affected": 5,
+      "violations": [],
+      "shadowed_exception_ids": []
+    },
+    "php-cli/8.4|linux/arm64": {
+      "verdict": "PASS",
+      "findings_total": 47,
+      "governed": 42,
+      "not_affected": 5,
+      "violations": [],
+      "shadowed_exception_ids": []
+    },
+    "php-fpm/8.3|linux/arm64": {
+      "verdict": "PASS",
+      "findings_total": 47,
+      "governed": 42,
+      "not_affected": 5,
+      "violations": [],
+      "shadowed_exception_ids": []
+    },
+    "php-fpm/8.4|linux/arm64": {
+      "verdict": "PASS",
+      "findings_total": 47,
+      "governed": 42,
+      "not_affected": 5,
+      "violations": [],
+      "shadowed_exception_ids": []
+    },
+    "php-frankenphp/8.3|linux/amd64": {
+      "verdict": "FAIL",
+      "findings_total": 81,
+      "governed": 75,
+      "not_affected": 4,
+      "violations": [
+        {
+          "id": "CVE-2026-76905",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.141.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        },
+        {
+          "id": "CVE-2026-77354",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.142.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        }
+      ],
+      "shadowed_exception_ids": []
+    },
+    "php-frankenphp/8.3|linux/arm64": {
+      "verdict": "FAIL",
+      "findings_total": 81,
+      "governed": 75,
+      "not_affected": 4,
+      "violations": [
+        {
+          "id": "CVE-2026-76905",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.141.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        },
+        {
+          "id": "CVE-2026-77354",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.142.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        }
+      ],
+      "shadowed_exception_ids": []
+    },
+    "php-frankenphp/8.4|linux/arm64": {
+      "verdict": "FAIL",
+      "findings_total": 81,
+      "governed": 75,
+      "not_affected": 4,
+      "violations": [
+        {
+          "id": "CVE-2026-76905",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.141.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        },
+        {
+          "id": "CVE-2026-77354",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.142.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        }
+      ],
+      "shadowed_exception_ids": []
+    },
+    "php-frankenphp/8.4|linux/amd64": {
+      "verdict": "FAIL",
+      "findings_total": 81,
+      "governed": 75,
+      "not_affected": 4,
+      "violations": [
+        {
+          "id": "CVE-2026-76905",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.141.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        },
+        {
+          "id": "CVE-2026-77354",
+          "package": "github.com/getkin/kin-openapi",
+          "installed_version": "v0.140.0",
+          "fixed_version": "0.142.0",
+          "severity": "HIGH",
+          "why": "no in-scope exception in the ledger"
+        }
+      ],
+      "shadowed_exception_ids": []
+    },
+    "php-worker/8.3|linux/arm64": {
+      "verdict": "PASS",
+      "findings_total": 47,
+      "governed": 42,
+      "not_affected": 5,
+      "violations": [],
+      "shadowed_exception_ids": []
+    },
+    "php-worker/8.4|linux/arm64": {
+      "verdict": "PASS",
+      "findings_total": 47,
+      "governed": 42,
+      "not_affected": 5,
+      "violations": [],
+      "shadowed_exception_ids": []
+    }
+  },
+  "scans": {
+    "child-8.4-arm64.json": {
+      "target": "lane4/php-frankenphp:8.4-arm64 (debian 12.15)",
+      "high_crit_total": 81,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "child-caddy_prod-arm64.json": {
+      "target": "lane4/caddy:prod-arm64 (alpine 3.23.5)",
+      "high_crit_total": 19,
+      "gobinary_findings": {
+        "CVE-2026-46600": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.26.6, 1.27.0-rc.3",
+          "severity": "HIGH"
+        },
+        "CVE-2026-56852": {
+          "package": "golang.org/x/text",
+          "installed": "v0.37.0",
+          "fixed": "0.39.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.0",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        },
+        "CVE-2026-27145": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.11, 1.26.4",
+          "severity": "HIGH"
+        },
+        "CVE-2026-33818": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+          "severity": "HIGH"
+        },
+        "CVE-2026-39821": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+          "severity": "HIGH"
+        },
+        "CVE-2026-39822": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.12, 1.26.5, 1.27.0-rc.2",
+          "severity": "HIGH"
+        },
+        "CVE-2026-42504": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.11, 1.26.4",
+          "severity": "HIGH"
+        },
+        "CVE-2026-56853": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+          "severity": "HIGH"
+        },
+        "CVE-2026-56858": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+          "severity": "HIGH"
+        },
+        "CVE-2026-56859": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+          "severity": "HIGH"
+        },
+        "CVE-2026-56860": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+          "severity": "HIGH"
+        },
+        "CVE-2026-56862": {
+          "package": "stdlib",
+          "installed": "v1.26.3",
+          "fixed": "1.25.13, 1.26.6, 1.27.0-rc.3",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "child-nginx_prod-arm64.json": {
+      "target": "lane4/nginx:prod-arm64 (debian 12.13)",
+      "high_crit_total": 32,
+      "gobinary_findings": {}
+    },
+    "child-php-cli_8.3-arm64.json": {
+      "target": "lane4/php-cli:8.3-arm64 (debian 12.15)",
+      "high_crit_total": 47,
+      "gobinary_findings": {}
+    },
+    "child-php-cli_8.4-arm64.json": {
+      "target": "lane4/php-cli:8.4-arm64 (debian 12.15)",
+      "high_crit_total": 47,
+      "gobinary_findings": {}
+    },
+    "child-php-fpm_8.3-arm64.json": {
+      "target": "lane4/php-fpm:8.3-arm64 (debian 12.15)",
+      "high_crit_total": 47,
+      "gobinary_findings": {}
+    },
+    "child-php-fpm_8.4-arm64.json": {
+      "target": "lane4/php-fpm:8.4-arm64 (debian 12.15)",
+      "high_crit_total": 47,
+      "gobinary_findings": {}
+    },
+    "child-php-frankenphp_8.3-amd64.json": {
+      "target": "lane4/php-frankenphp:8.3-amd64 (debian 12.15)",
+      "high_crit_total": 81,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "child-php-frankenphp_8.3-arm64.json": {
+      "target": "lane4/php-frankenphp:8.3-arm64 (debian 12.15)",
+      "high_crit_total": 81,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "child-php-frankenphp_8.4-amd64.json": {
+      "target": "lane4/php-frankenphp:8.4-amd64 (debian 12.15)",
+      "high_crit_total": 81,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "child-php-frankenphp_8.4-arm64.json": {
+      "target": "lane4/php-frankenphp:8.4-arm64 (debian 12.15)",
+      "high_crit_total": 81,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "child-php-worker_8.3-arm64.json": {
+      "target": "lane4/php-worker:8.3-arm64 (debian 12.15)",
+      "high_crit_total": 47,
+      "gobinary_findings": {}
+    },
+    "child-php-worker_8.4-arm64.json": {
+      "target": "lane4/php-worker:8.4-arm64 (debian 12.15)",
+      "high_crit_total": 47,
+      "gobinary_findings": {}
+    },
+    "up-cur83-amd64.json": {
+      "target": "dunglas/frankenphp@sha256:9725e5d498b49d01036baec385c07ff787f96ce60a1b79250ce103f6d92dbfda (debian 12.15)",
+      "high_crit_total": 256,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "up-cur83-arm64.json": {
+      "target": "dunglas/frankenphp@sha256:9725e5d498b49d01036baec385c07ff787f96ce60a1b79250ce103f6d92dbfda (debian 12.15)",
+      "high_crit_total": 256,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "up-cur84-amd64.json": {
+      "target": "dunglas/frankenphp@sha256:a6e78fd9da1640784cb07d606e313ae9f6013b1de39741643f0c256ecd87c8ae (debian 12.15)",
+      "high_crit_total": 256,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "up-cur84-arm64.json": {
+      "target": "dunglas/frankenphp@sha256:a6e78fd9da1640784cb07d606e313ae9f6013b1de39741643f0c256ecd87c8ae (debian 12.15)",
+      "high_crit_total": 256,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "up-latest-amd64.json": {
+      "target": "dunglas/frankenphp@sha256:e2fb833fac0135f9a070647a8c70eb80ba282de4a035de56b6a3371cb555eca0 (debian 13.6)",
+      "high_crit_total": 185,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "up-pinned83-amd64.json": {
+      "target": "dunglas/frankenphp@sha256:ae143d38335e4d8faf3f73205c91b69562b4154a85bf3fdd9ef63d59c8727ead (debian 12.15)",
+      "high_crit_total": 256,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "up-pinned83-arm64.json": {
+      "target": "dunglas/frankenphp@sha256:ae143d38335e4d8faf3f73205c91b69562b4154a85bf3fdd9ef63d59c8727ead (debian 12.15)",
+      "high_crit_total": 256,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "up-pinned84-amd64.json": {
+      "target": "dunglas/frankenphp@sha256:cef99f108009ed60c6d60261c8edc17104fce06aafaf24c21119cd4b4c704aa7 (debian 12.15)",
+      "high_crit_total": 256,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    },
+    "up-pinned84-arm64.json": {
+      "target": "dunglas/frankenphp@sha256:cef99f108009ed60c6d60261c8edc17104fce06aafaf24c21119cd4b4c704aa7 (debian 12.15)",
+      "high_crit_total": 256,
+      "gobinary_findings": {
+        "GHSA-r277-6w6q-xmqw": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.144.0",
+          "severity": "CRITICAL"
+        },
+        "CVE-2026-76905": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.141.0",
+          "severity": "HIGH"
+        },
+        "CVE-2026-77354": {
+          "package": "github.com/getkin/kin-openapi",
+          "installed": "v0.140.0",
+          "fixed": "0.142.0",
+          "severity": "HIGH"
+        },
+        "GHSA-hrxh-6v49-42gf": {
+          "package": "google.golang.org/grpc",
+          "installed": "v1.81.1",
+          "fixed": "1.82.1",
+          "severity": "HIGH"
+        }
+      }
+    }
+  }
+}
