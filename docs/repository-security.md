@@ -11,7 +11,7 @@
 > (`make verify-governance`) compares it against the live GitHub API and **fails
 > closed in both directions** — a control claimed here but missing live, *and*
 > live configuration not declared here. Dated evidence:
-> [`audits/governance-verification-2026-08-23.json`](audits/governance-verification-2026-08-23.json).
+> [`audits/governance-verification-2026-08-24.json`](audits/governance-verification-2026-08-24.json).
 >
 > **What this file used to say, and why that mattered.** Until 2026-07-28 it
 > opened with an accepted-risk banner asserting the repo "must remain private"

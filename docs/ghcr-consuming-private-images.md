@@ -184,7 +184,7 @@ awareness, not capability.
 > declared in
 > [`../policies/repository-governance.yaml`](../policies/repository-governance.yaml)
 > and verified in
-> [`audits/governance-verification-2026-08-23.json`](audits/governance-verification-2026-08-23.json).
+> [`audits/governance-verification-2026-08-24.json`](audits/governance-verification-2026-08-24.json).
 > The accepted-risk record this section used to cite is
 > [superseded](audits/free-tier-governance-accepted-risk.md) — do not cite it as
 > current.

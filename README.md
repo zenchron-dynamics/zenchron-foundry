@@ -71,7 +71,7 @@ and checked against the live GitHub API by
 [`scripts/verify-repo-governance.sh`](scripts/verify-repo-governance.sh)
 (`make verify-governance`), which fails closed on divergence in **either**
 direction — a claimed-but-missing control *and* undocumented drift. Dated
-evidence: [`docs/audits/governance-verification-2026-08-23.json`](docs/audits/governance-verification-2026-08-23.json).
+evidence: [`docs/audits/governance-verification-2026-08-24.json`](docs/audits/governance-verification-2026-08-24.json).
 
 Local hooks (`scripts/install-hooks.sh`), the manual PR policy and the release
 safety script (`scripts/prepare-release.sh`) remain as early, offline feedback —
