@@ -335,9 +335,16 @@ PYD
   # exits the instant it matches, and `php-cli/8.3` is the FIRST of the ten
   # labels, so matrix_image_labels — a `while read` loop that printf's one line
   # per iteration — is still writing the other nine when the read end closes. It
-  # dies of SIGPIPE, `set -o pipefail` (line 30) promotes 141 to the pipeline's
-  # status, the `&&` chain short-circuits, and this assertion reports FAIL with
-  # nothing whatsoever wrong with the matrix.
+  # loses the write, `set -o pipefail` (line 30) promotes the failure to the
+  # pipeline's status, the `&&` chain short-circuits, and this assertion reports
+  # FAIL with nothing whatsoever wrong with the matrix.
+  #
+  # The status depends on the SIGPIPE disposition bash inherited: 141 when the
+  # producer is killed by the signal (ubuntu:24.04 container), but 1 when SIGPIPE
+  # is IGNORED and write() returns EPIPE instead — which is what GitHub-hosted
+  # runners do (CI run 32825970631). Exit 1 there is indistinguishable from "grep
+  # matched nothing", which is why the failing CI logs carried a bare FAIL and no
+  # reason at all.
   #
   # Whether the producer has already flushed all ten lines before grep exits is a
   # scheduling race between two processes, which is the entire intermittency:

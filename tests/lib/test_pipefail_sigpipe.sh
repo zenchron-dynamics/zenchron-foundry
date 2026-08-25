@@ -28,6 +28,12 @@
 #   macOS bash 3.2.57  ->   0/300 SIGPIPE   (which is why it never reproduced locally)
 #   Linux bash 5.2.21  -> 289/300 SIGPIPE
 #
+# The status the pipeline reports depends on the SIGPIPE disposition bash
+# inherited: 141 when the producer is killed by the signal, 1 when SIGPIPE is
+# ignored and write() returns EPIPE instead. GitHub-hosted runners do the
+# LATTER, which is why the failing CI logs showed a bare FAIL and no reason:
+# exit 1 from that pipeline is indistinguishable from "grep matched nothing".
+#
 # The two arms below are the regression. Arm 1 drives the REAL script with a
 # deliberately slowed producer, where the race is no longer a race: if the old
 # pipeline were still there it would SIGPIPE every time. Arm 2 proves that claim
@@ -82,9 +88,27 @@ set -euo pipefail
 canonical_images() { matrix_image_labels; }
 canonical_images | grep -qx php-cli/8.3
 PROBE
-bash "$TMP/old-construct.sh" "$MIRROR" >/dev/null 2>&1; oldrc=$?
-ck "NON-VACUOUS: the removed construct dies of SIGPIPE (141), got $oldrc" \
-   "[ '$oldrc' -eq 141 ]"
+bash "$TMP/old-construct.sh" "$MIRROR" >/dev/null 2>"$TMP/old.err"; oldrc=$?
+[ "$oldrc" -ne 0 ] || { echo "  --- removed construct unexpectedly succeeded ---"; sed 's/^/    /' "$TMP/old.err"; }
+ck "NON-VACUOUS: the removed construct FAILS against this producer (rc=$oldrc)" \
+   "[ '$oldrc' -ne 0 ]"
+
+# WHICH nonzero status depends on the SIGPIPE disposition bash INHERITED, and
+# both are seen in the wild — do not pin one:
+#
+#   default disposition  -> the producer is KILLED by SIGPIPE, pipefail reports 141
+#                           (ubuntu:24.04 container, bash 5.2.21)
+#   SIGPIPE ignored      -> write() returns EPIPE instead, bash's printf builtin
+#                           prints "write error: Broken pipe" and returns 1, and
+#                           pipefail reports 1
+#                           (GitHub-hosted ubuntu-latest, CI run 32825970631)
+#
+# The second is the nastier one and is what the runners actually did: exit 1 from
+# a pipeline whose reader short-circuited is INDISTINGUISHABLE from "grep found
+# nothing", which is precisely why the failing CI logs carried a bare FAIL with
+# no reason attached. So assert the failure is a BROKEN PIPE either way.
+ck "...and it fails because the reader closed the pipe, not because the label is absent" \
+   "[ '$oldrc' -eq 141 ] || grep -q 'Broken pipe' '$TMP/old.err' || { echo '  stderr:'; sed 's/^/    /' '$TMP/old.err'; false; }"
 
 # ...and the same match, taken from a here-string, does not. This is the fix in
 # one line: it is the READER CLOSING THE PIPE that is fatal, not the matching.
