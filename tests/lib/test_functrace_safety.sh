@@ -51,8 +51,18 @@ for s in scripts/ci/assert-no-stale-exceptions.sh \
          scripts/release/evidence-checksum.sh \
          scripts/release/assert-native-arch-evidence.sh \
          scripts/assert-lifecycle.sh; do
-  bash    "$s" --self-test >/dev/null 2>&1; plain=$?
-  bash -T "$s" --self-test >/dev/null 2>&1; traced=$?
+  # Keep the output. Both runs used to go to /dev/null, so when one of these
+  # self-tests failed INTERMITTENTLY on CI — as assert-no-stale-exceptions.sh
+  # did on runs 32814974957 and 32815714210, passing locally and on re-run of
+  # identical code — the log recorded only "(1 vs 0)" and no reason at all.
+  _plog="$(mktemp)"; _tlog="$(mktemp)"
+  bash    "$s" --self-test >"$_plog" 2>&1; plain=$?
+  bash -T "$s" --self-test >"$_tlog" 2>&1; traced=$?
+  if [ "$plain" -ne "$traced" ]; then
+    echo "  --- plain run (exit $plain) ---"; sed 's/^/    /' "$_plog"
+    echo "  --- functrace run (exit $traced) ---"; sed 's/^/    /' "$_tlog"
+  fi
+  rm -f "$_plog" "$_tlog"
   ck "$(basename "$s"): functrace does not change the outcome ($plain vs $traced)" \
      "[ '$plain' -eq '$traced' ]"
 done
@@ -61,7 +71,10 @@ done
 for s in scripts/ci/assert-no-stale-exceptions.sh scripts/reconcile-vulnerabilities.sh \
          scripts/release/evidence-checksum.sh scripts/assert-lifecycle.sh \
          scripts/assert-publish-platforms-reconciled.sh; do
-  bash -T "$s" --self-test >/dev/null 2>&1; rc=$?
+  _log="$(mktemp)"
+  bash -T "$s" --self-test >"$_log" 2>&1; rc=$?
+  [ "$rc" -eq 0 ] || { echo "  --- $s under functrace (exit $rc) ---"; sed 's/^/    /' "$_log"; }
+  rm -f "$_log"
   ck "$(basename "$s") self-tests CLEAN under functrace" "[ '$rc' -eq 0 ]"
 done
 
