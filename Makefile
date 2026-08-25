@@ -130,7 +130,9 @@ scan: ## Trivy + Grype scan of current PHP php-fpm image
 	@IMAGE=$(FPM_IMAGE):$(PHP)-$(TAG_SUFFIX) bash scripts/scan-all.sh
 
 sbom: ## Generate SBOMs (syft) for current PHP php-fpm image
-	@IMAGE=$(FPM_IMAGE):$(PHP)-$(TAG_SUFFIX) bash scripts/generate-sbom.sh
+	@IMAGE=$(FPM_IMAGE):$(PHP)-$(TAG_SUFFIX) \
+	 FAMILY=php-fpm VERSION=$(PHP) PLATFORM=$(PLATFORMS) \
+	  bash scripts/generate-sbom.sh
 
 publish: ## Publishing is CI-only. There is no local production push path.
 	@echo "Publishing is done ONLY by CI, and production tags ONLY by the protected"
@@ -206,7 +208,9 @@ scan-local: ## Trivy/Grype scan locally (SKIPPED if tools absent unless STRICT=1
 
 sbom-local: ## Generate SBOM for the current php-fpm image (SKIPPED if syft absent)
 	@if command -v syft >/dev/null; then \
-	  IMAGE=$(FPM_IMAGE):$(PHP)-$(TAG_SUFFIX) bash scripts/generate-sbom.sh; \
+	  IMAGE=$(FPM_IMAGE):$(PHP)-$(TAG_SUFFIX) \
+	  FAMILY=php-fpm VERSION=$(PHP) PLATFORM=$(PLATFORMS) \
+	    bash scripts/generate-sbom.sh; \
 	elif [ -n "$(STRICT)" ]; then \
 	  echo "STRICT: syft required but missing"; exit 1; \
 	else echo "SKIPPED: syft not installed (set STRICT=1 to require)"; fi
