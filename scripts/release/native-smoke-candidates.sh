@@ -149,8 +149,12 @@ nsc_run() {
         failures=$((failures+1)); verdict=FAIL
       else
         docker tag "$ref" "$smoke_ref"
+        # `|| true` is LOAD-BEARING. scripts/lib/common.sh imports `set -e`, and
+        # grep exits 1 when the smoke printed no summary at all — which is
+        # precisely the case that must be RECORDED as a failure rather than
+        # aborting the run and losing every record written so far.
         summary="$(bash "$NSC_ROOT/scripts/smoke-test.sh" "$fam" "$ver" 2>&1 \
-                    | tee /dev/stderr | grep -E '^SMOKE SUMMARY: ' | tail -n1)"
+                    | tee /dev/stderr | grep -E '^SMOKE SUMMARY: ' | tail -n1 || true)"
         if [ -z "$summary" ]; then
           verdict=FAIL; failures=$((failures+1))
         else
