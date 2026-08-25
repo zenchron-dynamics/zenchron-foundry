@@ -47,6 +47,10 @@
 #
 # Usage:
 #   experimental-run.sh <cohort> <platform> --out <dir> [--only <family>]
+#   experimental-run.sh --preflight <cohort> <platform>
+#                                            (offline; the authority and
+#                                             readiness gates, in order, and
+#                                             nothing else)
 #   experimental-run.sh --self-test          (offline; refusal paths only)
 # =============================================================================
 set -uo pipefail
@@ -460,6 +464,56 @@ run_child() { # run_child <plan-entry-json> <outdir> <revision> <db-identity>
   return "$rc"
 }
 
+# =============================================================================
+# THE ORDER OF THE GATES IS ITSELF A SECURITY PROPERTY.
+#
+#   1. well-formedness   was this invocation even spelled correctly?
+#   2. AUTHORITY         may this caller run this cohort on this platform?
+#   3. tool readiness    is this machine equipped to carry it out?
+#
+# It used to be 1, 3, 2. On a machine WITHOUT syft that inversion answered an
+# UNAUTHORIZED caller with "REFUSE: syft is required" — a diagnostic that reads
+# as "install a tool and retry" when the correct answer was "you were never
+# permitted to run this at all". The refusal a caller receives must not depend
+# on which tools the machine happens to carry, because a caller who installs the
+# named tool and re-runs would otherwise believe the tool was the only obstacle.
+#
+# So: a tool-presence result may never mask, replace, or precede an
+# authorization refusal. Every one of the four (authorized x syft-present)
+# combinations is an executed assertion in --self-test.
+#
+# require_authority <cohort> <platform>
+#
+# The PLAN is the authority; this runner never decides what it may do. Needs no
+# docker and no syft — deliberately, so it can always run FIRST.
+require_authority() {
+  local cohort="${1-}" plat="${2-}" cap
+  for cap in build smoke extensions sbom scan evidence; do
+    bash "$PLAN" capability "$cohort" "$cap" >/dev/null || return 1
+  done
+  bash "$PLAN" plan "$cohort" "$plat" || return 1
+}
+
+# require_tools — environment readiness. Runs ONLY after authority is settled.
+require_tools() {
+  command -v docker >/dev/null || fatal "docker is required"
+  command -v syft   >/dev/null || fatal "syft is required"
+  command -v jq     >/dev/null || fatal "jq is required"
+}
+
+# preflight <cohort> <platform> — the two gates, in order, and nothing else.
+# Builds nothing, writes nothing, contacts no daemon. It exists so that the
+# ordering property above is testable OFFLINE, including the case that must be
+# allowed to proceed: an authorized caller on an equipped machine.
+preflight() {
+  local cohort="${1-}" plat="${2-}"
+  [ -n "$cohort" ] || fatal "no cohort named"
+  [ -n "$plat" ]   || fatal "no platform named"
+  require_authority "$cohort" "$plat" >/dev/null || exit 1
+  require_tools
+  printf 'preflight: AUTHORIZED and READY (cohort=%s platform=%s)\n' "$cohort" "$plat"
+}
+
 main() {
   local cohort="${1-}" plat="${2-}" out="" only=""
   shift 2 2>/dev/null
@@ -475,19 +529,13 @@ main() {
   [ -n "$out" ]    || fatal "--out <dir> is required: this runner never chooses a
         destination for you, because a default output path is how evidence ends
         up written somewhere nobody reviews"
-  command -v docker >/dev/null || fatal "docker is required"
-  command -v syft   >/dev/null || fatal "syft is required"
-  command -v jq     >/dev/null || fatal "jq is required"
 
-  # EVERY capability is asserted against the plan BEFORE anything runs. The plan
-  # is the authority; this runner never decides what it may do.
-  local cap
-  for cap in build smoke extensions sbom scan evidence; do
-    bash "$PLAN" capability "$cohort" "$cap" >/dev/null || exit 1
-  done
-
+  # GATE 2 — AUTHORITY, before any tool is looked for. See the note above.
   local plan
-  plan="$(bash "$PLAN" plan "$cohort" "$plat")" || exit 1
+  plan="$(require_authority "$cohort" "$plat")" || exit 1
+
+  # GATE 3 — tool readiness, only now.
+  require_tools
 
   local rev
   rev="$(git -C "$EXP_ROOT" rev-parse HEAD)"
@@ -574,6 +622,11 @@ main() {
 # --- self-test ---------------------------------------------------------------
 # OFFLINE and DOCKER-FREE by construction: it exercises the refusal paths only.
 # Writes nothing outside a disposable fixture.
+#
+# SC2034 is disabled for this function as a whole: every assertion is carried to
+# `ck` as a STRING and evaluated there, so the locals holding captured output and
+# expected substrings are read by `eval`, which shellcheck cannot follow.
+# shellcheck disable=SC2034
 self_test() {
   local pass=0 fail=0 tmp
   tmp="$(mktemp -d)"
@@ -603,6 +656,74 @@ self_test() {
      "! grep -vE '^[[:space:]]*#' '$0' | grep -qE 'php-(cli|fpm|worker|frankenphp)/8'"
   ck "...and it reads every child from the plan" "grep -q 'bash \"\$PLAN\" plan' '$0'"
 
+  # === THE GATE-ORDER MATRIX ================================================
+  #
+  # AUTHORITY BEFORE READINESS. All four cells are really executed, in a
+  # synthetic environment where syft's presence is controlled rather than
+  # inherited, so the answers are the same on a runner that has no syft and on a
+  # laptop that has one. That independence IS the property under test: this
+  # exact inversion once made an unauthorized caller on a syft-less runner read
+  # "REFUSE: syft is required", i.e. "install a tool and retry" in place of
+  # "you were never permitted to run this".
+  local shim="$tmp/bin" t tp
+  mkdir -p "$shim"
+  for t in bash sh env dirname basename git jq python3 sed grep egrep awk tr head tail \
+           cut sort uniq uname date cat rm mkdir wc xargs find readlink expr id printf; do
+    tp="$(command -v "$t" 2>/dev/null)" && ln -sf "$tp" "$shim/$t"
+  done
+  # docker and syft are PROBED FOR PRESENCE ONLY by the readiness gate, and
+  # --preflight contacts no daemon and builds nothing, so executable stubs are
+  # the honest stand-ins: they keep this self-test offline and docker-free while
+  # exercising the real `command -v` code path rather than a mock of it.
+  printf '#!/bin/sh\nexit 70\n' > "$shim/docker"; chmod +x "$shim/docker"
+  printf '#!/bin/sh\nexit 70\n' > "$tmp/syft.stub"; chmod +x "$tmp/syft.stub"
+  ck "the sandbox really can hide syft (non-vacuity of the ABSENT cells)" \
+     "! PATH='$shim' command -v syft >/dev/null 2>&1"
+
+  # cell <syft-present:0|1> <args...> — captured, never piped into a quiet
+  # matcher, because the producer refuses on purpose and a matcher that exits
+  # early would kill it with SIGPIPE (exit 141).
+  cell() {
+    local want="$1"; shift
+    if [ "$want" = 1 ]; then cp "$tmp/syft.stub" "$shim/syft"; else rm -f "$shim/syft"; fi
+    PATH="$shim" "$0" "$@" 2>&1
+    rm -f "$shim/syft"
+  }
+  local AUTHZ="is not a registered experimental cohort"
+  local READY="AUTHORIZED and READY"
+  local NOSYFT="syft is required"
+  local c1 c2 c3 c4
+  c1="$(cell 0 --preflight php-9.9 linux/amd64)"   # unauthorized, syft ABSENT
+  c2="$(cell 1 --preflight php-9.9 linux/amd64)"   # unauthorized, syft PRESENT
+  c3="$(cell 0 --preflight php-8.5 linux/amd64)"   # authorized,   syft ABSENT
+  c4="$(cell 1 --preflight php-8.5 linux/amd64)"   # authorized,   syft PRESENT
+
+  ck "MATRIX 1/4: unauthorized + syft ABSENT refuses for lack of AUTHORITY" \
+     "case \"\$c1\" in *\"\$AUTHZ\"*) true ;; *) false ;; esac"
+  ck "...and NOT for a missing tool (readiness never masks authority)" \
+     "case \"\$c1\" in *\"\$NOSYFT\"*) false ;; *) true ;; esac"
+  ck "MATRIX 2/4: unauthorized + syft PRESENT refuses for lack of AUTHORITY" \
+     "case \"\$c2\" in *\"\$AUTHZ\"*) true ;; *) false ;; esac"
+  ck "...IDENTICALLY: syft's presence cannot change an authorization refusal" \
+     "[ \"\$c1\" = \"\$c2\" ]"
+  ck "MATRIX 3/4: authorized + syft ABSENT refuses for MISSING SYFT" \
+     "case \"\$c3\" in *\"\$NOSYFT\"*) true ;; *) false ;; esac"
+  ck "...and does NOT emit an authorization refusal (the gates are distinct)" \
+     "case \"\$c3\" in *\"\$AUTHZ\"*) false ;; *) true ;; esac"
+  ck "MATRIX 4/4: authorized + syft PRESENT may PROCEED past both gates" \
+     "case \"\$c4\" in *\"\$READY\"*) true ;; *) false ;; esac"
+  ck "...and only that cell proceeds (all four diagnostics are distinct)" \
+     "[ \"\$c1\" != \"\$c3\" ] && [ \"\$c3\" != \"\$c4\" ] && [ \"\$c1\" != \"\$c4\" ]"
+  # An unauthorized PLATFORM is the second flavour of authority, and it must
+  # behave the same way: refused before syft is looked for.
+  local p1 p2
+  p1="$(cell 0 --preflight php-8.5 linux/arm64)"
+  p2="$(cell 1 --preflight php-8.5 linux/arm64)"
+  ck "an unauthorized PLATFORM is an AUTHORITY refusal with syft absent too" \
+     "case \"\$p1\" in *'has ever been built'*) true ;; *) false ;; esac"
+  ck "...and syft's presence does not change that answer either" "[ \"\$p1\" = \"\$p2\" ]"
+  ck "...and --preflight wrote nothing anywhere" "[ ! -d '$tmp/o' ]"
+
   echo "----"
   printf 'self-test: %d ok, %d failed\n' "$pass" "$fail"
   [ "$fail" -eq 0 ]
@@ -612,10 +733,15 @@ self_test() {
 # different, and the difference is what tells a caller whether they mistyped the
 # command or passed an unset variable.
 if [ "$#" -eq 0 ]; then
-  echo "usage: $(basename "$0") <cohort> <platform> --out <dir> [--only <family>]" >&2
+  cat >&2 <<USAGE
+usage: $(basename "$0") <cohort> <platform> --out <dir> [--only <family>]
+       $(basename "$0") --preflight <cohort> <platform>
+       $(basename "$0") --self-test
+USAGE
   exit 64
 fi
 case "$1" in
   --self-test) self_test ;;
+  --preflight) shift; preflight "${1-}" "${2-}" ;;
   *)           main "$@" ;;
 esac
