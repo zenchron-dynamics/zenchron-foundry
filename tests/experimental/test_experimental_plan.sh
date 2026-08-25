@@ -195,6 +195,114 @@ for f in php-cli php-fpm php-worker php-frankenphp; do
      "[ '$rc85' -ne 0 ] && grep -q 'no in-scope exception' '$TMP/g-$f.txt'"
 done
 
+# --- EVERY historical selector, in BOTH ledger sections ----------------------
+#
+# The check above proves the boundary holds for ONE CVE under ONE selector. The
+# mandate is stronger: no historical 8.3/8.4 risk decision, in `exceptions` OR
+# in `not_affected`, may be widened by 8.5 existing. The ledger uses immutable
+# cohorts (`php-8.3-8.4`, `php-frankenphp-8.3-8.4`, `php-<fam>-8.3-8.4`)
+# precisely so that adding a PHP version cannot silently absorb it, and that is
+# the property proved here — EXHAUSTIVELY over the selector values actually
+# present, DERIVED from the ledger rather than listed as literals, and decided
+# by the REAL reconciler rather than by a second copy of its scope rules.
+#
+# Two directions, because either alone is worthless:
+#   ungoverned at 8.5  the selector does not reach the experimental cohort.
+#   governed at 8.4    the same finding under the same selector IS accepted, so
+#                      the refusal above is scope and not an expired entry, a
+#                      typo'd package name or a malformed fixture.
+LEDGER=policies/vulnerability-exceptions.yaml
+SELDIR="$TMP/selectors"; mkdir -p "$SELDIR"
+# One probe per DISTINCT selector: section, selector, a covering family, and a
+# 1-finding trivy report built from that entry's own recorded package/version,
+# dated inside its own validity window so an expiry cannot be mistaken for
+# out-of-scope.
+python3 - "$LEDGER" "$SELDIR" <<'PYX'
+import json, os, sys, yaml
+led, out = sys.argv[1], sys.argv[2]
+d = yaml.safe_load(open(led))
+FAMS = ["php-cli", "php-fpm", "php-worker", "php-frankenphp"]
+seen, idx = set(), 0
+for section in ("exceptions", "not_affected"):
+    for e in d.get(section) or []:
+        sel = e.get("image")
+        if not str(sel).startswith("php") or (section, sel) in seen:
+            continue
+        seen.add((section, sel))
+        pkg = e["package"]
+        pkg = pkg[0] if isinstance(pkg, list) else pkg
+        # The family this selector is meant to cover. `php-8.3-8.4` covers every
+        # PHP family; `php-<fam>-8.3-8.4` covers exactly one.
+        base = str(sel).rsplit("-8.3-8.4", 1)[0]
+        cover = FAMS if base == "php" else [base]
+        day = str(e.get("created_at") or e.get("determined_at"))
+        idx += 1
+        stem = os.path.join(out, "s%02d" % idx)
+        json.dump({"SchemaVersion": 2, "ArtifactName": "t",
+                   "Metadata": {"OS": {"Family": "debian", "Name": "12.15"}},
+                   "Results": [{"Target": "t", "Class": "os-pkgs", "Type": "debian",
+                                "Vulnerabilities": [{"VulnerabilityID": e["cve"],
+                                                     "PkgName": pkg,
+                                                     "InstalledVersion": e["installed_version"],
+                                                     "Severity": "HIGH",
+                                                     "DataSource": {"ID": "debian"}}]}]},
+                  open(stem + ".json", "w"))
+        with open(stem + ".meta", "w") as fh:
+            fh.write("%s\t%s\t%s\t%s\n" % (section, sel, ",".join(cover), day))
+PYX
+
+nsel="$(find "$SELDIR" -name 's*.meta' | wc -l | tr -d ' ')"
+# NON-VACUITY: the extractor must have found PHP selectors in BOTH sections, or
+# every assertion below passes by iterating over nothing.
+ck "NON-VACUOUS: PHP selectors were extracted from the ledger" "[ '$nsel' -ge 2 ]"
+ck "...from BOTH ledger sections" \
+   "[ \"\$(cut -f1 $SELDIR/*.meta | sort -u | wc -l | tr -d ' ')\" = 2 ]"
+
+for meta in "$SELDIR"/*.meta; do
+  stem="${meta%.meta}"
+  IFS=$'\t' read -r sec sel cover day < "$meta"
+  # Direction 1 — the historical decision IS live for 8.4 under this selector.
+  fam0="${cover%%,*}"
+  bash scripts/reconcile-vulnerabilities.sh "$stem.json" "$fam0" 8.4 \
+      --arch linux/amd64 --today "$day" > "$stem.84.txt" 2>&1; r84=$?
+  ck "$sec/$sel: fixture sanity — the decision IS live for $fam0/8.4" "[ '$r84' -eq 0 ]"
+  # Direction 2 — and it reaches NO 8.5 child, in ANY family.
+  for f in php-cli php-fpm php-worker php-frankenphp; do
+    bash scripts/reconcile-vulnerabilities.sh "$stem.json" "$f" 8.5 \
+        --arch linux/amd64 --today "$day" > "$stem.$f.85.txt" 2>&1; r85=$?
+    ck "$sec/$sel does NOT widen to $f/8.5" \
+       "[ '$r85' -ne 0 ] && grep -q 'no in-scope exception' '$stem.$f.85.txt'"
+  done
+done
+
+# STRUCTURAL sweep over EVERY entry, so a NEW entry carrying a selector the loop
+# above never probed cannot slip past: every PHP-touching selector must be
+# version-bounded, and no explicit affected_images list may name an 8.5 image.
+# `php-all` and bare family selectors are the moving selectors this ledger
+# retired; naming one again would govern 8.5 the day it is added.
+unbounded_php_selectors() {
+  python3 - "$LEDGER" <<'PYX'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+bad = []
+for section in ("exceptions", "not_affected"):
+    for e in d.get(section) or []:
+        sel = str(e.get("image"))
+        if sel.startswith("php") and not sel.endswith("-8.3-8.4"):
+            bad.append("%s:%s" % (section, sel))
+        for img in e.get("affected_images") or []:
+            if "8.5" in str(img):
+                bad.append("%s:affected_images:%s" % (section, img))
+print("\n".join(sorted(set(bad))))
+PYX
+}
+ck "EVERY ledger selector touching PHP is version-bounded, and no affected_images names 8.5" \
+   "[ -z \"\$(unbounded_php_selectors)\" ]"
+ck "NON-VACUOUS: the sweep does read entries (both sections are populated)" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$LEDGER'))
+assert len(d['exceptions'])>0 and len(d['not_affected'])>0\""
+
 # =============================================================================
 # 3. THE TWO REFUSALS, sabotaged against a DISPOSABLE COPY
 # =============================================================================
