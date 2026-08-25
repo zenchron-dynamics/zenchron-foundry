@@ -327,9 +327,36 @@ PYD
   # Derived from MATRIX_IMAGES, never a literal: this asserted "= 10" and broke
   # the moment PHP 8.5 entered the matrix — the same hardcoded-count assumption
   # tests/matrix/test_php_lifecycle_and_selectors.sh now hunts for.
+  #
+  # CAPTURE ONCE, THEN MATCH FROM A HERE-STRING. NEVER `canonical_images | grep -q`.
+  #
+  # That pipeline was THE intermittent CI failure of 2026-08-24/25. `grep -q`
+  # exits the instant it matches, and `php-cli/8.3` is the FIRST of the ten
+  # labels, so matrix_image_labels — a `while read` loop that printf's one line
+  # per iteration — is still writing the other nine when the read end closes. It
+  # dies of SIGPIPE, `set -o pipefail` (line 30) promotes 141 to the pipeline's
+  # status, the `&&` chain short-circuits, and this assertion reports FAIL with
+  # nothing whatsoever wrong with the matrix.
+  #
+  # Whether the producer has already flushed all ten lines before grep exits is a
+  # scheduling race between two processes, which is the entire intermittency:
+  # measured 0/300 SIGPIPE on macOS bash 3.2, 289/300 on Linux bash 5.2. Hence
+  # "passes locally every time, fails on GitHub-hosted runners, passes on re-run".
+  # See tests/lib/test_pipefail_sigpipe.sh and tests/tools/stress-stale-exception-selftest.sh.
+  #
+  # A here-string is written in full by bash before grep is exec'd, so there is
+  # no reader to close a pipe early and no status to promote. Same lesson already
+  # written down in scripts/assert-required-checks.sh.
+  #
+  # The second reading is also anchored at $ROOT rather than the caller's CWD:
+  # `bash -c '. scripts/lib/common.sh'` only resolved because run-all.sh happens
+  # to cd to the repo root.
+  local LABELS LABELS2
+  LABELS="$(canonical_images)"
+  LABELS2="$(bash -c '. "$1"/scripts/lib/common.sh; matrix_image_labels' _ "$ROOT")"
   t "the canonical matrix equals the shipping image set" \
-    "[ \"\$(canonical_images | grep -c .)\" = \"\$(bash -c '. scripts/lib/common.sh; matrix_image_labels' | grep -c .)\" ] &&
-     canonical_images | grep -qx nginx/prod && canonical_images | grep -qx php-cli/8.3"
+    '[ "$(grep -c . <<<"$LABELS")" = "$(grep -c . <<<"$LABELS2")" ] &&
+     grep -qx nginx/prod <<<"$LABELS" && grep -qx php-cli/8.3 <<<"$LABELS"'
 
   # INTEGRATION: the labels the reconciler ACTUALLY emits must equal the
   # canonical set. The unit fixtures above generate their files FROM
