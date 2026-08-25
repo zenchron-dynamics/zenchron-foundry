@@ -29,7 +29,8 @@
     "retention",
     "checksums",
     "files",
-    "reproducibility"
+    "reproducibility",
+    "licenses"
   ],
   "properties": {
     "schema_version": {
@@ -1030,6 +1031,49 @@
         "note": {
           "type": "string",
           "minLength": 20
+        }
+      }
+    },
+    "licenses": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The licence FACTS carried by the SBOMs this bundle sealed. The bundle recorded no licence fact at all, so the licence gate and the release path never met on one artifact: the gate could pass over any SPDX files while the bundle said nothing about what it shipped under. This is the bundle's half \u2014 assertions, not a verdict. The verdict stays in scripts/license/assert-license-policy.sh over policies/license-policy.yaml, whose digest is in policy_digests.",
+      "required": [
+        "present",
+        "source",
+        "policy_file",
+        "gate",
+        "distinct_licenses",
+        "components_without_license"
+      ],
+      "properties": {
+        "present": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "facts_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "policy_file": {
+          "type": "string"
+        },
+        "gate": {
+          "type": "string"
+        },
+        "distinct_licenses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "components_without_license": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }

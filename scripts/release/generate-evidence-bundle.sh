@@ -345,6 +345,48 @@ def sbom_subjects(doc):
     return out
 
 
+LICENSE_UNKNOWN = {"", "noassertion", "none", "unknown", "null"}
+license_rollup = collections.Counter()
+license_unknown = collections.Counter()
+
+
+def collect_licenses(doc, key):
+    """Every licence assertion in this child's SBOM, normalised only by case.
+
+    The bundle recorded no licence fact at all, so the licence gate and the
+    release path never met on one artifact: a gate could pass over any SPDX
+    files while the bundle said nothing about what it shipped under. This is
+    the bundle's half — the raw assertions, not a verdict. The verdict stays in
+    scripts/license/assert-license-policy.sh, which reads policies/license-
+    policy.yaml; duplicating it here would be a second decision to drift.
+    """
+    n_unknown = 0
+    for pkg in doc.get("packages") or []:
+        vals = [pkg.get("licenseConcluded"), pkg.get("licenseDeclared")]
+        named = [str(v).strip() for v in vals
+                 if v is not None and str(v).strip().lower() not in LICENSE_UNKNOWN]
+        if named:
+            for v in sorted(set(named)):
+                license_rollup[v] += 1
+        else:
+            n_unknown += 1
+    for comp in (doc.get("components") or []):
+        lic = comp.get("licenses") or []
+        named = []
+        for entry in lic:
+            e = (entry or {}).get("license") or {}
+            v = e.get("id") or e.get("name") or entry.get("expression")
+            if v and str(v).strip().lower() not in LICENSE_UNKNOWN:
+                named.append(str(v).strip())
+        if named:
+            for v in sorted(set(named)):
+                license_rollup[v] += 1
+        else:
+            n_unknown += 1
+    if n_unknown:
+        license_unknown[key] += n_unknown
+
+
 def check_sbom_subject(path, key, digest, platform, revision):
     try:
         doc = json.load(open(path))
@@ -369,6 +411,7 @@ def check_sbom_subject(path, key, digest, platform, revision):
                "did not. An SBOM for another digest, platform or source cannot "
                "substitute for this one"
                % (key, os.path.basename(path), ", ".join(sorted(subjects)[:3]), digest))
+    collect_licenses(doc, key)
     named = doc.get("name")
     if isinstance(named, str) and named and named != key:
         refuse("child %s: %s names itself %r. The document's own identity "
@@ -554,6 +597,25 @@ if sbom_dir:
                 "identity_function": "scripts/lib/common.sh sbom_filename()",
                 "required_format": REQUIRED_FMT,
                 "children": sbom_index})
+    write_json(os.path.join(out, "content/licenses/license-facts.json"),
+               collections.OrderedDict([
+                   ("schema_version", 1),
+                   ("record_type", "evidence-bundle-license-facts"),
+                   ("note", "The licence ASSERTIONS carried by the SBOMs this "
+                            "bundle sealed, per component, normalised only by "
+                            "case. This is a FACT, not a verdict: the verdict "
+                            "is scripts/license/assert-license-policy.sh over "
+                            "policies/license-policy.yaml, whose digest is in "
+                            "policy_digests. Duplicating the verdict here would "
+                            "be a second decision to drift."),
+                   ("source", "content/sbom/"),
+                   ("gate", "scripts/license/assert-license-policy.sh"),
+                   ("policy_file", "policies/license-policy.yaml"),
+                   ("distinct_licenses", sorted(license_rollup)),
+                   ("assertion_counts", dict(sorted(license_rollup.items()))),
+                   ("components_without_license",
+                    dict(sorted(license_unknown.items()))),
+               ]))
 
 # --- findings roll-up --------------------------------------------------------
 sev = collections.Counter()
@@ -955,6 +1017,15 @@ manifest = collections.OrderedDict([
         ("policy_sha256", sha256_file(ledger_p)),
     ])),
     ("dispositions", dispositions),
+    ("licenses", collections.OrderedDict([
+        ("present", bool(sbom_index)),
+        ("source", "content/sbom/"),
+        ("facts_file", "content/licenses/license-facts.json" if sbom_index else None),
+        ("policy_file", "policies/license-policy.yaml"),
+        ("gate", "scripts/license/assert-license-policy.sh"),
+        ("distinct_licenses", sorted(license_rollup)),
+        ("components_without_license", sum(license_unknown.values())),
+    ])),
     ("reproducibility", reproducibility),
     ("policy_digests", digests),
     ("provenance", provenance),
