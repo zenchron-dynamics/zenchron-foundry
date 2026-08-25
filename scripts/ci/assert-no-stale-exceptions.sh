@@ -327,9 +327,51 @@ PYD
   # Derived from MATRIX_IMAGES, never a literal: this asserted "= 10" and broke
   # the moment PHP 8.5 entered the matrix — the same hardcoded-count assumption
   # tests/matrix/test_php_lifecycle_and_selectors.sh now hunts for.
+  #
+  # CAPTURE ONCE, THEN MATCH FROM A HERE-STRING. Never pipe the label producer
+  # into a reader that short-circuits.
+  #
+  # That pipeline was THE intermittent CI failure of 2026-08-24/25. `grep -q`
+  # exits the instant it matches, and `php-cli/8.3` is the FIRST of the ten
+  # labels, so matrix_image_labels — a `while read` loop that printf's one line
+  # per iteration — is still writing the other nine when the read end closes. It
+  # loses the write, `set -o pipefail` (line 30) promotes the failure to the
+  # pipeline's status, the `&&` chain short-circuits, and this assertion reports
+  # FAIL with nothing whatsoever wrong with the matrix.
+  #
+  # The status depends on the SIGPIPE disposition bash inherited: 141 when the
+  # producer is killed by the signal (ubuntu:24.04 container), but 1 when SIGPIPE
+  # is IGNORED and write() returns EPIPE instead — which is what GitHub-hosted
+  # runners do (CI run 32825970631). Exit 1 there is indistinguishable from "grep
+  # matched nothing", which is why the failing CI logs carried a bare FAIL and no
+  # reason at all.
+  #
+  # Whether the producer has already flushed all ten lines before grep exits is a
+  # scheduling race between two processes, which is the entire intermittency:
+  # measured 0/300 SIGPIPE on macOS bash 3.2, 289/300 on Linux bash 5.2. Hence
+  # "passes locally every time, fails on GitHub-hosted runners, passes on re-run".
+  # See tests/lib/test_pipefail_sigpipe.sh and tests/tools/stress-stale-exception-selftest.sh.
+  #
+  # A here-string is written in full by bash before grep is exec'd, so there is
+  # no reader to close a pipe early and no status to promote. Same lesson already
+  # written down in scripts/assert-required-checks.sh.
+  #
+  # The second reading is also anchored at $ROOT rather than the caller's CWD:
+  # `bash -c '. scripts/lib/common.sh'` only resolved because run-all.sh happens
+  # to cd to the repo root.
+  # Both are referenced by name inside the single-quoted assertion below, which
+  # t() eval()s while these locals are still in scope. shellcheck cannot see
+  # through eval, hence the disables. Declared then assigned separately: a
+  # `local X="$(...)"` would mask the command substitution's exit status and
+  # this must fail closed under set -e.
+  local LABELS LABELS2
+  # shellcheck disable=SC2034
+  LABELS="$(canonical_images)"
+  # shellcheck disable=SC2034
+  LABELS2="$(bash -c '. "$1"/scripts/lib/common.sh; matrix_image_labels' _ "$ROOT")"
   t "the canonical matrix equals the shipping image set" \
-    "[ \"\$(canonical_images | grep -c .)\" = \"\$(bash -c '. scripts/lib/common.sh; matrix_image_labels' | grep -c .)\" ] &&
-     canonical_images | grep -qx nginx/prod && canonical_images | grep -qx php-cli/8.3"
+    '[ "$(grep -c . <<<"$LABELS")" = "$(grep -c . <<<"$LABELS2")" ] &&
+     grep -qx nginx/prod <<<"$LABELS" && grep -qx php-cli/8.3 <<<"$LABELS"'
 
   # INTEGRATION: the labels the reconciler ACTUALLY emits must equal the
   # canonical set. The unit fixtures above generate their files FROM
