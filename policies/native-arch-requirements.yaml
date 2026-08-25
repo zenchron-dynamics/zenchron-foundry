@@ -18,23 +18,79 @@ schema_version: 1
 
 policy:
   owner: Zenchron Dynamics / Platform Security
-  last_reviewed: 2026-08-22
+  last_reviewed: 2026-08-25
   issue: 111
 
-# The runner that would satisfy this contract. Nothing here provisions it.
-required_runner:
-  labels: [self-hosted, Linux, ARM64, zenchron]
-  # Matching the existing X64 pair, which has hit 94% disk under load.
-  minimum_vcpu: 2
-  minimum_ram_gb: 4
-  minimum_free_disk_gb: 60
-  runner_group: the org group already used by the X64 runners
-  trust:
-    - must not execute fork pull-request code
-    - must not share a work volume with an untrusted job
-    - must be enrolled at organization scope, not repository scope
-  validation_command: "uname -m   # must print aarch64"
-  validation_evidence_field: "execution_mode == native AND host_architecture == arm64"
+# Runner shapes that satisfy this contract. TWO are accepted, and the difference
+# between them is the whole point of this block.
+#
+# This used to be a single `required_runner` with `minimum_free_disk_gb: 60`. That
+# 60 was never measured against this job. It was copied from the self-hosted X64
+# pair, which hit 94% disk because the runner's own `_work`/`_update` self-update
+# staging accumulates on a volume that SURVIVES every job. That is a property of a
+# persistent runner's lifecycle, not of the smoke workload — and carrying it here
+# unexamined is what made a free, GA, native arm64 runner look ineligible.
+#
+# So the floor is scoped by runner KIND. Resolved by scripts/release/runner-disk-floor.py,
+# which refuses an unknown kind rather than falling back to the largest number here.
+accepted_runners:
+  - id: hosted-ephemeral-arm64
+    kind: ephemeral-hosted
+    # GitHub STANDARD hosted arm64 Linux runner. Free and unlimited on public
+    # repositories; this repository is public (verified 2026-08-25 via
+    # `gh api repos/zenchron-dynamics/zenchron-foundry -q .visibility` -> public).
+    # GA since 2025-08-07. Sources, retrieved 2026-08-25:
+    #   https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+    #   https://github.blog/changelog/2025-08-07-arm64-hosted-runners-for-public-repositories-are-now-generally-available/
+    # Only available on PUBLIC repositories: if this repository is ever made
+    # private the label stops working and the workflow fails rather than
+    # silently falling back to an emulated host.
+    runs_on: ubuntu-24.04-arm
+    labels: [ubuntu-24.04-arm]
+    minimum_vcpu: 4
+    minimum_ram_gb: 16
+    # MEASURED, not inherited. See disk_basis below.
+    minimum_free_disk_gb: 8
+    disk_basis: provisional-pending-measurement
+    disk_rationale: >-
+      Provisional floor, deliberately below the runner's advertised free disk so
+      the first instrumented run can MEASURE the real figure instead of asserting
+      one. Replaced by a measured number plus headroom once a run reports it.
+    trust:
+      - ephemeral: the VM is destroyed after the job, so no work volume is shared
+        with any other job, trusted or not
+      - holds no repository or organization secrets; permissions are
+        contents:read and packages:read
+      - not subject to a self-hosted runner group, so it cannot be widened by a
+        runner-group membership change
+    validation_command: "uname -m   # must print aarch64"
+    validation_evidence_field: "execution_mode == native AND host_architecture == arm64"
+
+  - id: self-hosted-persistent-arm64
+    kind: persistent-self-hosted
+    # Still accepted, and still correct if one is ever enrolled. Nothing here
+    # provisions it. Its floor stays at 60 because the incident that produced
+    # that number applies to exactly this kind of runner.
+    labels: [self-hosted, Linux, ARM64, zenchron]
+    minimum_vcpu: 2
+    minimum_ram_gb: 4
+    minimum_free_disk_gb: 60
+    disk_basis: incident
+    disk_rationale: >-
+      The X64 pair reached 94% disk under load. The eater is the runner's own
+      _work/_update self-update staging on a volume that persists across jobs,
+      plus retained docker layers. A persistent runner therefore needs headroom
+      the job itself never asks for. This number is about the runner, not the job.
+    runner_group: the org group already used by the X64 runners
+    trust:
+      - must not execute fork pull-request code
+      - must not share a work volume with an untrusted job
+      - must be enrolled at organization scope, not repository scope
+    validation_command: "uname -m   # must print aarch64"
+    validation_evidence_field: "execution_mode == native AND host_architecture == arm64"
+
+# The shape .github/workflows/native-arm64-smoke.yml actually targets today.
+active_runner: hosted-ephemeral-arm64
 
 # What native evidence is required FOR. Absent a native runner these are the
 # claims the project must not make.
@@ -57,17 +113,33 @@ qemu_sufficient_for:
     - vulnerability scanning and reconciliation
     - evidence identity, checksums and authorization
 
-# Release gating. `require_native_arm64` stays false while no native runner
-# exists: flipping it true without one would block every release rather than
-# improve safety. Flip it the same day the runner is enrolled.
+# Release gating. This was false for as long as no runner existed that could
+# produce native evidence. One does: see accepted_runners[hosted-ephemeral-arm64].
 release_gate:
-  require_native_arm64: false
+  require_native_arm64: true
   rationale: >-
-    No native arm64 runner is enrolled (verified 2026-08-22: both org runners are
-    labelled X64). Setting this true today would refuse every release without
-    making anything safer. The gate exists so that enrolling a runner is a
-    one-line policy change, and so that a future maintainer cannot quietly ship
-    an arm64 "native" claim on emulated evidence.
+    A native arm64 runner is available and the smoke workflow runs on it. #111
+    was modelled as blocked on provisioning hardware; it was not. This repository
+    is public (verified 2026-08-25), and GitHub's standard hosted arm64 Linux
+    runners are free and unlimited on public repositories, generally available
+    since 2025-08-07. The blocker was that the label had never been considered —
+    `ubuntu-24.04-arm` appeared nowhere in this tree. Nothing was provisioned,
+    funded or enrolled to flip this.
   when_true_refuses:
     - any arm64 child whose execution_mode is not native
     - any release bundle asserting native arm64 verification without such children
+  # Stated rather than glossed. Flipping this true makes
+  # scripts/release/assert-native-arch-evidence.sh default to requiring native
+  # linux/arm64 wherever it is called — but today it is called from exactly one
+  # place, this repository's own native smoke workflow, and from NO release-gating
+  # workflow (not stage-and-authorize.yml, trusted-validation.yml,
+  # release-preflight.yml or verify-rc.yml). So the flag is honest about intent
+  # and is NOT yet load-bearing on the release path.
+  known_gap:
+    id: gate-not-wired-into-release-path
+    description: >-
+      No release-gating workflow invokes assert-native-arch-evidence.sh, so this
+      flag does not by itself refuse a release built on emulated arm64 evidence.
+      Wiring it is repository work needing no hardware.
+    owner: maintainer
+    blocks_closure_of: 111
