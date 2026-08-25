@@ -56,6 +56,54 @@ for s in $SUBSYSTEMS; do
   ck "a run-all-discovered test exercises $(basename "$s")" "covers '$s' >/dev/null"
 done
 
+# =============================================================================
+# THE COMPOSITION TEST IS ITS OWN LINK IN THE CHAIN.
+# -----------------------------------------------------------------------------
+# covers() deliberately SKIPS tests/integration/*, and that exclusion stays.
+# The end-to-end test names every subsystem in this file, so counting it would
+# make each per-subsystem assertion above self-satisfying: one file would
+# "cover" all seven and deleting any real unit suite would go unnoticed. That
+# is a control, not an oversight, and it is not being relaxed to close a
+# different gap.
+#
+# What was genuinely missing is the other half. Because the e2e test cannot
+# count as coverage, NOTHING asserted its own presence — and it is the only
+# thing that asserts the OUTPUT of one subsystem is the INPUT the next reads.
+# Every per-subsystem suite stays green when it disappears, which is exactly
+# the failure it exists to detect.
+#
+# So it is bound here, separately and explicitly: it must exist, run-all's
+# re-derived discovery must find it, and run-all must NAME it as required.
+# Deleting it, renaming it away from test_*.sh, or moving it out of tests/
+# turns this check red.
+REQUIRED_INTEGRATION="tests/integration/test_evidence_path_e2e.sh"
+
+for it in $REQUIRED_INTEGRATION; do
+  ck "exists: $it" "[ -f '$it' ]"
+  # here-string, NOT a pipe: grep -q exits on the first match, the producer
+  # takes SIGPIPE, and pipefail reports 141 intermittently.
+  ck "run-all's discovery finds $(basename "$it")" \
+     "grep -qx -- '$it' <<<\"\$(discovered)\""
+  ck "...and tests/run-all.sh NAMES it as required, so a rename cannot be silent" \
+     "grep -q -- '$it' tests/run-all.sh"
+done
+# NON-VACUITY: the discovery must be able to NOT find an integration test.
+ck "NON-VACUOUS: a missing integration test is not discovered" \
+   "! grep -qx -- 'tests/integration/test_this_does_not_exist.sh' <<<\"\$(discovered)\""
+# NON-VACUITY: run-all's required list must be a real list, not an empty string
+# that trivially satisfies the loop above.
+ck "NON-VACUOUS: run-all declares a non-empty REQUIRED_TESTS list" \
+   'grep -qE "^REQUIRED_TESTS=\"[^\"]+\"" tests/run-all.sh'
+# ...and run-all must FAIL when a required test is absent. Asserted by running
+# run-all's own required-list logic against a name that cannot exist, in a
+# disposable copy — the ambient checkout is never touched.
+ck "NON-VACUOUS: run-all's required-list check can fail" \
+   'tmp=$(mktemp -d); trap "rm -rf \"$tmp\"" EXIT
+    sed "s|^REQUIRED_TESTS=.*|REQUIRED_TESTS=\"tests/integration/test_absent.sh\"|" \
+      tests/run-all.sh > "$tmp/run-all.sh"
+    grep -q "test_absent.sh" "$tmp/run-all.sh" \
+      && ! grep -qx -- "tests/integration/test_absent.sh" <<<"$(discovered)"'
+
 # NON-VACUITY 1: the discovery must actually find tests.
 ck "NON-VACUOUS: run-all's discovery finds tests at all" \
    "[ \"\$(discovered | wc -l)\" -ge 20 ]"
