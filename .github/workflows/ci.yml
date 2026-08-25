@@ -129,6 +129,47 @@ jobs:
       - name: Run the offline control suite
         run: bash tests/run-all.sh
 
+      # ---------------------------------------------------------------------
+      # THE RELEASE-GATING SUBSYSTEMS, INVOKED DIRECTLY.
+      #
+      # Until now every one of these was gated ONLY transitively: run-all
+      # discovers tests/**/test_*.sh, one of those tests happens to exercise
+      # the subsystem, and the `repo structure` check happens to run run-all.
+      # That is real coverage and nothing asserted it, so moving a test out of
+      # tests/, renaming it away from test_*.sh, or dropping the run-all step
+      # would have made the subsystem ungated with no signal at all.
+      #
+      # tests/governance/test_subsystem_ci_coverage.sh binds the transitive
+      # chain. These steps make the direct one exist too, so losing either is a
+      # red check rather than silence. Each is offline and buildless — the same
+      # invocation scripts/macro-validate.sh makes locally.
+      # ---------------------------------------------------------------------
+      - name: Gate — evidence bundle contract
+        run: bash scripts/release/generate-evidence-bundle.sh --self-test
+
+      - name: Gate — evidence class contract
+        run: |
+          bash scripts/release/assert-evidence-class.sh --self-test
+          bash scripts/release/assert-evidence-class.sh legacy \
+            docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json
+
+      - name: Gate — licence policy
+        run: bash scripts/license/assert-license-policy.sh --self-test
+
+      - name: Gate — CRA control set
+        run: bash scripts/cra/assert-cra-controls.sh
+
+      - name: Gate — continuity mirror claims and offline drill
+        run: |
+          bash scripts/continuity-verify.sh --assert-mirror-claims
+          bash scripts/continuity-verify.sh --self-test
+
+      - name: Gate — reproducibility guarantees
+        run: bash scripts/repro-guarantees.sh
+
+      - name: Gate — governance content binding
+        run: bash scripts/governance-content-binding.sh --self-test
+
       - name: Assert all CI container images are digest-pinned
         run: bash scripts/assert-pinned-containers.sh
 
