@@ -9,7 +9,8 @@ directory (`evidence.json`, checksums in `SHA256SUMS`).
 
 This packet exists because two fixable HIGH findings on `php-frankenphp` are
 present in the shipping children and matched by **no** record in the ledger, and
-because the entire ledger expires within a week. Both are maintainer decisions.
+because every exception in the ledger carries `expires_at: 2026-08-31` or
+`2026-09-01`. Both are decisions for the **maintainer** role.
 
 ## Contents
 
@@ -164,9 +165,19 @@ Go-module inventory of every one of those artifacts, per platform
 | `latest` (Debian 13.6 trixie) `e2fb833f…` | linux/amd64 | v0.140.0 | v1.81.1 | 185 |
 
 The newest upstream release is **v1.12.7**, published `2026-08-07T07:49:19Z`
-(`gh api repos/php/frankenphp/releases`); there is no 1.13 or 2.x line. Every
-`bookworm`, `trixie` and `latest` artifact built from it carries the same
-`kin-openapi v0.140.0`.
+(`gh api repos/php/frankenphp/releases --paginate`, retrieved 2026-08-25); there
+is no 1.13 or 2.x line. Every `bookworm`, `trixie` and `latest` artifact built
+from it carries the same `kin-openapi v0.140.0`.
+
+**A distinction that matters, verified independently rather than inherited.**
+`v1.12.7` (2026-08-07) predates this repository's 2026-08-17 digest verification,
+so **no new FrankenPHP release has shipped since that verification**. That is
+true at the *release* level and **false at the *artifact* level**: the published
+images have been rebuilt twice since — `1-php8.4-bookworm` on 2026-08-20 and
+`1-php8.3-bookworm` on 2026-08-25 — producing new digests from the same release.
+"No new release" therefore does **not** license skipping a re-scan; the artifact
+that must be measured changed while the release tag did not. Both new digests
+were scanned above.
 
 **Conclusion: no patched official upstream artifact exists as of 2026-08-25 —
 including one published this morning.** Bumping the pinned digest — to the
@@ -301,9 +312,21 @@ these advisories appear in neither. That is the maintainer decision in §7.
 Common ground for all three: `scripts/reconcile-vulnerabilities.sh` requires
 every CRITICAL/HIGH finding to be matched, per image and per architecture, by an
 in-scope unexpired record. Two findings on `php-frankenphp` 8.3 and 8.4 currently
-match nothing, so the required checks `scan php-frankenphp 8.3` and
-`scan php-frankenphp 8.4` fail on the next run. **Doing nothing is not a neutral
-state; it is option 3 with the failure left unannounced.**
+match nothing.
+
+Stated precisely, because "a workflow references it" and "it runs against real
+artifacts" are different claims: `scan php-frankenphp 8.3` and
+`scan php-frankenphp 8.4` are listed in `policies/required-release-checks.yaml`
+under both `release_required_checks` and the mirrored `required_checks`. Those
+checks are produced by `trusted-validation.yml` in release mode and by
+`scan-images.yml`, both of which **build the image from its Dockerfile and scan
+the built artifact** before reconciling — which is exactly what was reproduced
+locally for this packet, with the same refusal. So this is not a grep over
+`.github/workflows/`: the failing path was executed here against real built
+children.
+
+**Doing nothing is not a neutral state; it is option 3 with the failure left
+unannounced.**
 
 ### Option 1 — exact, version-bound, architecture-bound, expiring governance
 
@@ -353,7 +376,8 @@ Concrete consequences:
   (`docs/release-withdrawal.md`, `docs/audits/withdrawals/`); un-suspending later
   is a re-admission, not a no-op.
 - Duration is open-ended and controlled by a third party: it lasts until upstream
-  moves, which has not happened in the 31 days since #79 was filed.
+  moves. #79 was filed 2026-07-25 and the module version has not changed across
+  any measurement recorded on it since.
 
 ### Option 3 — wait for a patched official upstream artifact
 
@@ -372,7 +396,8 @@ Concrete consequences:
 - Detection of the fix stays automatic: when upstream ships `>= 0.144.0` the
   findings disappear.
 - The waiting period is not bounded by anything Foundry controls. Upstream
-  rebuilt the 8.3 image as recently as this morning without moving the module.
+  rebuilt the 8.3 image on 2026-08-25 without moving the module, and #79 has
+  been open since 2026-07-25 on the same external blocker.
 
 **No option is chosen in this packet. All three are live, and all three are the
 maintainer's to take.**

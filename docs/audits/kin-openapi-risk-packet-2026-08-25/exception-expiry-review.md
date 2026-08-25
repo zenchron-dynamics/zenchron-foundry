@@ -16,25 +16,27 @@ repository's Dockerfiles, `--severity HIGH,CRITICAL`, no ignore file).
 | 2026-08-31 | 55 |
 | 2026-09-01 | 4 |
 
-**Every single exception in the ledger expires inside a seven-day window, and
-today is 2026-08-25.** That is itself a risk worth naming, independently of any
-individual finding:
+**Every exception in the ledger carries one of two adjacent expiry dates,
+`2026-08-31` or `2026-09-01`.** The absence of staggering is itself a scheduling
+risk worth naming, independently of any individual finding:
 
-- It converts 59 separate risk decisions into **one deadline**. A maintainer who
-  runs out of time on 2026-08-31 does not fail on one entry; ten images stop
-  reconciling at once.
+- It concentrates 59 independent risk decisions onto two adjacent dates rather
+  than distributing them across the review capacity of the **maintainer** role.
+  There is no delegated approval path: `approval_mode` on every record is
+  sole-maintainer risk acceptance and `independent_approval` is recorded as
+  unavailable, so the decisions cannot be shared out under load.
 - `scripts/reconcile-vulnerabilities.sh` requires `expires_at` strictly in the
-  future. On 2026-09-01 all 55 dated `2026-08-31` are dead simultaneously, and
-  every gated image fails at once — `caddy` on 19 findings, `nginx` on 27,
-  each PHP image on 42, each FrankenPHP image on 75.
-- The cliff exists because dates were repeatedly **aligned** to a single cohort
+  future, so each date is a hard per-entry boundary rather than a soft review
+  prompt. Which entries carry which date is recorded per entry in the table
+  below; this document deliberately does not rank or sequence them.
+- The alignment exists because dates were repeatedly **set to a single cohort**
   rather than staggered: entries created on 2026-06-21, 07-03, 07-11, 07-14,
   07-23, 07-24, 07-25, 07-28, 08-11, 08-13, 08-14 and 08-17 all carry the same
   `2026-08-31`. Alignment makes batch review convenient and makes batch failure
   certain.
-- The pressure of an all-at-once deadline is exactly the condition under which
-  a blanket re-date becomes tempting. The ledger's own text refuses that:
-  "Expiry on 2026-09-01 triggers a NEW decision, not a renewal."
+- A concentrated review load is the condition under which a blanket re-date
+  becomes tempting. The ledger's own text refuses that: "Expiry on 2026-09-01
+  triggers a NEW decision, not a renewal."
 - **Staggering the replacement dates is itself a maintainer decision and is not
   taken here.** This lane cannot edit the ledger and does not propose a schedule.
 
@@ -268,10 +270,11 @@ cover 53613 — that separation is still holding.
 mitigation. Re-deciding it on 2026-09-01 therefore turns entirely on impact,
 exposure and appetite, not on new scan data.
 
-## `CVE-2026-14456` — openssl/libssl3, the seven-day bridge
+## `CVE-2026-14456` — openssl/libssl3, the bounded bridge
 
 Records **56** (`php-8.3-8.4`) and **57** (`nginx`), `expires_at: 2026-09-01`,
-carrying `reaffirmed_at: 2026-08-20`, `reaffirmed_by: Bogdan Olteanu` and a long
+carrying `reaffirmed_at: 2026-08-20`, a `reaffirmed_by` attribution to the
+maintainer role, and a long
 `reaffirmation_evidence` block.
 
 **Classification: risk still present.** Matched on all nine PHP-family
@@ -289,9 +292,9 @@ Re-verified today, point by point against the reaffirmation text:
 The re-dating itself is the notable governance act: expiry moved
 `2026-08-26 -> 2026-09-01` with an explicit `reaffirmation_evidence` record
 saying it is "a second bounded bridge, to be decided again at expiry", not a
-renewal. That distinction is only meaningful if the second bridge actually ends;
-**2026-09-01 is now six days out, and a third bridge would need its own
-justification.** This lane cannot and does not extend it.
+renewal. That distinction is only meaningful if the second bridge actually ends
+at its stated date, **2026-09-01**; a third bridge would need its own
+justification on its own evidence. This lane cannot and does not extend it.
 
 ### Why `caddy/prod` is deliberately NOT covered — verified
 
@@ -315,24 +318,24 @@ the scope were widened. Its full HIGH/CRITICAL OS set today is five findings —
 Widening `CVE-2026-14456` to cover `caddy` would grant scope no evidence
 supports; leaving it out is the ledger behaving correctly.
 
-## What the maintainer has to decide by 2026-08-31 / 09-01
+## Scope of the decision carried by the maintainer role
 
-Stated as a scope of work, not as a recommendation:
+Stated as a scope of work, not as a recommendation, and not ordered by date:
 
 1. **59 records, none droppable.** No entry can be retired on the grounds that
    the finding went away, because none did.
 2. **14 records (1–14) need a first real reachability decision**, not a
    re-confirmation, and their `arch_note` contradicts their
    `verified_architectures`.
-3. **2 records (56, 57)** are on their second bounded bridge and expire
-   2026-09-01.
-4. **2 records (58, 59)** were written explicitly as "a NEW decision, not a
-   renewal" at expiry.
+3. **2 records (56, 57)** are on their second bounded bridge, `expires_at:
+   2026-09-01`.
+4. **2 records (58, 59)**, `expires_at: 2026-09-01`, were written explicitly as
+   "a NEW decision, not a renewal" at expiry.
 5. **2 advisories (`CVE-2026-76905`, `CVE-2026-77354`) have no record at all**
    and already fail the gate — see `README.md`, where the three options are set
    out without a recommendation.
-6. **The single-deadline structure itself** — whether the replacement dates are
-   staggered — is a decision nobody has taken.
+6. **The two-date structure itself** — whether replacement dates are staggered,
+   and under what approval path — is a decision nobody has taken.
 
 ## Not done in this lane
 
