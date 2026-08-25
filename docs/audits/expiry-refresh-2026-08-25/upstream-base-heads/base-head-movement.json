@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "record_type": "upstream-base-head-movement",
+  "evidence_class": "upstream-base",
+  "evidence_class_note": "An upstream-base observation may establish upstream ownership and patched-base availability ONLY. It is never read as the Foundry child's package inventory: the child Dockerfile purges build tooling, so the two inventories differ by design.",
+  "observed_at": "2026-08-25",
+  "platform_measured": "linux/amd64",
+  "platform_note": "Debian binary package versions are identical across linux/amd64 and linux/arm64 for every package involved, so one platform establishes patched-base availability. The child-side evidence is measured on BOTH platforms.",
+  "bases": {
+    "php_8.3-cli": {"tag": "php:8.3-cli-bookworm", "pinned": "sha256:a4fcf31ffb94b8d19b84514926b5a2cddf22a38b1e29922f8d3e8a933091f806", "head": "sha256:177529735599a8244b2c903522f029839dce1c2ac4be122fdc00ada4b45a20e4", "moved": true},
+    "php_8.4-cli": {"tag": "php:8.4-cli-bookworm", "pinned": "sha256:138a210978c7767ef2a26f499c413fe6de1c13233c9a5068139565c81191b1ac", "head": "sha256:6003a0607eea6dc61d04723d3e60347c8481ffb2f09dbf85bf427b9ce0c25629", "moved": true},
+    "php_8.3-fpm": {"tag": "php:8.3-fpm-bookworm", "pinned": "sha256:2a397791f5ee422190bb673d79332be53ff545205f6df19e2664bd664ebbd739", "head": "sha256:84ffb6f84362cd0cc74d6dea47cc1b376b4d7477f97c84b0e5bb287ab9df056c", "moved": true},
+    "php_8.4-fpm": {"tag": "php:8.4-fpm-bookworm", "pinned": "sha256:66a10c4b32b2f5886c32a4fb23c6cc3e727661e6a929c241befb335aaee0290e", "head": "sha256:d19afbcc35ef6eae436be15439d9e0e96a000f40e95578ec86a6ddff3d66e4bb", "moved": true},
+    "frankenphp_8.3": {"tag": "dunglas/frankenphp:1-php8.3-bookworm", "pinned": "sha256:ae143d38335e4d8faf3f73205c91b69562b4154a85bf3fdd9ef63d59c8727ead", "head": "sha256:9725e5d498b49d01036baec385c07ff787f96ce60a1b79250ce103f6d92dbfda", "moved": true},
+    "frankenphp_8.4": {"tag": "dunglas/frankenphp:1-php8.4-bookworm", "pinned": "sha256:cef99f108009ed60c6d60261c8edc17104fce06aafaf24c21119cd4b4c704aa7", "head": "sha256:a6e78fd9da1640784cb07d606e313ae9f6013b1de39741643f0c256ecd87c8ae", "moved": true},
+    "caddy": {"tag": "caddy:2-alpine", "pinned": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648", "head": "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648", "moved": false},
+    "nginx": {"tag": "nginxinc/nginx-unprivileged:1.28-bookworm", "pinned": "sha256:cd33960e98e93d4d63385790ff7f8f5bf2ca95184c581b7f42ae8aea1139fbfc", "head": "sha256:cd33960e98e93d4d63385790ff7f8f5bf2ca95184c581b7f42ae8aea1139fbfc", "moved": false}
+  }
+}
