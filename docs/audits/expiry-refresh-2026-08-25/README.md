@@ -151,6 +151,15 @@ rather than measured**. Here all twenty children were scanned, so every one of
 the 59 records is matched by a real finding on `linux/amd64` **and** on
 `linux/arm64`. The inherited-amd64 gap is closed.
 
+This has a second consequence, which the earlier review raised only for its
+fourteen: **36 of the 59 records carry an `arch_note` asserting that the record
+was reconciled on `linux/amd64` only and does not authorise `linux/arm64`** — 22
+in one wording and 14 in another — while all 59 list
+`verified_architectures: [linux/amd64, linux/arm64]`. Every one of those notes
+is now contradicted by direct measurement on both platforms. The notes are
+stale; the findings they annotate are not. Correcting them is a ledger edit and
+therefore a maintainer action, not one this lane takes.
+
 **4.4 The "evidence too old to decide" bucket does not survive contact with this
 evidence set.** That bucket described the *acceptance rationale*, not the
 finding. Against measured evidence each of those 14 records resolves into an
