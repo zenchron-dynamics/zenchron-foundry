@@ -200,7 +200,7 @@ _nsc_self_test() {
   export NSC_UNAME_M=aarch64 NSC_RUNNER_KIND=ephemeral-hosted \
          NSC_RUNNER_LABEL=ubuntu-24.04-arm NSC_RUN_ID=1 NSC_AUTHORITATIVE=true
 
-  local D="sha256:$(printf 'a%.0s' $(seq 64))"
+  local D; D="sha256:$(printf 'a%.0s' $(seq 64))"
   # A full-matrix candidate set, generated from the real matrix.
   # shellcheck source=../lib/common.sh
   . "$NSC_ROOT/scripts/lib/common.sh"

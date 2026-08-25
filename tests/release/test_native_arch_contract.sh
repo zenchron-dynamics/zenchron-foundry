@@ -87,11 +87,38 @@ import yaml;d=yaml.safe_load(open('$P'))
 g=d['release_gate']
 assert g['require_native_arm64'] is True
 assert 'public' in g['rationale'].lower()\""
-ck "the gate names the residual gap instead of implying full coverage" \
+# THE ASSERTION THAT FAILS ON THE PREVIOUS STATE. The policy used to carry a
+# `known_gap` recording that no release-gating workflow invoked the gate, with
+# `blocks_closure_of: 111`. Closing that gap means the key is gone AND the
+# enforcement points it named are real — checked below, not merely declared.
+ck "the policy no longer records the release-path gap as open" \
    "python3 -c \"
 import yaml;d=yaml.safe_load(open('$P'))
-k=d['release_gate']['known_gap']
-assert k['blocks_closure_of']==111 and len(k['description'])>=80\""
+assert 'known_gap' not in d['release_gate'], 'the known_gap is back'\""
+ck "...because the gate is enforced at named points on the release path" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$P'))
+e=d['release_gate']['enforced_at']
+assert len(e)>=2, e
+assert all(x['refuses_without_native'] is True for x in e)
+assert all(len(x['mechanism'])>=80 for x in e)\""
+ck "...and every enforcement point names a file that EXISTS" \
+   "python3 -c \"
+import yaml,os;d=yaml.safe_load(open('$P'))
+for x in d['release_gate']['enforced_at']:
+    assert os.path.exists(x['component']), x['component']\""
+ck "...and each of those components really invokes the gate, not just claims to" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$P'))
+for x in d['release_gate']['enforced_at']:
+    body=open(x['component']).read()
+    assert ('assert-native-arch-evidence.sh' in body
+            or 'require_native_arm64' in body), x['component']\""
+ck "the policy still states where it is NOT enforced, rather than implying full coverage" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$P'))
+n=d['release_gate']['not_enforced_at']
+assert len(n)>=1 and all(isinstance(x,str) for x in n)\""
 
 # --- the smoke workflow routes to the label and refuses emulation ----------
 # THE ASSERTION THAT FAILS ON THE PREVIOUS STATE. The workflow used to target
@@ -136,7 +163,18 @@ ck "a non-master ref still needs an explicit opt-in, and is not authoritative" \
 ck "evidence records its provenance instead of implying it" \
    "grep -q 'source_ref:' $W && grep -q 'authoritative:(' $W && grep -q 'runner_kind:' $W"
 ck "its evidence is checked by the same gate, not by prose" \
-   "grep -q 'assert-native-arch-evidence.sh native-evidence --require-native linux/arm64' $W"
+   "grep -q 'assert-native-arch-evidence.sh native-evidence' $W && grep -q 'require-native linux/arm64' $W"
+ck "the buildless mode checks evidence with the SAME release binding a release uses" \
+   "grep -q -- '--gate-release' $W && grep -q -- '--expect-digests expect-digests.json' $W"
+ck "it fails CLOSED if hosted arm64 availability changes, before queueing the arm64 job" \
+   "python3 -c \"
+import yaml;d=yaml.safe_load(open('$W'))
+g=d['jobs']['guard']
+assert g['runs-on']=='ubuntu-latest', g['runs-on']
+body=' '.join(s.get('run','') for s in g['steps'])
+assert 'visibility' in body and 'ubuntu-24.04-arm' in body, body[:200]\""
+ck "...and the availability refusal names what to do instead, not just that it failed" \
+   "grep -q 'self-hosted-persistent-arm64' $W"
 
 # --- SABOTAGE: QEMU must never satisfy native ------------------------------
 mkq() { mkdir -p "$1"; jq -n --arg k "$2" '{child_key:$k, platform:"linux/arm64",

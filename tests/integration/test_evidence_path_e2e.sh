@@ -101,6 +101,7 @@ LGATE=scripts/license/assert-license-policy.sh
 CVERIFY=scripts/continuity-verify.sh
 CEXPORT=scripts/continuity-export.sh
 MKAUTH=tests/lib/make_authorization_fixture.py
+MKNATIVE=tests/lib/make_native_arm64_fixture.py
 ACCEPTED=docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json
 
 if ! python3 -c 'import yaml, jsonschema' 2>/dev/null; then
@@ -114,6 +115,9 @@ if [ ! -f "$ACCEPTED" ]; then
 fi
 if [ ! -f "$MKAUTH" ]; then
   echo "SKIP - authorization fixture builder absent"; echo "test_evidence_path_e2e: PASS"; exit 0
+fi
+if [ ! -f "$MKNATIVE" ]; then
+  echo "SKIP - native fixture builder absent"; echo "test_evidence_path_e2e: PASS"; exit 0
 fi
 
 TMP="$(mktemp -d)"
@@ -299,6 +303,16 @@ python3 "$MKAUTH" "$ACCEPTED" "$TMP/auth-extra.json" --extra-child
 python3 "$MKAUTH" "$ACCEPTED" "$TMP/auth-fail.json" --verdict FAIL
 python3 "$MKAUTH" "$ACCEPTED" "$TMP/auth-otherdb.json" --db-identity 'v2+updated:1999-01-01T00:00:00Z'
 python3 "$MKAUTH" "$ACCEPTED" "$TMP/auth-badsha.json" --evidence-sha "$(printf 'a%.0s' {1..64})"
+# THE #111 BOUNDARY, THREADED THROUGH THE WHOLE PATH.
+# policies/native-arch-requirements.yaml now sets require_native_arm64: true and
+# the seal enforces it, so the REAL accepted record — whose ten linux/arm64
+# children ran under QEMU — can no longer be sealed as a release. That is
+# asserted directly at S-S5. Everything else in stage 6 needs a bundle that
+# WOULD otherwise seal, or R5/R6/R7/R8/R13 quietly start passing for the
+# native-architecture reason instead of their own.
+python3 "$MKNATIVE" "$ACCEPTED" "$TMP/ev-native.json" >/dev/null
+ACCEPTED_NATIVE="$TMP/ev-native.json"
+python3 "$MKAUTH" "$ACCEPTED_NATIVE" "$TMP/auth-native.json"
 
 ck "a canonical authorization record for THIS revision validates against v1" \
    "bash '$AUTHV' '$TMP/auth-right.json' >/dev/null 2>&1"
@@ -307,7 +321,7 @@ ck "...and it really does carry every required property of the canonical schema"
 req=json.load(open(\"schemas/post-build-authorization-v1.schema.json\"))[\"required\"]
 r=json.load(open(sys.argv[1]))
 missing=[k for k in req if k not in r]
-sys.exit(0 if not missing and len(req)==15 else 1)' '$TMP/auth-right.json'"
+sys.exit(0 if not missing and len(req)==16 else 1)' '$TMP/auth-right.json'"
 ck "NON-VACUOUS: a malformed revision in the same record is REFUSED by the schema" \
    "! bash '$AUTHV' '$TMP/auth-malformed.json' >/dev/null 2>&1"
 
@@ -660,9 +674,9 @@ ck "...for the evidence-record-hash diagnostic" \
 # that distinguished them, vex-openvex-v1 declared none and forbade extras, and
 # the two documents were BYTE-IDENTICAL. Either could be presented as the other.
 ck "a published-artifact bundle generates from the same run" \
-   "gen --evidence '$ACCEPTED' --out '$TMP/pub' --evidence-class published-artifact \
+   "gen --evidence '$ACCEPTED_NATIVE' --out '$TMP/pub' --evidence-class published-artifact \
       --release v2026.08.25 --candidate rc1 --sbom-dir '$TMP/sbom' \
-      --provenance '$TMP/prov.json' --authorization '$TMP/auth-right.json' \
+      --provenance '$TMP/prov.json' --authorization '$TMP/auth-native.json' \
       --today '$DAY' >/dev/null 2>&1"
 ck "the two bundles really do carry different classes (non-vacuity for the next line)" \
    "[ \"\$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[\"evidence_class\"])' '$TMP/cand/manifest.json')\" \
@@ -930,26 +944,72 @@ ck "S-S4 NON-VACUOUS: the same bundle seals inside the window" \
       --test-key '$TMP/test.key' --out '$TMP/seal-inwindow.json' --today '$DAY' >/dev/null 2>&1"
 
 # --- S-S5  REQUIRED SABOTAGE: QEMU evidence presented as native arm64 ------
+# WHAT THIS USED TO PIN. R9 fired only when the caller passed
+# --claim-native-arm64, so a release that simply never made the claim sealed
+# straight over emulated arm64 children and the #111 boundary was never
+# consulted. policies/native-arch-requirements.yaml recorded that as
+# `release_gate.known_gap` with `blocks_closure_of: 111`. The gap is closed: the
+# POLICY arms the refusal now, and these cases run against the REAL accepted
+# record, whose ten linux/arm64 children genuinely ran under QEMU on x86 hosts.
+gen --evidence "$ACCEPTED" --out "$TMP/pub-emul" --evidence-class published-artifact \
+    --release v2026.08.25 --candidate rc1 --sbom-dir "$TMP/sbom" \
+    --provenance "$TMP/prov.json" --authorization "$TMP/auth-right.json" \
+    --today "$DAY" >/dev/null 2>&1
 ck "S-S5 the accepted run really did run arm64 under emulation (non-vacuity)" \
    "python3 -c 'import json,sys
 m=json.load(open(sys.argv[1]))
 q=[c for c in m[\"children\"] if c[\"platform\"]==\"linux/arm64\" and c[\"execution_mode\"]==\"qemu\"]
-sys.exit(0 if len(q)==int(sys.argv[2]) else 1)' '$TMP/pub/manifest.json' '$MATRIX_COUNT'"
+sys.exit(0 if len(q)==int(sys.argv[2]) else 1)' '$TMP/pub-emul/manifest.json' '$MATRIX_COUNT'"
+ck "S-S5 the policy really does require native arm64 (non-vacuity)" \
+   "python3 -c 'import sys,yaml
+d=yaml.safe_load(open(\"policies/native-arch-requirements.yaml\"))
+sys.exit(0 if d[\"release_gate\"][\"require_native_arm64\"] is True else 1)'"
+ck "S-S5 SABOTAGE: the emulated bundle CANNOT be sealed, with no claim flag at all" \
+   "! seal --bundle '$TMP/pub-emul' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal-emul.json' --today '$DAY' >/dev/null 2>&1"
+ck "S-S5 ...for R9, and because the requirement belongs to the policy, not the caller" \
+   "says 'does NOT depend on --claim-native-arm64' seal --bundle '$TMP/pub-emul' \
+      --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal-emul2.json' --today '$DAY'"
 ck "S-S5 SABOTAGE: claiming native arm64 over QEMU evidence is REFUSED" \
-   "! seal --bundle '$TMP/pub' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+   "! seal --bundle '$TMP/pub-emul' --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
       --claim-native-arm64 --test-key '$TMP/test.key' --out '$TMP/seal-native.json' \
       --today '$DAY' >/dev/null 2>&1"
-ck "S-S5 ...for R9, explaining what emulation does not establish" \
-   "says 'R9' seal --bundle '$TMP/pub' --version v2026.08.25 --candidate rc1 \
+ck "S-S5 ...for R9 specifically" \
+   "says 'R9' seal --bundle '$TMP/pub-emul' --version v2026.08.25 --candidate rc1 \
       --identity '$REL_ID' --claim-native-arm64 --test-key '$TMP/test.key' \
       --out '$TMP/seal-native2.json' --today '$DAY'"
-ck "S-S5 ...and the seal that DOES succeed records arm64 as emulated" \
+# The seal will not take the bundle's own word for its architecture: the
+# CANONICAL post-build authorizer's recorded gate verdict has to say PASS.
+python3 "$MKAUTH" "$ACCEPTED_NATIVE" "$TMP/auth-gatefail.json" --native-gate FAIL
+gen --evidence "$ACCEPTED_NATIVE" --out "$TMP/pub-gatefail" \
+    --evidence-class published-artifact --release v2026.08.25 --candidate rc1 \
+    --sbom-dir "$TMP/sbom" --provenance "$TMP/prov.json" \
+    --authorization "$TMP/auth-gatefail.json" --today "$DAY" >/dev/null 2>&1
+ck "S-S5 SABOTAGE: native children whose AUTHORIZATION never passed the gate are REFUSED" \
+   "! seal --bundle '$TMP/pub-gatefail' --version v2026.08.25 --candidate rc1 \
+      --identity '$REL_ID' --test-key '$TMP/test.key' --out '$TMP/seal-gatefail.json' \
+      --today '$DAY' >/dev/null 2>&1"
+ck "S-S5 ...saying a bundle cannot vouch for its own architecture" \
+   "says 'cannot vouch for its own architecture' seal --bundle '$TMP/pub-gatefail' \
+      --version v2026.08.25 --candidate rc1 --identity '$REL_ID' \
+      --test-key '$TMP/test.key' --out '$TMP/seal-gatefail2.json' --today '$DAY'"
+ck "S-S5 ...and the seal that DOES succeed records the POLICY requirement, not a claim" \
    "python3 -c 'import json,sys
 s=json.load(open(sys.argv[1]))
 sys.exit(0 if s[\"native_arm64_claimed\"] is False
-             and all(p[\"execution_mode\"]==\"qemu\"
+             and s[\"native_arm64_required_by_policy\"] is True
+             and s[\"arm64_execution\"]==\"native\"
+             and all(p[\"execution_mode\"]==\"native\"
                      for p in s[\"promoted_digests\"] if p[\"platform\"]==\"linux/arm64\") else 1)' \
       '$TMP/seal.json'"
+ck "S-S5 ...and the authorization it was sealed over records the gate that ran" \
+   "python3 -c 'import json,sys
+a=json.load(open(sys.argv[1]))
+g=a[\"native_arch_gate\"]
+sys.exit(0 if g[\"verdict\"]==\"PASS\" and g[\"platform\"]==\"linux/arm64\"
+             and g[\"covered_images\"]==g[\"expected_images\"]==int(sys.argv[2]) else 1)' \
+      '$TMP/auth-native.json' '$MATRIX_COUNT'"
 
 # --- S-S6  R13: an unauthorised bundle cannot be sealed --------------------
 # The bundle is COMPLETE in every other respect — full SBOM set, provenance

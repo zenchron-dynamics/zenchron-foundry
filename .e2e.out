@@ -1,0 +1,13 @@
+== stage 0: the accepted 8.3/8.4 run is still admissible ==================
+ok   - the accepted multiarch run is admitted by the evidence-class contract
+ok   - ...as class staged-candidate, pinned to its bytes, not inferred
+ok   - the accepted run carries MATRIX_COUNT x platforms children
+ok   - every child in the accepted run reconciles
+
+== stage 1: foundry-child -> staged-candidate =============================
+ok   - a foundry-child record derived from the accepted run validates
+ok   - the same artifact as a staged-candidate validates
+ok   - SABOTAGE: a foundry-child cannot authorize production
+ok   - ...for the class diagnostic, not a generic one
+ok   - ...while the staged-candidate for the SAME digest is accepted (non-vacuous)
+ok   - SABOTAGE: a record bound to a foreign digest is refused by the binding check

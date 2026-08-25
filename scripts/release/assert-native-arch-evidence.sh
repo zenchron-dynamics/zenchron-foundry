@@ -370,8 +370,9 @@ _self_test() {
   # ---- --gate-release ------------------------------------------------------
   local REV=1111111111111111111111111111111111111111
   local OTHER=2222222222222222222222222222222222222222
-  local DA="sha256:$(printf 'a%.0s' $(seq 64))"
-  local DB="sha256:$(printf 'b%.0s' $(seq 64))"
+  local DA DB
+  DA="sha256:$(printf 'a%.0s' $(seq 64))"
+  DB="sha256:$(printf 'b%.0s' $(seq 64))"
   printf '{"php-cli/8.3":"%s","nginx/prod":"%s"}\n' "$DA" "$DB" > "$tmp/want.json"
 
   gmk() { # gmk <dir> <label> <digest> [k=v ...]
@@ -387,7 +388,8 @@ _self_test() {
         digest_reference:("ghcr.io/o/p@"+$dg),
         runtime_smoke:"PASS", authoritative:true}' \
       > "$dir/$(printf '%s' "$label" | tr '/' '-').json"
-    local f="$dir/$(printf '%s' "$label" | tr '/' '-').json" kv
+    local f kv
+    f="$dir/$(printf '%s' "$label" | tr '/' '-').json"
     for kv in "$@"; do
       jq --arg k "${kv%%=*}" --argjson v "${kv#*=}" '.[$k]=$v' "$f" > "$f.t" && mv "$f.t" "$f"
     done
