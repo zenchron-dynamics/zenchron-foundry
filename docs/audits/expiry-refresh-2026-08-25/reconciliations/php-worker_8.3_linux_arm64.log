@@ -1,0 +1,2 @@
+reconciliation written: /tmp/laneB2-foundry/docs/audits/expiry-refresh-2026-08-25/reconciliations/php-worker_8.3_linux_arm64.reconcile.json
+RECONCILE PASS: php-worker/8.3 — 47 CRITICAL/HIGH finding(s): 42 accepted via 20 exception(s), 5 determined not-affected

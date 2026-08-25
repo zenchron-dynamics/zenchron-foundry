@@ -39,3 +39,4 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 docs/audits/expiry-refresh-2026-08-25/.trivy-cache/
+docs/audits/expiry-refresh-2026-08-25/scans/

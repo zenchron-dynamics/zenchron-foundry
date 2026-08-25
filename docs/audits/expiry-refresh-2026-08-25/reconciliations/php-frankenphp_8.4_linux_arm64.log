@@ -1,0 +1,5 @@
+REFUSE: 2 ungoverned CRITICAL/HIGH finding(s) in php-frankenphp/8.4:
+  CVE-2026-76905           github.com/getkin/kin-openapi v0.140.0           no in-scope exception in the ledger
+  CVE-2026-77354           github.com/getkin/kin-openapi v0.140.0           no in-scope exception in the ledger
+  -> fix the finding, or add a scoped entry to policies/vulnerability-exceptions.yaml
+reconciliation written: /tmp/laneB2-foundry/docs/audits/expiry-refresh-2026-08-25/reconciliations/php-frankenphp_8.4_linux_arm64.reconcile.json

@@ -67,15 +67,36 @@ _platform_of() {
 freeze_db() {
     local cache="$1" ident
     mkdir -p "$cache"
-    _log "==> acquiring ONE fresh vulnerability database (this is the only download)"
-    docker run --rm -v "$cache:/root/.cache/trivy" "$SCANNER_IMAGE" \
-        image --download-db-only >&2 || _die "vulnerability database download failed"
+    # IDEMPOTENT ON PURPOSE. A resumed run must reuse the snapshot the earlier
+    # children were measured against; re-downloading here would silently split
+    # the cohort across two databases, which is exactly the defect the freeze
+    # exists to prevent.
+    if [ -f "$cache/db/metadata.json" ]; then
+        _log "==> reusing the already-frozen vulnerability database (no download)" >&2
+    else
+        _log "==> acquiring ONE fresh vulnerability database (this is the only download)" >&2
+        docker run --rm -v "$cache:/root/.cache/trivy" "$SCANNER_IMAGE" \
+            image --download-db-only >&2 || _die "vulnerability database download failed"
+    fi
     [ -f "$cache/db/metadata.json" ] || _die "no db/metadata.json after download"
-    ident="$(python3 - "$cache/db/metadata.json" <<'PY'
-import json, sys
+    # The Java DB is a SEPARATE artifact with its own lifecycle. nginx/prod
+    # carries a jar, so the Java analyzer runs and refuses --skip-java-db-update
+    # on a cold cache; without this the two nginx children fail to scan at all
+    # and the cohort silently shrinks from 20 to 18.
+    if [ ! -f "$cache/java-db/metadata.json" ]; then
+        _log "==> acquiring the Java vulnerability database (once)" >&2
+        docker run --rm -v "$cache:/root/.cache/trivy" "$SCANNER_IMAGE" \
+            image --download-java-db-only >&2 || _die "java database download failed"
+    fi
+    ident="$(python3 - "$cache/db/metadata.json" "$cache/java-db/metadata.json" <<'PYDB'
+import json, os, sys
 m = json.load(open(sys.argv[1]))
-print("v%s+updated:%s+next:%s" % (m["Version"], m["UpdatedAt"], m["NextUpdate"]))
-PY
+out = "v%s+updated:%s+next:%s" % (m["Version"], m["UpdatedAt"], m["NextUpdate"])
+if os.path.exists(sys.argv[2]):
+    j = json.load(open(sys.argv[2]))
+    out += "  java-db:v%s+updated:%s" % (j["Version"], j["UpdatedAt"])
+print(out)
+PYDB
 )"
     printf '%s\n' "$ident"
 }
@@ -109,6 +130,10 @@ main() {
     [ -f "$evidence" ] || _die "no such evidence file: $evidence"
 
     mkdir -p "$out/scans" "$out/reconciliations"
+    # Docker bind mounts REFUSE a relative source path (it is read as a named
+    # volume), so the output tree is resolved to an absolute path here rather
+    # than at every call site.
+    out="$(cd "$out" && pwd)"
 
     if [ -z "${TRIVY_PASSWORD:-}" ]; then
         TRIVY_USERNAME="${GHCR_USER:-$(gh api user --jq .login 2>/dev/null || true)}"
