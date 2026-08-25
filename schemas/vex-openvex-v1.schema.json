@@ -4,55 +4,128 @@
   "title": "OpenVEX document as emitted by Foundry, version 1",
   "description": "Machine-readable vulnerability dispositions (#115), generated ONLY from findings that were actually observed on a specific image digest and from records that actually exist in policies/vulnerability-exceptions.yaml. Every statement is digest-bound, package- and version-scoped, platform-scoped and CVE-specific. Nothing in this document is inferred: there is no reachability claim that the ledger did not already carry as an evidenced determination, and there is no statement about a product, package or advisory that the scan did not report.",
   "type": "object",
-  "required": ["@context", "@id", "author", "role", "timestamp", "version", "tooling", "statements"],
+  "required": [
+    "@context",
+    "@id",
+    "author",
+    "role",
+    "timestamp",
+    "version",
+    "tooling",
+    "statements"
+  ],
   "additionalProperties": false,
   "properties": {
-    "@context": { "const": "https://openvex.dev/ns/v0.2.0" },
-    "@id": { "type": "string", "minLength": 1 },
-    "author": { "type": "string", "minLength": 1 },
-    "role": { "type": "string", "minLength": 1 },
-    "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
-    "version": { "type": "integer", "minimum": 1 },
-    "tooling": { "type": "string", "minLength": 1 },
-
+    "@context": {
+      "const": "https://openvex.dev/ns/v0.2.0"
+    },
+    "@id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "tooling": {
+      "type": "string",
+      "minLength": 1
+    },
     "foundry": {
       "type": "object",
       "additionalProperties": false,
       "description": "Foundry-specific binding. Not part of OpenVEX; a consumer that ignores it still reads a valid OpenVEX document, and a consumer that reads it can re-derive every statement from the named inputs.",
-      "required": ["source_revision", "evidence_record_sha256", "exception_policy", "exception_policy_sha256", "generated_from"],
+      "required": [
+        "source_revision",
+        "evidence_record_sha256",
+        "exception_policy",
+        "exception_policy_sha256",
+        "generated_from",
+        "evidence_class"
+      ],
       "properties": {
-        "source_revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-        "evidence_record_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "exception_policy": { "type": "string" },
-        "exception_policy_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "generated_from": { "type": "string" },
-        "evaluated_on": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
-        "observed_tuples": { "type": "integer", "minimum": 0 }
+        "source_revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "evidence_record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "exception_policy": {
+          "type": "string"
+        },
+        "exception_policy_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "generated_from": {
+          "type": "string"
+        },
+        "evaluated_on": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "observed_tuples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "evidence_class": {
+          "enum": [
+            "upstream-base",
+            "foundry-child",
+            "staged-candidate",
+            "published-artifact"
+          ],
+          "description": "The evidence class the dispositions were published for. A disposition set is a statement ABOUT AN ARTIFACT, and the class contract exists precisely because 'what may ship' and 'what shipped' are not interchangeable. Without this field a staged-candidate's dispositions and a published release's were byte-identical and either could be presented as the other."
+        }
       }
     },
-
     "statements": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["vulnerability", "products", "status", "timestamp"],
+        "required": [
+          "vulnerability",
+          "products",
+          "status",
+          "timestamp"
+        ],
         "properties": {
           "vulnerability": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["name"],
+            "required": [
+              "name"
+            ],
             "properties": {
               "name": {
                 "type": "string",
                 "description": "One advisory identifier. CVE-specific: a statement never covers 'all CVEs in package X'.",
                 "pattern": "^(CVE-[0-9]{4}-[0-9]{4,}|GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4})$"
               },
-              "aliases": { "type": "array", "items": { "type": "string" } }
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
           },
-
           "products": {
             "type": "array",
             "minItems": 1,
@@ -60,29 +133,60 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["@id", "identifiers", "subcomponents"],
+              "required": [
+                "@id",
+                "identifiers",
+                "subcomponents"
+              ],
               "properties": {
-                "@id": { "type": "string", "pattern": "@sha256(%3A|:)[0-9a-f]{64}" },
+                "@id": {
+                  "type": "string",
+                  "pattern": "@sha256(%3A|:)[0-9a-f]{64}"
+                },
                 "identifiers": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["purl"],
-                  "properties": { "purl": { "type": "string", "pattern": "^pkg:oci/" } }
+                  "required": [
+                    "purl"
+                  ],
+                  "properties": {
+                    "purl": {
+                      "type": "string",
+                      "pattern": "^pkg:oci/"
+                    }
+                  }
                 },
                 "hashes": {
                   "type": "object",
                   "additionalProperties": false,
-                  "properties": { "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+                  "properties": {
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    }
+                  }
                 },
                 "foundry": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["child_key", "platform"],
+                  "required": [
+                    "child_key",
+                    "platform"
+                  ],
                   "properties": {
-                    "child_key": { "type": "string" },
-                    "child_slug": { "type": "string" },
-                    "platform": { "type": "string", "pattern": "^linux/[a-z0-9]+$" },
-                    "image_label": { "type": "string" }
+                    "child_key": {
+                      "type": "string"
+                    },
+                    "child_slug": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string",
+                      "pattern": "^linux/[a-z0-9]+$"
+                    },
+                    "image_label": {
+                      "type": "string"
+                    }
                   }
                 },
                 "subcomponents": {
@@ -92,21 +196,31 @@
                   "items": {
                     "type": "object",
                     "additionalProperties": false,
-                    "required": ["@id"],
-                    "properties": { "@id": { "type": "string", "minLength": 1 } }
+                    "required": [
+                      "@id"
+                    ],
+                    "properties": {
+                      "@id": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
                   }
                 }
               }
             }
           },
-
           "status": {
-            "description": "OpenVEX status. Foundry emits only two: not_affected, for ledger records that carry an evidenced not-applicable determination, and affected, for accepted risks. An accepted risk IS affected — recording it as not_affected would convert a business decision into a technical claim.",
-            "enum": ["not_affected", "affected", "fixed", "under_investigation"]
+            "description": "OpenVEX status. Foundry emits only two: not_affected, for ledger records that carry an evidenced not-applicable determination, and affected, for accepted risks. An accepted risk IS affected \u2014 recording it as not_affected would convert a business decision into a technical claim.",
+            "enum": [
+              "not_affected",
+              "affected",
+              "fixed",
+              "under_investigation"
+            ]
           },
-
           "justification": {
-            "description": "Required when status is not_affected. Drawn from the fixed OpenVEX vocabulary and mapped ONLY from the ledger's `classification` field, which is an evidenced determination. The ledger's `reachability` field is deliberately NOT mapped here — it is internal risk-acceptance rationale, and publishing it as a VEX justification would assert a reachability analysis nobody performed to that standard.",
+            "description": "Required when status is not_affected. Drawn from the fixed OpenVEX vocabulary and mapped ONLY from the ledger's `classification` field, which is an evidenced determination. The ledger's `reachability` field is deliberately NOT mapped here \u2014 it is internal risk-acceptance rationale, and publishing it as a VEX justification would assert a reachability analysis nobody performed to that standard.",
             "enum": [
               "component_not_present",
               "vulnerable_code_not_present",
@@ -115,40 +229,116 @@
               "inline_mitigations_already_exist"
             ]
           },
-
-          "impact_statement": { "type": "string", "minLength": 1 },
-          "action_statement": { "type": "string", "minLength": 1 },
-          "action_statement_timestamp": { "type": "string" },
-          "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
-
+          "impact_statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action_statement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "action_statement_timestamp": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
           "foundry": {
             "type": "object",
             "additionalProperties": false,
             "description": "The ledger record this statement was derived from. Present so a verifier can re-derive the statement instead of trusting it.",
-            "required": ["record_kind", "record_id", "record_image_selector"],
+            "required": [
+              "record_kind",
+              "record_id",
+              "record_image_selector"
+            ],
             "properties": {
-              "record_kind": { "enum": ["exception", "not_affected"] },
-              "record_id": { "type": "string", "minLength": 1 },
-              "record_image_selector": { "type": "string", "minLength": 1 },
-              "classification": { "type": ["string", "null"] },
-              "expires_at": { "type": ["string", "null"] },
-              "release_blocking": { "type": ["boolean", "null"] },
-              "fix_available": { "type": ["boolean", "null"] },
-              "verified_architectures": { "type": "array", "items": { "type": "string" } }
+              "record_kind": {
+                "enum": [
+                  "exception",
+                  "not_affected"
+                ]
+              },
+              "record_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "record_image_selector": {
+                "type": "string",
+                "minLength": 1
+              },
+              "classification": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "release_blocking": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "fix_available": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "verified_architectures": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
             }
           }
         },
-
         "allOf": [
           {
-            "if": { "properties": { "status": { "const": "not_affected" } }, "required": ["status"] },
-            "then": { "required": ["justification"] }
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "not_affected"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "required": [
+                "justification"
+              ]
+            }
           },
           {
-            "if": { "properties": { "status": { "const": "affected" } }, "required": ["status"] },
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "affected"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
             "then": {
-              "required": ["action_statement"],
-              "not": { "required": ["justification"] }
+              "required": [
+                "action_statement"
+              ],
+              "not": {
+                "required": [
+                  "justification"
+                ]
+              }
             }
           }
         ]

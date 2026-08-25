@@ -19,8 +19,28 @@
 #
 # Usage:
 #   continuity-export.sh --export [--digests-only] <dir>   OCI layout export
+#   continuity-export.sh --export-governance <dir>   schemas, policies, tools
+#   continuity-export.sh --verify-governance <dir>   restore-side revalidation
 #   continuity-export.sh --exercise                export -> local registry -> verify
 #   continuity-export.sh --self-test
+#
+# THE OTHER HALF OF CONTINUITY (--export-governance).
+#
+# The image export above proves the BYTES survive. It says nothing about
+# whether they can still be JUDGED. Every artefact this repository produces is
+# only interpretable against the schemas that constrain it, the policies whose
+# content decided the verdict, and the offline tools that re-verify it — and
+# the export's universe was image references. Restore the images into a fresh
+# registry after losing the repository and you hold twenty digests and no way
+# to tell an authorised one from a repudiated one.
+#
+# So the governance surface is exported as its own bound set, with a
+# path-independent aggregate (scripts/release/evidence-checksum.sh — the same
+# function the evidence bundle uses, so a relocated export still verifies) and
+# a MANIFEST naming every file and its digest. --verify-governance re-checks
+# the restored copy: a missing file, an extra file or a changed byte all
+# REFUSE, because a restoration that silently drops one bound artifact is a
+# restoration nobody can rely on.
 # =============================================================================
 set -uo pipefail
 
@@ -143,6 +163,127 @@ assert d['current_state']['independent_mirror'] == 'none', \
   [ "$fail" -eq 0 ]
 }
 
+# =============================================================================
+# the governance surface — what makes the restored bytes JUDGEABLE
+# -----------------------------------------------------------------------------
+# Derived from policies/continuity-mirror.yaml, never hand-listed here: a second
+# list in a shell script is the copy nobody updates. Each artifact class in the
+# policy that declares a `paths:` selector contributes its files.
+# =============================================================================
+GOV_MANIFEST=GOVERNANCE-MANIFEST.json
+# shellcheck source=release/evidence-checksum.sh
+. "$ROOT/scripts/release/evidence-checksum.sh"
+
+gov_paths() {
+  python3 - "$ROOT/policies/continuity-mirror.yaml" <<'PY'
+import glob, os, sys, yaml
+m = yaml.safe_load(open(sys.argv[1])) or {}
+out = []
+for c in (m["critical_release_inventory"]["artifact_classes"]):
+    for pat in c.get("paths") or []:
+        for f in glob.glob(pat):
+            if os.path.isfile(f):
+                out.append((c["id"], f))
+if not out:
+    sys.stderr.write(
+        "REFUSE: policies/continuity-mirror.yaml declares no governance paths. "
+        "An export whose universe is image references restores bytes nobody "
+        "can judge\n")
+    sys.exit(1)
+for cid, f in sorted(set(out)):
+    print("%s\t%s" % (cid, f))
+PY
+}
+
+export_governance() {
+  local dir="${1:?usage: --export-governance <dir>}"
+  [ -e "$dir" ] && { echo "REFUSE: refusing to write into an existing path: $dir" >&2; return 1; }
+  local tsv; tsv="$(mktemp)"
+  if ! gov_paths > "$tsv"; then rm -f "$tsv"; return 1; fi
+  mkdir -p "$dir/files"
+  local cid f n=0
+  # shellcheck disable=SC2034  # cid is the class column; read needs it named
+  while IFS="$(printf '\t')" read -r cid f; do
+    [ -n "$f" ] || continue
+    mkdir -p "$dir/files/$(dirname "$f")"
+    cp "$f" "$dir/files/$f" || { rm -f "$tsv"; return 1; }
+    n=$((n + 1))
+  done < "$tsv"
+  local agg; agg="$(evidence_checksum "$dir/files")" || { rm -f "$tsv"; return 1; }
+  GOV_AGG="$agg" python3 - "$dir" "$tsv" > "$dir/$GOV_MANIFEST" <<'PY' || { rm -f "$tsv"; return 1; }
+import hashlib, json, os, sys
+dir_, tsv = sys.argv[1], sys.argv[2]
+rows = [l.split("\t") for l in open(tsv).read().splitlines() if l.strip()]
+files = []
+for cid, rel in rows:
+    ap = os.path.join(dir_, "files", rel)
+    files.append({"artifact_class": cid, "path": rel,
+                  "sha256": hashlib.sha256(open(ap, "rb").read()).hexdigest()})
+files.sort(key=lambda f: f["path"])
+json.dump({
+    "schema_version": 1,
+    "record_type": "continuity-governance-export",
+    "note": ("The schemas, policies and offline verification tools without "
+             "which restored image bytes cannot be judged. Exported as a bound "
+             "set: the aggregate is path-independent, so a relocated or "
+             "re-hosted copy still verifies, and --verify-governance refuses a "
+             "restoration missing, gaining or altering ONE file."),
+    "aggregate_tool": "scripts/release/evidence-checksum.sh",
+    "aggregate": os.environ["GOV_AGG"],
+    "file_count": len(files),
+    "files": files,
+}, sys.stdout, indent=2)
+sys.stdout.write("\n")
+PY
+  rm -f "$tsv"
+  echo "governance surface exported: $n file(s) to $dir (aggregate $agg)"
+}
+
+verify_governance() {
+  local dir="${1:?usage: --verify-governance <dir>}"
+  [ -f "$dir/$GOV_MANIFEST" ] || {
+    echo "REFUSE: $dir carries no $GOV_MANIFEST — an unindexed export proves nothing" >&2
+    return 1; }
+  local agg; agg="$(evidence_checksum "$dir/files")" || return 1
+  python3 - "$dir" "$agg" "$GOV_MANIFEST" <<'PY'
+import hashlib, json, os, sys
+dir_, agg, mname = sys.argv[1], sys.argv[2], sys.argv[3]
+
+
+def refuse(msg):
+    print("REFUSE: " + msg, file=sys.stderr)
+    sys.exit(1)
+
+
+m = json.load(open(os.path.join(dir_, mname)))
+root = os.path.join(dir_, "files")
+declared = {f["path"]: f["sha256"] for f in m["files"]}
+on_disk = set()
+for dp, _d, ns in os.walk(root):
+    for n in ns:
+        on_disk.add(os.path.relpath(os.path.join(dp, n), root))
+missing = sorted(set(declared) - on_disk)
+if missing:
+    refuse("the restored governance export is missing %d bound artifact(s): %s. "
+           "A restoration that silently drops one file restores bytes nobody "
+           "can judge" % (len(missing), ", ".join(missing[:5])))
+extra = sorted(on_disk - set(declared))
+if extra:
+    refuse("%d file(s) in the restored export are bound by no digest: %s"
+           % (len(extra), ", ".join(extra[:5])))
+bad = [p for p, d in sorted(declared.items())
+       if hashlib.sha256(open(os.path.join(root, p), "rb").read()).hexdigest() != d]
+if bad:
+    refuse("%d restored file(s) do not match their recorded digest: %s"
+           % (len(bad), ", ".join(bad[:5])))
+if m["aggregate"] != agg:
+    refuse("the path-independent aggregate is %s; recomputing gives %s"
+           % (m["aggregate"], agg))
+print("ok - %s: %d governance artifact(s) restored intact, aggregate=%s"
+      % (dir_, len(declared), agg))
+PY
+}
+
 self_test() {
   ck "the policy declares the absence of an independent mirror" \
      "python3 -c \"
@@ -186,7 +327,9 @@ case "${1:-}" in
   --export)    shift
                if [ "${1:-}" = "--digests-only" ]; then DIGESTS_ONLY=1; shift; fi
                do_export "${1:-}" ;;
+  --export-governance) shift; export_governance "${1:-}" ;;
+  --verify-governance) shift; verify_governance "${1:-}" ;;
   --exercise)  exercise ;;
   --self-test) self_test ;;
-  *) echo "usage: $(basename "$0") --export [--digests-only] <dir> | --exercise | --self-test" >&2; exit 64 ;;
+  *) echo "usage: $(basename "$0") --export [--digests-only] <dir> | --export-governance <dir> | --verify-governance <dir> | --exercise | --self-test" >&2; exit 64 ;;
 esac

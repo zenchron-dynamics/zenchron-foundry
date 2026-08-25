@@ -79,7 +79,10 @@ policies/cosign-identities.yaml
 policies/native-arch-requirements.yaml
 policies/required-release-checks.yaml
 policies/retention.yaml
-policies/evidence-classes.yaml"
+policies/evidence-classes.yaml
+policies/reproducibility.yaml
+policies/continuity-mirror.yaml
+policies/license-policy.yaml"
 
 _geb_need_py() {
   python3 -c 'import yaml' 2>/dev/null \
@@ -87,25 +90,47 @@ _geb_need_py() {
 }
 
 # The ONE identity derivation, same as every other consumer.
-_geb_identity_table() { # <acceptance.json>
-  local fam ver plat
+#
+# The table carries the SBOM filenames too, derived by sbom_filename() — the
+# function scripts/generate-sbom.sh calls to WRITE them. Python never re-derives
+# a name here: a second derivation of one identity is exactly how the producer's
+# output set and this consumer's lookup set stopped intersecting, and the bundle
+# reported `sbom.present: false` over a complete SBOM directory with exit 0.
+#
+# Columns: child_key, child_slug, <format>=<filename> for every declared format.
+_geb_identity_table() { # <record.json>   (acceptance evidence OR a bundle manifest)
+  local fam ver plat row f name
   python3 - "$1" <<'PY' |
 import json, sys
 rec = json.load(open(sys.argv[1]))
 for c in rec.get("children") or []:
-    fam, _, ver = (c.get("image_label") or "").partition("/")
-    print("%s\t%s\t%s" % (fam, ver, c.get("platform") or ""))
+    fam = c.get("image_family")
+    ver = c.get("image_version")
+    if fam is None:
+        fam, _, ver = (c.get("image_label") or "").partition("/")
+    print("%s	%s	%s" % (fam or "", ver or "", c.get("platform") or ""))
 PY
-  while IFS="$(printf '\t')" read -r fam ver plat; do
-    printf '%s\t%s\n' "$(child_key "$fam" "$ver" "$plat")" "$(child_slug "$fam" "$ver" "$plat")"
+  while IFS="$(printf '	')" read -r fam ver plat; do
+    row="$(child_key "$fam" "$ver" "$plat")	$(child_slug "$fam" "$ver" "$plat")"
+    for f in $SBOM_FORMATS; do
+      name="$(sbom_filename "$fam" "$ver" "$plat" "$f")" || return 1
+      row="$row	$f=$name"
+    done
+    printf '%s\n' "$row"
   done
 }
+
+# The SBOM document format of record. SPDX is what the licence inventory, the
+# release seal and every downstream consumer read; a CycloneDX companion is
+# accepted alongside it but does not substitute for it.
+GEB_SBOM_REQUIRED_FORMAT=spdx-json
 
 # =============================================================================
 # generate
 # =============================================================================
 geb_generate() {
   local ev="" out="" cls="" rel="" cand="" sbom="" prov="" ledger="" today=""
+  local auth="" auth_absent=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --evidence)       ev="${2:?}"; shift 2 ;;
@@ -114,6 +139,8 @@ geb_generate() {
       --release)        rel="${2:?}"; shift 2 ;;
       --candidate)      cand="${2:?}"; shift 2 ;;
       --sbom-dir)       sbom="${2:?}"; shift 2 ;;
+      --authorization)  auth="${2:?}"; shift 2 ;;
+      --authorization-absent) auth_absent="${2:?}"; shift 2 ;;
       --provenance)     prov="${2:?}"; shift 2 ;;
       --ledger)         ledger="${2:?}"; shift 2 ;;
       --today)          today="${2:?}"; shift 2 ;;
@@ -127,6 +154,32 @@ geb_generate() {
   ledger="${ledger:-$GEB_ROOT/policies/vulnerability-exceptions.yaml}"
   today="${today:-$(date -u +%F)}"
   _geb_need_py
+
+  # --- the authorization decision is stated, never defaulted -----------------
+  # An authorization is what makes a bundle a record of a DECISION rather than
+  # a record of a build. Exactly one of the two flags must be given, and the
+  # absent case has to be argued in prose that travels with the bundle: a
+  # default would put every bundle in whichever state nobody chose.
+  if [ -n "$auth" ] && [ -n "$auth_absent" ]; then
+    die "--authorization and --authorization-absent are mutually exclusive"
+  fi
+  if [ -z "$auth" ] && [ -z "$auth_absent" ]; then
+    die "generate: no authorization decision. Pass --authorization <post-build-authorization.json>, the canonical record schemas/post-build-authorization-v1 that authorize-staged-candidates.sh produced for this run, or state its absence with --authorization-absent '<reason>'. A bundle that cannot name the authorization that let this build proceed records a build, not a decision"
+  fi
+  if [ -n "$auth_absent" ] && [ "${#auth_absent}" -lt 20 ]; then
+    die "--authorization-absent needs a real reason (got ${#auth_absent} characters, need 20). 'n/a' is not a reason a later reader can act on"
+  fi
+  if [ -n "$auth" ]; then
+    [ -f "$auth" ] || die "--authorization is not a file: $auth"
+    # The SHIPPED runtime validator, not a reimplementation. This is the check
+    # that no release script performed: the schema was enforced in the
+    # producing workflow and by nothing that consumed the record afterwards.
+    bash "$_GEB_D/validate-authorization-record.sh" "$auth" >/dev/null \
+      || die "the authorization record does not satisfy post-build-authorization-v1: $auth. A record whose shape nobody can rely on binds nothing"
+  fi
+  if [ "$cls" = "published-artifact" ] && [ -z "$auth" ]; then
+    die "class 'published-artifact' requires --authorization: a record of what WAS shipped that cannot name the authorization it shipped under is not that record"
+  fi
 
   [ -e "$out" ] && die "refusing to write into an existing path: $out (a bundle is written once)"
   mkdir -p "$out/content"
@@ -145,7 +198,7 @@ geb_generate() {
   # The dispositions are part of the bundle, so they are generated INTO it
   # before the aggregate exists. Generating them afterwards is how a file ends
   # up outside checksum coverage.
-  bash "$_GEB_D/generate-vex.sh" generate --evidence "$ev" \
+  bash "$_GEB_D/generate-vex.sh" generate --evidence "$ev" --evidence-class "$cls" \
        --out "$out/content/vex/openvex.json" --ledger "$ledger" --today "$today" >/dev/null \
     || die "VEX generation failed; the bundle is not written with a missing disposition set"
 
@@ -161,12 +214,14 @@ geb_generate() {
 
   GEB_SCHEMA="$GEB_SCHEMA" GEB_ROOT="$GEB_ROOT" GEB_RETENTION="$GEB_RETENTION" \
   GEB_CLASS_POLICY="$GEB_CLASS_POLICY" GEB_POLICY_FILES="$GEB_POLICY_FILES" \
+  GEB_SBOM_REQUIRED_FORMAT="$GEB_SBOM_REQUIRED_FORMAT" \
   python3 - "$ev" "$out" "$cls" "$rel" "$cand" "$sbom_dir_arg" "$prov" "$ledger" \
-                  "$tmp/ident.tsv" <<'PY' || return 1
+                  "$tmp/ident.tsv" "$auth" "$auth_absent" <<'PY' || return 1
 import json, os, re, sys, hashlib, datetime, shutil, collections
 import yaml
 
-(evidence_p, out, cls, rel, cand, sbom_dir, prov, ledger_p, ident_p) = sys.argv[1:10]
+(evidence_p, out, cls, rel, cand, sbom_dir, prov, ledger_p, ident_p,
+ auth_p, auth_absent) = sys.argv[1:12]
 root = os.environ["GEB_ROOT"]
 schema_p = os.environ["GEB_SCHEMA"]
 retention_p = os.environ["GEB_RETENTION"]
@@ -258,11 +313,138 @@ if rel and not re.match(r"^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}(\.[0-9]+)?$", rel):
 if cand and not re.match(r"^rc[1-9][0-9]*$", cand):
     refuse("--candidate %r must match rc[1-9][0-9]*" % cand)
 
+# --- the SBOM subject binding ------------------------------------------------
+# The bundle used to record exactly three facts about an SBOM — its format, its
+# path and the sha256 OF THE FILE — and nothing about what the document is a
+# bill of materials FOR. An SPDX document describing a completely different
+# child, saved under the correct filename, satisfied all three and verified
+# clean. The bytes the bundle inspected all lined up; the SUBJECT was never
+# read.
+#
+# So it is read here, and again in verify(). A document that does not name this
+# child's manifest digest is not this child's SBOM, however it is filed.
+REQUIRED_FMT = os.environ["GEB_SBOM_REQUIRED_FORMAT"]
+
+
+def sbom_subjects(doc):
+    """Every digest this document claims to describe, lowercased."""
+    out = set()
+    for v in doc.get("documentDescribes") or []:
+        if isinstance(v, str):
+            out.add(v.strip().lower())
+    # CycloneDX spells the subject as metadata.component
+    comp = ((doc.get("metadata") or {}).get("component") or {})
+    for h in comp.get("hashes") or []:
+        if isinstance(h, dict) and h.get("content"):
+            alg = (h.get("alg") or "SHA-256").lower().replace("-", "")
+            out.add("%s:%s" % ("sha256" if alg == "sha256" else alg,
+                               str(h["content"]).lower()))
+    for ref in (comp.get("purl"), comp.get("bom-ref")):
+        if isinstance(ref, str) and "sha256:" in ref:
+            out.add("sha256:" + ref.rsplit("sha256:", 1)[1].strip().lower())
+    return out
+
+
+LICENSE_UNKNOWN = {"", "noassertion", "none", "unknown", "null"}
+license_rollup = collections.Counter()
+license_unknown = collections.Counter()
+
+
+def collect_licenses(doc, key):
+    """Every licence assertion in this child's SBOM, normalised only by case.
+
+    The bundle recorded no licence fact at all, so the licence gate and the
+    release path never met on one artifact: a gate could pass over any SPDX
+    files while the bundle said nothing about what it shipped under. This is
+    the bundle's half — the raw assertions, not a verdict. The verdict stays in
+    scripts/license/assert-license-policy.sh, which reads policies/license-
+    policy.yaml; duplicating it here would be a second decision to drift.
+    """
+    n_unknown = 0
+    for pkg in doc.get("packages") or []:
+        vals = [pkg.get("licenseConcluded"), pkg.get("licenseDeclared")]
+        named = [str(v).strip() for v in vals
+                 if v is not None and str(v).strip().lower() not in LICENSE_UNKNOWN]
+        if named:
+            for v in sorted(set(named)):
+                license_rollup[v] += 1
+        else:
+            n_unknown += 1
+    for comp in (doc.get("components") or []):
+        lic = comp.get("licenses") or []
+        named = []
+        for entry in lic:
+            e = (entry or {}).get("license") or {}
+            v = e.get("id") or e.get("name") or entry.get("expression")
+            if v and str(v).strip().lower() not in LICENSE_UNKNOWN:
+                named.append(str(v).strip())
+        if named:
+            for v in sorted(set(named)):
+                license_rollup[v] += 1
+        else:
+            n_unknown += 1
+    if n_unknown:
+        license_unknown[key] += n_unknown
+
+
+def check_sbom_subject(path, key, digest, platform, revision):
+    try:
+        doc = json.load(open(path))
+    except (ValueError, OSError) as exc:
+        refuse("child %s: %s is not readable JSON (%s). An SBOM the release path "
+               "cannot parse is an SBOM whose subject nobody checked"
+               % (key, os.path.basename(path), exc))
+    if not (doc.get("spdxVersion") or doc.get("bomFormat") or doc.get("SPDXID")):
+        refuse("child %s: %s declares neither spdxVersion nor bomFormat — it is "
+               "not an SBOM in a format this repository declares"
+               % (key, os.path.basename(path)))
+    subjects = sbom_subjects(doc)
+    if not subjects:
+        refuse("child %s: %s names no subject at all (no documentDescribes, no "
+               "metadata.component hash). An SBOM that does not say what it "
+               "describes cannot be bound to a child, and an unbindable SBOM is "
+               "how a foreign bill of materials passes for this one"
+               % (key, os.path.basename(path)))
+    if digest.lower() not in subjects:
+        refuse("child %s: %s describes %s, not this child's manifest digest %s. "
+               "The filename matched and the file hashed cleanly — the SUBJECT "
+               "did not. An SBOM for another digest, platform or source cannot "
+               "substitute for this one"
+               % (key, os.path.basename(path), ", ".join(sorted(subjects)[:3]), digest))
+    collect_licenses(doc, key)
+    named = doc.get("name")
+    if isinstance(named, str) and named and named != key:
+        refuse("child %s: %s names itself %r. The document's own identity "
+               "disagrees with the child it is filed under (platform %s, "
+               "revision %s)" % (key, os.path.basename(path), named, platform, revision))
+
+
 # --- identity ----------------------------------------------------------------
 children_in = ev.get("children") or []
-ident = [ln.split("\t") for ln in open(ident_p).read().splitlines() if ln.strip()]
+ident = []
+for ln in open(ident_p).read().splitlines():
+    if not ln.strip():
+        continue
+    cols = ln.split("\t")
+    key, slug, fmts = cols[0], cols[1], collections.OrderedDict()
+    for col in cols[2:]:
+        fmt, _eq, name = col.partition("=")
+        fmts[fmt] = name
+    ident.append((key, slug, fmts))
 if len(ident) != len(children_in):
     refuse("identity table has %d row(s) for %d child record(s)" % (len(ident), len(children_in)))
+
+# NO TWO CHILDREN MAY COLLIDE ONTO ONE SBOM. Asserted over the table itself, so
+# a future identity change that stopped being injective is caught here rather
+# than by one child silently reading another's bill of materials.
+_slugs = [row[1] for row in ident]
+if len(set(_slugs)) != len(_slugs):
+    refuse("two children derive the same child_slug — an identity that can be "
+           "produced two ways is not one")
+for _f in (ident[0][2] if ident else {}):
+    _names = [row[2][_f] for row in ident]
+    if len(set(_names)) != len(_names):
+        refuse("two children derive the same %s SBOM filename" % _f)
 
 # --- one revision, one database ---------------------------------------------
 db = ev.get("frozen_vulnerability_database") or {}
@@ -275,8 +457,9 @@ if "@sha256:" not in (scanner.get("image") or ""):
 
 # --- children ----------------------------------------------------------------
 sbom_index = []
+bound_names = set()
 children = []
-for c, (key, slug) in zip(children_in, ident):
+for c, (key, slug, ident_fmts) in zip(children_in, ident):
     if c.get("child_key") != key:
         refuse("child identity mismatch: the record says %r, child_key() derives "
                "%r. There is exactly ONE identity derivation in this repository"
@@ -292,23 +475,59 @@ for c, (key, slug) in zip(children_in, ident):
     esha = c.get("evidence_sha256") or ""
     if not re.match(r"^[0-9a-f]{64}$", esha):
         refuse("child %s: evidence_sha256 %r is missing or malformed" % (key, esha))
+    bid = c.get("build_input_digest") or c.get("context_digest")
+    if bid is not None and not re.match(r"^sha256:[0-9a-f]{64}$", str(bid)):
+        refuse("child %s: build_input_digest %r is neither absent nor a sha256 "
+               "digest. A malformed identity is worse than a missing one: it "
+               "joins to nothing while looking as though it does" % (key, bid))
 
     child_sbom = None
     if sbom_dir:
-        found = None
-        for ext in (".spdx.json", ".cdx.json", ".json"):
-            cand_p = os.path.join(sbom_dir, slug + ext)
-            if os.path.exists(cand_p):
-                found = (cand_p, ext)
-                break
-        if found:
-            src, ext = found
-            dest_rel = "content/sbom/%s%s" % (slug, ext)
-            shutil.copyfile(src, os.path.join(out, dest_rel))
-            child_sbom = {"format": "spdx-json" if ext == ".spdx.json" else "json",
-                          "sha256": sha256_file(src), "file": dest_rel}
-            sbom_index.append({"child_key": key, "file": dest_rel,
-                               "sha256": child_sbom["sha256"]})
+        # The filename is NEVER guessed here. It comes from the identity table,
+        # which sbom_filename() built — the same function the producer calls to
+        # write the file. A wrong filename is therefore a MISSING SBOM, not a
+        # near-miss the loop can recover from with a looser pattern.
+        req_name = ident_fmts[REQUIRED_FMT]
+        src = os.path.join(sbom_dir, req_name)
+        if not os.path.exists(src):
+            refuse("child %s: no %s SBOM at %s. A release whose bill of materials "
+                   "for a shipped child is absent is not a release with a bill of "
+                   "materials; this used to be recorded as sbom.present=false and "
+                   "exit 0. Producer and consumer derive this name from ONE "
+                   "function, scripts/lib/common.sh sbom_filename() — regenerate "
+                   "with scripts/generate-sbom.sh, which writes exactly this name"
+                   % (key, REQUIRED_FMT, os.path.join(sbom_dir, req_name)))
+        bound_names.add(req_name)
+        check_sbom_subject(src, key, dig, c.get("platform") or "", source_revision)
+        dest_rel = "content/sbom/%s" % req_name
+        shutil.copyfile(src, os.path.join(out, dest_rel))
+        child_sbom = collections.OrderedDict([
+            ("format", REQUIRED_FMT),
+            ("sha256", sha256_file(src)),
+            ("file", dest_rel),
+            ("subject_digest", dig),
+        ])
+        companions = []
+        for fmt, name in ident_fmts.items():
+            if fmt == REQUIRED_FMT:
+                continue
+            cp = os.path.join(sbom_dir, name)
+            if not os.path.exists(cp):
+                continue
+            bound_names.add(name)
+            check_sbom_subject(cp, key, dig, c.get("platform") or "", source_revision)
+            crel = "content/sbom/%s" % name
+            shutil.copyfile(cp, os.path.join(out, crel))
+            companions.append(collections.OrderedDict([
+                ("format", fmt), ("sha256", sha256_file(cp)), ("file", crel)]))
+        if companions:
+            child_sbom["companions"] = companions
+        sbom_index.append(collections.OrderedDict([
+            ("child_key", key), ("child_slug", slug),
+            ("platform", c.get("platform")), ("manifest_digest", dig),
+            ("format", REQUIRED_FMT), ("file", dest_rel),
+            ("sha256", child_sbom["sha256"]),
+            ("companions", companions)]))
 
     rec = collections.OrderedDict([
         ("child_key", key), ("child_slug", slug),
@@ -321,6 +540,15 @@ for c, (key, slug) in zip(children_in, ident):
         ("host_architecture", c.get("host_architecture")),
         ("runner_name", c.get("runner_name")),
         ("source_revision", source_revision),
+        # THE BUILD-INPUT IDENTITY. evidence-class-v1 REQUIRES build_input_digest
+        # — it is what makes "the same inputs" a checkable claim rather than an
+        # assertion — and the bundle recorded no such field for any child, so
+        # there was no value on which a reproducibility lock and a shipped image
+        # could ever be joined. It is carried through when the acceptance record
+        # has it and recorded as an EXPLICIT null when it does not, never
+        # silently omitted; the manifest's reproducibility block below says how
+        # many children carry one and what would close the gap.
+        ("build_input_digest", bid),
         ("evidence_sha256", esha),
         ("package_inventory", c.get("package_inventory")),
         ("severity_counts", c.get("severity_counts") or {}),
@@ -343,8 +571,51 @@ for c, (key, slug) in zip(children_in, ident):
                                         ("record", c)]))
 
 if sbom_dir:
+    # NOTHING UNBOUND. A file sitting in the SBOM directory that no child claims
+    # is either an SBOM for a child this bundle does not carry, or a document
+    # nobody derived an identity for. Copying it in would put an unattributable
+    # bill of materials inside checksum coverage, where it reads as evidence.
+    on_disk = sorted(n for n in os.listdir(sbom_dir)
+                     if os.path.isfile(os.path.join(sbom_dir, n)))
+    orphans = [n for n in on_disk if n not in bound_names]
+    if orphans:
+        refuse("%d file(s) in %s are bound to no child in this bundle: %s. Every "
+               "SBOM name comes from sbom_filename() in scripts/lib/common.sh; a "
+               "name outside that set is not an identity this repository issues"
+               % (len(orphans), sbom_dir, ", ".join(orphans[:5])))
+    # EXACTLY ONE SBOM OF RECORD PER CHILD, and no child without one.
+    if len(sbom_index) != len(children):
+        refuse("%d of %d children carry an SBOM. --sbom-dir was supplied, so the "
+               "bundle claims a complete bill of materials; an incomplete one is "
+               "refused rather than recorded as sbom.present=false"
+               % (len(sbom_index), len(children)))
+    idx_keys = [e["child_key"] for e in sbom_index]
+    if len(set(idx_keys)) != len(idx_keys):
+        refuse("two SBOM index entries claim the same child_key")
     write_json(os.path.join(out, "content/sbom/INDEX.json"),
-               {"schema_version": 1, "children": sbom_index})
+               {"schema_version": 1,
+                "identity_function": "scripts/lib/common.sh sbom_filename()",
+                "required_format": REQUIRED_FMT,
+                "children": sbom_index})
+    write_json(os.path.join(out, "content/licenses/license-facts.json"),
+               collections.OrderedDict([
+                   ("schema_version", 1),
+                   ("record_type", "evidence-bundle-license-facts"),
+                   ("note", "The licence ASSERTIONS carried by the SBOMs this "
+                            "bundle sealed, per component, normalised only by "
+                            "case. This is a FACT, not a verdict: the verdict "
+                            "is scripts/license/assert-license-policy.sh over "
+                            "policies/license-policy.yaml, whose digest is in "
+                            "policy_digests. Duplicating the verdict here would "
+                            "be a second decision to drift."),
+                   ("source", "content/sbom/"),
+                   ("gate", "scripts/license/assert-license-policy.sh"),
+                   ("policy_file", "policies/license-policy.yaml"),
+                   ("distinct_licenses", sorted(license_rollup)),
+                   ("assertion_counts", dict(sorted(license_rollup.items()))),
+                   ("components_without_license",
+                    dict(sorted(license_unknown.items()))),
+               ]))
 
 # --- findings roll-up --------------------------------------------------------
 sev = collections.Counter()
@@ -419,21 +690,213 @@ write_json(os.path.join(out, "content/provenance/provenance.json"),
             "run_url": acc.get("run_url"),
             "scope_note": ev.get("scope_note")})
 
+# --- authorization ------------------------------------------------------------
+# WHAT WAS WRONG. The bundle wrote content/authorization/authorization-record.json
+# — a name that reads as the canonical post-build authorization — containing a
+# four-field summary that failed post-build-authorization-v1 on all fifteen of
+# its required properties and carried no source_revision at all. A bundle
+# therefore could not be checked against the revision it was authorised for, so
+# a wrong-SHA authorization was undetectable by construction. No release script
+# called validate-authorization-record.sh; the schema was enforced in the
+# workflow that PRODUCED the record and by nothing that consumed it.
+#
+# WHAT IT IS NOW. The canonical record — the artifact
+# scripts/release/authorize-staged-candidates.sh writes and
+# stage-and-authorize.yml schema-validates — is an INPUT, carried verbatim into
+# checksum coverage at content/authorization/post-build-authorization.json, and
+# bound field by field to the acceptance record beneath it.
+#
+# The four-field object is still useful as a manifest-level index, but it is no
+# longer named as though it were the authorization. It is
+# `evidence-bundle-authorization-summary` v1, it declares its own record_type,
+# it names the canonical record it is a projection OF, and it exists only when
+# that record is present.
+def _plat_of(c):
+    return c.get("platform") or ""
+
+
+auth_binding = None
+canonical_rel = None
+canonical_sha = None
+if auth_p:
+    try:
+        auth = json.load(open(auth_p))
+    except (ValueError, OSError) as exc:
+        refuse("%s is not readable JSON (%s)" % (auth_p, exc))
+
+    def mismatch(what, got, want):
+        refuse("the authorization record does not authorise this run: %s is %r, "
+               "the accepted evidence says %r. An authorization that describes a "
+               "different build is not this build's authorization, and until now "
+               "nothing on this path could tell the two apart"
+               % (what, got, want))
+
+    # (1) THE REVISION. This is the binding whose absence made a wrong-SHA
+    # authorization undetectable.
+    if auth.get("source_revision") != source_revision:
+        mismatch("source_revision", auth.get("source_revision"), source_revision)
+    # (2) the run
+    if str(auth.get("workflow_run_id")) != str(acc.get("workflow_run_id")):
+        mismatch("workflow_run_id", auth.get("workflow_run_id"), acc.get("workflow_run_id"))
+    if int(auth.get("workflow_run_attempt") or 1) != int(acc.get("workflow_run_attempt") or 1):
+        mismatch("workflow_run_attempt", auth.get("workflow_run_attempt"),
+                 acc.get("workflow_run_attempt"))
+    # (3) the verdict. A refused authorization does not produce a bundle.
+    if auth.get("verdict") != "PASS":
+        refuse("the authorization record's verdict is %r. A bundle records an "
+               "AUTHORISED run; a refusal is evidence of a refusal, not of a "
+               "release candidate" % auth.get("verdict"))
+    # (4) the frozen database — findings compared across two snapshots are not
+    # comparable, so the authorization must have judged the same one.
+    adb = (auth.get("trivy_db_snapshot") or {})
+    if adb.get("identity") != db.get("identity"):
+        mismatch("trivy_db_snapshot.identity", adb.get("identity"), db.get("identity"))
+    if not adb.get("frozen"):
+        refuse("the authorization record does not record the vulnerability "
+               "database as frozen")
+    # (5) the platform set
+    a_plats = sorted((auth.get("expected_matrix") or {}).get("platforms") or [])
+    e_plats = sorted({_plat_of(c) for c in children_in})
+    if a_plats != e_plats:
+        mismatch("expected_matrix.platforms", a_plats, e_plats)
+    if int((auth.get("expected_matrix") or {}).get("expected_children") or 0) != len(children_in):
+        mismatch("expected_matrix.expected_children",
+                 (auth.get("expected_matrix") or {}).get("expected_children"),
+                 len(children_in))
+    # (6) THE CHILD SET, exactly. Not a count: the identities, the digests, the
+    # platforms and the per-child evidence checksums, with no child authorised
+    # that the run did not produce and none produced that was not authorised.
+    a_children = auth.get("children") or []
+    a_by_key = {}
+    for c in a_children:
+        k = c.get("child_key")
+        if k in a_by_key:
+            refuse("the authorization record authorises %r twice" % k)
+        a_by_key[k] = c
+    e_by_key = {c["child_key"]: c for c in children_in}
+    missing = sorted(set(e_by_key) - set(a_by_key))
+    extra = sorted(set(a_by_key) - set(e_by_key))
+    if missing:
+        refuse("the authorization record does not authorise %d child(ren) this "
+               "run produced: %s" % (len(missing), ", ".join(missing[:5])))
+    if extra:
+        refuse("the authorization record authorises %d child(ren) this run never "
+               "produced: %s. An authorization for an image outside the accepted "
+               "run — an experimental line, say — cannot enter a bundle through "
+               "the authorization it was never granted"
+               % (len(extra), ", ".join(extra[:5])))
+    for k, e in sorted(e_by_key.items()):
+        a = a_by_key[k]
+        if a.get("manifest_digest") != e.get("manifest_digest"):
+            mismatch("children[%s].manifest_digest" % k,
+                     a.get("manifest_digest"), e.get("manifest_digest"))
+        if a.get("platform") != e.get("platform"):
+            mismatch("children[%s].platform" % k, a.get("platform"), e.get("platform"))
+        if a.get("source_revision") != source_revision:
+            mismatch("children[%s].source_revision" % k,
+                     a.get("source_revision"), source_revision)
+        if a.get("evidence_sha256") != e.get("evidence_sha256"):
+            mismatch("children[%s].evidence_sha256" % k,
+                     a.get("evidence_sha256"), e.get("evidence_sha256"))
+        if a.get("trivy_db_identity") != db.get("identity"):
+            mismatch("children[%s].trivy_db_identity" % k,
+                     a.get("trivy_db_identity"), db.get("identity"))
+    # (7) the staging package every digest reference actually names
+    sp = auth.get("staging_package") or ""
+    bad_ref = [c["child_key"] for c in children_in
+               if not (c.get("digest_reference") or "").startswith(sp + "@")]
+    if bad_ref:
+        refuse("the authorization record authorises staging package %r, but %d "
+               "child reference(s) name another package: %s"
+               % (sp, len(bad_ref), ", ".join(sorted(bad_ref)[:3])))
+    # (8) the summary the acceptance record embeds must agree with the record it
+    # summarises, or one of the two has been edited.
+    if authrec.get("authorization_scope") and \
+            auth.get("authorization_scope") != authrec.get("authorization_scope"):
+        mismatch("authorization_scope", auth.get("authorization_scope"),
+                 authrec.get("authorization_scope"))
+    if bool(auth.get("public_exposure_authorized")) != bool(authrec.get("public_exposure_authorized")):
+        mismatch("public_exposure_authorized", auth.get("public_exposure_authorized"),
+                 authrec.get("public_exposure_authorized"))
+    if auth.get("generated_at") != gen_at:
+        mismatch("generated_at", auth.get("generated_at"), gen_at)
+
+    canonical_rel = "content/authorization/post-build-authorization.json"
+    shutil.copyfile(auth_p, os.path.join(out, canonical_rel))
+    canonical_sha = sha256_file(auth_p)
+    auth_binding = collections.OrderedDict([
+        ("schema", "schemas/post-build-authorization-v1.schema.json"),
+        ("validator", "scripts/release/validate-authorization-record.sh"),
+        ("source_revision", auth["source_revision"]),
+        ("repository", auth.get("repository")),
+        ("workflow_ref", auth.get("workflow_ref")),
+        ("workflow_run_id", int(auth["workflow_run_id"])),
+        ("workflow_run_attempt", int(auth["workflow_run_attempt"])),
+        ("authorized_children", len(a_children)),
+        ("platforms", a_plats),
+        ("trivy_db_identity", adb.get("identity")),
+        ("staging_package", sp),
+        ("verdict", auth["verdict"]),
+    ])
+
 authorization = collections.OrderedDict([
+    ("record_present", bool(auth_p)),
     ("scope", authrec.get("authorization_scope") or ""),
     ("public_exposure_authorized", bool(authrec.get("public_exposure_authorized"))),
     ("verdict", acc.get("verdict")),
     ("generated_at", gen_at),
     ("build_created", authrec.get("build_created")),
-    ("record_file", "content/authorization/authorization-record.json"),
+    ("record_file", canonical_rel),
+    ("record_sha256", canonical_sha),
+    ("record_binding", auth_binding),
+    ("absence_reason", auth_absent or None),
+    ("summary_file", ("content/authorization/authorization-summary.json"
+                      if auth_p else None)),
 ])
 if not authorization["scope"]:
     refuse("%s: authorization_record.authorization_scope is empty — an "
            "authorization that does not state its scope authorises whatever the "
            "reader assumes" % evidence_p)
-write_json(os.path.join(out, "content/authorization/authorization-record.json"),
-           {"schema_version": 1, "authorization": authorization,
-            "record": authrec, "issue_linkage": ev.get("issue_linkage")})
+if auth_p:
+    # A PROJECTION of the canonical record, and named as one. It is not a
+    # post-build authorization, it does not claim to be, and it cannot exist
+    # without the record it projects.
+    write_json(os.path.join(out, "content/authorization/authorization-summary.json"),
+               collections.OrderedDict([
+                   ("schema_version", 1),
+                   ("record_type", "evidence-bundle-authorization-summary"),
+                   ("note", "A manifest-level index of the canonical post-build "
+                            "authorization record, which travels beside it at "
+                            "content/authorization/post-build-authorization.json. "
+                            "This object is NOT an authorization and satisfies no "
+                            "authorization schema; it exists so a reader can see "
+                            "the decision's shape without parsing the full record."),
+                   ("canonical_record_file", canonical_rel),
+                   ("canonical_record_sha256", canonical_sha),
+                   ("canonical_record_schema",
+                    "schemas/post-build-authorization-v1.schema.json"),
+                   ("authorization", authorization),
+                   ("acceptance_summary", authrec),
+                   ("issue_linkage", ev.get("issue_linkage")),
+               ]))
+else:
+    # THE EXPLICIT REFUSAL, written into the bundle rather than left as silence.
+    write_json(os.path.join(out, "content/authorization/AUTHORIZATION-ABSENT.json"),
+               collections.OrderedDict([
+                   ("schema_version", 1),
+                   ("record_type", "evidence-bundle-authorization-absent"),
+                   ("authorization_record_present", False),
+                   ("reason", auth_absent),
+                   ("consequence",
+                    "This bundle names no post-build authorization. It cannot be "
+                    "sealed as a release (scripts/release/release-seal.sh R13) "
+                    "and must not be read as evidence that the run was "
+                    "authorised — only as evidence of what the run produced."),
+                   ("canonical_record_schema",
+                    "schemas/post-build-authorization-v1.schema.json"),
+                   ("acceptance_summary", authrec),
+                   ("issue_linkage", ev.get("issue_linkage")),
+               ]))
 
 # --- dispositions ------------------------------------------------------------
 vex_p = os.path.join(out, "content/vex/openvex.json")
@@ -472,6 +935,33 @@ execution = collections.OrderedDict([
 mx = ev.get("matrix") or {}
 platforms = sorted({c["platform"] for c in children_in})
 
+# --- reproducibility ---------------------------------------------------------
+# The word did not appear in this generator at all, and policies/reproducibility
+# .yaml was not among the policies the bundle digested — so a reproducibility
+# claim could be reworded with no bundle digest changing. Both are fixed: the
+# policy is a decision input above, and the bundle states, per child, whether a
+# build-input identity exists to join a lock to.
+with_bid = [c for c in children if c["build_input_digest"]]
+reproducibility = collections.OrderedDict([
+    ("policy_file", "policies/reproducibility.yaml"),
+    ("policy_sha256", digests.get("policies/reproducibility.yaml")),
+    ("lock_schema", "schemas/build-input-lock-v1.schema.json"),
+    ("lock_tool", "scripts/repro-lock.sh"),
+    ("children_with_build_input_digest", len(with_bid)),
+    ("children_total", len(children)),
+    ("joinable", len(with_bid) == len(children) and bool(children)),
+    ("note",
+     ("Every child carries a build-input identity; a lock emitted by "
+      "scripts/repro-lock.sh can be bound to a shipped digest."
+      if with_bid and len(with_bid) == len(children) else
+      "No child in this accepted run carries a build-input identity: the run "
+      "predates build-input locking on the acceptance path. Until "
+      "stage-and-authorize.yml emits build_input_digest per child, "
+      "scripts/repro-lock.sh bind REFUSES rather than pretending a lock and a "
+      "shipped image describe the same build. This is a declared gap with an "
+      "enforced refusal, not an unstated one.")),
+])
+
 manifest = collections.OrderedDict([
     ("schema_version", 1),
     ("bundle_type", "release-evidence-bundle"),
@@ -505,7 +995,11 @@ manifest = collections.OrderedDict([
     ("execution_disclosure", execution),
     ("sbom", collections.OrderedDict([
         ("present", bool(sbom_index)),
-        ("format", sbom_index and "spdx-json" or None),
+        # `complete` is the fact a release decision needs and `present` never
+        # was: present=true said only that SOME child had a document.
+        ("complete", bool(sbom_index) and len(sbom_index) == len(children)),
+        ("format", REQUIRED_FMT if sbom_index else None),
+        ("identity_function", "scripts/lib/common.sh sbom_filename()"),
         ("children_with_sbom", len(sbom_index)),
         ("children_total", len(children)),
         ("index_file", "content/sbom/INDEX.json" if sbom_dir else None),
@@ -523,6 +1017,16 @@ manifest = collections.OrderedDict([
         ("policy_sha256", sha256_file(ledger_p)),
     ])),
     ("dispositions", dispositions),
+    ("licenses", collections.OrderedDict([
+        ("present", bool(sbom_index)),
+        ("source", "content/sbom/"),
+        ("facts_file", "content/licenses/license-facts.json" if sbom_index else None),
+        ("policy_file", "policies/license-policy.yaml"),
+        ("gate", "scripts/license/assert-license-policy.sh"),
+        ("distinct_licenses", sorted(license_rollup)),
+        ("components_without_license", sum(license_unknown.values())),
+    ])),
+    ("reproducibility", reproducibility),
     ("policy_digests", digests),
     ("provenance", provenance),
     ("authorization", authorization),
@@ -603,10 +1107,25 @@ geb_verify() { # <dir>
   local content_sum
   content_sum="$(evidence_checksum "$dir/content")" || return 1
 
-  GEB_SCHEMA="$GEB_SCHEMA" python3 - "$dir" "$content_sum" <<'PY' || return 1
+  # The expected SBOM names are re-derived HERE, by the same sbom_filename()
+  # the producer used, from the manifest's own (family, selector, platform).
+  # Verify therefore checks the recorded path against a freshly derived
+  # identity instead of trusting the string the generator wrote.
+  # NOT a RETURN trap: under `set -T` (bash -T) a RETURN trap fires on EVERY
+  # inner function's return and would delete this table before python reads it.
+  # The scratch directory is removed explicitly on both paths instead.
+  local vtmp rc; vtmp="$(mktemp -d)"
+  if ! _geb_identity_table "$dir/manifest.json" > "$vtmp/ident.tsv"; then
+    rm -rf "$vtmp"; return 1
+  fi
+
+  GEB_SCHEMA="$GEB_SCHEMA" GEB_SBOM_REQUIRED_FORMAT="$GEB_SBOM_REQUIRED_FORMAT" \
+  python3 - "$dir" "$content_sum" "$vtmp/ident.tsv" <<'PY'
+
 import json, os, sys, hashlib, collections
-dir_, content_sum = sys.argv[1], sys.argv[2]
+dir_, content_sum, ident_p = sys.argv[1], sys.argv[2], sys.argv[3]
 schema_p = os.environ["GEB_SCHEMA"]
+REQUIRED_FMT = os.environ["GEB_SBOM_REQUIRED_FORMAT"]
 
 
 def refuse(msg):
@@ -710,12 +1229,248 @@ if len(set(keys)) != len(keys):
 vp = os.path.join(dir_, m["dispositions"]["file"])
 if sha256_file(vp) != m["dispositions"]["sha256"]:
     refuse("the disposition document does not match the digest the manifest records")
+# ...and they must be the dispositions for THIS revision and THIS class. The
+# digest check above proves only that the file has not changed since sealing;
+# it says nothing about whether the document is about this bundle at all.
+vdoc = json.load(open(vp))
+vfd = vdoc.get("foundry") or {}
+if vfd.get("source_revision") != m["source_revision"]:
+    refuse("the disposition document binds source_revision %r; this bundle is "
+           "for %r. Dispositions are only meaningful for the revision they were "
+           "derived from" % (vfd.get("source_revision"), m["source_revision"]))
+if vfd.get("evidence_class") != m["evidence_class"]:
+    refuse("the disposition document was published for evidence class %r; this "
+           "bundle is %r. 'What may ship' and 'what shipped' are different "
+           "published statements and one does not stand in for the other"
+           % (vfd.get("evidence_class"), m["evidence_class"]))
+if vfd.get("exception_policy_sha256") != m["dispositions"]["exception_policy_sha256"]:
+    refuse("the disposition document names exception policy %s, the manifest "
+           "records %s" % (vfd.get("exception_policy_sha256"),
+                           m["dispositions"]["exception_policy_sha256"]))
+
+# --- 6. the authorization, re-bound from the bytes on disk --------------------
+# Re-checked here so it holds for a bundle that came back off an archive as
+# much as for one straight out of the generator. Both directions are refused:
+# a record_present=true bundle whose record is missing or names another
+# revision, and a record_present=false bundle that quietly carries one anyway.
+au = m["authorization"]
+if au["record_present"]:
+    if not au.get("record_file"):
+        refuse("the bundle reports an authorization record and names no file for it")
+    ap_ = os.path.join(dir_, au["record_file"])
+    if not os.path.exists(ap_):
+        refuse("the authorization record %s is missing from the bundle" % au["record_file"])
+    if au["record_file"] not in indexed:
+        refuse("the authorization record %s is covered by no checksum" % au["record_file"])
+    got = sha256_file(ap_)
+    if got != au.get("record_sha256"):
+        refuse("the authorization record hashes to %s, the manifest records %s"
+               % (got, au.get("record_sha256")))
+    arec = json.load(open(ap_))
+    if arec.get("source_revision") != m["source_revision"]:
+        refuse("the authorization record authorises revision %r; this bundle is "
+               "for %r. An authorization for another source SHA does not become "
+               "this bundle's by travelling inside it"
+               % (arec.get("source_revision"), m["source_revision"]))
+    if arec.get("verdict") != "PASS":
+        refuse("the authorization record carried by this bundle has verdict %r"
+               % arec.get("verdict"))
+    b = au.get("record_binding") or {}
+    if b.get("source_revision") != m["source_revision"]:
+        refuse("authorization.record_binding.source_revision is %r, the bundle is "
+               "for %r" % (b.get("source_revision"), m["source_revision"]))
+    a_keys = {c.get("child_key") for c in arec.get("children") or []}
+    b_keys = {c["child_key"] for c in m["children"]}
+    if a_keys != b_keys:
+        refuse("the authorization covers %d child(ren) and the bundle carries "
+               "%d; the sets differ by %s"
+               % (len(a_keys), len(b_keys),
+                  ", ".join(sorted(a_keys ^ b_keys)[:5])))
+    for c in m["children"]:
+        ac = next(x for x in arec["children"] if x.get("child_key") == c["child_key"])
+        if ac.get("manifest_digest") != c["manifest_digest"]:
+            refuse("child %s: the authorization names digest %s, the bundle "
+                   "carries %s" % (c["child_key"], ac.get("manifest_digest"),
+                                   c["manifest_digest"]))
+        if ac.get("evidence_sha256") != c["evidence_sha256"]:
+            refuse("child %s: the authorization names evidence checksum %s, the "
+                   "bundle carries %s" % (c["child_key"], ac.get("evidence_sha256"),
+                                          c["evidence_sha256"]))
+else:
+    if not (au.get("absence_reason") or "").strip():
+        refuse("the bundle reports no authorization record and states no reason. "
+               "An unexplained absence is indistinguishable from a lost one")
+    stray = [p for p in on_disk if p.startswith("content/authorization/")
+             and os.path.basename(p) != "AUTHORIZATION-ABSENT.json"]
+    if stray:
+        refuse("the bundle reports no authorization record but carries %s"
+               % ", ".join(sorted(stray)[:3]))
+
+# --- 7. the bill of materials, re-bound to the children it claims to describe -
+# Re-run over the bytes on disk, so this holds for a bundle that came back off
+# an archive as much as for one straight out of the generator.
+ident = []
+for ln in open(ident_p).read().splitlines():
+    if not ln.strip():
+        continue
+    cols = ln.split("\t")
+    fmts = collections.OrderedDict()
+    for col in cols[2:]:
+        f, _eq, n = col.partition("=")
+        fmts[f] = n
+    ident.append((cols[0], cols[1], fmts))
+if len(ident) != len(m["children"]):
+    refuse("identity re-derivation produced %d row(s) for %d child record(s)"
+           % (len(ident), len(m["children"])))
+
+sb = m["sbom"]
+with_sbom = [c for c in m["children"] if c.get("sbom")]
+if sb["children_total"] != len(m["children"]):
+    refuse("sbom.children_total=%d but the manifest carries %d child record(s)"
+           % (sb["children_total"], len(m["children"])))
+if sb["children_with_sbom"] != len(with_sbom):
+    refuse("sbom.children_with_sbom=%d but %d child record(s) carry one"
+           % (sb["children_with_sbom"], len(with_sbom)))
+if bool(sb["present"]) != bool(with_sbom):
+    refuse("sbom.present=%r while %d child record(s) carry an SBOM. A bundle "
+           "that reports no bill of materials while carrying one — or the "
+           "reverse — is the exact silent-false state this field exists to "
+           "make impossible" % (sb["present"], len(with_sbom)))
+if sb.get("complete") != (bool(with_sbom) and len(with_sbom) == len(m["children"])):
+    refuse("sbom.complete=%r disagrees with %d of %d children carrying an SBOM"
+           % (sb.get("complete"), len(with_sbom), len(m["children"])))
+if sb["present"] and not sb.get("complete"):
+    refuse("the bundle carries SBOMs for %d of %d children. A partial bill of "
+           "materials is refused: it reads as a complete one to every consumer "
+           "that only checks `present`"
+           % (sb["children_with_sbom"], sb["children_total"]))
+
+sbom_files_claimed = set()
+for c, (key, slug, fmts) in zip(m["children"], ident):
+    if c["child_key"] != key or c["child_slug"] != slug:
+        refuse("child identity re-derivation disagrees with the manifest: the "
+               "record says %r/%r, common.sh derives %r/%r"
+               % (c["child_key"], c["child_slug"], key, slug))
+    cs = c.get("sbom")
+    if cs is None:
+        if sb["present"]:
+            refuse("child %s carries no SBOM in a bundle that reports one for "
+                   "every child" % key)
+        continue
+    docs = [cs] + list(cs.get("companions") or [])
+    for d in docs:
+        want = "content/sbom/%s" % fmts[d["format"]]
+        if d["file"] != want:
+            refuse("child %s: the %s SBOM is recorded at %r; sbom_filename() in "
+                   "scripts/lib/common.sh derives %r. Producer and consumer "
+                   "derive ONE identity, and a document filed under any other "
+                   "name is not this child's"
+                   % (key, d["format"], d["file"], want))
+        ap = os.path.join(dir_, d["file"])
+        if not os.path.exists(ap):
+            refuse("child %s: the recorded SBOM %s is not in the bundle" % (key, d["file"]))
+        # The SBOM's digest is inside the bundle's own coverage: SHA256SUMS
+        # names the file, and the manifest — itself covered — records the same
+        # value. Both are re-checked so neither can drift alone.
+        if d["file"] not in indexed:
+            refuse("child %s: the SBOM %s is covered by no checksum" % (key, d["file"]))
+        actual = sha256_file(ap)
+        if actual != d["sha256"]:
+            refuse("child %s: the SBOM %s hashes to %s, the manifest records %s"
+                   % (key, d["file"], actual, d["sha256"]))
+        if indexed[d["file"]] != actual:
+            refuse("child %s: SHA256SUMS records %s for %s, the file hashes to %s"
+                   % (key, indexed[d["file"]], d["file"], actual))
+        sbom_files_claimed.add(d["file"])
+        # THE SUBJECT, again. The filename matching and the file hashing cleanly
+        # is exactly the state in which a foreign bill of materials passes.
+        doc = json.load(open(ap))
+        subj = set(str(x).strip().lower() for x in (doc.get("documentDescribes") or [])
+                   if isinstance(x, str))
+        comp = ((doc.get("metadata") or {}).get("component") or {})
+        for h in comp.get("hashes") or []:
+            if isinstance(h, dict) and h.get("content"):
+                subj.add("sha256:" + str(h["content"]).lower())
+        if c["manifest_digest"].lower() not in subj:
+            refuse("child %s: %s describes %s, not this child's manifest digest "
+                   "%s. An SBOM for another digest, platform or source does not "
+                   "become this child's by being filed under its name"
+                   % (key, d["file"], ", ".join(sorted(subj)[:3]) or "nothing",
+                      c["manifest_digest"]))
+    if cs.get("subject_digest") and cs["subject_digest"] != c["manifest_digest"]:
+        refuse("child %s: the SBOM record binds subject %s, the child is %s"
+               % (key, cs["subject_digest"], c["manifest_digest"]))
+
+# Nothing unbound inside the bundle either: an SBOM file no child claims is an
+# unattributable bill of materials sitting inside checksum coverage.
+sbom_on_disk = set(p for p in on_disk
+                   if p.startswith("content/sbom/") and not p.endswith("/INDEX.json"))
+unbound = sorted(sbom_on_disk - sbom_files_claimed)
+if unbound:
+    refuse("%d SBOM file(s) in the bundle are claimed by no child: %s"
+           % (len(unbound), ", ".join(unbound[:5])))
+if sb["present"] and not os.path.exists(os.path.join(dir_, "content/sbom/INDEX.json")):
+    refuse("the bundle reports a bill of materials but carries no SBOM index")
 
 print("ok - %s: %d file(s) covered, %d child record(s), content_checksum=%s"
       % (dir_, len(indexed), len(m["children"]), content_sum))
 print("   evidence_class=%s  source_revision=%s  retain_until=%s"
       % (m["evidence_class"], m["source_revision"], m["retention"]["retain_until"]))
+print("   authorization record_present=%s%s"
+      % (au["record_present"],
+         ("" if not au["record_present"]
+          else "  revision=%s children=%d verdict=%s"
+               % (au["record_binding"]["source_revision"],
+                  au["record_binding"]["authorized_children"],
+                  au["record_binding"]["verdict"]))))
+print("   sbom present=%s complete=%s (%d/%d children, format=%s)"
+      % (sb["present"], sb.get("complete"), sb["children_with_sbom"],
+         sb["children_total"], sb["format"]))
 PY
+  rc=$?
+  rm -rf "$vtmp"
+  return "$rc"
+}
+
+# =============================================================================
+# _mk_sboms <acceptance.json> <dir> good|foreign|trname
+# Buildless SPDX fixtures for the self-test. `good` files are named by
+# sbom_filename() and describe their own child; `foreign` are named correctly
+# and describe a DIFFERENT child; `trname` reproduce the blind tr-substitution
+# the producer used to emit.
+_mk_sboms() {
+  # `local` BEFORE the pipeline. Declared between the pipe and the `while` it
+  # feeds, it becomes the pipeline's right-hand side and swallows every row —
+  # the fixtures silently came out empty and three sabotage cases passed
+  # vacuously for "no SBOM at all".
+  local fam ver plat key subj tr name
+  rm -rf "$2"; mkdir -p "$2"
+  python3 - "$1" "$2" "$3" <<'PY' |
+import json, sys
+ev = json.load(open(sys.argv[1]))
+mode = sys.argv[3]
+other = ev["children"][-1]["manifest_digest"]
+first = ev["children"][0]["manifest_digest"]
+for c in ev["children"]:
+    fam, _, ver = c["image_label"].partition("/")
+    subj = c["manifest_digest"]
+    if mode == "foreign":
+        subj = other if c["manifest_digest"] != other else first
+    tr = c["digest_reference"].replace("/", "_").replace(":", "_").replace("@", "_")
+    print("\t".join([fam, ver, c["platform"], c["child_key"], subj, tr]))
+PY
+  while IFS="$(printf '\t')" read -r fam ver plat key subj tr; do
+    if [ "$3" = "trname" ]; then name="$tr.spdx.json"
+    else name="$(sbom_filename "$fam" "$ver" "$plat" spdx-json)"; fi
+    python3 - "$2/$name" "$key" "$subj" <<'PY'
+import json, sys
+json.dump({"spdxVersion": "SPDX-2.3", "SPDXID": "SPDXRef-DOCUMENT",
+           "name": sys.argv[2], "documentDescribes": [sys.argv[3]],
+           "packages": [{"name": "zlib1g", "versionInfo": "1:1.2.13.dfsg-1",
+                         "licenseConcluded": "Zlib", "licenseDeclared": "Zlib"}]},
+          open(sys.argv[1], "w"), indent=2)
+PY
+  done
 }
 
 # =============================================================================
@@ -732,13 +1487,28 @@ _geb_self_test() {
   # die() calls exit. Inside a function that is the SCRIPT's exit, so every case
   # below runs in a subshell — otherwise the first refusal ends the suite and
   # every later assertion silently never runs.
-  gen() { ( geb_generate "$@" ); }
+  gen() {
+    case " $* " in
+      *" --authorization "*|*" --authorization-absent "*) : ;;
+      *) set -- "$@" --authorization "$AUTHREC" ;;
+    esac
+    ( geb_generate "$@" )
+  }
   ver() { ( geb_verify "$@" ); }
 
   local EV="$GEB_ROOT/docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json"
   if [ ! -f "$EV" ]; then echo "SKIP - accepted evidence absent"; return 0; fi
   if ! python3 -c 'import yaml' 2>/dev/null; then echo "SKIP - PyYAML absent"; return 0; fi
   local DAY=2026-08-25
+  # The canonical post-build authorization the bundle now requires. This run's
+  # own record was a 30-day workflow artifact and expired — the exact retention
+  # failure the bundle exists for — so the offline fixture is reconstructed from
+  # the accepted evidence. The builder lives under tests/ deliberately: a tool
+  # in scripts/ that derived a canonical-looking authorization from any
+  # acceptance record would be a bypass of the gate, not a fixture generator.
+  local AUTHREC="$tmp/post-build-authorization.json"
+  python3 "$GEB_ROOT/tests/lib/make_authorization_fixture.py" "$EV" "$AUTHREC" \
+    || { echo "SKIP - authorization fixture unavailable"; return 0; }
 
   # --- H happy path, from the REAL committed accepted run -------------------
   t "H1 generates a bundle from the real accepted run" \
@@ -848,6 +1618,105 @@ PY
   # --- S10 refusing to overwrite an existing bundle ------------------------
   t "S10 writing a bundle over an existing path is REFUSED" \
     "! gen --evidence '$EV' --out '$tmp/b1' --evidence-class staged-candidate --today '$DAY' >/dev/null 2>&1"
+
+  # --- S11..S16 the bill of materials ---------------------------------------
+  # ONE identity, derived by sbom_filename(), producer and consumer. Every case
+  # below is paired with the non-vacuity line that follows it.
+  _mk_sboms "$EV" "$tmp/sbom" good
+  _mk_sboms "$EV" "$tmp/sbom-foreign" foreign
+  _mk_sboms "$EV" "$tmp/sbom-trname" trname
+  t "S11 a complete SBOM set produces a COMPLETE bundle, not a silent false" \
+    "gen --evidence '$EV' --out '$tmp/sb' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom' --today '$DAY' >/dev/null \
+     && python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+s=m[\"sbom\"]
+sys.exit(0 if s[\"present\"] and s[\"complete\"]
+             and s[\"children_with_sbom\"]==s[\"children_total\"]==len(m[\"children\"]) else 1)' \
+        '$tmp/sb/manifest.json'"
+  t "S11 ...and it verifies, with every SBOM inside checksum coverage" \
+    "ver '$tmp/sb' >/dev/null \
+     && [ \"\$(grep -c 'content/sbom/.*\.spdx\.json' '$tmp/sb/SHA256SUMS')\" = \"\$(( MATRIX_COUNT * 2 ))\" ]"
+  t "S11 ...each child bound to the digest its own SBOM describes" \
+    "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+sys.exit(0 if all(c[\"sbom\"][\"subject_digest\"]==c[\"manifest_digest\"] for c in m[\"children\"]) else 1)' \
+        '$tmp/sb/manifest.json'"
+  t "S12 the filename scripts/generate-sbom.sh USED to write is a MISSING SBOM" \
+    "! gen --evidence '$EV' --out '$tmp/sb-tr' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-trname' --today '$DAY' >/dev/null 2>&1"
+  t "S12 ...fatally, naming the one identity function both sides derive from" \
+    "gen --evidence '$EV' --out '$tmp/sb-tr2' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-trname' --today '$DAY' 2>&1 | grep -q 'sbom_filename()'"
+  t "S13 an SBOM whose SUBJECT is another child is REFUSED at generate" \
+    "! gen --evidence '$EV' --out '$tmp/sb-fg' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-foreign' --today '$DAY' >/dev/null 2>&1"
+  t "S13 ...for the subject diagnostic, not a checksum one" \
+    "gen --evidence '$EV' --out '$tmp/sb-fg2' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-foreign' --today '$DAY' 2>&1 | grep -q 'not this child'"
+  rm -rf "$tmp/sbom-short"; cp -R "$tmp/sbom" "$tmp/sbom-short"
+  rm -f "$tmp/sbom-short/$(child_slug nginx prod linux/arm64).spdx.json"
+  t "S14 ONE missing SBOM is FATAL — never sbom.present=false with exit 0" \
+    "! gen --evidence '$EV' --out '$tmp/sb-short' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-short' --today '$DAY' >/dev/null 2>&1"
+  rm -rf "$tmp/sbom-extra"; cp -R "$tmp/sbom" "$tmp/sbom-extra"
+  cp "$tmp/sbom/$(child_slug nginx prod linux/amd64).spdx.json" \
+     "$tmp/sbom-extra/$(child_slug php-cli 8.5 linux/amd64).spdx.json"
+  t "S15 an SBOM bound to no child in the bundle is REFUSED (8.5 is not shipped)" \
+    "! gen --evidence '$EV' --out '$tmp/sb-extra' --evidence-class staged-candidate \
+        --sbom-dir '$tmp/sbom-extra' --today '$DAY' >/dev/null 2>&1"
+  # A foreign SBOM planted into a SEALED bundle and re-sealed COMPLETELY
+  # honestly: the file's own digest, the manifest's copy of it, the file index,
+  # the path-independent aggregate and BUNDLE.sha256 all agree afterwards. This
+  # is the attacker's best case, so only re-reading the document's SUBJECT can
+  # refuse it.
+  rm -rf "$tmp/sb-swap"; cp -R "$tmp/sb" "$tmp/sb-swap"
+  local swapped
+  swapped="$(python3 - "$tmp/sb-swap" "$tmp/sbom-foreign" <<'PY2'
+import glob, os, shutil, sys
+b, foreign = sys.argv[1], sys.argv[2]
+tgt = sorted(glob.glob(os.path.join(b, "content/sbom/*.spdx.json")))[0]
+shutil.copyfile(os.path.join(foreign, os.path.basename(tgt)), tgt)
+print(os.path.relpath(tgt, b))
+PY2
+)"
+  local swap_sum; swap_sum="$(evidence_checksum "$tmp/sb-swap/content")"
+  python3 - "$tmp/sb-swap" "$swapped" "$swap_sum" <<'PY2'
+import hashlib, json, os, sys
+b, rel, content_sum = sys.argv[1], sys.argv[2], sys.argv[3]
+h = hashlib.sha256(open(os.path.join(b, rel), "rb").read()).hexdigest()
+mp = os.path.join(b, "manifest.json")
+m = json.load(open(mp))
+for c in m["children"]:
+    if c["sbom"] and c["sbom"]["file"] == rel:
+        c["sbom"]["sha256"] = h
+for f in m["files"]:
+    if f["path"] == rel:
+        f["sha256"] = h
+m["checksums"]["content_checksum"] = content_sum
+json.dump(m, open(mp, "w"), indent=2)
+lines = []
+for dp, _d, ns in os.walk(b):
+    for n in ns:
+        ap = os.path.join(dp, n)
+        r = os.path.relpath(ap, b)
+        if r in ("SHA256SUMS", "BUNDLE.sha256"):
+            continue
+        lines.append("%s  %s" % (hashlib.sha256(open(ap, "rb").read()).hexdigest(), r))
+lines.sort(key=lambda s: s.split("  ", 1)[1])
+mn = [l for l in lines if l.endswith("  manifest.json")]
+open(os.path.join(b, "SHA256SUMS"), "w").write(
+    "\n".join(mn + [l for l in lines if l not in mn]) + "\n")
+open(os.path.join(b, "BUNDLE.sha256"), "w").write(
+    "%s  SHA256SUMS\n"
+    % hashlib.sha256(open(os.path.join(b, "SHA256SUMS"), "rb").read()).hexdigest())
+PY2
+  t "S16 a foreign SBOM swapped in and honestly re-sealed is REFUSED by verify" \
+    "! ver '$tmp/sb-swap' >/dev/null 2>&1"
+  t "S16 ...because the SUBJECT is re-read, not just the file's own digest" \
+    "ver '$tmp/sb-swap' 2>&1 | grep -q 'not this child'"
+  t "NON-VACUOUS: the honest SBOM bundle still verifies after S12-S16" \
+    "ver '$tmp/sb' >/dev/null"
 
   # --- NON-VACUITY ---------------------------------------------------------
   t "NON-VACUOUS: the untampered bundle still verifies after every sabotage above" \

@@ -303,6 +303,55 @@ assert m['mirror']['independent'] is False, m['mirror']
 }
 
 # -----------------------------------------------------------------------------
+# assert_mirror_claims — the refusal for an intentionally unsupported state.
+#
+# No independent mirror exists, so every artifact class in
+# policies/continuity-mirror.yaml carries `mirrored: false`. That value is not
+# a chore to be tidied up: `mirrored: true` on any class would be a false
+# statement about where a copy is held, and it is the one field a reader checks
+# during the outage the plan exists for. It cannot become true by being
+# written, so writing it REFUSES here rather than being silently believed.
+#
+# The refusal is symmetric: claiming a provisioned mirror while the mirror
+# block still says not-provisioned is refused too, so the two cannot drift
+# apart in either direction.
+assert_mirror_claims() {
+  python3 - "$MIRROR_POLICY" <<'PY'
+import sys, yaml
+m = yaml.safe_load(open(sys.argv[1])) or {}
+status = (m.get("mirror") or {}).get("status")
+classes = m["critical_release_inventory"]["artifact_classes"]
+claimed = sorted(c["id"] for c in classes if c.get("mirrored"))
+rule = m.get("mirrored_claims") or {}
+if not rule.get("permitted_only_when"):
+    print("REFUSE: policies/continuity-mirror.yaml states no rule for when a "
+          "class may claim to be mirrored. A flag with no stated precondition "
+          "is a flag anybody may set", file=sys.stderr)
+    sys.exit(1)
+if claimed and status != "provisioned":
+    print("REFUSE: %d artifact class(es) claim mirrored: true while "
+          "mirror.status is %r: %s. No independent mirror exists, so this is a "
+          "false statement about where a copy is held — and it is the field a "
+          "reader checks during the outage continuity exists for. Provision a "
+          "mirror (policies/continuity-mirror.yaml required_human_decisions) "
+          "before setting it" % (len(claimed), status, ", ".join(claimed)),
+          file=sys.stderr)
+    sys.exit(1)
+if status == "provisioned" and not claimed:
+    print("REFUSE: mirror.status is 'provisioned' and no artifact class claims "
+          "to be mirrored. A provisioned mirror holding nothing is not a "
+          "mirror", file=sys.stderr)
+    sys.exit(1)
+if (m.get("mirror") or {}).get("independent") and status != "provisioned":
+    print("REFUSE: mirror.independent is true while mirror.status is %r"
+          % status, file=sys.stderr)
+    sys.exit(1)
+print("ok - mirror claims are consistent with mirror.status=%s (%d class(es) "
+      "claim to be mirrored)" % (status, len(claimed)))
+PY
+}
+
+# -----------------------------------------------------------------------------
 self_test() {
   local fail=0 tmp
   tmp="$(mktemp -d)"
@@ -311,6 +360,59 @@ self_test() {
   ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 
   ck "the offline drill runs and passes end to end" "drill '$tmp/drill' >/dev/null 2>&1"
+
+  # --- the mirrored-claim refusal -------------------------------------------
+  ck "the committed mirror policy's claims are consistent with its status" \
+     "assert_mirror_claims >/dev/null 2>&1"
+  python3 - "$MIRROR_POLICY" "$tmp/claimed.yaml" <<'PY'
+import sys, yaml
+m = yaml.safe_load(open(sys.argv[1]))
+for c in m["critical_release_inventory"]["artifact_classes"]:
+    if c["id"] == "evidence-bundle":
+        c["mirrored"] = True
+yaml.safe_dump(m, open(sys.argv[2], "w"))
+PY
+  ck "SABOTAGE: a class claiming mirrored: true with no mirror is REFUSED" \
+     "! ( MIRROR_POLICY='$tmp/claimed.yaml' assert_mirror_claims ) >/dev/null 2>&1"
+  # here-string, NOT a pipe: `cmd | grep -q` makes grep exit on the first match,
+  # the producer take SIGPIPE, and pipefail report 141 — intermittently.
+  ck "...naming the class and the status that contradicts it" \
+     "grep -q 'evidence-bundle' <<<\"\$( ( MIRROR_POLICY='$tmp/claimed.yaml' assert_mirror_claims ) 2>&1 )\""
+  python3 - "$MIRROR_POLICY" "$tmp/norule.yaml" <<'PY'
+import sys, yaml
+m = yaml.safe_load(open(sys.argv[1]))
+m.pop("mirrored_claims", None)
+yaml.safe_dump(m, open(sys.argv[2], "w"))
+PY
+  ck "SABOTAGE: deleting the rule itself is REFUSED, not treated as permission" \
+     "! ( MIRROR_POLICY='$tmp/norule.yaml' assert_mirror_claims ) >/dev/null 2>&1"
+  ck "NON-VACUOUS: the unmodified policy still passes after both sabotages" \
+     "assert_mirror_claims >/dev/null 2>&1"
+
+  # --- the governance surface travels ---------------------------------------
+  ck "the governance surface exports as a bound set" \
+     "bash '$ROOT/scripts/continuity-export.sh' --export-governance '$tmp/gov' >/dev/null 2>&1"
+  ck "...covering schemas, policies AND the offline verifiers" \
+     "python3 -c 'import json,sys
+m=json.load(open(sys.argv[1]))
+ids={f[\"artifact_class\"] for f in m[\"files\"]}
+sys.exit(0 if {\"schemas\",\"policies\",\"verification-tools\"} <= ids else 1)' \
+        '$tmp/gov/GOVERNANCE-MANIFEST.json'"
+  ck "...and the restored copy revalidates" \
+     "bash '$ROOT/scripts/continuity-export.sh' --verify-governance '$tmp/gov' >/dev/null 2>&1"
+  cp -R "$tmp/gov" "$tmp/gov-moved"
+  ck "NON-VACUOUS: relocating the whole export still revalidates" \
+     "bash '$ROOT/scripts/continuity-export.sh' --verify-governance '$tmp/gov-moved' >/dev/null 2>&1"
+  cp -R "$tmp/gov" "$tmp/gov-short" \
+    && rm -f "$tmp/gov-short/files/schemas/vex-openvex-v1.schema.json"
+  ck "SABOTAGE: a restoration missing ONE bound artifact is REFUSED" \
+     "! bash '$ROOT/scripts/continuity-export.sh' --verify-governance '$tmp/gov-short' >/dev/null 2>&1"
+  ck "...naming the artifact that did not come back" \
+     "grep -q 'vex-openvex-v1.schema.json' <<<\"\$( bash '$ROOT/scripts/continuity-export.sh' --verify-governance '$tmp/gov-short' 2>&1 )\""
+  cp -R "$tmp/gov" "$tmp/gov-drift" \
+    && printf '\n' >> "$tmp/gov-drift/files/policies/retention.yaml"
+  ck "SABOTAGE: a restored artifact whose bytes drifted is REFUSED" \
+     "! bash '$ROOT/scripts/continuity-export.sh' --verify-governance '$tmp/gov-drift' >/dev/null 2>&1"
 
   make_layout "$tmp/a" >/dev/null
   mirror_copy "$tmp/a" "$tmp/b"
@@ -372,6 +474,7 @@ assert m['mirror']['endpoint'] is None\""
 case "${1:-}" in
   --verify)    shift; [ $# -eq 2 ] || usage; verify "$1" "$2" ;;
   --drill)     shift; drill "${1:-}" ;;
+  --assert-mirror-claims) assert_mirror_claims ;;
   --self-test) self_test ;;
   *) usage ;;
 esac

@@ -18,14 +18,24 @@
 #
 # Usage:
 #   scripts/license/license-inventory.sh --sbom-dir DIR [--out FILE]
+#   scripts/license/license-inventory.sh --bundle <evidence-bundle> [--out FILE]
 #   scripts/license/license-inventory.sh --self-test
+#
+# --bundle is the RELEASE-PATH form. The gate could always consume the release
+# path and nothing made it: it read a bare directory, so an inventory could be
+# built over any SPDX files at all and still satisfy the policy, with nothing
+# tying a licence verdict to a shipped artifact, an evidence class or a source
+# revision. --bundle reads the SBOMs the evidence bundle SEALED — each already
+# bound to its child's manifest digest and covered by the bundle's checksums —
+# refuses a bundle whose bill of materials is incomplete, and stamps
+# release_binding into the inventory so the verdict names what it is about.
 # =============================================================================
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
-  sed -n '17,20p' "$0" | sed 's/^# \{0,1\}//' >&2
+  sed -n '19,22p' "$0" | sed 's/^# \{0,1\}//' >&2
   exit 64
 }
 
@@ -33,11 +43,12 @@ usage() {
 # build <sbom_dir> <out_or_dash>
 # -----------------------------------------------------------------------------
 build() {
-  SBOM_DIR="$1" OUT="$2" python3 <<'PY'
+  SBOM_DIR="$1" OUT="$2" BUNDLE="${3:-}" python3 <<'PY'
 import json, os, sys, glob, hashlib
 
 sbom_dir = os.environ["SBOM_DIR"]
 out      = os.environ["OUT"]
+bundle   = os.environ.get("BUNDLE") or ""
 
 if not os.path.isdir(sbom_dir):
     sys.stderr.write("REFUSE: sbom directory %r does not exist\n" % sbom_dir)
@@ -81,6 +92,29 @@ def add(name, version, ident, source_file, fmt, field, raw):
 
 
 files = sorted(glob.glob(os.path.join(sbom_dir, "*.json")))
+if bundle:
+    # Read exactly the documents the bundle SEALED as SBOMs. content/sbom/ also
+    # holds INDEX.json, which is the bundle's own index and is not a bill of
+    # materials — globbing it in made the inventory refuse the release path it
+    # was added to consume.
+    _man_p = os.path.join(bundle, "manifest.json")
+    if not os.path.exists(_man_p):
+        sys.stderr.write("REFUSE: %r is not an evidence bundle (no manifest.json). "
+                         "A licence verdict bound to nothing is not a release "
+                         "control\n" % bundle)
+        raise SystemExit(1)
+    _sealed = set()
+    for _c in json.load(open(_man_p)).get("children") or []:
+        if _c.get("sbom"):
+            _sealed.add(os.path.basename(_c["sbom"]["file"]))
+            for _cp in _c["sbom"].get("companions") or []:
+                _sealed.add(os.path.basename(_cp["file"]))
+    files = [f for f in files if os.path.basename(f) in _sealed]
+    if not files:
+        sys.stderr.write("REFUSE: the bundle at %r seals no SBOM. A licence "
+                         "verdict over an empty bill of materials is a clean "
+                         "verdict about nothing\n" % bundle)
+        raise SystemExit(1)
 parsed = []
 for f in files:
     try:
@@ -149,8 +183,61 @@ for key in sorted(records):
     r["licenses"] = sorted(r["licenses"])
     components.append(r)
 
+# --- the release binding -----------------------------------------------------
+# WHAT WAS WRONG. The gate CAN consume the release path and nothing made it: it
+# read a bare directory of SPDX files, so an inventory could be built over any
+# SBOMs at all and still satisfy the gate. Nothing tied a licence verdict to a
+# shipped artifact, an evidence class or a source revision — the two halves
+# never met on one artifact.
+#
+# --bundle binds them. The SBOMs are the ones the evidence bundle SEALED
+# (content/sbom/, each already bound to its child's manifest digest and covered
+# by the bundle's checksums), and the inventory records which bundle, which
+# evidence_class and which source_revision it is a licence verdict FOR.
+release_binding = None
+if bundle:
+    man_p = os.path.join(bundle, "manifest.json")
+    if not os.path.exists(man_p):
+        sys.stderr.write("REFUSE: %r is not an evidence bundle (no manifest.json). "
+                         "A licence verdict bound to nothing is not a release "
+                         "control\n" % bundle)
+        raise SystemExit(1)
+    man = json.load(open(man_p))
+    sb = man.get("sbom") or {}
+    if not sb.get("complete"):
+        sys.stderr.write(
+            "REFUSE: the bundle's bill of materials is not complete "
+            "(present=%r, %s of %s children). A licence inventory over a partial "
+            "SBOM set reports a clean verdict for the components it happened to "
+            "see\n" % (sb.get("present"), sb.get("children_with_sbom"),
+                       sb.get("children_total")))
+        raise SystemExit(1)
+    sealed = set()
+    for c in man["children"]:
+        if c.get("sbom"):
+            sealed.add(os.path.basename(c["sbom"]["file"]))
+            for cp in c["sbom"].get("companions") or []:
+                sealed.add(os.path.basename(cp["file"]))
+    seen = {os.path.basename(f) for f, _ in parsed}
+    if seen != sealed:
+        sys.stderr.write(
+            "REFUSE: the inventory read %d SBOM file(s); the bundle seals %d, and "
+            "the sets differ by %s. An inventory over documents the bundle did "
+            "not seal is not a verdict about what shipped\n"
+            % (len(seen), len(sealed), ", ".join(sorted(seen ^ sealed))[:200]))
+        raise SystemExit(1)
+    release_binding = {
+        "bundle_id": man["bundle_id"],
+        "evidence_class": man["evidence_class"],
+        "source_revision": man["source_revision"],
+        "bundle_content_checksum": man["checksums"]["content_checksum"],
+        "children_total": sb["children_total"],
+        "sbom_complete": True,
+    }
+
 doc = {
     "schema": "foundry.license-inventory/v1",
+    "release_binding": release_binding,
     "sbom_files": [os.path.basename(f) for f, _ in parsed],
     "sbom_formats": sorted({fmt for _, fmt in parsed}),
     "component_count": len(components),
@@ -241,7 +328,7 @@ JSON
 }
 
 main() {
-  local dir="" out="-"
+  local dir="" out="-" bundle=""
   case "${1:-}" in
     --self-test) self_test; exit $? ;;
     "") usage ;;
@@ -249,13 +336,18 @@ main() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --sbom-dir) dir="${2:-}"; shift 2 ;;
+      --bundle)   bundle="${2:-}"; shift 2 ;;
       --out)      out="${2:-}"; shift 2 ;;
       *) usage ;;
     esac
   done
+  # --bundle is the release-path form: the SBOMs are the ones the evidence
+  # bundle sealed, and the inventory records the evidence_class and revision it
+  # is a verdict FOR.
+  if [ -n "$bundle" ] && [ -z "$dir" ]; then dir="$bundle/content/sbom"; fi
   [ -n "$dir" ] || usage
   cd "$ROOT" || exit 1
-  build "$dir" "$out"
+  build "$dir" "$out" "$bundle"
 }
 
 main "$@"

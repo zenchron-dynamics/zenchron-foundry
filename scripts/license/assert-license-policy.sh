@@ -22,6 +22,13 @@
 #
 # Usage:
 #   assert-license-policy.sh --inventory FILE [--policy FILE]
+#        [--require-release-binding] [--evidence-class CLASS]
+#
+# --require-release-binding refuses an inventory that names no bundle, evidence
+# class or source revision. The gate could always consume the release path and
+# nothing made it, so a licence verdict decided nothing about a release;
+# --evidence-class makes it specific, because a verdict over a staged candidate
+# is not a verdict over what shipped.
 #   assert-license-policy.sh --self-test
 # =============================================================================
 set -uo pipefail
@@ -37,7 +44,8 @@ usage() {
 # gate <inventory> <policy>
 # -----------------------------------------------------------------------------
 gate() {
-  INVENTORY="$1" POLICY="$2" python3 <<'PY'
+  INVENTORY="$1" POLICY="$2" REQUIRE_BINDING="${3:-0}" \
+    EXPECT_CLASS="${4:-}" python3 <<'PY'
 import json, os, sys, datetime
 
 inv_path = os.environ["INVENTORY"]
@@ -61,6 +69,34 @@ except (OSError, ValueError) as e:
 
 if inv.get("schema") != "foundry.license-inventory/v1":
     refuse("%s is not a foundry.license-inventory/v1 document" % inv_path)
+
+# --- the release binding -----------------------------------------------------
+# The gate could always consume the release path and nothing made it, so a
+# licence verdict named no shipped artifact, no evidence class and no source
+# revision. --require-release-binding makes the binding mandatory, and
+# --evidence-class makes the verdict specific to what is being decided: a
+# verdict over a staged candidate is not a verdict over what shipped.
+if os.environ.get("REQUIRE_BINDING") == "1":
+    rb = inv.get("release_binding")
+    if not rb:
+        refuse("%s carries no release_binding. --require-release-binding was "
+               "asked for, and a licence verdict that names no bundle, no "
+               "evidence class and no source revision decides nothing about a "
+               "release. Rebuild it with "
+               "scripts/license/license-inventory.sh --bundle <evidence-bundle>"
+               % inv_path)
+    for f in ("bundle_id", "evidence_class", "source_revision",
+              "bundle_content_checksum"):
+        if not rb.get(f):
+            refuse("%s: release_binding.%s is missing" % (inv_path, f))
+    if not rb.get("sbom_complete"):
+        refuse("%s: the bound bundle's bill of materials is incomplete. A "
+               "licence verdict over a partial SBOM set reports clean for the "
+               "components it happened to see" % inv_path)
+    want = os.environ.get("EXPECT_CLASS") or ""
+    if want and rb["evidence_class"] != want:
+        refuse("%s is a licence verdict for evidence class %r; it is being "
+               "presented as %r" % (inv_path, rb["evidence_class"], want))
 
 try:
     with open(pol_path) as fh:
@@ -315,6 +351,43 @@ YAML
   ck "a licence with an undeclared state is refused" \
      "! gate '$tmp/clean.json' '$badstate' >/dev/null 2>&1"
 
+  # --- the release binding --------------------------------------------------
+  # The gate could always consume the release path and nothing made it, so a
+  # licence verdict named no shipped artifact at all.
+  python3 - "$tmp/clean.json" "$tmp/bound.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["release_binding"] = {
+    "bundle_id": "staged-candidate-7061caafb3ea-32395890071",
+    "evidence_class": "staged-candidate",
+    "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+    "bundle_content_checksum": "c" * 64,
+    "children_total": 20,
+    "sbom_complete": True,
+}
+json.dump(d, open(sys.argv[2], "w"), indent=2)
+PY
+  ck "a bound inventory PASSES with --require-release-binding" \
+     "gate '$tmp/bound.json' '$base_pol' 1 '' >/dev/null 2>&1"
+  ck "...and PASSES for the class it was actually built for" \
+     "gate '$tmp/bound.json' '$base_pol' 1 staged-candidate >/dev/null 2>&1"
+  ck "SABOTAGE: an UNBOUND inventory is REFUSED when the binding is required" \
+     "! gate '$tmp/clean.json' '$base_pol' 1 '' >/dev/null 2>&1"
+  ck "...naming what to rebuild it with, not just that it failed" \
+     "grep -q 'license-inventory.sh --bundle' <<<\"\$( gate '$tmp/clean.json' '$base_pol' 1 '' 2>&1 )\""
+  ck "SABOTAGE: a candidate's verdict presented as a published release is REFUSED" \
+     "! gate '$tmp/bound.json' '$base_pol' 1 published-artifact >/dev/null 2>&1"
+  python3 - "$tmp/bound.json" "$tmp/partial.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["release_binding"]["sbom_complete"] = False
+json.dump(d, open(sys.argv[2], "w"), indent=2)
+PY
+  ck "SABOTAGE: a verdict over an INCOMPLETE bill of materials is REFUSED" \
+     "! gate '$tmp/partial.json' '$base_pol' 1 '' >/dev/null 2>&1"
+  ck "NON-VACUOUS: the same inventory still passes without --require-release-binding" \
+     "gate '$tmp/clean.json' '$base_pol' >/dev/null 2>&1"
+
   ck "a missing inventory is refused, not treated as empty" \
      "! gate '$tmp/nope.json' '$base_pol' >/dev/null 2>&1"
   echo '{"schema":"something-else","components":[]}' >"$tmp/wrong.json"
@@ -338,7 +411,7 @@ YAML
 }
 
 main() {
-  local inv="" pol="$ROOT/policies/license-policy.yaml"
+  local inv="" pol="$ROOT/policies/license-policy.yaml" req=0 cls=""
   case "${1:-}" in
     --self-test) self_test; exit $? ;;
     "") usage ;;
@@ -347,11 +420,13 @@ main() {
     case "$1" in
       --inventory) inv="${2:-}"; shift 2 ;;
       --policy)    pol="${2:-}"; shift 2 ;;
+      --require-release-binding) req=1; shift ;;
+      --evidence-class) cls="${2:-}"; req=1; shift 2 ;;
       *) usage ;;
     esac
   done
   [ -n "$inv" ] || usage
-  gate "$inv" "$pol"
+  gate "$inv" "$pol" "$req" "$cls"
 }
 
 main "$@"

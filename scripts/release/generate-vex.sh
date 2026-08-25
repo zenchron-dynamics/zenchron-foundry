@@ -97,6 +97,7 @@ import json, os, re, sys, hashlib, datetime, collections
 
 mode, evidence_p, ledger_p, today_s, ident_p, target_p = sys.argv[1:7]
 schema_p = os.environ["VEX_SCHEMA"]
+EVIDENCE_CLASS = os.environ.get("VEX_EVIDENCE_CLASS") or ""
 matrix_families = [f for f in os.environ.get("VEX_MATRIX_FAMILIES", "").split() if f]
 
 import yaml
@@ -470,6 +471,13 @@ def build_document():
         ("tooling", "scripts/release/generate-vex.sh"),
         ("foundry", collections.OrderedDict([
             ("source_revision", source_revision),
+            # THE CLASS. A disposition set is a published statement about an
+            # artifact, and "what MAY ship" and "what DID ship" are not
+            # interchangeable — the evidence-class contract exists because they
+            # are not. The document carried no field that distinguished them, so
+            # a candidate's dispositions and a published release's were
+            # byte-identical and either could be presented as the other.
+            ("evidence_class", EVIDENCE_CLASS),
             ("evidence_record_sha256", sha256_file(evidence_p)),
             ("exception_policy", os.path.relpath(ledger_p, os.environ.get("VEX_ROOT", "."))),
             ("exception_policy_sha256", sha256_file(ledger_p)),
@@ -537,6 +545,12 @@ elif mode == "verify":
     validate_schema(doc, target_p)
 
     fd = doc.get("foundry") or {}
+    if EVIDENCE_CLASS and fd.get("evidence_class") != EVIDENCE_CLASS:
+        refuse("%s: the dispositions were published for evidence class %r; they "
+               "are being presented as %r. 'What may ship' and 'what shipped' "
+               "are different published statements about different artifacts, "
+               "and one does not stand in for the other"
+               % (target_p, fd.get("evidence_class"), EVIDENCE_CLASS))
     if fd.get("source_revision") != source_revision:
         refuse("%s: document binds source_revision %r, the evidence is for %r — a "
                "disposition set is only meaningful for the revision it was "
@@ -632,10 +646,17 @@ PY
 }
 
 # --- CLI ---------------------------------------------------------------------
-vex_generate() { # <evidence> <out> [ledger] [today]
+vex_generate() { # <evidence> <out> [ledger] [today] [evidence-class]
   local ev="$1" out="$2" ledger="${3:-$DEFAULT_LEDGER}" today="${4:-$(date -u +%F)}"
+  local cls="${5:-}"
   [ -f "$ev" ] || die "acceptance evidence not found: $ev"
   [ -f "$ledger" ] || die "exception ledger not found: $ledger"
+  # The class is never inferred, exactly as it is never inferred for a bundle.
+  [ -n "$cls" ] || die "generate: --evidence-class is required — a disposition set states what it is about, and 'what may ship' is not 'what shipped'"
+  python3 -c 'import json,sys
+enum=json.load(open(sys.argv[1]))["properties"]["foundry"]["properties"]["evidence_class"]["enum"]
+sys.exit(0 if sys.argv[2] in enum else 1)' "$VEX_SCHEMA" "$cls" \
+    || die "evidence class '"'"'$cls'"'"' is not one vex-openvex-v1 declares"
   local tmp; tmp="$(mktemp -d)"
   # shellcheck disable=SC2064
   trap "rm -rf '$tmp'" EXIT
@@ -643,11 +664,13 @@ vex_generate() { # <evidence> <out> [ledger] [today]
   mkdir -p "$(dirname "$out")"
   VEX_SCHEMA="$VEX_SCHEMA" VEX_ROOT="$VEX_ROOT" \
     VEX_MATRIX_FAMILIES="$(matrix_families | tr '\n' ' ')" \
+    VEX_EVIDENCE_CLASS="$cls" \
     _vex_py generate "$ev" "$ledger" "$today" "$tmp/ident.tsv" "$out"
 }
 
-vex_verify() { # <vex> <evidence> [ledger] [today]
+vex_verify() { # <vex> <evidence> [ledger] [today] [evidence-class]
   local vx="$1" ev="$2" ledger="${3:-$DEFAULT_LEDGER}" today="${4:-$(date -u +%F)}"
+  local cls="${5:-}"
   [ -f "$vx" ] || die "VEX document not found: $vx"
   [ -f "$ev" ] || die "acceptance evidence not found: $ev"
   local tmp; tmp="$(mktemp -d)"
@@ -656,6 +679,7 @@ vex_verify() { # <vex> <evidence> [ledger] [today]
   _vex_identity_table "$ev" > "$tmp/ident.tsv"
   VEX_SCHEMA="$VEX_SCHEMA" VEX_ROOT="$VEX_ROOT" \
     VEX_MATRIX_FAMILIES="$(matrix_families | tr '\n' ' ')" \
+    VEX_EVIDENCE_CLASS="$cls" \
     _vex_py verify "$ev" "$ledger" "$today" "$tmp/ident.tsv" "$vx"
 }
 
@@ -684,16 +708,19 @@ _vex_self_test() {
   # The accepted run's acceptances expire 2026-08-31 / 2026-09-01; evaluate on a
   # date inside that window so the happy path is about the DATA, not the clock.
   local DAY=2026-08-25
+  # A disposition set now states which evidence class it is about. The
+  # self-test's own documents are staged-candidate dispositions.
+  local CLS=staged-candidate
 
   # --- H1 happy path, against the REAL committed ledger and REAL evidence ----
   t "H1 generates from the real accepted run and real ledger" \
-    "vex_generate '$tmp/ev.json' '$tmp/vex.json' '$tmp/led.yaml' '$DAY' >/dev/null"
+    "vex_generate '$tmp/ev.json' '$tmp/vex.json' '$tmp/led.yaml' '$DAY' '$CLS' >/dev/null"
   t "H1 the document is valid JSON with statements" \
     "python3 -c 'import json,sys;d=json.load(open(\"$tmp/vex.json\"));sys.exit(0 if d[\"statements\"] else 1)'"
   t "H2 verify accepts what generate produced" \
-    "vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' >/dev/null"
+    "vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' >/dev/null"
   t "H3 generation is deterministic (byte-identical on a second run)" \
-    "vex_generate '$tmp/ev.json' '$tmp/vex2.json' '$tmp/led.yaml' '$DAY' >/dev/null && cmp -s '$tmp/vex.json' '$tmp/vex2.json'"
+    "vex_generate '$tmp/ev.json' '$tmp/vex2.json' '$tmp/led.yaml' '$DAY' '$CLS' >/dev/null && cmp -s '$tmp/vex.json' '$tmp/vex2.json'"
   t "H4 every statement is digest-bound (no tag-scoped product)" \
     "! grep -Eq '\"@id\": \"pkg:oci/[^@]*\\?' '$tmp/vex.json'"
   t "H5 no reachability justification was invented from the ledger" \
@@ -715,9 +742,9 @@ p["identifiers"]["purl"] = p["@id"]
 json.dump(d, open(sys.argv[2], "w"), indent=2)
 PY
   t "S1 a statement about a digest the run never produced is REFUSED" \
-    "! vex_verify '$tmp/s1.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_verify '$tmp/s1.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
   t "S1 ...with the 'not one of the child digests' diagnostic" \
-    "vex_verify '$tmp/s1.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' 2>&1 | grep -q 'not one of the'"
+    "vex_verify '$tmp/s1.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' 2>&1 | grep -q 'not one of the'"
 
   # --- S2 a package/version tuple never observed ----------------------------
   python3 - "$tmp/vex.json" "$tmp/s2.json" <<'PY'
@@ -727,9 +754,9 @@ d["statements"][0]["products"][0]["subcomponents"][0]["@id"] = "pkg:deb/debian/n
 json.dump(d, open(sys.argv[2], "w"), indent=2)
 PY
   t "S2 a package/version tuple never observed is REFUSED" \
-    "! vex_verify '$tmp/s2.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_verify '$tmp/s2.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
   t "S2 ...with the 'NEVER OBSERVED' diagnostic" \
-    "vex_verify '$tmp/s2.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' 2>&1 | grep -q 'NEVER OBSERVED'"
+    "vex_verify '$tmp/s2.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' 2>&1 | grep -q 'NEVER OBSERVED'"
 
   # --- S3 a statement about an advisory the scan did not report -------------
   python3 - "$tmp/vex.json" "$tmp/s3.json" <<'PY'
@@ -739,17 +766,17 @@ d["statements"][0]["vulnerability"]["name"] = "CVE-2999-99999"
 json.dump(d, open(sys.argv[2], "w"), indent=2)
 PY
   t "S3 a disposition for an advisory the scan never reported is REFUSED" \
-    "! vex_verify '$tmp/s3.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_verify '$tmp/s3.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
   t "S3 ...with the 'inconsistent with the scan' diagnostic" \
-    "vex_verify '$tmp/s3.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' 2>&1 | grep -q 'inconsistent with the scan'"
+    "vex_verify '$tmp/s3.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' 2>&1 | grep -q 'inconsistent with the scan'"
 
   # --- S4 an expired acceptance -------------------------------------------
   t "S4 generation REFUSES once an acceptance has lapsed" \
-    "! vex_generate '$tmp/ev.json' '$tmp/s4.json' '$tmp/led.yaml' 2099-01-01 >/dev/null 2>&1"
+    "! vex_generate '$tmp/ev.json' '$tmp/s4.json' '$tmp/led.yaml' 2099-01-01 '$CLS' >/dev/null 2>&1"
   t "S4 ...naming the expiry" \
-    "vex_generate '$tmp/ev.json' '$tmp/s4.json' '$tmp/led.yaml' 2099-01-01 2>&1 | grep -q 'EXPIRED on'"
+    "vex_generate '$tmp/ev.json' '$tmp/s4.json' '$tmp/led.yaml' 2099-01-01 '$CLS' 2>&1 | grep -q 'EXPIRED on'"
   t "S4 verification REFUSES a published document backed by a lapsed record" \
-    "! vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led.yaml' 2099-01-01 >/dev/null 2>&1"
+    "! vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led.yaml' 2099-01-01 '$CLS' >/dev/null 2>&1"
 
   # --- S5 an unbounded selector -------------------------------------------
   python3 - "$tmp/led.yaml" "$tmp/led-all.yaml" <<'PY'
@@ -759,9 +786,9 @@ d["exceptions"][0]["image"] = "all"
 yaml.safe_dump(d, open(sys.argv[2], "w"), default_flow_style=False, allow_unicode=True)
 PY
   t "S5 an unbounded 'all' image selector is REFUSED for publication" \
-    "! vex_generate '$tmp/ev.json' '$tmp/s5.json' '$tmp/led-all.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_generate '$tmp/ev.json' '$tmp/s5.json' '$tmp/led-all.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
   t "S5 ...with the 'unbounded image selector' diagnostic" \
-    "vex_generate '$tmp/ev.json' '$tmp/s5.json' '$tmp/led-all.yaml' '$DAY' 2>&1 | grep -q 'unbounded image selector'"
+    "vex_generate '$tmp/ev.json' '$tmp/s5.json' '$tmp/led-all.yaml' '$DAY' '$CLS' 2>&1 | grep -q 'unbounded image selector'"
 
   # --- S6 a record whose version pin was removed ---------------------------
   python3 - "$tmp/led.yaml" "$tmp/led-nopin.yaml" <<'PY'
@@ -773,9 +800,9 @@ for e in d["exceptions"]:
 yaml.safe_dump(d, open(sys.argv[2], "w"), default_flow_style=False, allow_unicode=True)
 PY
   t "S6 a record with no exact version pin is REFUSED" \
-    "! vex_generate '$tmp/ev.json' '$tmp/s6.json' '$tmp/led-nopin.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_generate '$tmp/ev.json' '$tmp/s6.json' '$tmp/led-nopin.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
   t "S6 ...with the 'no exact version pin' diagnostic" \
-    "vex_generate '$tmp/ev.json' '$tmp/s6.json' '$tmp/led-nopin.yaml' '$DAY' 2>&1 | grep -q 'no exact version pin'"
+    "vex_generate '$tmp/ev.json' '$tmp/s6.json' '$tmp/led-nopin.yaml' '$DAY' '$CLS' 2>&1 | grep -q 'no exact version pin'"
 
   # --- S7 an ungoverned finding -------------------------------------------
   python3 - "$tmp/led.yaml" "$tmp/led-thin.yaml" <<'PY'
@@ -785,9 +812,9 @@ d["exceptions"] = d["exceptions"][1:]
 yaml.safe_dump(d, open(sys.argv[2], "w"), default_flow_style=False, allow_unicode=True)
 PY
   t "S7 an observed finding with no governing record is REFUSED" \
-    "! vex_generate '$tmp/ev.json' '$tmp/s7.json' '$tmp/led-thin.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_generate '$tmp/ev.json' '$tmp/s7.json' '$tmp/led-thin.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
   t "S7 ...with the 'no ledger record governs' diagnostic" \
-    "vex_generate '$tmp/ev.json' '$tmp/s7.json' '$tmp/led-thin.yaml' '$DAY' 2>&1 | grep -q 'no ledger record governs'"
+    "vex_generate '$tmp/ev.json' '$tmp/s7.json' '$tmp/led-thin.yaml' '$DAY' '$CLS' 2>&1 | grep -q 'no ledger record governs'"
 
   # --- S8 an ambiguous pair (same tuple, two conflicting kinds) ------------
   python3 - "$tmp/led.yaml" "$tmp/led-amb.yaml" <<'PY'
@@ -804,9 +831,9 @@ d.setdefault("not_affected", []).append({
 yaml.safe_dump(d, open(sys.argv[2], "w"), default_flow_style=False, allow_unicode=True)
 PY
   t "S8 one tuple covered as BOTH accepted-risk and not-affected is REFUSED" \
-    "! vex_generate '$tmp/ev.json' '$tmp/s8.json' '$tmp/led-amb.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_generate '$tmp/ev.json' '$tmp/s8.json' '$tmp/led-amb.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
   t "S8 ...with the AMBIGUOUS diagnostic" \
-    "vex_generate '$tmp/ev.json' '$tmp/s8.json' '$tmp/led-amb.yaml' '$DAY' 2>&1 | grep -q 'AMBIGUOUS'"
+    "vex_generate '$tmp/ev.json' '$tmp/s8.json' '$tmp/led-amb.yaml' '$DAY' '$CLS' 2>&1 | grep -q 'AMBIGUOUS'"
 
   # --- S9 a dropped statement (partial document read as 'all clear') -------
   python3 - "$tmp/vex.json" "$tmp/s9.json" <<'PY'
@@ -816,9 +843,9 @@ d["statements"] = d["statements"][1:]
 json.dump(d, open(sys.argv[2], "w"), indent=2)
 PY
   t "S9 a document missing a disposition for an observed finding is REFUSED" \
-    "! vex_verify '$tmp/s9.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_verify '$tmp/s9.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
   t "S9 ...with the 'no disposition' diagnostic" \
-    "vex_verify '$tmp/s9.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' 2>&1 | grep -q 'have no disposition'"
+    "vex_verify '$tmp/s9.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' 2>&1 | grep -q 'have no disposition'"
 
   # --- S10 a mutated ledger after publication ------------------------------
   python3 - "$tmp/led.yaml" "$tmp/led-mut.yaml" <<'PY'
@@ -828,7 +855,7 @@ d["exceptions"][0]["reason"] = "silently rewritten after the document shipped"
 yaml.safe_dump(d, open(sys.argv[2], "w"), default_flow_style=False, allow_unicode=True)
 PY
   t "S10 a document is REFUSED once its source policy's bytes change" \
-    "! vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led-mut.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led-mut.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
 
   # --- S11 identity divergence ---------------------------------------------
   python3 - "$tmp/ev.json" "$tmp/ev-badkey.json" <<'PY'
@@ -838,15 +865,43 @@ d["children"][0]["child_key"] = "caddy/linux/amd64"      # the pre-platform spel
 json.dump(d, open(sys.argv[2], "w"), indent=2)
 PY
   t "S11 a child whose recorded key disagrees with child_key() is REFUSED" \
-    "! vex_generate '$tmp/ev-badkey.json' '$tmp/s11.json' '$tmp/led.yaml' '$DAY' >/dev/null 2>&1"
+    "! vex_generate '$tmp/ev-badkey.json' '$tmp/s11.json' '$tmp/led.yaml' '$DAY' '$CLS' >/dev/null 2>&1"
   t "S11 ...with the identity-mismatch diagnostic" \
-    "vex_generate '$tmp/ev-badkey.json' '$tmp/s11.json' '$tmp/led.yaml' '$DAY' 2>&1 | grep -q 'ONE identity derivation'"
+    "vex_generate '$tmp/ev-badkey.json' '$tmp/s11.json' '$tmp/led.yaml' '$DAY' '$CLS' 2>&1 | grep -q 'ONE identity derivation'"
 
   # --- NON-VACUITY ---------------------------------------------------------
   # Each sabotage must fail ONLY because of the sabotage: the unmutated document
   # passes the very same verification in the very same conditions.
+  # --- S12 the evidence class ------------------------------------------------
+  # A disposition set is a published statement about an ARTIFACT. Before the
+  # class travelled with the document, a staged-candidate's dispositions and a
+  # published release's were byte-identical, so either could be presented as
+  # the other and nothing could tell.
+  t "S12 a published-artifact disposition set is NOT byte-identical to a candidate's" \
+    "vex_generate '$tmp/ev.json' '$tmp/pub.json' '$tmp/led.yaml' '$DAY' published-artifact >/dev/null \
+     && ! cmp -s '$tmp/vex.json' '$tmp/pub.json'"
+  t "S12 ...because each names the class it was published for" \
+    "[ \"\$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[\"foundry\"][\"evidence_class\"])' '$tmp/pub.json')\" \
+     = 'published-artifact' ]"
+  t "S12 SABOTAGE: candidate dispositions presented as a published release are REFUSED" \
+    "! vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' published-artifact >/dev/null 2>&1"
+  t "S12 ...for the class diagnostic, not a checksum one" \
+    "grep -q 'does not stand in for' <<<\"\$( vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' published-artifact 2>&1 )\""
+  t "S12 SABOTAGE: and the reverse — a published set presented as a candidate's" \
+    "! vex_verify '$tmp/pub.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' staged-candidate >/dev/null 2>&1"
+  t "S12 NON-VACUOUS: each verifies against the class it WAS published for" \
+    "vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' staged-candidate >/dev/null 2>&1 \
+     && vex_verify '$tmp/pub.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' published-artifact >/dev/null 2>&1"
+  # die() exits, and these two refusals happen in the SHELL rather than inside
+  # the python child, so each runs in a subshell — otherwise the first ends the
+  # suite and every later assertion silently never runs.
+  t "S12 SABOTAGE: an undeclared class is REFUSED at generate" \
+    "! ( vex_generate '$tmp/ev.json' '$tmp/s12.json' '$tmp/led.yaml' '$DAY' shipped-probably ) >/dev/null 2>&1"
+  t "S12 SABOTAGE: omitting the class is REFUSED, never defaulted" \
+    "! ( vex_generate '$tmp/ev.json' '$tmp/s12b.json' '$tmp/led.yaml' '$DAY' '' ) >/dev/null 2>&1"
+
   t "NON-VACUOUS: the unmutated document still verifies under every check above" \
-    "vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' >/dev/null"
+    "vex_verify '$tmp/vex.json' '$tmp/ev.json' '$tmp/led.yaml' '$DAY' '$CLS' >/dev/null"
 
   echo "self-test: $ok ok, $bad failed"
   [ "$bad" -eq 0 ]
@@ -866,9 +921,10 @@ EOF
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   _mode="${1:-}"; shift || true
-  _ev=""; _out=""; _vx=""; _led="$DEFAULT_LEDGER"; _today="$(date -u +%F)"
+  _ev=""; _out=""; _vx=""; _led="$DEFAULT_LEDGER"; _today="$(date -u +%F)"; _cls=""
   while [ $# -gt 0 ]; do
     case "$1" in
+      --evidence-class) _cls="${2:?--evidence-class needs a class}"; shift 2 ;;
       --evidence) _ev="${2:?--evidence needs a path}"; shift 2 ;;
       --out)      _out="${2:?--out needs a path}"; shift 2 ;;
       --vex)      _vx="${2:?--vex needs a path}"; shift 2 ;;
@@ -879,9 +935,9 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   done
   case "$_mode" in
     generate) [ -n "$_ev" ] && [ -n "$_out" ] || _vex_usage
-              vex_generate "$_ev" "$_out" "$_led" "$_today" ;;
+              vex_generate "$_ev" "$_out" "$_led" "$_today" "$_cls" ;;
     verify)   [ -n "$_vx" ] && [ -n "$_ev" ] || _vex_usage
-              vex_verify "$_vx" "$_ev" "$_led" "$_today" ;;
+              vex_verify "$_vx" "$_ev" "$_led" "$_today" "$_cls" ;;
     --self-test) _vex_self_test && echo "generate-vex.sh: SELF-TEST OK" ;;
     *) _vex_usage ;;
   esac

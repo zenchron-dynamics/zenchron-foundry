@@ -6,20 +6,55 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "schema_version", "release", "candidate", "revision",
-    "source_repository", "source_ref", "workflow_run_id", "created_at", "images"
+    "schema_version",
+    "release",
+    "candidate",
+    "revision",
+    "source_repository",
+    "source_ref",
+    "workflow_run_id",
+    "created_at",
+    "images"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
-    "release": { "type": "string", "pattern": "^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}(\\.[0-9]+)?$" },
-    "candidate": { "type": "string", "pattern": "^rc[1-9][0-9]*$" },
-    "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-    "source_repository": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
-    "source_ref": { "type": "string", "minLength": 1 },
-    "workflow_name": { "type": "string" },
-    "workflow_run_id": { "type": "string", "pattern": "^[0-9]+$" },
-    "workflow_run_attempt": { "type": "string", "pattern": "^[0-9]+$" },
-    "created_at": { "type": "string", "format": "date-time" },
+    "schema_version": {
+      "const": 1
+    },
+    "release": {
+      "type": "string",
+      "pattern": "^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}(\\.[0-9]+)?$"
+    },
+    "candidate": {
+      "type": "string",
+      "pattern": "^rc[1-9][0-9]*$"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "source_repository": {
+      "type": "string",
+      "pattern": "^[^/]+/[^/]+$"
+    },
+    "source_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workflow_name": {
+      "type": "string"
+    },
+    "workflow_run_id": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "workflow_run_attempt": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
     "images": {
       "type": "object",
       "minProperties": 10,
@@ -29,26 +64,59 @@
         "^(php-(cli|fpm|worker|frankenphp)-8\\.[34]|nginx|caddy)$": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["repository", "immutable_tag", "digest", "reference", "revision", "platforms"],
+          "required": [
+            "repository",
+            "immutable_tag",
+            "digest",
+            "reference",
+            "revision",
+            "platforms"
+          ],
           "properties": {
-            "repository": { "type": "string", "pattern": "^ghcr\\.io/[^/]+/[^/:@]+$" },
-            "immutable_tag": { "type": "string", "minLength": 1 },
-            "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-            "reference": { "type": "string", "pattern": "^ghcr\\.io/[^/]+/[^@]+@sha256:[0-9a-f]{64}$" },
-            "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "repository": {
+              "type": "string",
+              "pattern": "^ghcr\\.io/[^/]+/[^/:@]+$"
+            },
+            "immutable_tag": {
+              "type": "string",
+              "minLength": 1
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "reference": {
+              "type": "string",
+              "pattern": "^ghcr\\.io/[^/]+/[^@]+@sha256:[0-9a-f]{64}$"
+            },
+            "revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
             "platforms": {
               "type": "array",
               "uniqueItems": true,
               "minItems": 2,
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "allOf": [
-                { "contains": { "const": "linux/amd64" } },
-                { "contains": { "const": "linux/arm64" } }
+                {
+                  "contains": {
+                    "const": "linux/amd64"
+                  }
+                },
+                {
+                  "contains": {
+                    "const": "linux/arm64"
+                  }
+                }
               ]
             }
           }
         }
-      }
+      },
+      "description": "The shipping matrix, pinned. minProperties/maxProperties and the key pattern are DELIBERATE literals, not a stale copy: a release manifest with nine images, or one carrying a line that does not build, must not validate. Because a literal nothing compares against becomes a stale assumption, scripts/assert-image-matrix.sh asserts both against MATRIX_IMAGES in scripts/lib/common.sh on every pull request, so the schema and the matrix cannot drift apart silently. PHP 8.5 is unrepresentable here ON PURPOSE \u2014 its images exist, are contracted and are tested, but they do not build (policies/lifecycle.yaml, php-8.5), and an experimental line must not be able to enter a release manifest at all. That refusal is itself asserted, so widening the pattern is a decision somebody has to take rather than an edit nobody notices."
     }
   }
 }

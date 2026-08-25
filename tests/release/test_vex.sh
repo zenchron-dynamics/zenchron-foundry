@@ -49,8 +49,16 @@ if ! python3 -c 'import yaml' 2>/dev/null; then
 fi
 
 DAY=2026-08-25          # inside the acceptance window of the committed ledger
-gen() { ( bash "$VEX" generate "$@" ); }
-vfy() { ( bash "$VEX" verify "$@" ); }
+# The generator now REQUIRES --evidence-class: a disposition set has to state
+# what it is about, because "what may ship" is not "what shipped". These
+# wrappers supply the class the accepted multiarch run actually is — the same
+# value tests/integration/test_evidence_path_e2e.sh uses for this same evidence
+# file — so every call site below keeps its original intent. A call site that
+# passes its own --evidence-class still wins, since it appears later on the
+# command line.
+VEX_CLASS=staged-candidate
+gen() { ( bash "$VEX" generate --evidence-class "$VEX_CLASS" "$@" ); }
+vfy() { ( bash "$VEX" verify   --evidence-class "$VEX_CLASS" "$@" ); }
 
 ck "the OpenVEX schema is valid JSON" "python3 -c 'import json;json.load(open(\"$SCHEMA\"))'"
 ck "the generator is executable"      "test -x '$VEX'"

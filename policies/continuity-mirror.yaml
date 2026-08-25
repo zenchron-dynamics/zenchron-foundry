@@ -83,6 +83,70 @@ critical_release_inventory:
       mirrored: false
       blocked_by: 115
       note: VEX documents are not yet published per release
+    # --- the governance surface ---------------------------------------------
+    # WHY THESE ARE HERE. The inventory above is entirely image references, so
+    # a restoration produced bytes and no way to JUDGE them: the schemas that
+    # constrain every record, the policies whose CONTENT decided each verdict,
+    # and the offline tools that re-verify a bundle all lived only in the git
+    # repository the continuity plan exists to survive the loss of. Restore
+    # twenty digests into a fresh registry without these and nothing
+    # distinguishes an authorised artefact from a repudiated one.
+    #
+    # `paths:` is what scripts/continuity-export.sh --export-governance reads.
+    # The selector lives HERE and only here: a second list inside the script is
+    # the copy nobody updates.
+    - id: schemas
+      required: true
+      mirrored: false
+      paths:
+        - schemas/*.schema.json
+      note: every record this repository emits is only interpretable against
+            the schema that constrains it
+    - id: policies
+      required: true
+      mirrored: false
+      paths:
+        - policies/*.yaml
+      note: the decision inputs the evidence bundle digests; reconstructing a
+            verdict means reading these exact bytes, not today's
+    - id: verification-tools
+      required: true
+      mirrored: false
+      paths:
+        - scripts/lib/common.sh
+        - scripts/release/evidence-checksum.sh
+        - scripts/release/generate-evidence-bundle.sh
+        - scripts/release/verify-release-seal.sh
+        - scripts/release/restore-evidence.sh
+        - scripts/release/assert-evidence-class.sh
+        - scripts/release/validate-authorization-record.sh
+        - scripts/release/generate-vex.sh
+        - scripts/continuity-verify.sh
+      note: the offline verifiers; evidence that can no longer be re-verified
+            is a claim, not evidence
+
+# --- WHAT THIS FILE MAY NOT CLAIM --------------------------------------------
+# INTENTIONALLY UNSUPPORTED, AND REFUSED RATHER THAN LEFT SILENT.
+#
+# Every artifact class above carries `mirrored: false`, and that is not an
+# oversight to be tidied up by editing the value. No independent mirror exists
+# (mirror.status: not-provisioned), so `mirrored: true` on ANY class would be a
+# false statement about where a copy is held — and the one field a reader
+# checks during an outage is precisely that one.
+#
+# Setting it therefore does not become true by being written. The invariant
+# below is machine-checked by scripts/continuity-verify.sh, which REFUSES if
+# any class claims to be mirrored while the mirror is not provisioned. The
+# three human decisions that would make it truthfully settable are listed at
+# the bottom of this file; until one of them is taken, this is a declared gap
+# with an enforced refusal, not a gap nobody noticed.
+mirrored_claims:
+  permitted_only_when: mirror.status == provisioned
+  enforced_by: scripts/continuity-verify.sh
+  rationale: >-
+    A mirror flag that can be set before a mirror exists is a flag that will be
+    set before a mirror exists, and read as evidence during the outage it was
+    supposed to survive.
 
 # --- how a copy is proven faithful -------------------------------------------
 verification:

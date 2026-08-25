@@ -277,12 +277,24 @@ _re_self_test() {
   res() { ( re_restore "$@" ); }
   vfy() { ( re_verify "$@" ); }
   lst() { ( re_list "$@" ); }
-  gen() { ( bash "$_RE_D/generate-evidence-bundle.sh" generate "$@" ); }
+  gen() {
+    case " $* " in
+      *" --authorization "*|*" --authorization-absent "*) : ;;
+      *) set -- "$@" --authorization "$RE_AUTHREC" ;;
+    esac
+    ( bash "$_RE_D/generate-evidence-bundle.sh" generate "$@" )
+  }
   bver() { ( bash "$_RE_D/generate-evidence-bundle.sh" verify "$@" ); }
 
   local EV="$RE_ROOT/docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json"
   [ -f "$EV" ] || { echo "SKIP - accepted evidence absent"; return 0; }
   python3 -c 'import yaml' 2>/dev/null || { echo "SKIP - PyYAML absent"; return 0; }
+  # The canonical authorization the bundle requires, rebuilt offline from the
+  # accepted evidence (the run's own 30-day artifact expired). The builder is
+  # under tests/ so nothing in scripts/ can mint an authorization.
+  local RE_AUTHREC="$tmp/post-build-authorization.json"
+  python3 "$RE_ROOT/tests/lib/make_authorization_fixture.py" "$EV" "$RE_AUTHREC" \
+    || { echo "SKIP - authorization fixture unavailable"; return 0; }
   local DAY=2026-08-25 BID
   BID="staged-candidate-$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["source_revision"][:12])' "$EV")-32395890071"
 

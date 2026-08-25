@@ -106,7 +106,9 @@ bash scripts/license/assert-license-policy.sh --self-test
 bash tests/license/test_license_gate.sh
 
 # against real SBOMs (needs syft output; see docs/sbom-and-signing.md)
-IMAGE=ghcr.io/zenchron-dynamics/php-fpm:8.4-prod bash scripts/generate-sbom.sh
+IMAGE=ghcr.io/zenchron-dynamics/php-fpm:8.4-prod \
+  FAMILY=php-fpm VERSION=8.4 PLATFORM=linux/amd64 \
+  bash scripts/generate-sbom.sh
 bash scripts/license/license-inventory.sh --sbom-dir artifacts/sbom --out artifacts/license-inventory.json
 bash scripts/license/assert-license-policy.sh --inventory artifacts/license-inventory.json
 bash scripts/license/generate-notice.sh --inventory artifacts/license-inventory.json --out artifacts/NOTICE-candidate.txt

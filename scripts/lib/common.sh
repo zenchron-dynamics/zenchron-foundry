@@ -142,15 +142,37 @@ _common_self_test() {
   # (see assert-image-matrix.sh). It must agree with the list it guards.
   _t "MATRIX_COUNT matches MATRIX_IMAGES" \
      'test "$(matrix_images | wc -l | tr -d " ")" = "$MATRIX_COUNT"'
+  # --- child + SBOM identity, the ONE derivation both sides call ------------
+  _t "child_slug keeps the platform in the identity" \
+     '[ "$(child_slug php-fpm 8.3 linux/amd64)" != "$(child_slug php-fpm 8.3 linux/arm64)" ]'
+  _t "sbom_basename IS child_slug (no second spelling)" \
+     '[ "$(sbom_basename php-fpm 8.3 linux/amd64)" = "$(child_slug php-fpm 8.3 linux/amd64)" ]'
+  _t "sbom_filename is child_slug + the format extension" \
+     '[ "$(sbom_filename php-fpm 8.3 linux/amd64 spdx-json)" = "php-fpm-8.3-linux-amd64.spdx.json" ]'
+  _t "sbom_filename spells the edge images with their prod selector" \
+     '[ "$(sbom_filename nginx prod linux/arm64 cdx-json)" = "nginx-prod-linux-arm64.cdx.json" ]'
+  _t "an undeclared SBOM format is REFUSED, never guessed" \
+     '! ( sbom_format_ext spdx-xml ) 2>/dev/null'
+  _t "sbom_path joins without a double separator" \
+     '[ "$(sbom_path /tmp/s caddy prod linux/amd64 spdx-json)" = "/tmp/s/caddy-prod-linux-amd64.spdx.json" ]'
+  _t "sbom_filenames_for_child emits one name per declared format" \
+     '[ "$(sbom_filenames_for_child caddy prod linux/amd64 | wc -l | tr -d " ")" = "$(printf "%s\\n" $SBOM_FORMATS | wc -l | tr -d " ")" ]'
+  # NO TWO CHILDREN COLLIDE. The whole matrix on both platforms, in both
+  # formats, must produce exactly as many distinct filenames as there are
+  # (child, format) pairs. A blind character substitution fails this.
+  _t "no two children collide onto one SBOM filename across the whole matrix" \
+     'n=0; out=""
+      for t in $MATRIX_IMAGES; do
+        for p in linux/amd64 linux/arm64; do
+          for f in $SBOM_FORMATS; do
+            out="$out$(sbom_filename "${t%:*}" "${t##*:}" "$p" "$f")
+"; n=$((n+1))
+          done
+        done
+      done
+      [ "$(printf %s "$out" | sort -u | wc -l | tr -d " ")" = "$n" ]'
   return $fail
 }
-
-if [ "${BASH_SOURCE[0]}" = "$0" ]; then
-  case "${1:-}" in
-    --self-test) _common_self_test && echo "common.sh: SELF-TEST OK" ;;
-    *) echo "usage: common.sh --self-test" >&2; exit 2 ;;
-  esac
-fi
 
 # --- canonical child identity (platform-bound) -------------------------------
 # ONE definition of what identifies an acceptance child, used by the workflow,
@@ -191,3 +213,72 @@ child_slug() {
   local label; label="$(image_label "$fam" "$ver")"
   printf '%s-linux-%s\n' "${label//\//-}" "$arch"
 }
+
+# --- canonical SBOM identity (producer AND consumer) -------------------------
+# ONE derivation of an SBOM's filename, called by the producer
+# (scripts/generate-sbom.sh) and by every consumer (the evidence bundle, the
+# licence inventory, the release seal).
+#
+# WHY. The producer derived its filename by blind character substitution on the
+# image reference — NAME=$(echo "$IMAGE" | tr '/:@' '___') — while the evidence
+# bundle looked up <child_slug>.spdx.json. The two sets never intersected, so a
+# complete SBOM directory produced `sbom.present: false` with exit 0: a release
+# whose bill of materials was silently absent, reported as a clean build. That
+# is the same second-derivation defect child_slug() was introduced to remove
+# (see the child_key note above), reappearing one layer out.
+#
+# A blind substitution is also not an identity: `a/b:c` and `a_b_c` and `a:b/c`
+# all normalise onto one name, so two different images can claim one SBOM. The
+# derivation below is built from the SAME validated components as child_slug(),
+# so platform stays part of the identity and two distinct children cannot
+# collide onto one filename.
+#
+# The formats are closed. An SBOM in a format nobody declared is not a bill of
+# materials the release path can reason about, so asking for one REFUSES rather
+# than inventing an extension.
+SBOM_FORMATS="spdx-json cdx-json"
+
+# sbom_format_ext <format> -> the ONE extension for that format
+sbom_format_ext() {
+  case "${1:?sbom_format_ext: format required}" in
+    spdx-json) printf '.spdx.json\n' ;;
+    cdx-json)  printf '.cdx.json\n' ;;
+    *) die "sbom_format_ext: unknown SBOM format '$1' (declared: $SBOM_FORMATS)" ;;
+  esac
+}
+
+# sbom_basename <fam> <ver> <platform> -> php-fpm-8.3-linux-amd64
+# Deliberately child_slug() itself rather than a parallel spelling: an SBOM
+# names a CHILD, and a child has exactly one identity in this repository.
+sbom_basename() { child_slug "${1:-}" "${2:-}" "${3:-}"; }
+
+# sbom_filename <fam> <ver> <platform> <format> -> php-fpm-8.3-linux-amd64.spdx.json
+sbom_filename() {
+  local base ext
+  base="$(child_slug "${1:-}" "${2:-}" "${3:-}")" || return 1
+  ext="$(sbom_format_ext "${4:?sbom_filename: format required}")" || return 1
+  printf '%s%s\n' "$base" "$ext"
+}
+
+# sbom_path <dir> <fam> <ver> <platform> <format>
+sbom_path() {
+  local dir="${1:?sbom_path: directory required}" name
+  shift
+  name="$(sbom_filename "$@")" || return 1
+  printf '%s/%s\n' "${dir%/}" "$name"
+}
+
+# Every filename the closed format set can produce for one child, one per line.
+# The consumer uses this to decide whether a file in an SBOM directory is bound
+# to a child at all — an unbound file is refused rather than ignored.
+sbom_filenames_for_child() {
+  local f
+  for f in $SBOM_FORMATS; do sbom_filename "${1:-}" "${2:-}" "${3:-}" "$f"; done
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  case "${1:-}" in
+    --self-test) _common_self_test && echo "common.sh: SELF-TEST OK" ;;
+    *) echo "usage: common.sh --self-test" >&2; exit 2 ;;
+  esac
+fi

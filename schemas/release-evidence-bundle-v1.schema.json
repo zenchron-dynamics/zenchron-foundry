@@ -28,68 +28,115 @@
     "authorization",
     "retention",
     "checksums",
-    "files"
+    "files",
+    "reproducibility",
+    "licenses"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
-    "bundle_type": { "const": "release-evidence-bundle" },
-
+    "schema_version": {
+      "const": 1
+    },
+    "bundle_type": {
+      "const": "release-evidence-bundle"
+    },
     "bundle_id": {
       "type": "string",
       "description": "Deterministic identity of this bundle: <evidence_class>-<short source revision>-<run id>. Two generator runs over the same inputs produce the same bundle_id.",
       "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$"
     },
-
     "evidence_class": {
       "description": "The artifact/evidence class this bundle carries, from policies/evidence-classes.yaml. Consumed, never redefined here.",
-      "enum": ["upstream-base", "foundry-child", "staged-candidate", "published-artifact"]
+      "enum": [
+        "upstream-base",
+        "foundry-child",
+        "staged-candidate",
+        "published-artifact"
+      ]
     },
-
     "source_revision": {
       "type": "string",
       "pattern": "^[0-9a-f]{40}$",
       "description": "The one Foundry revision every child in this bundle was built from. Abbreviated revisions are refused: two commits can share a prefix."
     },
-
     "release": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "additionalProperties": false,
-      "description": "Set only once a bundle has been promoted to a release. Null on a candidate bundle — a candidate has no release version and inventing one is exactly how a candidate gets read as a release.",
-      "required": ["version", "candidate"],
+      "description": "Set only once a bundle has been promoted to a release. Null on a candidate bundle \u2014 a candidate has no release version and inventing one is exactly how a candidate gets read as a release.",
+      "required": [
+        "version",
+        "candidate"
+      ],
       "properties": {
-        "version": { "type": "string", "pattern": "^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}(\\.[0-9]+)?$" },
-        "candidate": { "type": "string", "pattern": "^rc[1-9][0-9]*$" }
+        "version": {
+          "type": "string",
+          "pattern": "^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}(\\.[0-9]+)?$"
+        },
+        "candidate": {
+          "type": "string",
+          "pattern": "^rc[1-9][0-9]*$"
+        }
       }
     },
-
     "generated_at": {
       "type": "string",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
       "description": "RFC3339 UTC. Derived from the source acceptance record, NOT from the generator's wall clock, so the bundle is byte-reproducible."
     },
-
     "generator": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["script", "schema"],
+      "required": [
+        "script",
+        "schema"
+      ],
       "properties": {
-        "script": { "type": "string" },
-        "schema": { "type": "string" }
+        "script": {
+          "type": "string"
+        },
+        "schema": {
+          "type": "string"
+        }
       }
     },
-
     "acceptance": {
       "type": "object",
       "additionalProperties": false,
       "description": "The acceptance run this bundle is the durable record of. These are the identifiers that let a reader find the run while it still exists, and stop needing it once it does not.",
-      "required": ["verdict", "workflow", "workflow_run_id", "workflow_run_attempt", "workflow_ref", "source_record_sha256"],
+      "required": [
+        "verdict",
+        "workflow",
+        "workflow_run_id",
+        "workflow_run_attempt",
+        "workflow_ref",
+        "source_record_sha256"
+      ],
       "properties": {
-        "verdict": { "enum": ["PASS", "FAIL"] },
-        "workflow": { "type": "string" },
-        "workflow_run_id": { "type": "integer", "minimum": 1 },
-        "workflow_run_attempt": { "type": "integer", "minimum": 1 },
-        "workflow_ref": { "type": "string" },
-        "run_url": { "type": "string" },
+        "verdict": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "workflow": {
+          "type": "string"
+        },
+        "workflow_run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_ref": {
+          "type": "string"
+        },
+        "run_url": {
+          "type": "string"
+        },
         "source_record_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
@@ -97,42 +144,85 @@
         }
       }
     },
-
     "scanner": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["image", "digest_pinned"],
+      "required": [
+        "image",
+        "digest_pinned"
+      ],
       "properties": {
-        "image": { "type": "string", "pattern": "@sha256:[0-9a-f]{64}$" },
-        "flags": { "type": "array", "items": { "type": "string" } },
-        "digest_pinned": { "const": true }
+        "image": {
+          "type": "string",
+          "pattern": "@sha256:[0-9a-f]{64}$"
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "digest_pinned": {
+          "const": true
+        }
       }
     },
-
     "vulnerability_database": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["identity", "frozen"],
+      "required": [
+        "identity",
+        "frozen"
+      ],
       "description": "ONE database identity for the whole bundle. Two identities across a matrix means two different questions were asked and the answers cannot be compared.",
       "properties": {
-        "identity": { "type": "string", "minLength": 1 },
-        "frozen": { "const": true }
+        "identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "frozen": {
+          "const": true
+        }
       }
     },
-
     "matrix": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["image_definitions", "platforms", "expected_children", "observed_children"],
+      "required": [
+        "image_definitions",
+        "platforms",
+        "expected_children",
+        "observed_children"
+      ],
       "properties": {
-        "image_definitions": { "type": "integer", "minimum": 1 },
-        "platforms": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^linux/[a-z0-9]+$" } },
-        "expected_children": { "type": "integer", "minimum": 1 },
-        "observed_children": { "type": "integer", "minimum": 1 },
-        "platform_split": { "type": "object", "additionalProperties": { "type": "integer" } }
+        "image_definitions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "platforms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^linux/[a-z0-9]+$"
+          }
+        },
+        "expected_children": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "observed_children": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "platform_split": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        }
       }
     },
-
     "children": {
       "type": "array",
       "minItems": 1,
@@ -140,28 +230,74 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "child_key", "child_slug", "image_family", "image_version", "image_label",
-          "platform", "manifest_digest", "execution_mode", "source_revision",
-          "evidence_sha256", "package_inventory", "severity_counts", "gates", "evidence_file"
+          "child_key",
+          "child_slug",
+          "image_family",
+          "image_version",
+          "image_label",
+          "platform",
+          "manifest_digest",
+          "execution_mode",
+          "source_revision",
+          "evidence_sha256",
+          "package_inventory",
+          "severity_counts",
+          "gates",
+          "evidence_file",
+          "build_input_digest"
         ],
         "properties": {
-          "child_key": { "type": "string", "description": "child_key() from scripts/lib/common.sh. The ONE identity derivation in this repository." },
-          "child_slug": { "type": "string", "description": "child_slug() from scripts/lib/common.sh." },
-          "image_family": { "type": "string" },
-          "image_version": { "type": "string" },
-          "image_label": { "type": "string" },
-          "platform": { "type": "string", "pattern": "^linux/[a-z0-9]+$" },
-          "manifest_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-          "digest_reference": { "type": "string" },
-          "config_architecture": { "type": "string" },
-          "staging_tag": { "type": "string" },
+          "child_key": {
+            "type": "string",
+            "description": "child_key() from scripts/lib/common.sh. The ONE identity derivation in this repository."
+          },
+          "child_slug": {
+            "type": "string",
+            "description": "child_slug() from scripts/lib/common.sh."
+          },
+          "image_family": {
+            "type": "string"
+          },
+          "image_version": {
+            "type": "string"
+          },
+          "image_label": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string",
+            "pattern": "^linux/[a-z0-9]+$"
+          },
+          "manifest_digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "digest_reference": {
+            "type": "string"
+          },
+          "config_architecture": {
+            "type": "string"
+          },
+          "staging_tag": {
+            "type": "string"
+          },
           "execution_mode": {
-            "enum": ["native", "qemu"],
+            "enum": [
+              "native",
+              "qemu"
+            ],
             "description": "How the child was BUILT AND EXERCISED. QEMU-emulated arm64 is not native arm64 runtime evidence (#111) and the release seal refuses to let it be presented as such."
           },
-          "host_architecture": { "type": "string" },
-          "runner_name": { "type": "string" },
-          "source_revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+          "host_architecture": {
+            "type": "string"
+          },
+          "runner_name": {
+            "type": "string"
+          },
+          "source_revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
           "evidence_sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$",
@@ -170,74 +306,238 @@
           "package_inventory": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["package_count", "sha256"],
+            "required": [
+              "package_count",
+              "sha256"
+            ],
             "properties": {
-              "package_count": { "type": "integer", "minimum": 0 },
-              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              "package_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
             }
           },
-          "severity_counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+          "severity_counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
           "gates": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["smoke_test", "metadata_contract", "scan", "reconciliation"],
+            "required": [
+              "smoke_test",
+              "metadata_contract",
+              "scan",
+              "reconciliation"
+            ],
             "properties": {
-              "smoke_test": { "enum": ["PASS", "FAIL"] },
-              "metadata_contract": { "enum": ["PASS", "FAIL"] },
-              "scan": { "enum": ["PASS", "FAIL"] },
-              "reconciliation": { "enum": ["PASS", "FAIL"] }
+              "smoke_test": {
+                "enum": [
+                  "PASS",
+                  "FAIL"
+                ]
+              },
+              "metadata_contract": {
+                "enum": [
+                  "PASS",
+                  "FAIL"
+                ]
+              },
+              "scan": {
+                "enum": [
+                  "PASS",
+                  "FAIL"
+                ]
+              },
+              "reconciliation": {
+                "enum": [
+                  "PASS",
+                  "FAIL"
+                ]
+              }
             }
           },
           "sbom": {
-            "type": ["object", "null"],
+            "type": [
+              "object",
+              "null"
+            ],
             "additionalProperties": false,
-            "description": "SBOM digest for this child. Null when no SBOM was supplied to the generator: an absent SBOM is recorded as absent, never as an empty one. The release seal refuses a bundle with any null child SBOM.",
-            "required": ["format", "sha256", "file"],
+            "description": "This child's SBOM of record. Null ONLY when no --sbom-dir was supplied: an absent SBOM is recorded as absent, never as an empty one, and the release seal (R7) refuses a bundle with any null child SBOM. The file is named by sbom_filename() in scripts/lib/common.sh \u2014 the same function scripts/generate-sbom.sh calls to write it \u2014 and its subject_digest is re-read from the document itself, so an SBOM for another digest cannot substitute by being filed under this child's name.",
+            "required": [
+              "format",
+              "sha256",
+              "file",
+              "subject_digest"
+            ],
             "properties": {
-              "format": { "type": "string" },
-              "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-              "file": { "type": "string" }
+              "format": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "file": {
+                "type": "string"
+              },
+              "subject_digest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "description": "The digest the SBOM document itself claims to describe, read from documentDescribes / metadata.component. Must equal this child's manifest_digest."
+              },
+              "companions": {
+                "type": "array",
+                "description": "Additional declared-format documents for the SAME child, each bound to the same subject. A companion never substitutes for the format of record.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "format",
+                    "sha256",
+                    "file"
+                  ],
+                  "properties": {
+                    "format": {
+                      "type": "string"
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "file": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
             }
           },
-          "evidence_file": { "type": "string", "description": "Path, relative to the bundle root, of this child's full evidence extract." }
+          "evidence_file": {
+            "type": "string",
+            "description": "Path, relative to the bundle root, of this child's full evidence extract."
+          },
+          "build_input_digest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(sha256:[0-9a-f]{64})?$",
+            "description": "The identity of the DECLARED INPUTS this child was built from (evidence-class-v1 requires it). Explicitly null when the acceptance run predates build-input locking \u2014 never silently omitted, because the bundle recording no such field at all is why a reproducibility lock and a shipped image had no value to be joined on."
+          }
         }
       }
     },
-
     "execution_disclosure": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["native_children", "qemu_children", "statement"],
+      "required": [
+        "native_children",
+        "qemu_children",
+        "statement"
+      ],
       "description": "Explicit, because the difference between 'ran on arm64 hardware' and 'ran on an x86 host under emulation' is the difference between runtime evidence and a build artifact.",
       "properties": {
-        "native_children": { "type": "integer", "minimum": 0 },
-        "qemu_children": { "type": "integer", "minimum": 0 },
-        "statement": { "type": "string", "minLength": 1 },
-        "native_platforms": { "type": "array", "items": { "type": "string" } },
-        "emulated_platforms": { "type": "array", "items": { "type": "string" } }
+        "native_children": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "qemu_children": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "native_platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "emulated_platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
-
     "sbom": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["present", "children_with_sbom", "children_total"],
+      "required": [
+        "present",
+        "complete",
+        "children_with_sbom",
+        "children_total"
+      ],
       "properties": {
-        "present": { "type": "boolean" },
-        "format": { "type": ["string", "null"] },
-        "children_with_sbom": { "type": "integer", "minimum": 0 },
-        "children_total": { "type": "integer", "minimum": 1 },
-        "index_file": { "type": ["string", "null"] }
-      }
+        "present": {
+          "type": "boolean"
+        },
+        "format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "children_with_sbom": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "children_total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "index_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "complete": {
+          "type": "boolean",
+          "description": "Every child in this bundle carries an SBOM of record whose subject is that child's manifest digest. A bundle with `present: true` and `complete: false` is refused by verify: a partial bill of materials reads as a complete one to every consumer that only checks `present`."
+        },
+        "identity_function": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The ONE derivation producer and consumer both call for an SBOM filename. Recorded so a future divergence is visible in the record rather than only in the two implementations."
+        }
+      },
+      "description": "The bill of materials this bundle carries. `present` alone was never the fact a release decision needs: it said only that SOME child had a document, and it read `false` over a complete SBOM directory whenever the producer's filenames and the consumer's lookup disagreed. `complete` is the binding fact \u2014 every child, one SBOM of record, each bound to that child's manifest digest."
     },
-
     "findings": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["severity_totals", "distinct_advisories", "observed_tuples"],
+      "required": [
+        "severity_totals",
+        "distinct_advisories",
+        "observed_tuples"
+      ],
       "properties": {
-        "severity_totals": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-        "distinct_advisories": { "type": "integer", "minimum": 0 },
+        "severity_totals": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "distinct_advisories": {
+          "type": "integer",
+          "minimum": 0
+        },
         "observed_tuples": {
           "type": "integer",
           "minimum": 0,
@@ -245,105 +545,423 @@
         }
       }
     },
-
     "reconciliation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["children_reconciled", "children_total", "ungoverned_findings", "policy_file", "policy_sha256"],
+      "required": [
+        "children_reconciled",
+        "children_total",
+        "ungoverned_findings",
+        "policy_file",
+        "policy_sha256"
+      ],
       "properties": {
-        "children_reconciled": { "type": "integer", "minimum": 0 },
-        "children_total": { "type": "integer", "minimum": 1 },
-        "ungoverned_findings": { "type": "integer", "minimum": 0 },
-        "policy_file": { "type": "string" },
-        "policy_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        "children_reconciled": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "children_total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ungoverned_findings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "policy_file": {
+          "type": "string"
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     },
-
     "dispositions": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["file", "sha256", "format", "statement_count", "exception_policy_sha256"],
+      "required": [
+        "file",
+        "sha256",
+        "format",
+        "statement_count",
+        "exception_policy_sha256"
+      ],
       "description": "The machine-readable vulnerability dispositions (#115) generated for this bundle, and the digest of the exception/not_affected policy they were derived from. A disposition set that outlives its policy digest is a claim nobody can re-derive.",
       "properties": {
-        "file": { "type": "string" },
-        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "format": { "type": "string" },
-        "statement_count": { "type": "integer", "minimum": 0 },
-        "exception_policy_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "status_counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
-        "earliest_exception_expiry": { "type": ["string", "null"] }
+        "file": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "format": {
+          "type": "string"
+        },
+        "statement_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exception_policy_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "earliest_exception_expiry": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
-
     "policy_digests": {
       "type": "object",
       "description": "sha256 of every policy file whose content decided this bundle's verdict, keyed by repo-relative path. Reconstructing the decision means reading these exact bytes, not today's.",
       "minProperties": 1,
-      "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
     },
-
     "provenance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repository", "source_revision", "workflow_ref", "workflow_run_id", "staging_package"],
+      "required": [
+        "repository",
+        "source_revision",
+        "workflow_ref",
+        "workflow_run_id",
+        "staging_package"
+      ],
       "properties": {
-        "repository": { "type": "string" },
-        "source_revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-        "workflow_ref": { "type": "string" },
-        "workflow_run_id": { "type": "integer", "minimum": 1 },
-        "workflow_run_attempt": { "type": "integer", "minimum": 1 },
-        "staging_package": { "type": ["string", "null"] },
-        "attestation_file": { "type": ["string", "null"] },
-        "attestation_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" }
+        "repository": {
+          "type": "string"
+        },
+        "source_revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "workflow_ref": {
+          "type": "string"
+        },
+        "workflow_run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "staging_package": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attestation_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attestation_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     },
-
     "authorization": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["scope", "public_exposure_authorized", "verdict", "generated_at", "record_file"],
+      "required": [
+        "record_present",
+        "scope",
+        "public_exposure_authorized",
+        "verdict",
+        "generated_at",
+        "record_file"
+      ],
       "properties": {
-        "scope": { "type": "string", "minLength": 1 },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
         "public_exposure_authorized": {
           "type": "boolean",
           "description": "Whether this authorization covers making the artifacts publicly reachable. It is a SEPARATE decision from build acceptance; the release seal refuses a public release without it."
         },
-        "verdict": { "enum": ["PASS", "FAIL"] },
-        "generated_at": { "type": "string" },
-        "build_created": { "type": ["string", "null"] },
-        "record_file": { "type": "string" }
-      }
+        "verdict": {
+          "enum": [
+            "PASS",
+            "FAIL"
+          ]
+        },
+        "generated_at": {
+          "type": "string"
+        },
+        "build_created": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "record_file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "content/authorization/post-build-authorization.json \u2014 the canonical record, verbatim. Null when record_present is false."
+        },
+        "record_present": {
+          "type": "boolean",
+          "description": "Whether a canonical post-build authorization record was supplied and bound. False is a stated position, not a default: the generator refuses unless one of --authorization or --authorization-absent is given."
+        },
+        "record_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([0-9a-f]{64})?$"
+        },
+        "absence_reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 20,
+          "description": "Why no authorization record accompanies this bundle. Required when record_present is false."
+        },
+        "summary_file": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "A manifest-level PROJECTION of the canonical record. It is not an authorization, satisfies no authorization schema, and is never written without the record it projects."
+        },
+        "record_binding": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": false,
+          "description": "The facts the canonical record was checked against. Present exactly when record_present is true.",
+          "required": [
+            "schema",
+            "validator",
+            "source_revision",
+            "workflow_run_id",
+            "authorized_children",
+            "platforms",
+            "trivy_db_identity",
+            "verdict"
+          ],
+          "properties": {
+            "schema": {
+              "type": "string"
+            },
+            "validator": {
+              "type": "string"
+            },
+            "source_revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "repository": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "workflow_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "workflow_run_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "workflow_run_attempt": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "authorized_children": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "platforms": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "trivy_db_identity": {
+              "type": "string"
+            },
+            "staging_package": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "verdict": {
+              "enum": [
+                "PASS"
+              ]
+            }
+          }
+        }
+      },
+      "description": "The authorization this bundle records. Until the canonical record became an INPUT, this block was a four-field summary written to a file named authorization-record.json that failed post-build-authorization-v1 on all fifteen of its required properties and carried no source_revision \u2014 so a wrong-SHA authorization was undetectable by construction. The canonical record (schemas/post-build-authorization-v1) now travels verbatim inside checksum coverage and is bound field by field to the acceptance record: revision, run, verdict, frozen database, platform set, the exact child set with its digests and per-child evidence checksums, and the staging package. record_present=false is the explicit, argued absence; such a bundle cannot be sealed as a release.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "record_present": {
+                "const": true
+              }
+            },
+            "required": [
+              "record_present"
+            ]
+          },
+          "then": {
+            "required": [
+              "record_file",
+              "record_sha256",
+              "record_binding",
+              "summary_file"
+            ],
+            "properties": {
+              "record_file": {
+                "type": "string",
+                "minLength": 1
+              },
+              "record_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "record_binding": {
+                "type": "object"
+              },
+              "absence_reason": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_present": {
+                "const": false
+              }
+            },
+            "required": [
+              "record_present"
+            ]
+          },
+          "then": {
+            "required": [
+              "absence_reason"
+            ],
+            "properties": {
+              "record_file": {
+                "type": "null"
+              },
+              "record_binding": {
+                "type": "null"
+              },
+              "absence_reason": {
+                "type": "string",
+                "minLength": 20
+              }
+            }
+          }
+        }
+      ]
     },
-
     "retention": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["policy_file", "policy_sha256", "evidence_class", "retention_days", "retain_until", "immutable_storage_required"],
+      "required": [
+        "policy_file",
+        "policy_sha256",
+        "evidence_class",
+        "retention_days",
+        "retain_until",
+        "immutable_storage_required"
+      ],
       "properties": {
-        "policy_file": { "type": "string" },
-        "policy_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "evidence_class": { "type": "string" },
-        "retention_days": { "type": "integer", "minimum": 1 },
-        "retain_until": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
-        "immutable_storage_required": { "type": "boolean" },
-        "minimum_independent_locations": { "type": "integer", "minimum": 1 }
+        "policy_file": {
+          "type": "string"
+        },
+        "policy_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence_class": {
+          "type": "string"
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retain_until": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "immutable_storage_required": {
+          "type": "boolean"
+        },
+        "minimum_independent_locations": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     },
-
     "checksums": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["algorithm", "content_checksum", "content_checksum_tool", "sums_file", "aggregate_file"],
-      "description": "content_checksum is produced by scripts/release/evidence-checksum.sh — the SAME path-independent function the acceptance pipeline already uses for per-child evidence, so a bundle relocated between machines still verifies.",
+      "required": [
+        "algorithm",
+        "content_checksum",
+        "content_checksum_tool",
+        "sums_file",
+        "aggregate_file"
+      ],
+      "description": "content_checksum is produced by scripts/release/evidence-checksum.sh \u2014 the SAME path-independent function the acceptance pipeline already uses for per-child evidence, so a bundle relocated between machines still verifies.",
       "properties": {
-        "algorithm": { "const": "sha256" },
-        "content_checksum": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "content_checksum_tool": { "type": "string" },
-        "sums_file": { "type": "string" },
-        "aggregate_file": { "type": "string" }
+        "algorithm": {
+          "const": "sha256"
+        },
+        "content_checksum": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "content_checksum_tool": {
+          "type": "string"
+        },
+        "sums_file": {
+          "type": "string"
+        },
+        "aggregate_file": {
+          "type": "string"
+        }
       }
     },
-
     "files": {
       "type": "array",
       "minItems": 1,
@@ -351,11 +969,111 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "sha256"],
+        "required": [
+          "path",
+          "sha256"
+        ],
         "properties": {
-          "path": { "type": "string", "pattern": "^[^/][^\\x00]*$" },
-          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "role": { "type": "string" }
+          "path": {
+            "type": "string",
+            "pattern": "^[^/][^\\x00]*$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Whether this bundle can be joined to a build-input lock, and the policy whose bytes decided what a reproducibility claim means. policies/reproducibility.yaml is among policy_digests, so the claim cannot be reworded without the bundle's digest changing.",
+      "required": [
+        "policy_file",
+        "lock_schema",
+        "children_with_build_input_digest",
+        "children_total",
+        "joinable",
+        "note"
+      ],
+      "properties": {
+        "policy_file": {
+          "type": "string"
+        },
+        "policy_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([0-9a-f]{64})?$"
+        },
+        "lock_schema": {
+          "type": "string"
+        },
+        "lock_tool": {
+          "type": "string"
+        },
+        "children_with_build_input_digest": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "children_total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "joinable": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 20
+        }
+      }
+    },
+    "licenses": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The licence FACTS carried by the SBOMs this bundle sealed. The bundle recorded no licence fact at all, so the licence gate and the release path never met on one artifact: the gate could pass over any SPDX files while the bundle said nothing about what it shipped under. This is the bundle's half \u2014 assertions, not a verdict. The verdict stays in scripts/license/assert-license-policy.sh over policies/license-policy.yaml, whose digest is in policy_digests.",
+      "required": [
+        "present",
+        "source",
+        "policy_file",
+        "gate",
+        "distinct_licenses",
+        "components_without_license"
+      ],
+      "properties": {
+        "present": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string"
+        },
+        "facts_file": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "policy_file": {
+          "type": "string"
+        },
+        "gate": {
+          "type": "string"
+        },
+        "distinct_licenses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "components_without_license": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     }
