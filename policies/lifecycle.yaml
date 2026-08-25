@@ -213,10 +213,15 @@ lines:
         the live matrix entry is withdrawn until a representative child builds.
     note: >-
       support_state tracks UPSTREAM, which is active. foundry_release_state records
-      Foundry readiness, which is BLOCKED. When 8.5 returns to the matrix it still
-      BEGINS UNGOVERNED by construction: every PHP selector in the ledger is bound to
-      the immutable php-8.3-8.4 cohort, so re-adding it cannot widen a historical risk
-      decision. Entry criteria are in docs/php-version-policy.md.
+      FOUNDRY readiness, which is experimental-amd64-only. CORRECTED 2026-08-25: this
+      note previously read "which is BLOCKED", carried over from the withdrawn
+      blocked-does-not-build state. It is stale — the blocker above is RESOLVED and all
+      four families build on linux/amd64. 8.5 is out of the live matrix because it is an
+      experimental amd64-only cohort with no arm64 evidence, no production contracts and
+      no governance decisions; NOT because it fails to build. When 8.5 returns to the
+      matrix it still BEGINS UNGOVERNED by construction: every PHP selector in the ledger
+      is bound to the immutable php-8.3-8.4 cohort, so re-adding it cannot widen a
+      historical risk decision. Entry criteria are in docs/php-version-policy.md.
 
   # --- other pinned runtimes ------------------------------------------------
   - id: frankenphp-1.x

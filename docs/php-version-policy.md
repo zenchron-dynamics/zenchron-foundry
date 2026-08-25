@@ -72,6 +72,23 @@ PHP 8.5 has been in **active upstream support** since 2025-11 and Foundry does
 not offer it. That has not changed. What HAS changed is the reason, and the
 reason matters more than the verdict.
 
+**State:** `foundry_release_state: experimental-amd64-only`.
+
+This document and `policies/lifecycle.yaml` must name the SAME value, and
+`tests/governance/test_doc_truth_sync.sh` reads both files and fails if they
+disagree — the machine-readable line is the authority, this sentence is the
+claim, and a claim that drifts from its fact is the #121 defect class.
+
+> **CORRECTED 2026-08-25.** This section previously stated
+> `foundry_release_state: blocked-does-not-build` and described the failing
+> component as "not yet isolated". Both were false by then. The component WAS
+> isolated — `opcache` is statically built into the PHP 8.5 base, so
+> `docker-php-ext-install opcache` produces no shared module — and all four
+> families build on `linux/amd64` (`blocker.status: RESOLVED 2026-08-23`). The
+> retired value is recorded here rather than deleted so a reader who met it in
+> an older revision, an older PR, or a cached copy can see that it was withdrawn
+> and why, instead of assuming the two revisions describe different images.
+
 **The images build.** They did not, and the failure was real, measured and
 specific — see the resolved `blocker` block on the `php-8.5` line in
 `policies/lifecycle.yaml`. Two root causes, both Foundry Dockerfile sequencing

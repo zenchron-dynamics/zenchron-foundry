@@ -610,9 +610,17 @@ PY
        --test-key '$tmp/test.key' --out '$tmp/r11b.json' --today '$DAY' 2>&1 | grep -q 'public_exposure_authorized=false'"
 
   # --- R10 an image line outside the shipping matrix ------------------------
-  # PHP 8.5 is absent from MATRIX_IMAGES and marked blocked-does-not-build in
-  # policies/lifecycle.yaml. Both facts are READ from those files, so this case
-  # cannot rot into a hardcoded version string.
+  # PHP 8.5 is absent from MATRIX_IMAGES and carries a non-production
+  # foundry_release_state in policies/lifecycle.yaml. Both facts are READ from
+  # those files, so this case cannot rot into a hardcoded version string.
+  #
+  # CORRECTED 2026-08-25: this comment previously named that state
+  # "blocked-does-not-build". That value no longer exists on the php-8.5 line —
+  # it is `experimental-amd64-only`, the blocker is RESOLVED, and all four
+  # families build on linux/amd64. The seal refusal never depended on WHICH
+  # non-production state was present, only that one was, so the code was right
+  # and only the comment was false. Naming a value that is not there is how a
+  # reader concludes the images are broken when they are merely unshipped.
   #
   # Defence in depth, and the first layer fires before the seal is even reached:
   # the exception ledger's cohort selector is `php-8.3-8.4`, so an 8.5 child's

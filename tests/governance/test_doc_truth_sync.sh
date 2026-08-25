@@ -172,5 +172,112 @@ ck "NON-VACUOUS: documents do cite dated governance evidence" \
 ck "every cited governance-verification record exists in docs/audits/" \
    '[ -z "$(missing_governance_evidence)" ]'
 
+# --- the PHP 8.5 release state: document vs machine-readable line -----------
+#
+# FACT: policies/lifecycle.yaml carries ONE foundry_release_state on the php-8.5
+# line. CLAIM: docs/php-version-policy.md names a state for 8.5. They must be the
+# SAME STRING, and the fact is read from the policy file rather than restated
+# here, because restating it only moves the drift into this test.
+#
+# This pairing exists because both files were false at the same time and in the
+# same direction: the document said `blocked-does-not-build` and "the failing
+# component is not yet isolated" while the policy line already said
+# `experimental-amd64-only` with `blocker.status: RESOLVED`. A reader of the
+# document would have concluded the images cannot be built. They build.
+PVP=docs/php-version-policy.md
+
+lifecycle_php85_state() {
+  python3 - <<'PYX'
+import yaml
+d = yaml.safe_load(open("policies/lifecycle.yaml"))
+ln = [x for x in d["lines"] if x["id"] == "php-8.5"]
+print(ln[0].get("foundry_release_state", "") if ln else "")
+PYX
+}
+
+# doc_asserted_states <file> — every foundry_release_state value the document
+# ASSERTS. Blockquoted lines are excluded: a retraction that quotes the value it
+# withdraws is exactly what a reader who met the old value needs to find, and
+# treating it as an assertion would make correcting a document impossible.
+doc_asserted_states() {
+  grep -vE '^[[:space:]]*>' "$1" \
+    | grep -oE 'foundry_release_state:[[:space:]]*`?[a-z0-9.-]+' \
+    | sed -E 's/.*foundry_release_state:[[:space:]]*`?//' \
+    | LC_ALL=C sort -u
+}
+
+LIFE_STATE="$(lifecycle_php85_state)"
+# Read by `ck`'s eval, which shellcheck cannot follow.
+# shellcheck disable=SC2034
+DOC_STATES="$(doc_asserted_states "$PVP")"
+
+# NON-VACUITY, both sides. Either extractor returning nothing would make the
+# comparison below pass by comparing emptiness with emptiness.
+ck "NON-VACUOUS: policies/lifecycle.yaml carries a php-8.5 foundry_release_state" \
+   '[ -n "$LIFE_STATE" ] && case "$LIFE_STATE" in *[!a-z0-9-]*) false ;; *) true ;; esac'
+ck "NON-VACUOUS: $PVP asserts a foundry_release_state at all" '[ -n "$DOC_STATES" ]'
+ck "the document states EXACTLY the lifecycle value, and only that one" \
+   '[ "$DOC_STATES" = "$LIFE_STATE" ]'
+
+# NON-VACUITY OF THE COMPARISON ITSELF, by mutation: a disposable copy whose
+# value is flipped MUST be rejected. Without this the three assertions above
+# would still pass if `doc_asserted_states` silently stopped matching anything
+# but the empty-string guard happened to be satisfied by a different line.
+# Writes only inside mktemp — never the checkout (tests/lib/test_no_ambient_mutation.sh).
+DTMP="$(mktemp -d)"
+# shellcheck disable=SC2064
+trap "rm -rf '$DTMP'" EXIT
+sed -E "s/foundry_release_state:[[:space:]]*${LIFE_STATE}/foundry_release_state: shipped-everywhere/g" \
+    "$PVP" > "$DTMP/sabotaged.md"
+ck "SABOTAGE: a document naming a DIFFERENT state is detected" \
+   '[ "$(doc_asserted_states "$DTMP/sabotaged.md")" != "$LIFE_STATE" ]'
+ck "...and the sabotage really changed the file (the probe is not a no-op)" \
+   '! cmp -s "$PVP" "$DTMP/sabotaged.md"'
+
+# The RETIRED value may appear only as a withdrawal. Anywhere it is still
+# asserted, a reader is told the 8.5 images do not build — they do, on amd64.
+# A blockquoted markdown line, a shell/YAML comment, this test itself, the dated
+# audit archives and the changelog are all RECORDS of the retired value, not
+# assertions of it. Everything else that still carries the string is telling a
+# reader the 8.5 images do not build.
+#
+# The per-file body is CAPTURED and matched with `case`, never piped into
+# `grep -q`: under `pipefail` a quiet matcher exits early, kills the producer
+# with SIGPIPE and yields 141, which this file has already been bitten by.
+retired_state_asserted() {
+  local f body self
+  self="./${0#./}"
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in
+      ./docs/audits/*|./CHANGELOG.md|"$self"|./tests/governance/test_doc_truth_sync.sh) continue ;;
+    esac
+    body="$(grep -vE '^[[:space:]]*[>#]' "$f")"
+    # The KEY must be present, not merely the string. Prose that names the
+    # retired value while withdrawing it ("...carried over from the withdrawn
+    # blocked-does-not-build state") is a record; `foundry_release_state:
+    # blocked-does-not-build` is an assertion. Matched from a HERE-STRING, never
+    # a pipe, because a quiet matcher on a pipe exits early and returns 141.
+    grep -qE 'foundry_release_state:[[:space:]]*`?blocked-does-not-build' <<<"$body" \
+      && echo "$f"
+  done < <(grep -rl 'blocked-does-not-build' --include='*.md' --include='*.yaml' \
+             --include='*.yml' --include='*.sh' . 2>/dev/null)
+}
+# NON-VACUITY: the sweep must actually be finding the retracted mentions, or the
+# emptiness below means only that nothing anywhere mentions the value.
+ck "NON-VACUOUS: the retired value IS still recorded somewhere (as a retraction)" \
+   '[ -n "$(grep -rl "blocked-does-not-build" --include="*.md" --include="*.yaml" --include="*.sh" . 2>/dev/null)" ]'
+# SABOTAGE: a file that ASSERTS the value (not blockquoted, not commented) must
+# be reported. Written into the disposable fixture, then swept from there.
+mkdir -p "$DTMP/live/docs" && printf 'foundry_release_state: blocked-does-not-build\n' > "$DTMP/live/docs/rot.md"
+sabotage_hits() { ( cd "$DTMP/live" && retired_state_asserted ); }
+ck "SABOTAGE: a document that still ASSERTS the retired value is reported" \
+   '[ -n "$(sabotage_hits)" ]'
+printf '> `foundry_release_state: blocked-does-not-build` was withdrawn\n' > "$DTMP/live/docs/rot.md"
+ck "...but the same string inside a RETRACTION is not" '[ -z "$(sabotage_hits)" ]'
+
+ck "no live document or script still asserts blocked-does-not-build" \
+   '[ -z "$(retired_state_asserted)" ]'
+
 echo "----"; [ "$fail" -eq 0 ] && echo "test_doc_truth_sync: PASS" || echo "test_doc_truth_sync: FAIL"
 exit $fail
