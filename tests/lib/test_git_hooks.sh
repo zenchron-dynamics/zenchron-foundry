@@ -27,8 +27,10 @@ while read -r mode _rest; do
   head -n1 "$path" | grep -q '^#!' || badshebang="$badshebang $path"
 done < <(hooks)
 
-n_hooks="$(hooks | wc -l | tr -d ' ')"
-ck "NON-VACUOUS: there are hooks to check" '[ "$n_hooks" -ge 2 ]'
+# Inlined, not held in a variable: shellcheck cannot see through the eval in
+# ck(), so a variable used only there reads as unused (SC2034).
+ck "NON-VACUOUS: there are hooks to check" \
+   '[ "$(hooks | wc -l | tr -d " ")" -ge 2 ]'
 ck "NON-VACUOUS: each hook path resolved to a real file" \
    'ok=1; while read -r _m _r; do p="${_r##*$'"'"'\t'"'"'}"; [ -f "$p" ] || ok=0; done < <(hooks); [ "$ok" = 1 ]'
 ck "every tracked git hook is executable IN GIT (100755)" \

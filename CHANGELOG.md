@@ -27,7 +27,6 @@ image releases follow [docs/image-versioning.md](docs/image-versioning.md).
   deleted: it is the true record of what was verified that day, and the
   CHANGELOG entry below still cites it.
 
-
 ### Security — release-result integrity (#96)
 
 - **The exact-commit gate now picks the NEWEST result for each required check.**
