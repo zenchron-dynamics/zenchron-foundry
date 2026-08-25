@@ -328,7 +328,8 @@ PYD
   # the moment PHP 8.5 entered the matrix — the same hardcoded-count assumption
   # tests/matrix/test_php_lifecycle_and_selectors.sh now hunts for.
   #
-  # CAPTURE ONCE, THEN MATCH FROM A HERE-STRING. NEVER `canonical_images | grep -q`.
+  # CAPTURE ONCE, THEN MATCH FROM A HERE-STRING. Never pipe the label producer
+  # into a reader that short-circuits.
   #
   # That pipeline was THE intermittent CI failure of 2026-08-24/25. `grep -q`
   # exits the instant it matches, and `php-cli/8.3` is the FIRST of the ten
@@ -351,8 +352,15 @@ PYD
   # The second reading is also anchored at $ROOT rather than the caller's CWD:
   # `bash -c '. scripts/lib/common.sh'` only resolved because run-all.sh happens
   # to cd to the repo root.
+  # Both are referenced by name inside the single-quoted assertion below, which
+  # t() eval()s while these locals are still in scope. shellcheck cannot see
+  # through eval, hence the disables. Declared then assigned separately: a
+  # `local X="$(...)"` would mask the command substitution's exit status and
+  # this must fail closed under set -e.
   local LABELS LABELS2
+  # shellcheck disable=SC2034
   LABELS="$(canonical_images)"
+  # shellcheck disable=SC2034
   LABELS2="$(bash -c '. "$1"/scripts/lib/common.sh; matrix_image_labels' _ "$ROOT")"
   t "the canonical matrix equals the shipping image set" \
     '[ "$(grep -c . <<<"$LABELS")" = "$(grep -c . <<<"$LABELS2")" ] &&
