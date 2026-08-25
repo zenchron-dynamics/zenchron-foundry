@@ -54,6 +54,15 @@ on:
         description: "Image families to smoke (space- or comma-separated), e.g. 'php-fpm nginx'; empty means the whole matrix"
         required: false
         default: ""
+      candidate_evidence:
+        # BUILDLESS MODE. The from-source mode proves the runtime works on arm64
+        # hardware — but about images no release will ever ship. Release
+        # authorization needs evidence about the EXACT bytes being authorized,
+        # so this takes a committed acceptance-evidence record, pulls its
+        # linux/arm64 children BY DIGEST, and smokes those. Nothing is built.
+        description: "Path to an acceptance-evidence JSON whose linux/arm64 children are smoked by digest (buildless). Empty means build the whole matrix from source."
+        required: false
+        default: ""
       validation_run:
         # Off by default: the master-only refusal stands unless a human asks for
         # a branch validation. A validation run smokes for real but stamps its
@@ -80,6 +89,54 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: {fetch-depth: 1}
+
+      # FAIL CLOSED IF HOSTED ARM64 AVAILABILITY CHANGES.
+      #
+      # `ubuntu-24.04-arm` is free and unlimited on PUBLIC repositories and does
+      # not work on private ones. If this repository is ever made private the
+      # label stops resolving — and a job that never starts produces no evidence
+      # and no refusal, which reads to a release path as "nothing to see". So the
+      # precondition is checked HERE, on a GitHub-hosted x64 runner that always
+      # schedules, and the workflow fails loudly BEFORE the arm64 job is queued.
+      #
+      # This is also why `active_runner` is asserted against the policy: a change
+      # that quietly re-pointed the smoke at an amd64 label would be caught by
+      # tests/release/test_native_arch_contract.sh, and a change to GitHub's terms
+      # is caught here.
+      - name: Refuse if the hosted arm64 precondition no longer holds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          vis="$(gh api "repos/${GITHUB_REPOSITORY}" -q .visibility)"
+          echo "repository visibility: ${vis}"
+          [ "$vis" = public ] || {
+            echo "REFUSE: GitHub's standard hosted arm64 runners are available only on"
+            echo "        PUBLIC repositories, and this repository now reports"
+            echo "        visibility='${vis}'. The label 'ubuntu-24.04-arm' will not"
+            echo "        resolve, so no native evidence can be produced. This job fails"
+            echo "        rather than letting the arm64 job queue indefinitely and leave"
+            echo "        the release path with silence instead of a refusal."
+            echo "        Fix: enrol a persistent self-hosted ARM64 runner and switch"
+            echo "        policies/native-arch-requirements.yaml active_runner to"
+            echo "        self-hosted-persistent-arm64."
+            exit 1; }
+          # The label the policy marks active must still be one GitHub documents
+          # as an arm64 Linux runner. A silent re-point to an amd64 label is the
+          # other way this workflow could stop being native without failing.
+          python3 -c "import yaml" 2>/dev/null || pip install --quiet pyyaml
+          python3 - <<'PY'
+          import sys, yaml
+          d = yaml.safe_load(open("policies/native-arch-requirements.yaml"))
+          a = [r for r in d["accepted_runners"] if r["id"] == d["active_runner"]][0]
+          labels = set(a.get("labels") or [])
+          KNOWN = {"ubuntu-24.04-arm", "ubuntu-22.04-arm", "ubuntu-26.04-arm"}
+          if not (labels & KNOWN or {"self-hosted", "ARM64"} <= labels):
+              print("REFUSE: the active runner %r carries labels %s, none of which is a "
+                    "documented arm64 Linux runner." % (a["id"], sorted(labels)))
+              sys.exit(1)
+          print("active runner %s -> %s" % (a["id"], sorted(labels)))
+          PY
       - name: Refuse a non-default ref unless a validation run was requested
         id: ref
         env:
@@ -165,12 +222,71 @@ jobs:
             echo "free_before_kb=${avail_kb}"
           } >> "$GITHUB_OUTPUT"
 
+      # WHICH MODE. A candidate set turns this into a buildless smoke over
+      # immutable digests; an empty input keeps the from-source matrix run.
+      - name: Resolve the candidate set
+        id: cand
+        env:
+          CANDIDATE_EVIDENCE: ${{ inputs.candidate_evidence }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CANDIDATE_EVIDENCE" ]; then
+            echo "mode=matrix" >> "$GITHUB_OUTPUT"
+            echo "no candidate evidence supplied -> from-source matrix smoke"
+            exit 0
+          fi
+          [ -f "$CANDIDATE_EVIDENCE" ] || {
+            echo "REFUSE: '$CANDIDATE_EVIDENCE' is not a file in this checkout. The"
+            echo "        candidate set must be committed evidence, not something"
+            echo "        assembled at dispatch time."; exit 1; }
+          jq '{source_revision, platform:"linux/arm64",
+               images: ([.children[]
+                         | select(.platform=="linux/arm64")
+                         | {key:.image_label, value:.digest_reference}] | from_entries)}' \
+            "$CANDIDATE_EVIDENCE" > candidate-set.json
+          n="$(jq '.images|length' candidate-set.json)"
+          [ "$n" -gt 0 ] || {
+            echo "REFUSE: '$CANDIDATE_EVIDENCE' names no linux/arm64 children."; exit 1; }
+          echo "mode=candidates" >> "$GITHUB_OUTPUT"
+          {
+            echo "revision=$(jq -r .source_revision candidate-set.json)"
+            echo "images=$n"
+          } >> "$GITHUB_OUTPUT"
+          jq . candidate-set.json
+
+      - name: Login to GHCR (read-only, to pull candidates by digest)
+        if: steps.cand.outputs.mode == 'candidates'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      # NATIVE, BY DIGEST. The refusals live in the script, which is self-tested
+      # offline: a wrong-architecture host, a mutable reference, an image outside
+      # the matrix, a partial candidate set and an empty set all refuse there.
+      - name: Smoke the immutable candidates on this native host
+        id: candsmoke
+        if: steps.cand.outputs.mode == 'candidates'
+        env:
+          NSC_UNAME_M: ${{ steps.arch.outputs.uname_m }}
+          NSC_RUNNER_KIND: ephemeral-hosted
+          NSC_RUNNER_LABEL: ubuntu-24.04-arm
+          NSC_RUN_ID: ${{ github.run_id }}
+          NSC_AUTHORITATIVE: ${{ needs.guard.outputs.authoritative }}
+        run: |
+          set -euo pipefail
+          mkdir -p native-evidence
+          bash scripts/release/native-smoke-candidates.sh candidate-set.json native-evidence
+          echo "verdict=PASS" >> "$GITHUB_OUTPUT"
+
       # THE INPUT, ACTUALLY READ. An unknown family REFUSES here rather than
       # reaching smoke-all.sh and quietly matching nothing. smoke-all.sh does
       # exit non-zero on zero images tested, but a typo should be named at the
       # boundary where it was made, not diagnosed from an empty matrix.
       - name: Resolve the requested families
         id: fams
+        if: steps.cand.outputs.mode == 'matrix'
         env:
           REQUESTED: ${{ inputs.families }}
         run: |
@@ -194,6 +310,7 @@ jobs:
 
       - name: Run the native arm64 runtime smoke
         id: smoke
+        if: steps.cand.outputs.mode == 'matrix'
         env:
           SMOKE_FAMILIES: ${{ steps.fams.outputs.families }}
         run: |
@@ -223,7 +340,8 @@ jobs:
             echo "used_kb=${used_kb}"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Record the native runtime evidence
+      - name: Record the native runtime evidence (from-source matrix mode)
+        if: steps.cand.outputs.mode == 'matrix'
         env:
           HOST_ARCH: ${{ steps.arch.outputs.host_arch }}
           EXEC_MODE: ${{ steps.arch.outputs.execution_mode }}
@@ -264,12 +382,36 @@ jobs:
           jq . native-evidence/native-arm64.json
 
       - name: The evidence must satisfy the native contract
+        env:
+          MODE: ${{ steps.cand.outputs.mode }}
+          REVISION: ${{ steps.cand.outputs.revision }}
+          AUTHORITATIVE: ${{ needs.guard.outputs.authoritative }}
         run: |
           set -euo pipefail
-          # child_key is required by the gate's shape; add it for the standalone record.
-          jq '. + {child_key:"native-smoke/linux/arm64"}' native-evidence/native-arm64.json \
-            > native-evidence/tmp && mv native-evidence/tmp native-evidence/native-arm64.json
-          bash scripts/release/assert-native-arch-evidence.sh native-evidence --require-native linux/arm64
+          if [ "$MODE" = matrix ]; then
+            # child_key is required by the gate's shape; add it for the standalone record.
+            jq '. + {child_key:"native-smoke/linux/arm64"}' native-evidence/native-arm64.json \
+              > native-evidence/tmp && mv native-evidence/tmp native-evidence/native-arm64.json
+            bash scripts/release/assert-native-arch-evidence.sh native-evidence \
+              --require-native linux/arm64
+            exit 0
+          fi
+          # BUILDLESS MODE: check the evidence against the SAME release binding a
+          # release would apply — same script, same flags, same candidate digests.
+          jq '.images | with_entries(.value |= (split("@")[1]))' candidate-set.json \
+            > expect-digests.json
+          # --allow-non-authoritative applies ONLY to this workflow's own
+          # self-check, so a branch validation run can still prove the composition.
+          # The release path never passes it: scripts/release/authorize-staged-
+          # candidates.sh invokes the gate without it, so branch evidence is
+          # refused there. tests/release/test_native_arch_release_gate.sh asserts
+          # exactly that, so this convenience cannot leak into the release path.
+          extra=""
+          [ "$AUTHORITATIVE" = true ] || extra="--allow-non-authoritative"
+          # shellcheck disable=SC2086
+          bash scripts/release/assert-native-arch-evidence.sh native-evidence \
+            --require-native linux/arm64 --gate-release \
+            --expect-revision "$REVISION" --expect-digests expect-digests.json $extra
 
       - name: Upload native evidence
         if: always()

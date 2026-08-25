@@ -40,6 +40,25 @@ on:
           made from.
         type: string
         default: "linux/amd64"
+      native_arm64_evidence_run:
+        # THE #111 BINDING, ON THE CANONICAL RELEASE PATH.
+        #
+        # policies/native-arch-requirements.yaml sets
+        # release_gate.require_native_arm64: true. That flag used to be inert
+        # here — assert-native-arch-evidence.sh was invoked by the native smoke
+        # workflow and by no release-gating workflow, so an arm64 run built
+        # entirely on QEMU evidence was authorized without the boundary ever
+        # being consulted. This input is how the evidence reaches the gate.
+        #
+        # It is the run id of a `native arm64 smoke (#111)` run dispatched with
+        # a candidate_evidence set covering these digests. Leaving it empty while
+        # requesting linux/arm64 does NOT skip the gate: the authorizer refuses,
+        # by name, for want of native evidence.
+        description: >-
+          Workflow run id of the native arm64 smoke that evidenced these exact
+          candidate digests. Required whenever platforms includes linux/arm64.
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -910,6 +929,7 @@ jobs:
     permissions:
       contents: read
       packages: read         # deliberately NOT write, and no id-token
+      actions: read          # to fetch the native arm64 evidence artifact (#111)
     steps:
       - name: Reset workspace ownership (self-hosted hygiene, pre-checkout)
         # Canonical source: scripts/ci/reset-workspace-ownership.sh (_safe_workspace
@@ -949,8 +969,40 @@ jobs:
           path: collected
           merge-multiple: true
 
+      # NATIVE ARM64 EVIDENCE (#111), FETCHED BEFORE THE DECISION.
+      #
+      # continue-on-error is deliberately NOT set: a download that silently
+      # produced nothing would leave an empty directory, and an empty directory
+      # is exactly what the gate must not be handed. Either the evidence arrives
+      # or this step fails; either way the authorizer never sees a directory it
+      # can mistake for coverage. When no run was named, no directory is created
+      # and the authorizer refuses by name.
+      - name: Fetch the native arm64 runtime evidence
+        id: native
+        if: ${{ inputs.native_arm64_evidence_run != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.native_arm64_evidence_run }}
+        run: |
+          set -euo pipefail
+          rm -rf native-evidence && mkdir -p native-evidence
+          gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'native-arm64-evidence-*' --dir native-evidence
+          # The artifact unpacks into a per-artifact subdirectory; the gate reads
+          # a flat directory, so the records are collected to the top level.
+          find native-evidence -mindepth 2 -name '*.json' -exec mv {} native-evidence/ \;
+          n="$(find native-evidence -maxdepth 1 -name '*.json' | wc -l | tr -d ' ')"
+          echo "native evidence records: $n"
+          [ "$n" -gt 0 ] || {
+            echo "REFUSE: run $RUN_ID produced no native evidence records."; exit 1; }
+          echo "dir=native-evidence" >> "$GITHUB_OUTPUT"
+
       - name: Authorize
         env:
+          # Empty when no run was named. The authorizer treats an empty value as
+          # "no native evidence presented" and REFUSES whenever the policy makes
+          # it mandatory — it does not treat it as "not applicable".
+          NATIVE_EVIDENCE_DIR: ${{ steps.native.outputs.dir }}
           EXPECTED_REPOSITORY: ${{ github.repository }}
           EXPECTED_REVISION: ${{ github.sha }}
           EXPECTED_RUN_ID: ${{ github.run_id }}
@@ -1041,6 +1093,7 @@ jobs:
             echo "| scope | \`$(jq -r .authorization_scope "$f")\` |"
             echo "| public exposure authorized | \`$(jq -r .public_exposure_authorized "$f")\` |"
             echo "| children | $(jq -r '.children|length' "$f") / $(jq -r .expected_matrix.expected_children "$f") |"
+            echo "| native-arch gate (#111) | \`$(jq -r .native_arch_gate.verdict "$f")\` ($(jq -r .native_arch_gate.covered_images "$f")/$(jq -r .native_arch_gate.expected_images "$f") images) |"
             echo "| database snapshot | \`$(jq -r .trivy_db_snapshot.identity "$f")\` |"
             echo
             echo "Staged only to \`$(jq -r .staging_package "$f")\`. No production package, no public tag, no index, no signature."
