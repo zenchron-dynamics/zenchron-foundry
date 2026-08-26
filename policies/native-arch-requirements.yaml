@@ -157,18 +157,41 @@ release_gate:
   when_true_refuses:
     - any arm64 child whose execution_mode is not native
     - any release bundle asserting native arm64 verification without such children
-  # Stated rather than glossed. Flipping this true makes
-  # scripts/release/assert-native-arch-evidence.sh default to requiring native
-  # linux/arm64 wherever it is called — but today it is called from exactly one
-  # place, this repository's own native smoke workflow, and from NO release-gating
-  # workflow (not stage-and-authorize.yml, trusted-validation.yml,
-  # release-preflight.yml or verify-rc.yml). So the flag is honest about intent
-  # and is NOT yet load-bearing on the release path.
-  known_gap:
-    id: gate-not-wired-into-release-path
-    description: >-
-      No release-gating workflow invokes assert-native-arch-evidence.sh, so this
-      flag does not by itself refuse a release built on emulated arm64 evidence.
-      Wiring it is repository work needing no hardware.
-    owner: maintainer
-    blocks_closure_of: 111
+  # WHERE THIS FLAG IS LOAD-BEARING. It previously was not, and said so: the
+  # gate was invoked by this repository's own native smoke workflow and by NO
+  # release-gating path, so the flag stated an intent that nothing enforced. It
+  # is now consulted at the two points on the canonical release path where the
+  # decision is actually made, and each is covered by an executed test.
+  #
+  # Adding a point here without wiring it is caught: tests/release/
+  # test_native_arch_release_gate.sh asserts each enforced_at entry names a file
+  # that exists AND that the file really invokes the gate.
+  enforced_at:
+    - point: post-build authorization
+      component: scripts/release/authorize-staged-candidates.sh
+      invoked_by: .github/workflows/stage-and-authorize.yml
+      mechanism: >-
+        Runs assert-native-arch-evidence.sh --gate-release against the digest map
+        built from THIS run's own linux/arm64 children, so evidence about another
+        build, another source revision or another platform cannot satisfy it.
+        NATIVE_EVIDENCE_DIR is mandatory; its absence is a refusal, not a skip.
+      refuses_without_native: true
+    - point: test-only release seal
+      component: scripts/release/release-seal.sh
+      invoked_by: refusal rule R9
+      mechanism: >-
+        R9 is no longer armed by the caller's --claim-native-arm64. When this
+        flag is true the seal refuses any bundle shipping emulated linux/arm64
+        children, and additionally requires the post-build authorization record's
+        native_arch_gate verdict to be PASS — the seal does not let a bundle
+        vouch for its own architecture.
+      refuses_without_native: true
+  # The residual, stated rather than glossed. These two are the RC-authorization
+  # and seal path. verify-rc.yml and release-preflight.yml operate on already
+  # published RC manifests, downstream of authorization: an RC that reaches them
+  # has already been refused if its arm64 evidence was emulated. They are not
+  # additionally gated, and nothing here claims they are.
+  not_enforced_at:
+    - .github/workflows/verify-rc.yml
+    - .github/workflows/release-preflight.yml
+    - .github/workflows/trusted-validation.yml

@@ -319,6 +319,16 @@ PY
   # The canonical authorization the bundle requires, rebuilt offline from the
   # accepted evidence (see tests/lib/make_authorization_fixture.py).
   local VS_AUTHREC="$tmp/post-build-authorization.json"
+  # The accepted record is EMULATED arm64, and release-seal.sh now refuses to
+  # seal that while policies/native-arch-requirements.yaml requires native (#111).
+  # This verifier is not the place that boundary is tested — its subject is the
+  # SEAL — so it needs a bundle that seals. tests/lib/make_native_arm64_fixture.py
+  # produces one, stamped, from the same run. The refusal itself is asserted in
+  # release-seal.sh's own self-test and in tests/release/test_native_arch_release_gate.sh.
+  local EVN="$tmp/ev-native.json"
+  python3 "$VS_ROOT/tests/lib/make_native_arm64_fixture.py" "$EV" "$EVN" >/dev/null \
+    || { echo "SKIP - native fixture unavailable"; return 0; }
+  EV="$EVN"
   python3 "$VS_ROOT/tests/lib/make_authorization_fixture.py" "$EV" "$VS_AUTHREC" \
     || { echo "SKIP - authorization fixture unavailable"; return 0; }
 

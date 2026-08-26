@@ -53,6 +53,27 @@ WORKFLOW_REF = (
 STAGING_PACKAGE = "ghcr.io/zenchron-dynamics/foundry-staging"
 
 
+def _native_gate(ev):
+    """Reconstruct the native-architecture gate result from the evidence."""
+    arm = [c for c in ev["children"] if c["platform"] == "linux/arm64"]
+    native = [c for c in arm if c.get("execution_mode") == "native"]
+    if not arm:
+        verdict = "NOT_REQUIRED"
+    elif len(native) == len(arm):
+        verdict = "PASS"
+    else:
+        verdict = "FAIL"
+    return {
+        "policy": "policies/native-arch-requirements.yaml",
+        "required": "true" if arm else "false",
+        "platform": "linux/arm64",
+        "verdict": verdict,
+        "evidence_records": len(native),
+        "covered_images": len({c["image_label"] for c in native}),
+        "expected_images": len({c["image_label"] for c in arm}),
+    }
+
+
 def build(ev):
     ar = ev["authorization_record"]
     acc = ev["acceptance"]
@@ -105,6 +126,12 @@ def build(ev):
             }
             for c in ev["children"]
         ],
+        # The #111 native-architecture gate's result, DERIVED from the evidence
+        # rather than asserted: an emulated run reconstructs as a FAILING gate,
+        # a native one as a passing gate. A fixture that always reported PASS
+        # would let the seal's native requirement pass over emulated evidence,
+        # which is the exact thing it exists to refuse.
+        "native_arch_gate": _native_gate(ev),
         "authorization_scope": ar["authorization_scope"],
         "public_exposure_authorized": bool(ar["public_exposure_authorized"]),
         "verdict": acc["verdict"],
@@ -125,10 +152,14 @@ def main(argv):
     ap.add_argument("--platforms")
     ap.add_argument("--evidence-sha")
     ap.add_argument("--schema-invalid", action="store_true")
+    ap.add_argument("--native-gate", choices=["PASS", "FAIL", "NOT_REQUIRED"],
+                    help="force native_arch_gate.verdict, independently of the evidence")
     a = ap.parse_args(argv)
 
     rec = build(json.load(open(a.evidence)))
 
+    if a.native_gate:
+        rec["native_arch_gate"]["verdict"] = a.native_gate
     if a.revision:
         rec["source_revision"] = a.revision
         for c in rec["children"]:

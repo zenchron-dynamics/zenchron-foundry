@@ -139,6 +139,55 @@
       "type": "string",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
       "description": "The org.opencontainers.image.created value every child was built with, frozen once for the run. Repository metadata such as updated_at is not evidence of when these images were built."
+    },
+    "native_arch_gate": {
+      "description": "The #111 native-architecture gate's own result, recorded so a consumer can see whether it ran rather than assuming it did. `required` is the policy's answer, not the caller's. NOT in the schema's required list, so records emitted before this block existed stay valid \u2014 the same rule phase_timing follows. The gate is fail-closed at CONSUMPTION instead: scripts/release/release-seal.sh R9 refuses any bundle whose authorization does not report verdict PASS, and a record with no block at all reports no verdict.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "required",
+        "platform",
+        "verdict",
+        "evidence_records",
+        "covered_images",
+        "expected_images"
+      ],
+      "properties": {
+        "policy": {
+          "const": "policies/native-arch-requirements.yaml"
+        },
+        "required": {
+          "enum": [
+            "true",
+            "false",
+            "unreadable"
+          ]
+        },
+        "platform": {
+          "type": "string",
+          "pattern": "^linux/[a-z0-9]+$"
+        },
+        "verdict": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_REQUIRED"
+          ]
+        },
+        "evidence_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "covered_images": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_images": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
     }
   },
   "$defs": {

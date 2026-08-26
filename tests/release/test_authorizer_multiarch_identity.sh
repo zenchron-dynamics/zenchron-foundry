@@ -49,6 +49,7 @@ PKG="ghcr.io/zenchron-dynamics/foundry-staging"
 run_auth() { # run_auth <evidence-dir> <out.json> [platforms] [script]
   local d="$1" out="$2" plats="${3:-linux/amd64,linux/arm64}" scr="${4:-$ASC}"
   EVIDENCE_ROOT="$d" \
+  NATIVE_EVIDENCE_DIR="${d}-native" \
   EXPECTED_REPOSITORY="zenchron-dynamics/zenchron-foundry" \
   EXPECTED_REVISION="$REV" EXPECTED_RUN_ID=1 EXPECTED_RUN_ATTEMPT=1 \
   EXPECTED_PLATFORMS="$plats" EXPECTED_STAGING_PACKAGE="$PKG" \
@@ -83,6 +84,29 @@ mkfull() { # mkfull <dir>
         smoke_test:"PASS", scan:"PASS", reconciliation:"PASS",
         metadata_contract:"PASS", evidence_sha256:$s}' > "$d/child-$i.json"
     done
+  done < <(bash -c '. scripts/lib/common.sh; matrix_image_labels')
+  mknative "$d"
+}
+
+# NATIVE ARM64 RUNTIME EVIDENCE for the same digests (#111). The authorizer now
+# runs the native-architecture gate whenever linux/arm64 is requested, so a
+# fixture that cannot satisfy it would make every case below refuse for a reason
+# that has nothing to do with child identity. The directory is a SIBLING of the
+# evidence root: the authorizer collects children with an unbounded `find`, so a
+# nested one would be read back as malformed children.
+mknative() { # mknative <evidence-dir>
+  local d="${1}-native" lbl
+  mkdir -p "$d"
+  while IFS= read -r lbl; do
+    jq -nc --arg l "$lbl" --arg dg "$DIG" --arg p "$PKG" --arg rev "$REV" '{
+      record_type:"native-arch-runtime-evidence",
+      child_key:($l+"/linux/arm64"), image_label:$l, platform:"linux/arm64",
+      host_architecture:"arm64", execution_mode:"native",
+      architecture_source:"measured", uname_m:"aarch64",
+      runner_kind:"ephemeral-hosted", runner_label:"ubuntu-24.04-arm",
+      source_revision:$rev, manifest_digest:$dg,
+      digest_reference:($p+"@"+$dg), runtime_smoke:"PASS", authoritative:true}' \
+      > "$d/$(printf '%s' "$lbl" | tr '/' '-').json"
   done < <(bash -c '. scripts/lib/common.sh; matrix_image_labels')
 }
 

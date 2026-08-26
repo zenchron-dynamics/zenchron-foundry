@@ -1,0 +1,20 @@
+{
+  "record_type": "native-arch-runtime-evidence",
+  "child_key": "php-worker/8.4/linux/arm64",
+  "image_label": "php-worker/8.4",
+  "platform": "linux/arm64",
+  "host_architecture": "arm64",
+  "execution_mode": "native",
+  "architecture_source": "measured",
+  "uname_m": "aarch64",
+  "image_config_architecture": "arm64",
+  "runner_kind": "ephemeral-hosted",
+  "runner_label": "ubuntu-24.04-arm",
+  "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+  "manifest_digest": "sha256:33aaa754c4c60eebce844411e5eb334cee53d07045ba564a04058081d5ea39db",
+  "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:33aaa754c4c60eebce844411e5eb334cee53d07045ba564a04058081d5ea39db",
+  "runtime_smoke": "PASS",
+  "workflow_run_id": 32857950223,
+  "authoritative": false,
+  "full_matrix": true
+}
