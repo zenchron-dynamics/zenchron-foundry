@@ -1,0 +1,49 @@
+#6 [3/3] RUN set -eux;     echo "== dpkg libaom/libavif =="; dpkg-query -W "libaom*" "libavif*" || true;     echo "== gd_info =="; php -r 'print_r(gd_info());';     echo "== ldd gd.so =="; ldd "$(php -r 'echo ini_get("extension_dir");')/gd.so" | grep -E "avif|aom|webp|png|jpeg|freetype" || true
+#6 0.196 + echo == dpkg libaom/libavif ==
+#6 0.196 == dpkg libaom/libavif ==
+#6 0.197 + dpkg-query -W libaom* libavif*
+#6 0.219 libaom3:amd64	3.6.0-1+deb12u2
+#6 0.219 libavif15:amd64	0.11.1-1+deb12u1
+#6 0.221 == gd_info ==
+#6 0.221 + echo == gd_info ==
+#6 0.221 + php -r print_r(gd_info());
+#6 0.329 Array
+#6 0.329 (
+#6 0.329     [GD Version] => bundled (2.1.0 compatible)
+#6 0.329     [FreeType Support] => 1
+#6 0.329     [FreeType Linkage] => with freetype
+#6 0.329     [GIF Read Support] => 1
+#6 0.329     [GIF Create Support] => 1
+#6 0.329     [JPEG Support] => 1
+#6 0.329     [PNG Support] => 1
+#6 0.329     [WBMP Support] => 1
+#6 0.329     [XPM Support] => 1
+#6 0.329     [XBM Support] => 1
+#6 0.329     [WebP Support] => 1
+#6 0.329     [BMP Support] => 1
+#6 0.329     [AVIF Support] => 1
+#6 0.329     [TGA Read Support] => 1
+#6 0.329     [JIS-mapped Japanese Font Support] => 
+#6 0.329 )
+#6 0.339 == ldd gd.so ==
+#6 0.339 + echo == ldd gd.so ==
+#6 0.340 + grep -E avif|aom|webp|png|jpeg|freetype
+#6 0.341 + php -r echo ini_get("extension_dir");
+#6 0.467 + ldd /usr/local/lib/php/extensions/no-debug-zts-20240924/gd.so
+#6 0.531 	libpng16.so.16 => /lib/x86_64-linux-gnu/libpng16.so.16 (0x00007fffff6f7000)
+#6 0.531 	libavif.so.15 => /lib/x86_64-linux-gnu/libavif.so.15 (0x00007fffff6cf000)
+#6 0.531 	libwebp.so.7 => /lib/x86_64-linux-gnu/libwebp.so.7 (0x00007fffff65d000)
+#6 0.531 	libjpeg.so.62 => /lib/x86_64-linux-gnu/libjpeg.so.62 (0x00007fffff5ca000)
+#6 0.531 	libfreetype.so.6 => /lib/x86_64-linux-gnu/libfreetype.so.6 (0x00007fffff4ea000)
+#6 0.531 	libaom.so.3 => /lib/x86_64-linux-gnu/libaom.so.3 (0x00007ffffdd66000)
+#6 DONE 0.5s
+
+#7 exporting to image
+#7 exporting layers 0.1s done
+#7 writing image sha256:cbb9d939b0caf63bdf715a6583a9b769a18ca2fbae7e2ba55ce51c9d8ba2c6b9
+#7 writing image sha256:cbb9d939b0caf63bdf715a6583a9b769a18ca2fbae7e2ba55ce51c9d8ba2c6b9 done
+#7 naming to laneL/c3a:8.4 done
+#7 DONE 0.1s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/tanhc96oh0skonocdc25q6f9b
+EXIT_C3A=0
