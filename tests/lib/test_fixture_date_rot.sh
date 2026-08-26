@@ -52,6 +52,52 @@ ck "...and the sentinel really is treated as safe" \
 ck "sanity: today is before the horizon, so this guard is still meaningful" \
    "[ \"$today\" \"<\" \"$horizon\" ]"
 
+# --- SABOTAGE: reintroduce each real rotting fixture and require refusal -----
+# Both dates below are the ACTUAL values that were in the tree. 2026-08-26 had
+# already detonated (it turned master red on the day it arrived); 2026-12-31 had
+# not gone off yet and was found by this guard. A sabotage that only replays the
+# one that exploded would not prove the guard catches the quiet kind.
+_scan_dir() {  # <dir> -> risky entries, using the same rule as the real check
+  local d="$1" f dd out=""
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    f="${line%%:*}"
+    dd="$(printf '%s' "$line" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | tail -1)"
+    [ -n "$dd" ] || continue
+    [ "$dd" ">" "$horizon" ] && continue
+    grep -q -- '--today' "$f" || out="$out $f:$dd"
+  done < <(grep -rnE '^[[:space:]]*expires_at:[[:space:]]*[0-9]{4}-[0-9]{2}-[0-9]{2}' "$d" 2>/dev/null)
+  printf '%s' "$out"
+}
+
+for _bad in 2026-08-26 2026-12-31; do
+  _sb="$(mktemp -d)"; mkdir -p "$_sb/t"
+  printf 'ck "x" "true"\n    expires_at: %s\n' "$_bad" > "$_sb/t/test_planted.sh"
+  ck "SABOTAGE: a fixture expiring $_bad without --today is REFUSED" \
+     "[ -n \"$(_scan_dir "$_sb")\" ]"
+  # ...and the SAME fixture becomes acceptable once the file pins --today,
+  # which is the documented escape hatch for tests that exercise expiry itself.
+  printf 'bash r.sh --today %s\n    expires_at: %s\n' "$_bad" "$_bad" > "$_sb/t/test_planted.sh"
+  ck "...but is ACCEPTED when that same file pins --today (expiry tests stay possible)" \
+     "[ -z \"$(_scan_dir "$_sb")\" ]"
+  rm -rf "$_sb"
+done
+
+# --- the detector must NOT police real policy files -------------------------
+# policies/vulnerability-exceptions.yaml legitimately carries 55 entries dated
+# 2026-08-31 and 4 dated 2026-09-01. Those are REAL risk decisions whose lapsing
+# is the entire point of the gate. A guard that flagged them would be demanding
+# the ledger lie about its own expiry dates.
+ck "real policy expiries exist and are well inside the horizon" \
+   "[ \"$(grep -cE '^[[:space:]]*expires_at:[[:space:]]*2026-' policies/vulnerability-exceptions.yaml)\" -ge 50 ]"
+# The exemption is LOAD-BEARING, not incidental: applying the identical rule to
+# policies/ flags dozens of real records. What keeps them safe is that the
+# production scan only ever looks at tests/.
+ck "applying the same rule to policies/ WOULD flag real records (exemption matters)" \
+   "[ -n \"$(_scan_dir policies)\" ]"
+ck "...and the real detector never reaches a policy file" \
+   "[ \"$(fixture_expiries | grep -c '^policies/')\" = 0 ]"
+
 echo "----"
 [ "$fail" -eq 0 ] && echo "test_fixture_date_rot: PASS" || echo "test_fixture_date_rot: FAIL"
 exit $fail
