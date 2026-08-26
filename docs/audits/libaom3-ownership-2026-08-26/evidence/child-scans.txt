@@ -1,0 +1,18 @@
+########## lanel/frankenphp:8.4-baseline ##########
+OS CRITICAL+HIGH total: 79
+aom/avif findings: 6
+   ('CVE-2023-39616', 'libaom3', '3.6.0-1+deb12u2', '-', 'HIGH')
+   ('CVE-2023-6879', 'libaom3', '3.6.0-1+deb12u2', '-', 'CRITICAL')
+   ('CVE-2026-56208', 'libaom3', '3.6.0-1+deb12u2', '-', 'HIGH')
+   ('CVE-2026-56209', 'libaom3', '3.6.0-1+deb12u2', '-', 'HIGH')
+   ('CVE-2026-56210', 'libaom3', '3.6.0-1+deb12u2', '-', 'HIGH')
+   ('CVE-2026-56211', 'libaom3', '3.6.0-1+deb12u2', '-', 'HIGH')
+
+########## lanel/c3b:8.4 ##########
+OS CRITICAL+HIGH total: 266
+aom/avif findings: 0
+
+########## lanel/c2b:8.4-trixie ##########
+OS CRITICAL+HIGH total: 134
+aom/avif findings: 0
+
