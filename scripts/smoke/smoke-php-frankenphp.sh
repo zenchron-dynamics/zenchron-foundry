@@ -61,4 +61,31 @@ check "read-only rootfs: HTTP listener answers on :8080" \
 check "readiness endpoint /healthz returns ok on :8081" \
     poll_http_body "http://127.0.0.1:${READY_PORT:-0}/healthz" "ok" 20
 
+# --- the PHP runtime must actually LOAD what it ships -----------------------
+# Every assertion above passes on an image whose `gd` extension cannot load:
+# the checks are about identity, ports, the document root and two HTTP
+# endpoints, and not one of them starts PHP with its extensions. Measured on a
+# deliberately broken build (libaom3 purged, taking libavif15 with it): this
+# smoke returned 8 passed / 0 failed while `extension_loaded("gd")` was false
+# and `imagecreatetruecolor()` was an undefined function.
+#
+# So a "remediation" that deletes a shipped capability reaches production
+# green. That is the vacuous-gate class: the suite answers "does it serve
+# HTTP", never "does the runtime work".
+#
+# PHP reports a failed dynamic load on stderr at startup and still exits 0,
+# so the exit status cannot be trusted here — the diagnostic is the signal.
+php_starts_clean() {
+    local out
+    out="$(docker run --rm --entrypoint php "$IMG" -m 2>&1 >/dev/null || true)"
+    if grep -q 'Unable to load dynamic library' <<<"$out"; then
+        printf '    %s\n' "$(grep -m1 'Unable to load dynamic library' <<<"$out" | cut -c1-200)" >&2
+        return 1
+    fi
+    return 0
+}
+
+check "every shipped PHP extension loads (no startup load failure)" \
+    php_starts_clean
+
 finish
