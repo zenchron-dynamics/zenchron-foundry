@@ -1,0 +1,56 @@
+########## REMOVAL TEST (candidate 4): purge libaom3 in laneL/php-frankenphp:8.3-baseline ##########
+--- BEFORE: php -m | wc -l = 49; gd loaded: true
+--- purged. dpkg-query: ---
+dpkg-query: no packages found matching libaom*
+dpkg-query: no packages found matching libavif*
+--- AFTER: php -m (stderr shown) ---
+PHP Warning:  PHP Startup: Unable to load dynamic library 'gd' (tried: /usr/local/lib/php/extensions/no-debug-zts-20230831/gd (/usr/local/lib/php/extensions/no-debug-zts-20230831/gd: cannot open shared object file: No such file or directory), /usr/local/lib/php/extensions/no-debug-zts-20230831/gd.so (libavif.so.15: cannot open shared object file: No such file or directory)) in Unknown on line 0
+[PHP Modules]
+bcmath
+Core
+ctype
+curl
+date
+dom
+fileinfo
+filter
+hash
+iconv
+--- AFTER: gd loaded? ---
+PHP Warning:  PHP Startup: Unable to load dynamic library 'gd' (tried: /usr/local/lib/php/extensions/no-debug-zts-20230831/gd (/usr/local/lib/php/extensions/no-debug-zts-20230831/gd: cannot open shared object file: No such file or directory), /usr/local/lib/php/extensions/no-debug-zts-20230831/gd.so (libavif.so.15: cannot open shared object file: No such file or directory)) in Unknown on line 0
+bool(false)
+--- AFTER: basic PNG op (imagecreatetruecolor+imagepng) ---
+PHP Warning:  PHP Startup: Unable to load dynamic library 'gd' (tried: /usr/local/lib/php/extensions/no-debug-zts-20230831/gd (/usr/local/lib/php/extensions/no-debug-zts-20230831/gd: cannot open shared object file: No such file or directory), /usr/local/lib/php/extensions/no-debug-zts-20230831/gd.so (libavif.so.15: cannot open shared object file: No such file or directory)) in Unknown on line 0
+PHP Fatal error:  Uncaught Error: Call to undefined function imagecreatetruecolor() in Command line code:1
+Stack trace:
+#0 {main}
+  thrown in Command line code on line 1
+
+########## REMOVAL TEST (candidate 4): purge libaom3 in laneL/php-frankenphp:8.4-baseline ##########
+--- BEFORE: php -m | wc -l = 49; gd loaded: true
+--- purged. dpkg-query: ---
+dpkg-query: no packages found matching libaom*
+dpkg-query: no packages found matching libavif*
+--- AFTER: php -m (stderr shown) ---
+PHP Warning:  PHP Startup: Unable to load dynamic library 'gd' (tried: /usr/local/lib/php/extensions/no-debug-zts-20240924/gd (/usr/local/lib/php/extensions/no-debug-zts-20240924/gd: cannot open shared object file: No such file or directory), /usr/local/lib/php/extensions/no-debug-zts-20240924/gd.so (libavif.so.15: cannot open shared object file: No such file or directory)) in Unknown on line 0
+[PHP Modules]
+bcmath
+Core
+ctype
+curl
+date
+dom
+fileinfo
+filter
+hash
+iconv
+--- AFTER: gd loaded? ---
+PHP Warning:  PHP Startup: Unable to load dynamic library 'gd' (tried: /usr/local/lib/php/extensions/no-debug-zts-20240924/gd (/usr/local/lib/php/extensions/no-debug-zts-20240924/gd: cannot open shared object file: No such file or directory), /usr/local/lib/php/extensions/no-debug-zts-20240924/gd.so (libavif.so.15: cannot open shared object file: No such file or directory)) in Unknown on line 0
+bool(false)
+--- AFTER: basic PNG op (imagecreatetruecolor+imagepng) ---
+PHP Warning:  PHP Startup: Unable to load dynamic library 'gd' (tried: /usr/local/lib/php/extensions/no-debug-zts-20240924/gd (/usr/local/lib/php/extensions/no-debug-zts-20240924/gd: cannot open shared object file: No such file or directory), /usr/local/lib/php/extensions/no-debug-zts-20240924/gd.so (libavif.so.15: cannot open shared object file: No such file or directory)) in Unknown on line 0
+PHP Fatal error:  Uncaught Error: Call to undefined function imagecreatetruecolor() in Command line code:1
+Stack trace:
+#0 {main}
+  thrown in Command line code on line 1
+

@@ -1,0 +1,41 @@
+		gd)
+			if test $PHP_MAJMIN_VERSION -le 506; then
+				docker-php-ext-configure gd --with-gd --with-jpeg-dir --with-png-dir --with-zlib-dir --with-xpm-dir --with-freetype-dir --enable-gd-native-ttf --with-vpx-dir
+			elif test $PHP_MAJMIN_VERSION -le 701; then
+				docker-php-ext-configure gd --with-gd --with-jpeg-dir --with-png-dir --with-zlib-dir --with-xpm-dir --with-freetype-dir --enable-gd-native-ttf --with-webp-dir
+			elif test $PHP_MAJMIN_VERSION -le 703; then
+				docker-php-ext-configure gd --with-gd --with-jpeg-dir --with-png-dir --with-zlib-dir --with-xpm-dir --with-freetype-dir --with-webp-dir
+			elif test $PHP_MAJMIN_VERSION -le 800; then
+				docker-php-ext-configure gd --enable-gd --with-webp --with-jpeg --with-xpm --with-freetype
+			else
+				installBundledModule_tmp=0
+				case "$DISTRO" in
+					alpine)
+						if test $DISTRO_MAJMIN_VERSION -ge 315; then
+							installBundledModule_tmp=1
+						fi
+						;;
+					debian)
+						if test $DISTRO_VERSION_NUMBER -ge 12; then
+							installBundledModule_tmp=1
+						fi
+						;;
+				esac
+				if test $installBundledModule_tmp -eq 0; then
+					if isLibaomInstalled && isLibdav1dInstalled && isLibyuvInstalled && isLibavifInstalled; then
+						installBundledModule_tmp=1
+					fi
+				fi
+				if test $installBundledModule_tmp -eq 1; then
+					docker-php-ext-configure gd --enable-gd --with-webp --with-jpeg --with-xpm --with-freetype --with-avif
+				else
+					docker-php-ext-configure gd --enable-gd --with-webp --with-jpeg --with-xpm --with-freetype
+				fi
+			fi
+			;;
+		gmp)
+			if test $PHP_MAJMIN_VERSION -le 506; then
+				if ! test -f /usr/include/gmp.h; then
+					ln -s /usr/include/$TARGET_TRIPLET/gmp.h /usr/include/gmp.h
+					UNNEEDED_PACKAGE_LINKS="$UNNEEDED_PACKAGE_LINKS /usr/include/gmp.h"
+				fi
