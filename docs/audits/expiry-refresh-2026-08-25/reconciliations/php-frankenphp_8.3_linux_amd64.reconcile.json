@@ -1,0 +1,1433 @@
+{
+  "image": "php-frankenphp/8.3",
+  "arch": "linux/amd64",
+  "checked_at": "2026-08-25",
+  "findings_total": 81,
+  "not_affected": [
+    {
+      "id": "CVE-2026-13221",
+      "package": "libperl5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "not_affected": {
+        "cve": "CVE-2026-13221",
+        "image": "php-8.3-8.4",
+        "package": [
+          "libperl5.36",
+          "perl",
+          "perl-base",
+          "perl-modules-5.36"
+        ],
+        "classification": "false-positive-disputed-range",
+        "evidence": "Debian's own notes say the flaw was 'Introduced with ... (v5.37.10)'; bookworm ships perl 5.36.0-7+deb12u3, which PREDATES that commit. NVD's 'versions up to (including) 5.43.9' range ignores the introduction point. Empirical probe on the installed build: a 70,000-branch fixed-string alternation compiled to a trie matched correctly at branches 1/100/65534/65535/65536/65537/69999/70000 with no false positives \u2014 the entire symptom of this CVE is absent."
+      }
+    },
+    {
+      "id": "CVE-2026-13221",
+      "package": "perl",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "not_affected": {
+        "cve": "CVE-2026-13221",
+        "image": "php-8.3-8.4",
+        "package": [
+          "libperl5.36",
+          "perl",
+          "perl-base",
+          "perl-modules-5.36"
+        ],
+        "classification": "false-positive-disputed-range",
+        "evidence": "Debian's own notes say the flaw was 'Introduced with ... (v5.37.10)'; bookworm ships perl 5.36.0-7+deb12u3, which PREDATES that commit. NVD's 'versions up to (including) 5.43.9' range ignores the introduction point. Empirical probe on the installed build: a 70,000-branch fixed-string alternation compiled to a trie matched correctly at branches 1/100/65534/65535/65536/65537/69999/70000 with no false positives \u2014 the entire symptom of this CVE is absent."
+      }
+    },
+    {
+      "id": "CVE-2026-13221",
+      "package": "perl-base",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "not_affected": {
+        "cve": "CVE-2026-13221",
+        "image": "php-8.3-8.4",
+        "package": [
+          "libperl5.36",
+          "perl",
+          "perl-base",
+          "perl-modules-5.36"
+        ],
+        "classification": "false-positive-disputed-range",
+        "evidence": "Debian's own notes say the flaw was 'Introduced with ... (v5.37.10)'; bookworm ships perl 5.36.0-7+deb12u3, which PREDATES that commit. NVD's 'versions up to (including) 5.43.9' range ignores the introduction point. Empirical probe on the installed build: a 70,000-branch fixed-string alternation compiled to a trie matched correctly at branches 1/100/65534/65535/65536/65537/69999/70000 with no false positives \u2014 the entire symptom of this CVE is absent."
+      }
+    },
+    {
+      "id": "CVE-2026-13221",
+      "package": "perl-modules-5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "not_affected": {
+        "cve": "CVE-2026-13221",
+        "image": "php-8.3-8.4",
+        "package": [
+          "libperl5.36",
+          "perl",
+          "perl-base",
+          "perl-modules-5.36"
+        ],
+        "classification": "false-positive-disputed-range",
+        "evidence": "Debian's own notes say the flaw was 'Introduced with ... (v5.37.10)'; bookworm ships perl 5.36.0-7+deb12u3, which PREDATES that commit. NVD's 'versions up to (including) 5.43.9' range ignores the introduction point. Empirical probe on the installed build: a 70,000-branch fixed-string alternation compiled to a trie matched correctly at branches 1/100/65534/65535/65536/65537/69999/70000 with no false positives \u2014 the entire symptom of this CVE is absent."
+      }
+    }
+  ],
+  "governed": [
+    {
+      "id": "CVE-2026-53613",
+      "package": "bsdutils",
+      "installed_version": "1:2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53613",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53615",
+      "package": "bsdutils",
+      "installed_version": "1:2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53615",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-12064",
+      "package": "curl",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-12064",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-6276",
+      "package": "curl",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-6276",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8286",
+      "package": "curl",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8286",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8458",
+      "package": "curl",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8458",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8927",
+      "package": "curl",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8927",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-41992",
+      "package": "gzip",
+      "installed_version": "1.12-1",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-41992",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-54369",
+      "package": "libacl1",
+      "installed_version": "2.3.1-3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-54369",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2023-6879",
+      "package": "libaom3",
+      "installed_version": "3.6.0-1+deb12u2",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2023-6879",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2023-39616",
+      "package": "libaom3",
+      "installed_version": "3.6.0-1+deb12u2",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2023-39616",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-56208",
+      "package": "libaom3",
+      "installed_version": "3.6.0-1+deb12u2",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-56208",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-56209",
+      "package": "libaom3",
+      "installed_version": "3.6.0-1+deb12u2",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-56209",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-56210",
+      "package": "libaom3",
+      "installed_version": "3.6.0-1+deb12u2",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-56210",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-56211",
+      "package": "libaom3",
+      "installed_version": "3.6.0-1+deb12u2",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-56211",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53613",
+      "package": "libblkid1",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53613",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53615",
+      "package": "libblkid1",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53615",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-12064",
+      "package": "libcurl4",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-12064",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-6276",
+      "package": "libcurl4",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-6276",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8286",
+      "package": "libcurl4",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8286",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8458",
+      "package": "libcurl4",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8458",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8927",
+      "package": "libcurl4",
+      "installed_version": "7.88.1-10+deb12u15",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8927",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2023-2953",
+      "package": "libldap-2.5-0",
+      "installed_version": "2.5.13+dfsg-5",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2023-2953",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53613",
+      "package": "libmount1",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53613",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53615",
+      "package": "libmount1",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53615",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-42496",
+      "package": "libperl5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-42496",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8376",
+      "package": "libperl5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8376",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-42497",
+      "package": "libperl5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-42497",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-48962",
+      "package": "libperl5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-48962",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-57432",
+      "package": "libperl5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-57432",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-57433",
+      "package": "libperl5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-57433",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-9538",
+      "package": "libperl5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-9538",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53613",
+      "package": "libsmartcols1",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53613",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53615",
+      "package": "libsmartcols1",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53615",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2025-7458",
+      "package": "libsqlite3-0",
+      "installed_version": "3.40.1-2+deb12u2",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2025-7458",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-58050",
+      "package": "libssh2-1",
+      "installed_version": "1.10.0-3+b1",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-58050",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-7598",
+      "package": "libssh2-1",
+      "installed_version": "1.10.0-3+b1",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-7598",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-14456",
+      "package": "libssl3",
+      "installed_version": "3.0.20-1~deb12u2",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-14456",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "libtinfo6",
+      "installed_version": "6.4-4",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2025-69720",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53613",
+      "package": "libuuid1",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53613",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53615",
+      "package": "libuuid1",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53615",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-6653",
+      "package": "libxml2",
+      "installed_version": "2.9.14+dfsg-1.3~deb12u6",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-6653",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53613",
+      "package": "mount",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53613",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53615",
+      "package": "mount",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53615",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "ncurses-base",
+      "installed_version": "6.4-4",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2025-69720",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2025-69720",
+      "package": "ncurses-bin",
+      "installed_version": "6.4-4",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2025-69720",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-14456",
+      "package": "openssl",
+      "installed_version": "3.0.20-1~deb12u2",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-14456",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-42496",
+      "package": "perl",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-42496",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8376",
+      "package": "perl",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8376",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-42497",
+      "package": "perl",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-42497",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-48962",
+      "package": "perl",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-48962",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-57432",
+      "package": "perl",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-57432",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-57433",
+      "package": "perl",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-57433",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-9538",
+      "package": "perl",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-9538",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-42496",
+      "package": "perl-base",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-42496",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8376",
+      "package": "perl-base",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8376",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-42497",
+      "package": "perl-base",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-42497",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-48962",
+      "package": "perl-base",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-48962",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-57432",
+      "package": "perl-base",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-57432",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-57433",
+      "package": "perl-base",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-57433",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-9538",
+      "package": "perl-base",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-9538",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-42496",
+      "package": "perl-modules-5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-42496",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-8376",
+      "package": "perl-modules-5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-8376",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-42497",
+      "package": "perl-modules-5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-42497",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-48962",
+      "package": "perl-modules-5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-48962",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-57432",
+      "package": "perl-modules-5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-57432",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-57433",
+      "package": "perl-modules-5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-57433",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-9538",
+      "package": "perl-modules-5.36",
+      "installed_version": "5.36.0-7+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-9538",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53613",
+      "package": "util-linux",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53613",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53615",
+      "package": "util-linux",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53615",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53613",
+      "package": "util-linux-extra",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53613",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-09-01",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2026-53615",
+      "package": "util-linux-extra",
+      "installed_version": "2.38.1-5+deb12u3",
+      "fixed_version": "",
+      "severity": "HIGH",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2026-53615",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "CVE-2023-45853",
+      "package": "zlib1g",
+      "installed_version": "1:1.2.13.dfsg-1",
+      "fixed_version": "",
+      "severity": "CRITICAL",
+      "fix_available": false,
+      "exception": {
+        "cve": "CVE-2023-45853",
+        "image": "php-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": false
+      }
+    },
+    {
+      "id": "GHSA-r277-6w6q-xmqw",
+      "package": "github.com/getkin/kin-openapi",
+      "installed_version": "v0.140.0",
+      "fixed_version": "0.144.0",
+      "severity": "CRITICAL",
+      "fix_available": true,
+      "exception": {
+        "cve": "GHSA-r277-6w6q-xmqw",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "GHSA-hrxh-6v49-42gf",
+      "package": "google.golang.org/grpc",
+      "installed_version": "v1.81.1",
+      "fixed_version": "1.82.1",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "GHSA-hrxh-6v49-42gf",
+        "image": "php-frankenphp-8.3-8.4",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    }
+  ],
+  "violations": [
+    {
+      "id": "CVE-2026-76905",
+      "package": "github.com/getkin/kin-openapi",
+      "installed_version": "v0.140.0",
+      "fixed_version": "0.141.0",
+      "severity": "HIGH",
+      "fix_available": true,
+      "why": "no in-scope exception in the ledger"
+    },
+    {
+      "id": "CVE-2026-77354",
+      "package": "github.com/getkin/kin-openapi",
+      "installed_version": "v0.140.0",
+      "fixed_version": "0.142.0",
+      "severity": "HIGH",
+      "fix_available": true,
+      "why": "no in-scope exception in the ledger"
+    }
+  ],
+  "verdict": "FAIL",
+  "matched_exception_ids": [
+    "CVE-2023-2953|php-8.3-8.4|libldap-2.5-0|2.5.13+dfsg-5",
+    "CVE-2023-39616|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+    "CVE-2023-45853|php-8.3-8.4|zlib1g|1:1.2.13.dfsg-1",
+    "CVE-2023-6879|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+    "CVE-2025-69720|php-8.3-8.4|libtinfo6,ncurses-base,ncurses-bin|6.4-4",
+    "CVE-2025-7458|php-8.3-8.4|libsqlite3-0|3.40.1-2+deb12u2",
+    "CVE-2026-12064|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+    "CVE-2026-14456|php-8.3-8.4|libssl3,openssl|3.0.20-1~deb12u2",
+    "CVE-2026-41992|php-8.3-8.4|gzip|1.12-1",
+    "CVE-2026-42496|php-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+    "CVE-2026-42497|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+    "CVE-2026-48962|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+    "CVE-2026-53613|php-8.3-8.4|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+    "CVE-2026-53615|php-8.3-8.4|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+    "CVE-2026-54369|php-8.3-8.4|libacl1|2.3.1-3",
+    "CVE-2026-56208|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+    "CVE-2026-56209|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+    "CVE-2026-56210|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+    "CVE-2026-56211|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+    "CVE-2026-57432|php-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+    "CVE-2026-57433|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+    "CVE-2026-58050|php-8.3-8.4|libssh2-1|1.10.0-3+b1",
+    "CVE-2026-6276|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+    "CVE-2026-6653|php-8.3-8.4|libxml2|2.9.14+dfsg-1.3~deb12u6",
+    "CVE-2026-7598|php-8.3-8.4|libssh2-1|1.10.0-3+b1",
+    "CVE-2026-8286|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+    "CVE-2026-8376|php-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+    "CVE-2026-8458|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+    "CVE-2026-8927|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+    "CVE-2026-9538|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+    "GHSA-hrxh-6v49-42gf|php-frankenphp-8.3-8.4|google.golang.org/grpc|v1.81.1",
+    "GHSA-r277-6w6q-xmqw|php-frankenphp-8.3-8.4|github.com/getkin/kin-openapi|v0.140.0"
+  ],
+  "shadowed_exception_ids": [],
+  "binding": {
+    "child_digest": "sha256:54992c07f9dc27e5bff59bd413f19f2416014537f3dc9f782d5a90833dd6edcb",
+    "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:54992c07f9dc27e5bff59bd413f19f2416014537f3dc9f782d5a90833dd6edcb",
+    "platform": "linux/amd64",
+    "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+    "scanner": "aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
+    "frozen_vulnerability_database": "v2+updated:2026-08-25T13:00:57.303086402Z+next:2026-08-26T13:00:57.30308573Z  java-db:v1+updated:2026-08-25T01:03:11.931341203Z",
+    "exception_ledger_sha256": "babc89714281f5d7c4b34d179ef5a24a14593a3cabc4b1c897d0575768fb307c",
+    "evidence_class_policy_sha256": "9cde7a7d632874efb2b4bf387f51955e26eb8fddf4330bac7f36d0e8b982b422",
+    "evidence_class": "staged-candidate",
+    "rescan_mode": "buildless-digest-rescan"
+  }
+}

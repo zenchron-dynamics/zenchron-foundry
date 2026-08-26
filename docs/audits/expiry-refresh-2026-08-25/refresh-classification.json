@@ -1,0 +1,2741 @@
+{
+  "schema_version": 1,
+  "record_type": "expiry-refresh-classification",
+  "entries_total": 59,
+  "buckets": {
+    "upstream-moved-unpatched": 26,
+    "ownership-boundary-changed": 6,
+    "still-present": 27
+  },
+  "entries": [
+    {
+      "n": 1,
+      "exception_id": "CVE-2023-45853|php-8.3-8.4|zlib1g|1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "zlib1g"
+      ],
+      "bound_version": "1:1.2.13.dfsg-1",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:zlib1g:1:1.2.13.dfsg-1"
+    },
+    {
+      "n": 2,
+      "exception_id": "CVE-2026-42496|php-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 28,
+        "bound_hits": 28,
+        "observed": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 3,
+      "exception_id": "CVE-2026-8376|php-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 28,
+        "bound_hits": 28,
+        "observed": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 4,
+      "exception_id": "CVE-2025-7458|php-8.3-8.4|libsqlite3-0|3.40.1-2+deb12u2",
+      "cve": "CVE-2025-7458",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libsqlite3-0"
+      ],
+      "bound_version": "3.40.1-2+deb12u2",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libsqlite3-0@3.40.1-2+deb12u2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libsqlite3-0:3.40.1-2+deb12u2"
+    },
+    {
+      "n": 5,
+      "exception_id": "CVE-2023-6879|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+      "cve": "CVE-2023-6879",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libaom3"
+      ],
+      "bound_version": "3.6.0-1+deb12u2",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "ownership-boundary-changed",
+      "why": "the bound package is not installed in the upstream base at all, so the finding is owned by a Foundry layer and not by the base the record names",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "package-absent-from-base"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libaom3:3.6.0-1+deb12u2"
+    },
+    {
+      "n": 6,
+      "exception_id": "CVE-2026-27145|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-27145",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-outside-the-certified-topology",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.11, 1.26.4"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.11, 1.26.4"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 7,
+      "exception_id": "CVE-2026-42504|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-42504",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.11, 1.26.4"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.11, 1.26.4"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 8,
+      "exception_id": "CVE-2026-33630|caddy|c-ares|1.34.6-r0",
+      "cve": "CVE-2026-33630",
+      "image_selector": "caddy",
+      "packages": [
+        "c-ares"
+      ],
+      "bound_version": "1.34.6-r0",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "c-ares@1.34.6-r0 fix:1.34.8-r0"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.34.8-r0"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:c-ares:1.34.6-r0"
+    },
+    {
+      "n": 9,
+      "exception_id": "CVE-2026-6276|caddy|curl,libcurl|8.19.0-r0",
+      "cve": "CVE-2026-6276",
+      "image_selector": "caddy",
+      "packages": [
+        "curl",
+        "libcurl"
+      ],
+      "bound_version": "8.19.0-r0",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "curl@8.19.0-r0 fix:8.20.0-r0",
+          "libcurl@8.19.0-r0 fix:8.20.0-r0"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "8.20.0-r0"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:curl:8.19.0-r0"
+    },
+    {
+      "n": 10,
+      "exception_id": "GHSA-hrxh-6v49-42gf|caddy|google.golang.org/grpc|v1.81.0",
+      "cve": "GHSA-hrxh-6v49-42gf",
+      "image_selector": "caddy",
+      "packages": [
+        "google.golang.org/grpc"
+      ],
+      "bound_version": "v1.81.0",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "google.golang.org/grpc@v1.81.0 fix:1.82.1"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.82.1"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:google.golang.org/grpc:v1.81.0"
+    },
+    {
+      "n": 11,
+      "exception_id": "GHSA-hrxh-6v49-42gf|php-frankenphp-8.3-8.4|google.golang.org/grpc|v1.81.1",
+      "cve": "GHSA-hrxh-6v49-42gf",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "google.golang.org/grpc"
+      ],
+      "bound_version": "v1.81.1",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "google.golang.org/grpc@v1.81.1 fix:1.82.1"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.82.1"
+        ],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "yes",
+      "root_cause_key": "upstream-vendor-binary:google.golang.org/grpc:v1.81.1"
+    },
+    {
+      "n": 12,
+      "exception_id": "CVE-2026-5773|caddy|curl,libcurl|8.19.0-r0",
+      "cve": "CVE-2026-5773",
+      "image_selector": "caddy",
+      "packages": [
+        "curl",
+        "libcurl"
+      ],
+      "bound_version": "8.19.0-r0",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "curl@8.19.0-r0 fix:8.20.0-r0",
+          "libcurl@8.19.0-r0 fix:8.20.0-r0"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "8.20.0-r0"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:curl:8.19.0-r0"
+    },
+    {
+      "n": 13,
+      "exception_id": "CVE-2026-39822|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-39822",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.12, 1.26.5, 1.27.0-rc.2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.12, 1.26.5, 1.27.0-rc.2"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 14,
+      "exception_id": "GHSA-r277-6w6q-xmqw|php-frankenphp-8.3-8.4|github.com/getkin/kin-openapi|v0.140.0",
+      "cve": "GHSA-r277-6w6q-xmqw",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "github.com/getkin/kin-openapi"
+      ],
+      "bound_version": "v0.140.0",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "github.com/getkin/kin-openapi@v0.140.0 fix:0.144.0"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "0.144.0"
+        ],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "yes",
+      "root_cause_key": "upstream-vendor-binary:github.com/getkin/kin-openapi:v0.140.0"
+    },
+    {
+      "n": 15,
+      "exception_id": "CVE-2026-57433|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57433",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 16,
+      "exception_id": "CVE-2026-42497|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42497",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 17,
+      "exception_id": "CVE-2026-9538|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-9538",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 18,
+      "exception_id": "CVE-2026-48962|php-frankenphp-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-48962",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 19,
+      "exception_id": "CVE-2026-57432|php-8.3-8.4|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 28,
+        "bound_hits": 28,
+        "observed": [
+          "libperl5.36@5.36.0-7+deb12u3",
+          "perl-base@5.36.0-7+deb12u3",
+          "perl-modules-5.36@5.36.0-7+deb12u3",
+          "perl@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libperl5.36:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 20,
+      "exception_id": "CVE-2026-6653|php-8.3-8.4|libxml2|2.9.14+dfsg-1.3~deb12u6",
+      "cve": "CVE-2026-6653",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libxml2"
+      ],
+      "bound_version": "2.9.14+dfsg-1.3~deb12u6",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libxml2@2.9.14+dfsg-1.3~deb12u6"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libxml2:2.9.14+dfsg-1.3~deb12u6"
+    },
+    {
+      "n": 21,
+      "exception_id": "CVE-2026-8286|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8286",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "curl",
+        "libcurl4"
+      ],
+      "bound_version": "7.88.1-10+deb12u15",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 32,
+        "bound_hits": 32,
+        "observed": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:curl:7.88.1-10+deb12u15"
+    },
+    {
+      "n": 22,
+      "exception_id": "CVE-2026-8927|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8927",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "curl",
+        "libcurl4"
+      ],
+      "bound_version": "7.88.1-10+deb12u15",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 32,
+        "bound_hits": 32,
+        "observed": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:curl:7.88.1-10+deb12u15"
+    },
+    {
+      "n": 23,
+      "exception_id": "CVE-2026-12064|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+      "cve": "CVE-2026-12064",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "curl",
+        "libcurl4"
+      ],
+      "bound_version": "7.88.1-10+deb12u15",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 32,
+        "bound_hits": 32,
+        "observed": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:curl:7.88.1-10+deb12u15"
+    },
+    {
+      "n": 24,
+      "exception_id": "CVE-2026-7598|php-8.3-8.4|libssh2-1|1.10.0-3+b1",
+      "cve": "CVE-2026-7598",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libssh2-1"
+      ],
+      "bound_version": "1.10.0-3+b1",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libssh2-1:1.10.0-3+b1"
+    },
+    {
+      "n": 25,
+      "exception_id": "CVE-2023-2953|php-8.3-8.4|libldap-2.5-0|2.5.13+dfsg-5",
+      "cve": "CVE-2023-2953",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libldap-2.5-0"
+      ],
+      "bound_version": "2.5.13+dfsg-5",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libldap-2.5-0@2.5.13+dfsg-5"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libldap-2.5-0:2.5.13+dfsg-5"
+    },
+    {
+      "n": 26,
+      "exception_id": "CVE-2025-69720|php-8.3-8.4|libtinfo6,ncurses-base,ncurses-bin|6.4-4",
+      "cve": "CVE-2025-69720",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libtinfo6",
+        "ncurses-base",
+        "ncurses-bin"
+      ],
+      "bound_version": "6.4-4",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 48,
+        "bound_hits": 48,
+        "observed": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libtinfo6:6.4-4"
+    },
+    {
+      "n": 27,
+      "exception_id": "CVE-2026-53615|php-8.3-8.4|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "bsdutils",
+        "libblkid1",
+        "libmount1",
+        "libsmartcols1",
+        "libuuid1",
+        "mount",
+        "util-linux",
+        "util-linux-extra"
+      ],
+      "bound_version": [
+        "1:2.38.1-5+deb12u3",
+        "2.38.1-5+deb12u3"
+      ],
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 128,
+        "bound_hits": 128,
+        "observed": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:bsdutils:1:2.38.1-5+deb12u3"
+    },
+    {
+      "n": 28,
+      "exception_id": "CVE-2026-54369|php-8.3-8.4|libacl1|2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libacl1"
+      ],
+      "bound_version": "2.3.1-3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libacl1@2.3.1-3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libacl1:2.3.1-3"
+    },
+    {
+      "n": 29,
+      "exception_id": "CVE-2026-41992|php-8.3-8.4|gzip|1.12-1",
+      "cve": "CVE-2026-41992",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "gzip"
+      ],
+      "bound_version": "1.12-1",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "gzip@1.12-1"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:gzip:1.12-1"
+    },
+    {
+      "n": 30,
+      "exception_id": "CVE-2026-56211|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56211",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libaom3"
+      ],
+      "bound_version": "3.6.0-1+deb12u2",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "ownership-boundary-changed",
+      "why": "the bound package is not installed in the upstream base at all, so the finding is owned by a Foundry layer and not by the base the record names",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "package-absent-from-base"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libaom3:3.6.0-1+deb12u2"
+    },
+    {
+      "n": 31,
+      "exception_id": "CVE-2026-56208|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56208",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libaom3"
+      ],
+      "bound_version": "3.6.0-1+deb12u2",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "ownership-boundary-changed",
+      "why": "the bound package is not installed in the upstream base at all, so the finding is owned by a Foundry layer and not by the base the record names",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "package-absent-from-base"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libaom3:3.6.0-1+deb12u2"
+    },
+    {
+      "n": 32,
+      "exception_id": "CVE-2026-56209|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56209",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libaom3"
+      ],
+      "bound_version": "3.6.0-1+deb12u2",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "ownership-boundary-changed",
+      "why": "the bound package is not installed in the upstream base at all, so the finding is owned by a Foundry layer and not by the base the record names",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "package-absent-from-base"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libaom3:3.6.0-1+deb12u2"
+    },
+    {
+      "n": 33,
+      "exception_id": "CVE-2026-56210|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+      "cve": "CVE-2026-56210",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libaom3"
+      ],
+      "bound_version": "3.6.0-1+deb12u2",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "ownership-boundary-changed",
+      "why": "the bound package is not installed in the upstream base at all, so the finding is owned by a Foundry layer and not by the base the record names",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "package-absent-from-base"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libaom3:3.6.0-1+deb12u2"
+    },
+    {
+      "n": 34,
+      "exception_id": "CVE-2023-39616|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2",
+      "cve": "CVE-2023-39616",
+      "image_selector": "php-frankenphp-8.3-8.4",
+      "packages": [
+        "libaom3"
+      ],
+      "bound_version": "3.6.0-1+deb12u2",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "ownership-boundary-changed",
+      "why": "the bound package is not installed in the upstream base at all, so the finding is owned by a Foundry layer and not by the base the record names",
+      "evidence": {
+        "in_scope_children": [
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "libaom3@3.6.0-1+deb12u2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "package-absent-from-base"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libaom3:3.6.0-1+deb12u2"
+    },
+    {
+      "n": 35,
+      "exception_id": "CVE-2026-6276|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+      "cve": "CVE-2026-6276",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "curl",
+        "libcurl4"
+      ],
+      "bound_version": "7.88.1-10+deb12u15",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 32,
+        "bound_hits": 32,
+        "observed": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:curl:7.88.1-10+deb12u15"
+    },
+    {
+      "n": 36,
+      "exception_id": "CVE-2026-42496|nginx|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-42496",
+      "image_selector": "nginx",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:perl-base:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 37,
+      "exception_id": "CVE-2026-8376|nginx|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-8376",
+      "image_selector": "nginx",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:perl-base:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 38,
+      "exception_id": "CVE-2026-57432|nginx|libperl5.36,perl,perl-base,perl-modules-5.36|5.36.0-7+deb12u3",
+      "cve": "CVE-2026-57432",
+      "image_selector": "nginx",
+      "packages": [
+        "libperl5.36",
+        "perl",
+        "perl-base",
+        "perl-modules-5.36"
+      ],
+      "bound_version": "5.36.0-7+deb12u3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "perl-base@5.36.0-7+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:perl-base:5.36.0-7+deb12u3"
+    },
+    {
+      "n": 39,
+      "exception_id": "CVE-2023-45853|nginx|zlib1g|1:1.2.13.dfsg-1",
+      "cve": "CVE-2023-45853",
+      "image_selector": "nginx",
+      "packages": [
+        "zlib1g"
+      ],
+      "bound_version": "1:1.2.13.dfsg-1",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "zlib1g@1:1.2.13.dfsg-1"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:zlib1g:1:1.2.13.dfsg-1"
+    },
+    {
+      "n": 40,
+      "exception_id": "CVE-2025-69720|nginx|libtinfo6,ncurses-base,ncurses-bin|6.4-4",
+      "cve": "CVE-2025-69720",
+      "image_selector": "nginx",
+      "packages": [
+        "libtinfo6",
+        "ncurses-base",
+        "ncurses-bin"
+      ],
+      "bound_version": "6.4-4",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 6,
+        "bound_hits": 6,
+        "observed": [
+          "libtinfo6@6.4-4",
+          "ncurses-base@6.4-4",
+          "ncurses-bin@6.4-4"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libtinfo6:6.4-4"
+    },
+    {
+      "n": 41,
+      "exception_id": "CVE-2026-41992|nginx|gzip|1.12-1",
+      "cve": "CVE-2026-41992",
+      "image_selector": "nginx",
+      "packages": [
+        "gzip"
+      ],
+      "bound_version": "1.12-1",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "gzip@1.12-1"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:gzip:1.12-1"
+    },
+    {
+      "n": 42,
+      "exception_id": "CVE-2026-53615|nginx|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53615",
+      "image_selector": "nginx",
+      "packages": [
+        "bsdutils",
+        "libblkid1",
+        "libmount1",
+        "libsmartcols1",
+        "libuuid1",
+        "mount",
+        "util-linux",
+        "util-linux-extra"
+      ],
+      "bound_version": [
+        "1:2.38.1-5+deb12u3",
+        "2.38.1-5+deb12u3"
+      ],
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:bsdutils:1:2.38.1-5+deb12u3"
+    },
+    {
+      "n": 43,
+      "exception_id": "CVE-2026-54369|nginx|libacl1|2.3.1-3",
+      "cve": "CVE-2026-54369",
+      "image_selector": "nginx",
+      "packages": [
+        "libacl1"
+      ],
+      "bound_version": "2.3.1-3",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "not-reachable-under-intended-use",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "libacl1@2.3.1-3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libacl1:2.3.1-3"
+    },
+    {
+      "n": 44,
+      "exception_id": "CVE-2026-56852|caddy|golang.org/x/text|v0.37.0",
+      "cve": "CVE-2026-56852",
+      "image_selector": "caddy",
+      "packages": [
+        "golang.org/x/text"
+      ],
+      "bound_version": "v0.37.0",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-outside-the-certified-topology",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "golang.org/x/text@v0.37.0 fix:0.39.0"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "0.39.0"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:golang.org/x/text:v0.37.0"
+    },
+    {
+      "n": 45,
+      "exception_id": "CVE-2026-8458|php-8.3-8.4|curl,libcurl4|7.88.1-10+deb12u15",
+      "cve": "CVE-2026-8458",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "curl",
+        "libcurl4"
+      ],
+      "bound_version": "7.88.1-10+deb12u15",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 32,
+        "bound_hits": 32,
+        "observed": [
+          "curl@7.88.1-10+deb12u15",
+          "libcurl4@7.88.1-10+deb12u15"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:curl:7.88.1-10+deb12u15"
+    },
+    {
+      "n": 46,
+      "exception_id": "CVE-2026-58050|php-8.3-8.4|libssh2-1|1.10.0-3+b1",
+      "cve": "CVE-2026-58050",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "libssh2-1"
+      ],
+      "bound_version": "1.10.0-3+b1",
+      "ledger_fix_available": false,
+      "expires_at": "2026-08-31",
+      "reachability": "conditionally-reachable-via-consuming-application",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "libssh2-1@1.10.0-3+b1"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libssh2-1:1.10.0-3+b1"
+    },
+    {
+      "n": 47,
+      "exception_id": "CVE-2026-46600|caddy|golang.org/x/net|v0.55.0",
+      "cve": "CVE-2026-46600",
+      "image_selector": "caddy",
+      "packages": [
+        "golang.org/x/net"
+      ],
+      "bound_version": "v0.55.0",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 2,
+        "observed": [
+          "golang.org/x/net@v0.55.0 fix:0.56.0"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "0.56.0"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:golang.org/x/net:v0.55.0"
+    },
+    {
+      "n": 48,
+      "exception_id": "CVE-2026-46600|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-46600",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.26.6, 1.27.0-rc.3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.26.6, 1.27.0-rc.3"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 49,
+      "exception_id": "CVE-2026-39821|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-39821",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 50,
+      "exception_id": "CVE-2026-33818|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-33818",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 51,
+      "exception_id": "CVE-2026-56853|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-56853",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 52,
+      "exception_id": "CVE-2026-56858|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-56858",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 53,
+      "exception_id": "CVE-2026-56859|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-56859",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 54,
+      "exception_id": "CVE-2026-56860|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-56860",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 55,
+      "exception_id": "CVE-2026-56862|caddy|stdlib|v1.26.3",
+      "cve": "CVE-2026-56862",
+      "image_selector": "caddy",
+      "packages": [
+        "stdlib"
+      ],
+      "bound_version": "v1.26.3",
+      "ledger_fix_available": true,
+      "expires_at": "2026-08-31",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "caddy/prod/linux/amd64",
+          "caddy/prod/linux/arm64"
+        ],
+        "advisory_hits": 2,
+        "bound_hits": 2,
+        "observed": [
+          "stdlib@v1.26.3 fix:1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [
+          "1.25.13, 1.26.6, 1.27.0-rc.3"
+        ],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-vendor-binary",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-vendor-binary:stdlib:v1.26.3"
+    },
+    {
+      "n": 56,
+      "exception_id": "CVE-2026-14456|php-8.3-8.4|libssl3,openssl|3.0.20-1~deb12u2",
+      "cve": "CVE-2026-14456",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "openssl",
+        "libssl3"
+      ],
+      "bound_version": "3.0.20-1~deb12u2",
+      "ledger_fix_available": false,
+      "expires_at": "2026-09-01",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 32,
+        "bound_hits": 32,
+        "observed": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libssl3:3.0.20-1~deb12u2"
+    },
+    {
+      "n": 57,
+      "exception_id": "CVE-2026-14456|nginx|libssl3,openssl|3.0.20-1~deb12u2",
+      "cve": "CVE-2026-14456",
+      "image_selector": "nginx",
+      "packages": [
+        "openssl",
+        "libssl3"
+      ],
+      "bound_version": "3.0.20-1~deb12u2",
+      "ledger_fix_available": false,
+      "expires_at": "2026-09-01",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 4,
+        "bound_hits": 4,
+        "observed": [
+          "libssl3@3.0.20-1~deb12u2",
+          "openssl@3.0.20-1~deb12u2"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:libssl3:3.0.20-1~deb12u2"
+    },
+    {
+      "n": 58,
+      "exception_id": "CVE-2026-53613|php-8.3-8.4|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53613",
+      "image_selector": "php-8.3-8.4",
+      "packages": [
+        "bsdutils",
+        "libblkid1",
+        "libmount1",
+        "libsmartcols1",
+        "libuuid1",
+        "mount",
+        "util-linux",
+        "util-linux-extra"
+      ],
+      "bound_version": [
+        "1:2.38.1-5+deb12u3",
+        "2.38.1-5+deb12u3"
+      ],
+      "ledger_fix_available": false,
+      "expires_at": "2026-09-01",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "upstream-moved-unpatched",
+      "why": "the pinned base tag moved to a new digest and the new head still carries the bound package at the same unpatched version",
+      "evidence": {
+        "in_scope_children": [
+          "php-cli/8.3/linux/amd64",
+          "php-cli/8.3/linux/arm64",
+          "php-cli/8.4/linux/amd64",
+          "php-cli/8.4/linux/arm64",
+          "php-fpm/8.3/linux/amd64",
+          "php-fpm/8.3/linux/arm64",
+          "php-fpm/8.4/linux/amd64",
+          "php-fpm/8.4/linux/arm64",
+          "php-frankenphp/8.3/linux/amd64",
+          "php-frankenphp/8.3/linux/arm64",
+          "php-frankenphp/8.4/linux/amd64",
+          "php-frankenphp/8.4/linux/arm64",
+          "php-worker/8.3/linux/amd64",
+          "php-worker/8.3/linux/arm64",
+          "php-worker/8.4/linux/amd64",
+          "php-worker/8.4/linux/arm64"
+        ],
+        "advisory_hits": 128,
+        "bound_hits": 128,
+        "observed": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "head-moved-same-version"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:bsdutils:1:2.38.1-5+deb12u3"
+    },
+    {
+      "n": 59,
+      "exception_id": "CVE-2026-53613|nginx|bsdutils,libblkid1,libmount1,libsmartcols1,libuuid1,mount,util-linux,util-linux-extra|1:2.38.1-5+deb12u3,2.38.1-5+deb12u3",
+      "cve": "CVE-2026-53613",
+      "image_selector": "nginx",
+      "packages": [
+        "bsdutils",
+        "libblkid1",
+        "libmount1",
+        "libsmartcols1",
+        "libuuid1",
+        "mount",
+        "util-linux",
+        "util-linux-extra"
+      ],
+      "bound_version": [
+        "1:2.38.1-5+deb12u3",
+        "2.38.1-5+deb12u3"
+      ],
+      "ledger_fix_available": false,
+      "expires_at": "2026-09-01",
+      "reachability": "unresolved-no-concrete-path-identified",
+      "classification": "still-present",
+      "why": "present on a bound package at a bound version; the upstream artifact has not moved",
+      "evidence": {
+        "in_scope_children": [
+          "nginx/prod/linux/amd64",
+          "nginx/prod/linux/arm64"
+        ],
+        "advisory_hits": 16,
+        "bound_hits": 16,
+        "observed": [
+          "bsdutils@1:2.38.1-5+deb12u3",
+          "libblkid1@2.38.1-5+deb12u3",
+          "libmount1@2.38.1-5+deb12u3",
+          "libsmartcols1@2.38.1-5+deb12u3",
+          "libuuid1@2.38.1-5+deb12u3",
+          "mount@2.38.1-5+deb12u3",
+          "util-linux-extra@2.38.1-5+deb12u3",
+          "util-linux@2.38.1-5+deb12u3"
+        ],
+        "architectures_evidenced": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "scanner_fixed_versions": [],
+        "upstream_base_head_state": [
+          "base-tag-unmoved"
+        ]
+      },
+      "matched_by_gate": true,
+      "remediation_owner": "upstream-base",
+      "rebuild_can_remediate": "no",
+      "root_cause_key": "upstream-base:bsdutils:1:2.38.1-5+deb12u3"
+    }
+  ]
+}

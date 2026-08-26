@@ -1,0 +1,2 @@
+reconciliation written: /tmp/laneB2-foundry/docs/audits/expiry-refresh-2026-08-25/reconciliations/nginx_prod_linux_amd64.reconcile.json
+RECONCILE PASS: nginx/prod — 32 CRITICAL/HIGH finding(s): 27 accepted via 10 exception(s), 5 determined not-affected

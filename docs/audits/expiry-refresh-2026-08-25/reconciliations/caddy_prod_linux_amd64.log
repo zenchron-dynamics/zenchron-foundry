@@ -1,0 +1,2 @@
+reconciliation written: /tmp/laneB2-foundry/docs/audits/expiry-refresh-2026-08-25/reconciliations/caddy_prod_linux_amd64.reconcile.json
+RECONCILE PASS: caddy/prod — 19 CRITICAL/HIGH finding(s): 19 accepted via 16 exception(s), 0 determined not-affected

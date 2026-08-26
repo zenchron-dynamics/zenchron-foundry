@@ -1,0 +1,477 @@
+{
+ "source_scan": "php-worker_8.3_linux_amd64.trivy.json",
+ "source_scan_sha256": "afedd67247b333e0cae4eeb979af0141735d9d7f96b251aa962eb83980a909de",
+ "findings_total": 47,
+ "findings": [
+  {
+   "id": "CVE-2023-2953",
+   "pkg": "libldap-2.5-0",
+   "installed": "2.5.13+dfsg-5",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2023-45853",
+   "pkg": "zlib1g",
+   "installed": "1:1.2.13.dfsg-1",
+   "fixed": "",
+   "severity": "CRITICAL",
+   "status": "will_not_fix",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2025-69720",
+   "pkg": "libtinfo6",
+   "installed": "6.4-4",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2025-69720",
+   "pkg": "ncurses-base",
+   "installed": "6.4-4",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2025-69720",
+   "pkg": "ncurses-bin",
+   "installed": "6.4-4",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2025-7458",
+   "pkg": "libsqlite3-0",
+   "installed": "3.40.1-2+deb12u2",
+   "fixed": "",
+   "severity": "CRITICAL",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-12064",
+   "pkg": "curl",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-12064",
+   "pkg": "libcurl4",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-13221",
+   "pkg": "perl-base",
+   "installed": "5.36.0-7+deb12u3",
+   "fixed": "",
+   "severity": "CRITICAL",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-14456",
+   "pkg": "libssl3",
+   "installed": "3.0.20-1~deb12u2",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-14456",
+   "pkg": "openssl",
+   "installed": "3.0.20-1~deb12u2",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-41992",
+   "pkg": "gzip",
+   "installed": "1.12-1",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-42496",
+   "pkg": "perl-base",
+   "installed": "5.36.0-7+deb12u3",
+   "fixed": "",
+   "severity": "CRITICAL",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-42497",
+   "pkg": "perl-base",
+   "installed": "5.36.0-7+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-48962",
+   "pkg": "perl-base",
+   "installed": "5.36.0-7+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53613",
+   "pkg": "bsdutils",
+   "installed": "1:2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53613",
+   "pkg": "libblkid1",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53613",
+   "pkg": "libmount1",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53613",
+   "pkg": "libsmartcols1",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53613",
+   "pkg": "libuuid1",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53613",
+   "pkg": "mount",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53613",
+   "pkg": "util-linux",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53613",
+   "pkg": "util-linux-extra",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53615",
+   "pkg": "bsdutils",
+   "installed": "1:2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53615",
+   "pkg": "libblkid1",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53615",
+   "pkg": "libmount1",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53615",
+   "pkg": "libsmartcols1",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53615",
+   "pkg": "libuuid1",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53615",
+   "pkg": "mount",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53615",
+   "pkg": "util-linux",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-53615",
+   "pkg": "util-linux-extra",
+   "installed": "2.38.1-5+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-54369",
+   "pkg": "libacl1",
+   "installed": "2.3.1-3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-57432",
+   "pkg": "perl-base",
+   "installed": "5.36.0-7+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-57433",
+   "pkg": "perl-base",
+   "installed": "5.36.0-7+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-58050",
+   "pkg": "libssh2-1",
+   "installed": "1.10.0-3+b1",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-6276",
+   "pkg": "curl",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-6276",
+   "pkg": "libcurl4",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-6653",
+   "pkg": "libxml2",
+   "installed": "2.9.14+dfsg-1.3~deb12u6",
+   "fixed": "",
+   "severity": "CRITICAL",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-7598",
+   "pkg": "libssh2-1",
+   "installed": "1.10.0-3+b1",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-8286",
+   "pkg": "curl",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-8286",
+   "pkg": "libcurl4",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-8376",
+   "pkg": "perl-base",
+   "installed": "5.36.0-7+deb12u3",
+   "fixed": "",
+   "severity": "CRITICAL",
+   "status": "affected",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-8458",
+   "pkg": "curl",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-8458",
+   "pkg": "libcurl4",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-8927",
+   "pkg": "curl",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-8927",
+   "pkg": "libcurl4",
+   "installed": "7.88.1-10+deb12u15",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  },
+  {
+   "id": "CVE-2026-9538",
+   "pkg": "perl-base",
+   "installed": "5.36.0-7+deb12u3",
+   "fixed": "",
+   "severity": "HIGH",
+   "status": "fix_deferred",
+   "class": "os-pkgs",
+   "target_type": "debian"
+  }
+ ]
+}

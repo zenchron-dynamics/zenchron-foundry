@@ -38,3 +38,6 @@ Thumbs.db
 # deleted module (runner_trust.py was renamed in #96 but its .pyc lingered).
 __pycache__/
 *.py[cod]
+docs/audits/expiry-refresh-2026-08-25/.trivy-cache/
+docs/audits/expiry-refresh-2026-08-25/scans/
+docs/audits/expiry-refresh-2026-08-25/upstream-base-heads/*.head.trivy.json

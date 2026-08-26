@@ -1,0 +1,366 @@
+{
+  "image": "caddy/prod",
+  "arch": "linux/amd64",
+  "checked_at": "2026-08-25",
+  "findings_total": 19,
+  "not_affected": [],
+  "governed": [
+    {
+      "id": "CVE-2026-33630",
+      "package": "c-ares",
+      "installed_version": "1.34.6-r0",
+      "fixed_version": "1.34.8-r0",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-33630",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-5773",
+      "package": "curl",
+      "installed_version": "8.19.0-r0",
+      "fixed_version": "8.20.0-r0",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-5773",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-6276",
+      "package": "curl",
+      "installed_version": "8.19.0-r0",
+      "fixed_version": "8.20.0-r0",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-6276",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-5773",
+      "package": "libcurl",
+      "installed_version": "8.19.0-r0",
+      "fixed_version": "8.20.0-r0",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-5773",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-6276",
+      "package": "libcurl",
+      "installed_version": "8.19.0-r0",
+      "fixed_version": "8.20.0-r0",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-6276",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-46600",
+      "package": "golang.org/x/net",
+      "installed_version": "v0.55.0",
+      "fixed_version": "0.56.0",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-46600",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-56852",
+      "package": "golang.org/x/text",
+      "installed_version": "v0.37.0",
+      "fixed_version": "0.39.0",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-56852",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "GHSA-hrxh-6v49-42gf",
+      "package": "google.golang.org/grpc",
+      "installed_version": "v1.81.0",
+      "fixed_version": "1.82.1",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "GHSA-hrxh-6v49-42gf",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-27145",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.11, 1.26.4",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-27145",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-33818",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-33818",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-39821",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-39821",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-39822",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.12, 1.26.5, 1.27.0-rc.2",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-39822",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-42504",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.11, 1.26.4",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-42504",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-46600",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.26.6, 1.27.0-rc.3",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-46600",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-56853",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-56853",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-56858",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-56858",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-56859",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-56859",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-56860",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-56860",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    },
+    {
+      "id": "CVE-2026-56862",
+      "package": "stdlib",
+      "installed_version": "v1.26.3",
+      "fixed_version": "1.25.13, 1.26.6, 1.27.0-rc.3",
+      "severity": "HIGH",
+      "fix_available": true,
+      "exception": {
+        "cve": "CVE-2026-56862",
+        "image": "caddy",
+        "owner": "Zenchron Dynamics / Platform Security",
+        "approver": "Bogdan Olteanu",
+        "expires_at": "2026-08-31",
+        "release_blocking": false,
+        "fix_available": true
+      }
+    }
+  ],
+  "violations": [],
+  "verdict": "PASS",
+  "matched_exception_ids": [
+    "CVE-2026-27145|caddy|stdlib|v1.26.3",
+    "CVE-2026-33630|caddy|c-ares|1.34.6-r0",
+    "CVE-2026-33818|caddy|stdlib|v1.26.3",
+    "CVE-2026-39821|caddy|stdlib|v1.26.3",
+    "CVE-2026-39822|caddy|stdlib|v1.26.3",
+    "CVE-2026-42504|caddy|stdlib|v1.26.3",
+    "CVE-2026-46600|caddy|golang.org/x/net|v0.55.0",
+    "CVE-2026-46600|caddy|stdlib|v1.26.3",
+    "CVE-2026-56852|caddy|golang.org/x/text|v0.37.0",
+    "CVE-2026-56853|caddy|stdlib|v1.26.3",
+    "CVE-2026-56858|caddy|stdlib|v1.26.3",
+    "CVE-2026-56859|caddy|stdlib|v1.26.3",
+    "CVE-2026-56860|caddy|stdlib|v1.26.3",
+    "CVE-2026-56862|caddy|stdlib|v1.26.3",
+    "CVE-2026-5773|caddy|curl,libcurl|8.19.0-r0",
+    "CVE-2026-6276|caddy|curl,libcurl|8.19.0-r0",
+    "GHSA-hrxh-6v49-42gf|caddy|google.golang.org/grpc|v1.81.0"
+  ],
+  "shadowed_exception_ids": [],
+  "binding": {
+    "child_digest": "sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd8",
+    "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd8",
+    "platform": "linux/amd64",
+    "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+    "scanner": "aquasec/trivy:0.73.0@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
+    "frozen_vulnerability_database": "v2+updated:2026-08-25T13:00:57.303086402Z+next:2026-08-26T13:00:57.30308573Z  java-db:v1+updated:2026-08-25T01:03:11.931341203Z",
+    "exception_ledger_sha256": "babc89714281f5d7c4b34d179ef5a24a14593a3cabc4b1c897d0575768fb307c",
+    "evidence_class_policy_sha256": "9cde7a7d632874efb2b4bf387f51955e26eb8fddf4330bac7f36d0e8b982b422",
+    "evidence_class": "staged-candidate",
+    "rescan_mode": "buildless-digest-rescan"
+  }
+}
