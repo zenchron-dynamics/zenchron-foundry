@@ -1,0 +1,44 @@
+#7 [4/4] RUN set -eux;     echo "== after gd =="; dpkg-query -W "libaom*" "libavif*" 2>&1 || true;     php -r 'print_r(gd_info());';     ldd "$(php -r 'echo ini_get("extension_dir");')/gd.so" | grep -E "avif|aom|webp|png|jpeg|freetype" || true
+#7 0.175 + echo == after gd ==
+#7 0.176 == after gd ==
+#7 0.176 + dpkg-query -W libaom* libavif*
+#7 0.199 libaom3:amd64	3.12.1-1+deb13u1
+#7 0.199 libavif16:amd64	1.2.1-1.2
+#7 0.201 + php -r print_r(gd_info());
+#7 0.306 Array
+#7 0.306 (
+#7 0.306     [GD Version] => bundled (2.1.0 compatible)
+#7 0.306     [FreeType Support] => 1
+#7 0.306     [FreeType Linkage] => with freetype
+#7 0.306     [GIF Read Support] => 1
+#7 0.306     [GIF Create Support] => 1
+#7 0.306     [JPEG Support] => 1
+#7 0.306     [PNG Support] => 1
+#7 0.306     [WBMP Support] => 1
+#7 0.306     [XPM Support] => 1
+#7 0.306     [XBM Support] => 1
+#7 0.306     [WebP Support] => 1
+#7 0.306     [BMP Support] => 1
+#7 0.306     [AVIF Support] => 1
+#7 0.306     [TGA Read Support] => 1
+#7 0.306     [JIS-mapped Japanese Font Support] => 
+#7 0.306 )
+#7 0.320 + grep -E avif|aom|webp|png|jpeg|freetype
+#7 0.320 + php -r echo ini_get("extension_dir");
+#7 0.431 + ldd /usr/local/lib/php/extensions/no-debug-zts-20240924/gd.so
+#7 0.499 	libpng16.so.16 => /lib/x86_64-linux-gnu/libpng16.so.16 (0x00007fffff6ee000)
+#7 0.499 	libavif.so.16 => /lib/x86_64-linux-gnu/libavif.so.16 (0x00007fffff6b2000)
+#7 0.499 	libwebp.so.7 => /lib/x86_64-linux-gnu/libwebp.so.7 (0x00007fffff630000)
+#7 0.499 	libjpeg.so.62 => /lib/x86_64-linux-gnu/libjpeg.so.62 (0x00007fffff599000)
+#7 0.499 	libfreetype.so.6 => /lib/x86_64-linux-gnu/libfreetype.so.6 (0x00007fffff4b3000)
+#7 0.499 	libaom.so.3 => /lib/x86_64-linux-gnu/libaom.so.3 (0x00007ffffdc63000)
+#7 DONE 0.5s
+
+#8 exporting to image
+#8 exporting layers 0.1s done
+#8 writing image sha256:b769fde06d3803c62ce8c0c9505f89d7a581de426e09db2841b5467b1eb361ec done
+#8 naming to laneL/c2b:8.4-trixie done
+#8 DONE 0.1s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/o3dsn5mg7wrjhz2anpddpy6wa
+EXIT_C2B=0

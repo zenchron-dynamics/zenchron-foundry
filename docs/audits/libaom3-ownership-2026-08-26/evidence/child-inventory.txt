@@ -1,0 +1,58 @@
+########## laneL/php-frankenphp:8.3-baseline ##########
+--- dpkg-query -W libaom* ---
+libaom3:amd64	3.6.0-1+deb12u2
+exit=0
+--- dpkg -s libaom3 (name/version/arch/source) ---
+Package: libaom3
+Maintainer: Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>
+Architecture: amd64
+Source: aom
+Version: 3.6.0-1+deb12u2
+Depends: libc6 (>= 2.34)
+Homepage: https://aomedia.googlesource.com/aom/
+--- avif/heif/webp/gd stack ---
+dpkg-query: no packages found matching libheif*
+dpkg-query: no packages found matching libde265*
+dpkg-query: no packages found matching libx265*
+libavif15:amd64	0.11.1-1+deb12u1
+libdav1d6:amd64	1.0.0-2+deb12u1
+libfreetype6:amd64	2.12.1+dfsg-5+deb12u4
+libjpeg62	
+libjpeg62-turbo:amd64	1:2.1.5-2
+libpng12-0	
+libpng16-16:amd64	1.6.39-2+deb12u5
+librav1e0:amd64	0.5.1-6
+libwebp7:amd64	1.2.4-0.2+deb12u1
+--- php version / arch ---
+8.3.33
+amd64
+
+########## laneL/php-frankenphp:8.4-baseline ##########
+--- dpkg-query -W libaom* ---
+libaom3:amd64	3.6.0-1+deb12u2
+exit=0
+--- dpkg -s libaom3 (name/version/arch/source) ---
+Package: libaom3
+Maintainer: Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>
+Architecture: amd64
+Source: aom
+Version: 3.6.0-1+deb12u2
+Depends: libc6 (>= 2.34)
+Homepage: https://aomedia.googlesource.com/aom/
+--- avif/heif/webp/gd stack ---
+dpkg-query: no packages found matching libheif*
+dpkg-query: no packages found matching libde265*
+dpkg-query: no packages found matching libx265*
+libavif15:amd64	0.11.1-1+deb12u1
+libdav1d6:amd64	1.0.0-2+deb12u1
+libfreetype6:amd64	2.12.1+dfsg-5+deb12u4
+libjpeg62	
+libjpeg62-turbo:amd64	1:2.1.5-2
+libpng12-0	
+libpng16-16:amd64	1.6.39-2+deb12u5
+librav1e0:amd64	0.5.1-6
+libwebp7:amd64	1.2.4-0.2+deb12u1
+--- php version / arch ---
+8.4.24
+amd64
+

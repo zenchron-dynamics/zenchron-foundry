@@ -1,0 +1,64 @@
+### ISOLATED STEP: install-php-extensions gd  (8.4 pinned base, linux/amd64)
+--- helper identity ---
+-rwxr-xr-x 1 root root 231633 Aug  6 14:59 /usr/local/bin/install-php-extensions
+#!/bin/sh
+
+# This script wraps docker-php-ext-install, properly configuring the system.
+#
+# Copyright (c) Michele Locati, 2018-2023
+#
+# Source: https://github.com/mlocati/docker-php-extension-installer
+#
+# License: MIT - see https://github.com/mlocati/docker-php-extension-installer/blob/master/LICENSE
+
+# Let's set a sane environment
+set -o errexit
+set -o nounset
+
+if test "${IPE_DEBUG:-}" = "1"; then
+	set -x
+fi
+
+if ! which docker-php-ext-configure >/dev/null || ! which docker-php-ext-enable >/dev/null || ! which docker-php-ext-install >/dev/null || ! which docker-php-source >/dev/null; then
+	printf 'The script %s is meant to be used with official Docker PHP Images - https://hub.docker.com/_/php\n' "$0" >&2
+--- helper grep: avif/aom ---
+936:							buildRequiredPackageLists_persistent="$buildRequiredPackageLists_persistent libavif aom-libs libdav1d"
+937:							buildRequiredPackageLists_volatile="$buildRequiredPackageLists_volatile libavif-dev aom-dev dav1d-dev"
+938:						elif isLibaomInstalled && isLibdav1dInstalled && isLibyuvInstalled && isLibavifInstalled; then
+941:							case "${IPE_GD_WITHOUTAVIF:-}" in
+944:									if ! isLibaomInstalled; then
+945:										COMPILE_LIBS="$COMPILE_LIBS libaom"
+953:									if ! isLibavifInstalled; then
+954:										COMPILE_LIBS="$COMPILE_LIBS libavif"
+975:							buildRequiredPackageLists_persistent="$buildRequiredPackageLists_persistent ^libavif[0-9]+$ ^libaom[0-9]+$ ^libdav1d[0-9]+$"
+976:							buildRequiredPackageLists_volatile="$buildRequiredPackageLists_volatile libavif-dev libaom-dev libdav1d-dev"
+977:						elif ! isLibaomInstalled || ! isLibdav1dInstalled || ! isLibyuvInstalled || ! isLibavifInstalled; then
+978:							case "${IPE_GD_WITHOUTAVIF:-}" in
+981:									if ! isLibaomInstalled; then
+982:										COMPILE_LIBS="$COMPILE_LIBS libaom"
+990:									if ! isLibavifInstalled; then
+991:										COMPILE_LIBS="$COMPILE_LIBS libavif"
+1086:					buildRequiredPackageLists_persistent="$buildRequiredPackageLists_persistent libheif-aom libheif-x265"
+1091:					buildRequiredPackageLists_persistent="$buildRequiredPackageLists_persistent ^libmagickwand-7.q16-[0-9]+$ ^libmagickcore-7.q16-[0-9]+-extra$ libheif-plugin-aomenc"
+2425:# Check if libaom is installed
+2430:isLibaomInstalled() {
+2431:	if ! test -f /usr/local/lib/libaom.so && ! test -f /usr/lib/libaom.so && ! test -f /usr/lib/x86_64*/libaom.so; then
+2434:	if ! test -f /usr/local/include/aom/aom_codec.h && ! test -f /usr/include/aom/aom_codec.h; then
+2440:# Install libaom
+2441:installLibaom() {
+2442:	printf 'Installing libaom\n'
+2443:	installLibaom_version=3.10.0
+2444:	installLibaom_dir="$(getPackageSource https://aomedia.googlesource.com/aom/+archive/v$installLibaom_version.tar.gz)"
+2445:	mkdir -- "$installLibaom_dir/my.build"
+2446:	cd -- "$installLibaom_dir/my.build"
+2509:# Check if libavif is installed
+2514:isLibavifInstalled() {
+2515:	if ! test -f /usr/local/lib/libavif.so && ! test -f /usr/lib/libavif.so && ! test -f /usr/lib/x86_64*/libavif.so; then
+2518:	if ! test -f /usr/local/include/avif/avif.h && ! test -f /usr/include/avif/avif.h; then
+2524:# Install libavif
+2525:installLibavif() {
+2526:	printf 'Installing libavif\n'
+2527:	installLibavif_dir="$(getPackageSource https://codeload.github.com/AOMediaCodec/libavif/tar.gz/refs/tags/v1.0.3)"
+2528:	mkdir -- "$installLibavif_dir/build"
+2529:	cd -- "$installLibavif_dir/build"
+2530:	cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DAVIF_CODEC_AOM=ON -DCMAKE_INSTALL_LIBDIR:PATH=lib

@@ -1,0 +1,180 @@
+########## laneL/php-frankenphp:8.3-baseline ##########
+extension_dir=/usr/local/lib/php/extensions/no-debug-zts-20230831
+--- ldd gd.so ---
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007fffff736000)
+	libpng16.so.16 => /lib/x86_64-linux-gnu/libpng16.so.16 (0x00007fffff700000)
+	libavif.so.15 => /lib/x86_64-linux-gnu/libavif.so.15 (0x00007fffff6d8000)
+	libwebp.so.7 => /lib/x86_64-linux-gnu/libwebp.so.7 (0x00007fffff666000)
+	libjpeg.so.62 => /lib/x86_64-linux-gnu/libjpeg.so.62 (0x00007fffff5d3000)
+	libXpm.so.4 => /lib/x86_64-linux-gnu/libXpm.so.4 (0x00007fffff5bf000)
+	libfreetype.so.6 => /lib/x86_64-linux-gnu/libfreetype.so.6 (0x00007fffff4f3000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fffff311000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007fffff231000)
+	libdav1d.so.6 => /lib/x86_64-linux-gnu/libdav1d.so.6 (0x00007fffff060000)
+	libgav1.so.1 => /lib/x86_64-linux-gnu/libgav1.so.1 (0x00007ffffef77000)
+	librav1e.so.0 => /lib/x86_64-linux-gnu/librav1e.so.0 (0x00007ffffece3000)
+	libSvtAv1Enc.so.1 => /lib/x86_64-linux-gnu/libSvtAv1Enc.so.1 (0x00007ffffe31d000)
+	libaom.so.3 => /lib/x86_64-linux-gnu/libaom.so.3 (0x00007ffffdd6f000)
+	libyuv.so.0 => /lib/x86_64-linux-gnu/libyuv.so.0 (0x00007ffffdcca000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007ffffffcb000)
+	libX11.so.6 => /lib/x86_64-linux-gnu/libX11.so.6 (0x00007ffffdb88000)
+	libbrotlidec.so.1 => /lib/x86_64-linux-gnu/libbrotlidec.so.1 (0x00007ffffdb7b000)
+	libabsl_synchronization.so.20220623 => /lib/x86_64-linux-gnu/libabsl_synchronization.so.20220623 (0x00007ffffdb67000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007ffffd94d000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007ffffd92d000)
+	libxcb.so.1 => /lib/x86_64-linux-gnu/libxcb.so.1 (0x00007ffffd903000)
+	libbrotlicommon.so.1 => /lib/x86_64-linux-gnu/libbrotlicommon.so.1 (0x00007ffffd8e0000)
+	libabsl_graphcycles_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_graphcycles_internal.so.20220623 (0x00007ffffd8d6000)
+	libabsl_stacktrace.so.20220623 => /lib/x86_64-linux-gnu/libabsl_stacktrace.so.20220623 (0x00007ffffd8d1000)
+	libabsl_symbolize.so.20220623 => /lib/x86_64-linux-gnu/libabsl_symbolize.so.20220623 (0x00007ffffd8c9000)
+	libabsl_time.so.20220623 => /lib/x86_64-linux-gnu/libabsl_time.so.20220623 (0x00007ffffd8b7000)
+	libabsl_malloc_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_malloc_internal.so.20220623 (0x00007ffffd8b1000)
+	libabsl_base.so.20220623 => /lib/x86_64-linux-gnu/libabsl_base.so.20220623 (0x00007ffffd8a9000)
+	libabsl_spinlock_wait.so.20220623 => /lib/x86_64-linux-gnu/libabsl_spinlock_wait.so.20220623 (0x00007ffffd8a4000)
+	libabsl_raw_logging_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_raw_logging_internal.so.20220623 (0x00007ffffd89f000)
+	libXau.so.6 => /lib/x86_64-linux-gnu/libXau.so.6 (0x00007ffffd89a000)
+	libXdmcp.so.6 => /lib/x86_64-linux-gnu/libXdmcp.so.6 (0x00007ffffd600000)
+	libabsl_debugging_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_debugging_internal.so.20220623 (0x00007ffffd893000)
+	libabsl_demangle_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_demangle_internal.so.20220623 (0x00007ffffd887000)
+	libabsl_strings.so.20220623 => /lib/x86_64-linux-gnu/libabsl_strings.so.20220623 (0x00007ffffd869000)
+	libabsl_time_zone.so.20220623 => /lib/x86_64-linux-gnu/libabsl_time_zone.so.20220623 (0x00007ffffd84f000)
+	libabsl_int128.so.20220623 => /lib/x86_64-linux-gnu/libabsl_int128.so.20220623 (0x00007ffffd848000)
+	libbsd.so.0 => /lib/x86_64-linux-gnu/libbsd.so.0 (0x00007ffffd832000)
+	libabsl_strings_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_strings_internal.so.20220623 (0x00007ffffd82a000)
+	libabsl_throw_delegate.so.20220623 => /lib/x86_64-linux-gnu/libabsl_throw_delegate.so.20220623 (0x00007ffffd823000)
+	libmd.so.0 => /lib/x86_64-linux-gnu/libmd.so.0 (0x00007ffffd816000)
+--- ldd libavif.so.15 ---
+	libdav1d.so.6 => /lib/x86_64-linux-gnu/libdav1d.so.6 (0x00007fffff5cb000)
+	libgav1.so.1 => /lib/x86_64-linux-gnu/libgav1.so.1 (0x00007fffff4e2000)
+	librav1e.so.0 => /lib/x86_64-linux-gnu/librav1e.so.0 (0x00007fffff24e000)
+	libSvtAv1Enc.so.1 => /lib/x86_64-linux-gnu/libSvtAv1Enc.so.1 (0x00007ffffe88a000)
+	libaom.so.3 => /lib/x86_64-linux-gnu/libaom.so.3 (0x00007ffffe2dc000)
+	libyuv.so.0 => /lib/x86_64-linux-gnu/libyuv.so.0 (0x00007ffffe237000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffffe053000)
+	libabsl_synchronization.so.20220623 => /lib/x86_64-linux-gnu/libabsl_synchronization.so.20220623 (0x00007ffffe041000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007ffffde27000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007ffffde07000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007ffffffcb000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007ffffdd27000)
+	libjpeg.so.62 => /lib/x86_64-linux-gnu/libjpeg.so.62 (0x00007ffffdc92000)
+	libabsl_graphcycles_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_graphcycles_internal.so.20220623 (0x00007ffffdc8a000)
+	libabsl_stacktrace.so.20220623 => /lib/x86_64-linux-gnu/libabsl_stacktrace.so.20220623 (0x00007ffffdc85000)
+	libabsl_symbolize.so.20220623 => /lib/x86_64-linux-gnu/libabsl_symbolize.so.20220623 (0x00007ffffdc7d000)
+	libabsl_time.so.20220623 => /lib/x86_64-linux-gnu/libabsl_time.so.20220623 (0x00007ffffdc6b000)
+	libabsl_malloc_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_malloc_internal.so.20220623 (0x00007ffffdc63000)
+	libabsl_base.so.20220623 => /lib/x86_64-linux-gnu/libabsl_base.so.20220623 (0x00007ffffdc5d000)
+	libabsl_spinlock_wait.so.20220623 => /lib/x86_64-linux-gnu/libabsl_spinlock_wait.so.20220623 (0x00007ffffdc58000)
+--- gd_info() ---
+Array
+(
+    [GD Version] => bundled (2.1.0 compatible)
+    [FreeType Support] => 1
+    [FreeType Linkage] => with freetype
+    [GIF Read Support] => 1
+    [GIF Create Support] => 1
+    [JPEG Support] => 1
+    [PNG Support] => 1
+    [WBMP Support] => 1
+    [XPM Support] => 1
+    [XBM Support] => 1
+    [WebP Support] => 1
+    [BMP Support] => 1
+    [AVIF Support] => 1
+    [TGA Read Support] => 1
+    [JIS-mapped Japanese Font Support] => 
+)
+--- avif funcs ---
+bool(true)
+bool(true)
+bool(true)
+
+########## laneL/php-frankenphp:8.4-baseline ##########
+extension_dir=/usr/local/lib/php/extensions/no-debug-zts-20240924
+--- ldd gd.so ---
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007fffff72d000)
+	libpng16.so.16 => /lib/x86_64-linux-gnu/libpng16.so.16 (0x00007fffff6f7000)
+	libavif.so.15 => /lib/x86_64-linux-gnu/libavif.so.15 (0x00007fffff6cf000)
+	libwebp.so.7 => /lib/x86_64-linux-gnu/libwebp.so.7 (0x00007fffff65d000)
+	libjpeg.so.62 => /lib/x86_64-linux-gnu/libjpeg.so.62 (0x00007fffff5ca000)
+	libXpm.so.4 => /lib/x86_64-linux-gnu/libXpm.so.4 (0x00007fffff5b6000)
+	libfreetype.so.6 => /lib/x86_64-linux-gnu/libfreetype.so.6 (0x00007fffff4ea000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007fffff308000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007fffff228000)
+	libdav1d.so.6 => /lib/x86_64-linux-gnu/libdav1d.so.6 (0x00007fffff057000)
+	libgav1.so.1 => /lib/x86_64-linux-gnu/libgav1.so.1 (0x00007ffffef6e000)
+	librav1e.so.0 => /lib/x86_64-linux-gnu/librav1e.so.0 (0x00007ffffecda000)
+	libSvtAv1Enc.so.1 => /lib/x86_64-linux-gnu/libSvtAv1Enc.so.1 (0x00007ffffe314000)
+	libaom.so.3 => /lib/x86_64-linux-gnu/libaom.so.3 (0x00007ffffdd66000)
+	libyuv.so.0 => /lib/x86_64-linux-gnu/libyuv.so.0 (0x00007ffffdcc1000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007ffffffcb000)
+	libX11.so.6 => /lib/x86_64-linux-gnu/libX11.so.6 (0x00007ffffdb7f000)
+	libbrotlidec.so.1 => /lib/x86_64-linux-gnu/libbrotlidec.so.1 (0x00007ffffdb72000)
+	libabsl_synchronization.so.20220623 => /lib/x86_64-linux-gnu/libabsl_synchronization.so.20220623 (0x00007ffffdb5e000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007ffffd944000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007ffffd924000)
+	libxcb.so.1 => /lib/x86_64-linux-gnu/libxcb.so.1 (0x00007ffffd8fa000)
+	libbrotlicommon.so.1 => /lib/x86_64-linux-gnu/libbrotlicommon.so.1 (0x00007ffffd8d7000)
+	libabsl_graphcycles_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_graphcycles_internal.so.20220623 (0x00007ffffd8cd000)
+	libabsl_stacktrace.so.20220623 => /lib/x86_64-linux-gnu/libabsl_stacktrace.so.20220623 (0x00007ffffd8c8000)
+	libabsl_symbolize.so.20220623 => /lib/x86_64-linux-gnu/libabsl_symbolize.so.20220623 (0x00007ffffd8c0000)
+	libabsl_time.so.20220623 => /lib/x86_64-linux-gnu/libabsl_time.so.20220623 (0x00007ffffd8ae000)
+	libabsl_malloc_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_malloc_internal.so.20220623 (0x00007ffffd8a8000)
+	libabsl_base.so.20220623 => /lib/x86_64-linux-gnu/libabsl_base.so.20220623 (0x00007ffffd8a0000)
+	libabsl_spinlock_wait.so.20220623 => /lib/x86_64-linux-gnu/libabsl_spinlock_wait.so.20220623 (0x00007ffffd89b000)
+	libabsl_raw_logging_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_raw_logging_internal.so.20220623 (0x00007ffffd896000)
+	libXau.so.6 => /lib/x86_64-linux-gnu/libXau.so.6 (0x00007ffffd891000)
+	libXdmcp.so.6 => /lib/x86_64-linux-gnu/libXdmcp.so.6 (0x00007ffffd600000)
+	libabsl_debugging_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_debugging_internal.so.20220623 (0x00007ffffd88a000)
+	libabsl_demangle_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_demangle_internal.so.20220623 (0x00007ffffd87e000)
+	libabsl_strings.so.20220623 => /lib/x86_64-linux-gnu/libabsl_strings.so.20220623 (0x00007ffffd860000)
+	libabsl_time_zone.so.20220623 => /lib/x86_64-linux-gnu/libabsl_time_zone.so.20220623 (0x00007ffffd846000)
+	libabsl_int128.so.20220623 => /lib/x86_64-linux-gnu/libabsl_int128.so.20220623 (0x00007ffffd83f000)
+	libbsd.so.0 => /lib/x86_64-linux-gnu/libbsd.so.0 (0x00007ffffd829000)
+	libabsl_strings_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_strings_internal.so.20220623 (0x00007ffffd821000)
+	libabsl_throw_delegate.so.20220623 => /lib/x86_64-linux-gnu/libabsl_throw_delegate.so.20220623 (0x00007ffffd81a000)
+	libmd.so.0 => /lib/x86_64-linux-gnu/libmd.so.0 (0x00007ffffd80d000)
+--- ldd libavif.so.15 ---
+	libdav1d.so.6 => /lib/x86_64-linux-gnu/libdav1d.so.6 (0x00007fffff5cb000)
+	libgav1.so.1 => /lib/x86_64-linux-gnu/libgav1.so.1 (0x00007fffff4e2000)
+	librav1e.so.0 => /lib/x86_64-linux-gnu/librav1e.so.0 (0x00007fffff24e000)
+	libSvtAv1Enc.so.1 => /lib/x86_64-linux-gnu/libSvtAv1Enc.so.1 (0x00007ffffe88a000)
+	libaom.so.3 => /lib/x86_64-linux-gnu/libaom.so.3 (0x00007ffffe2dc000)
+	libyuv.so.0 => /lib/x86_64-linux-gnu/libyuv.so.0 (0x00007ffffe237000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007ffffe053000)
+	libabsl_synchronization.so.20220623 => /lib/x86_64-linux-gnu/libabsl_synchronization.so.20220623 (0x00007ffffe041000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007ffffde27000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007ffffde07000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007ffffffcb000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007ffffdd27000)
+	libjpeg.so.62 => /lib/x86_64-linux-gnu/libjpeg.so.62 (0x00007ffffdc92000)
+	libabsl_graphcycles_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_graphcycles_internal.so.20220623 (0x00007ffffdc8a000)
+	libabsl_stacktrace.so.20220623 => /lib/x86_64-linux-gnu/libabsl_stacktrace.so.20220623 (0x00007ffffdc85000)
+	libabsl_symbolize.so.20220623 => /lib/x86_64-linux-gnu/libabsl_symbolize.so.20220623 (0x00007ffffdc7d000)
+	libabsl_time.so.20220623 => /lib/x86_64-linux-gnu/libabsl_time.so.20220623 (0x00007ffffdc6b000)
+	libabsl_malloc_internal.so.20220623 => /lib/x86_64-linux-gnu/libabsl_malloc_internal.so.20220623 (0x00007ffffdc63000)
+	libabsl_base.so.20220623 => /lib/x86_64-linux-gnu/libabsl_base.so.20220623 (0x00007ffffdc5d000)
+	libabsl_spinlock_wait.so.20220623 => /lib/x86_64-linux-gnu/libabsl_spinlock_wait.so.20220623 (0x00007ffffdc58000)
+--- gd_info() ---
+Array
+(
+    [GD Version] => bundled (2.1.0 compatible)
+    [FreeType Support] => 1
+    [FreeType Linkage] => with freetype
+    [GIF Read Support] => 1
+    [GIF Create Support] => 1
+    [JPEG Support] => 1
+    [PNG Support] => 1
+    [WBMP Support] => 1
+    [XPM Support] => 1
+    [XBM Support] => 1
+    [WebP Support] => 1
+    [BMP Support] => 1
+    [AVIF Support] => 1
+    [TGA Read Support] => 1
+    [JIS-mapped Japanese Font Support] => 
+)
+--- avif funcs ---
+bool(true)
+bool(true)
+bool(true)
+

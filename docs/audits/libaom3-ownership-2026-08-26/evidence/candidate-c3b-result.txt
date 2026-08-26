@@ -1,0 +1,48 @@
+#6 [3/3] RUN set -eux;     echo "== dpkg libaom/libavif =="; dpkg-query -W "libaom*" "libavif*" || true;     echo "== gd_info =="; php -r 'print_r(gd_info());';     echo "== ldd gd.so =="; ldd "$(php -r 'echo ini_get("extension_dir");')/gd.so" | grep -E "avif|aom|webp|png|jpeg|freetype" || true
+#6 0.141 + echo == dpkg libaom/libavif ==
+#6 0.141 == dpkg libaom/libavif ==
+#6 0.142 + dpkg-query -W libaom* libavif*
+#6 0.165 dpkg-query: no packages found matching libaom*
+#6 0.165 dpkg-query: no packages found matching libavif*
+#6 0.167 == gd_info ==
+#6 0.167 + true
+#6 0.167 + echo == gd_info ==
+#6 0.167 + php -r print_r(gd_info());
+#6 0.267 Array
+#6 0.267 (
+#6 0.267     [GD Version] => bundled (2.1.0 compatible)
+#6 0.267     [FreeType Support] => 1
+#6 0.267     [FreeType Linkage] => with freetype
+#6 0.267     [GIF Read Support] => 1
+#6 0.267     [GIF Create Support] => 1
+#6 0.267     [JPEG Support] => 1
+#6 0.267     [PNG Support] => 1
+#6 0.267     [WBMP Support] => 1
+#6 0.267     [XPM Support] => 1
+#6 0.267     [XBM Support] => 1
+#6 0.267     [WebP Support] => 1
+#6 0.267     [BMP Support] => 1
+#6 0.267     [AVIF Support] => 
+#6 0.267     [TGA Read Support] => 1
+#6 0.267     [JIS-mapped Japanese Font Support] => 
+#6 0.267 )
+#6 0.278 == ldd gd.so ==
+#6 0.278 + echo == ldd gd.so ==
+#6 0.281 + php -r echo ini_get("extension_dir");
+#6 0.281 + grep -E avif|aom|webp|png|jpeg|freetype
+#6 0.388 + ldd /usr/local/lib/php/extensions/no-debug-zts-20240924/gd.so
+#6 0.457 	libpng16.so.16 => /lib/x86_64-linux-gnu/libpng16.so.16 (0x00007fffff6fc000)
+#6 0.457 	libwebp.so.7 => /lib/x86_64-linux-gnu/libwebp.so.7 (0x00007fffff68a000)
+#6 0.457 	libjpeg.so.62 => /lib/x86_64-linux-gnu/libjpeg.so.62 (0x00007fffff5f7000)
+#6 0.457 	libfreetype.so.6 => /lib/x86_64-linux-gnu/libfreetype.so.6 (0x00007fffff519000)
+#6 DONE 0.5s
+
+#7 exporting to image
+#7 exporting layers 0.1s done
+#7 writing image sha256:51c5d84009a81aab611a8dcb96a2c4575fd1ac487ecabfd6148f1f3d48d7de7b
+#7 writing image sha256:51c5d84009a81aab611a8dcb96a2c4575fd1ac487ecabfd6148f1f3d48d7de7b done
+#7 naming to laneL/c3b:8.4 done
+#7 DONE 0.1s
+
+View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/yq694731p6fe5c10l0hj2k039
+EXIT_C3B=0
