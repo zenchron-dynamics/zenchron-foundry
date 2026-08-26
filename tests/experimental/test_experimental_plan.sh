@@ -455,9 +455,18 @@ for f in glob.glob('$EVDIR/*.evidence.json'):
 assert seen, 'no records examined — the check would be vacuous'
 PY"
 
-# THE DECISION PACKET DECIDED NOTHING. Its Group B advisories must still be
-# ungoverned for every family, including production 8.3/8.4 — writing the packet
-# must not have quietly added a ledger entry.
+# WRITING THE PACKET DECIDED NOTHING; THE MAINTAINER'S 2026-08-25 AUTHORIZATION
+# DID. Until that authorization, this asserted Group B was ungoverned for EVERY
+# family including production 8.3/8.4 — the point being that composing a risk
+# packet must not quietly add a ledger entry.
+#
+# Production 8.3/8.4 is now governed by a scoped, expiring, version- and
+# architecture-bound record. That is an authorized decision, not drift, so the
+# assertion is updated to the current truth rather than deleted.
+#
+# The invariant this file actually exists to protect is UNCHANGED and is what
+# the 8.5 branch below asserts: an 8.3/8.4 governance decision must never widen
+# onto the EXPERIMENTAL 8.5 cohort. 8.5 must still refuse.
 cat > "$TMP/kin.json" <<'JSON'
 {"SchemaVersion":2,"ArtifactName":"t","Metadata":{"OS":{"Family":"debian","Name":"12.15"}},
  "Results":[{"Target":"t","Class":"lang-pkgs","Type":"gobinary","Vulnerabilities":[
@@ -468,8 +477,13 @@ JSON
 for v in 8.4 8.5; do
   TODAY=2026-08-24 bash scripts/reconcile-vulnerabilities.sh "$TMP/kin.json" php-frankenphp "$v" \
       --arch linux/amd64 --today 2026-08-24 > "$TMP/kin-$v.txt" 2>&1; rc_kin=$?
-  ck "the packet added NO exception: CVE-2026-76905 is still ungoverned on frankenphp/$v" \
-     "[ '$rc_kin' -ne 0 ] && grep -q 'no in-scope exception' '$TMP/kin-$v.txt'"
+  if [ "$v" = "8.5" ]; then
+    ck "the EXPERIMENTAL cohort draws no coverage: CVE-2026-76905 ungoverned on frankenphp/8.5" \
+       "[ '$rc_kin' -ne 0 ] && grep -q 'no in-scope exception' '$TMP/kin-$v.txt'"
+  else
+    ck "production frankenphp/$v IS governed by the maintainer-authorized record" \
+       "[ '$rc_kin' -eq 0 ]"
+  fi
 done
 
 # The proofs the evidence claims must actually be in it.
