@@ -1,0 +1,334 @@
+# =============================================================================
+# policies/repository-material.yaml
+#   THE canonical inventory of third-party material that lives in the
+#   REPOSITORY. Issue #120. Schema: schemas/repository-material-v1.schema.json.
+# -----------------------------------------------------------------------------
+# WHY THIS FILE EXISTS, stated as the defect it closes.
+#
+# The licence gate consumes IMAGE SBOMs. Material that lives in the repository
+# but in no image is invisible to it BY CONSTRUCTION — not by oversight, not by
+# a missing rule, but because an SBOM of a built image enumerates what is in
+# that image and nothing else. Copied configuration, seccomp profiles, scripts,
+# workflow fragments, documentation excerpts, fixtures, vendored schemas,
+# patches and generated third-party files all fall in that hole.
+#
+# security/seccomp/zenchron-default.json is the proof: 832 lines copied verbatim
+# from Moby v27.3.1, sitting unattributed under a first-party filename, and NO
+# control in this repository could see it.
+#
+# The previous attempt at a fix was a hardcoded two-element array inside one
+# test (tests/governance/test_copied_material_attribution.sh). That does not
+# scale, cannot be composed with anything, and had already gone stale: it named
+# two files while five carry an obligation today.
+#
+# WHAT THIS FILE IS NOT.
+#   * It is NOT an exception list. Nothing here excuses a file from a control.
+#     `dispositions` records files that TRIP a discovery signal and are not
+#     material — each with a reason and a reviewer, so the judgement is visible.
+#   * It does NOT choose a licence for Foundry. That is #98, it is undetermined,
+#     and every obligation recorded here attaches TODAY regardless of it.
+#   * It does NOT assert ownership or copyright subsistence in anything.
+#
+# THE HONEST LIMIT, stated up front because it is the whole point.
+#   Deciding that an arbitrary file was copied from somewhere is undecidable in
+#   general. Discovery here is HEURISTIC and its recall is unknown. Two of the
+#   five entries below (ipe-installer-gd-branch, ipe-installer-gd-configure)
+#   carry no marker of any kind and NO signal fires on them — they were found by
+#   a human reading the directory. `baseline` below is the non-heuristic half:
+#   an explicit reviewed scope, so material outside it is a REFUSAL rather than
+#   a silent pass. See docs/licensing/repository-material.md.
+#
+# Gate: scripts/license/assert-repository-material.sh
+# =============================================================================
+schema: foundry.repository-material/v1
+version: 1
+tracked_issue: 120
+
+# --- the reviewed baseline ---------------------------------------------------
+# `path_list` is the exact set of tracked paths a human reviewed. It is the
+# answer to "what about material that trips no signal?": everything inside the
+# baseline was looked at; anything outside it is unreviewed, and unreviewed is
+# refused (RM-BASELINE-STALE) rather than assumed clean.
+#
+# Regenerate ONLY after actually reviewing the delta:
+#   git ls-files | LC_ALL=C sort > policies/repository-material-baseline.txt
+#   shasum -a 256 policies/repository-material-baseline.txt
+baseline:
+  path_list: policies/repository-material-baseline.txt
+  path_list_sha256: BASELINE_SHA_PLACEHOLDER
+  path_count: BASELINE_COUNT_PLACEHOLDER
+  reviewed_at_revision: BASELINE_REV_PLACEHOLDER
+  reviewed_by: lane-R-repository-material-review
+  reviewed_on: '2026-08-27'
+  review_method: >-
+    File-by-file read of every tracked path outside the deterministic
+    machine-output classes (SBOM JSON, scanner findings JSON, dpkg/apt captures,
+    GitHub API response captures), plus a full read of every tracked file that
+    is large, structured and first-party-named — the shape the seccomp profile
+    had. The machine-output classes were sampled, not read in full; that is a
+    stated limit of this review, not a claim about them.
+
+# --- the material ------------------------------------------------------------
+materials:
+  - id: moby-seccomp-default
+    path: security/seccomp/zenchron-default.json
+    material_identity: >-
+      Moby default seccomp profile — the 832-line default-deny syscall filter
+      shipped as profiles/seccomp/default.json.
+    upstream:
+      project: moby/moby
+      source_url: https://github.com/moby/moby
+      revision: v27.3.1
+      path: profiles/seccomp/default.json
+    acquisition:
+      method: verbatim-copy
+      acquired_on: '2026-08-27'
+      recorded_by: lane-R-repository-material-review
+      detail: >-
+        Pinned in-repo so the runtime-contract harness can execute against a
+        fixed artefact instead of whatever the host daemon happens to ship.
+        Byte-identity with upstream v27.3.1 is recorded in
+        docs/decisions/publication-rights-provenance-packet.md.
+    local_modifications:
+      modified: false
+      changes: []
+    licence:
+      declared_spdx: Apache-2.0
+      determination: >-
+        Verified against the GitHub licence API for moby/moby, retrieved
+        2026-08-27T10:36:03Z. The profile carries no per-file licence header;
+        the repository licence governs it.
+    obligations:
+      required_license_text: third-party/moby-v27.3.1/LICENSE
+      required_notice: third-party/moby-v27.3.1/NOTICE
+      local_notice: security/seccomp/NOTICE
+      copyright_attribution: Copyright 2012-2017 Docker, Inc.
+      source_offer: not-applicable
+      reciprocity: none
+    hashes:
+      repository_content_sha256: 9c1025c88ccaa517b648da571961838744ea2137f176bfe6a48b21294cae9c76
+      upstream_content_sha256: 9c1025c88ccaa517b648da571961838744ea2137f176bfe6a48b21294cae9c76
+    review:
+      status: reviewed
+      reviewed_by: lane-R-repository-material-review
+      reviewed_on: '2026-08-27'
+      tracked_issue: 120
+
+  - id: moby-apparmor-template
+    path: security/apparmor/zenchron-container
+    material_identity: >-
+      Moby/Docker `docker-default` AppArmor profile template, restated with the
+      runtime-contract rules added.
+    upstream:
+      project: moby/moby
+      source_url: https://github.com/moby/moby
+      revision: v27.3.1
+      path: profiles/apparmor/template.go
+    acquisition:
+      method: derived-work
+      acquired_on: '2026-08-27'
+      recorded_by: lane-R-repository-material-review
+      detail: >-
+        docker-default plus the confinement the runtime contract already
+        promises, expressed as kernel policy. Deliberately kept close to the
+        upstream template so it survives base-image changes.
+    local_modifications:
+      modified: true
+      changes:
+        - Adds deny rules for the runtime-contract capability and privilege guarantees.
+        - Adds the Foundry-specific profile name and header attribution block.
+        - Restates the template as a literal profile rather than a Go template.
+    licence:
+      declared_spdx: Apache-2.0
+      determination: >-
+        Verified against the GitHub licence API for moby/moby, retrieved
+        2026-08-27T10:36:03Z. Apache-2.0 s.4(b) requires derived files to carry
+        prominent notices stating that they were changed; the `changes` list
+        above is that statement and the file header repeats it.
+    obligations:
+      required_license_text: third-party/moby-v27.3.1/LICENSE
+      required_notice: third-party/moby-v27.3.1/NOTICE
+      local_notice: security/apparmor/zenchron-container
+      copyright_attribution: Copyright 2012-2017 Docker, Inc.
+      source_offer: not-applicable
+      reciprocity: none
+    hashes:
+      repository_content_sha256: 70da5a86f75e4b6ec1af00f531bb451fcff1f4c69411074a2fad417c465ce57c
+      upstream_content_sha256: null
+    review:
+      status: reviewed
+      reviewed_by: lane-R-repository-material-review
+      reviewed_on: '2026-08-27'
+      tracked_issue: 120
+
+  - id: ipe-installer-helper
+    path: docs/audits/libaom3-ownership-2026-08-26/evidence/installer-helper.txt
+    material_identity: >-
+      Excerpt of the `install-php-extensions` helper script captured as audit
+      evidence — its header block plus the libaom/libavif package selection.
+    upstream:
+      project: mlocati/docker-php-extension-installer
+      source_url: https://github.com/mlocati/docker-php-extension-installer
+      revision: unpinned-inherited-from-base-image
+      path: install-php-extensions
+    acquisition:
+      method: excerpt
+      acquired_on: '2026-08-26'
+      recorded_by: lane-R-repository-material-review
+      detail: >-
+        Read out of the running FrankenPHP base image during the libaom3
+        ownership audit. The helper is NOT vendored and NOT built here; the
+        audit copied its text into this tree, and that copy is what creates the
+        obligation. No upstream tag is recoverable — policies/supply-chain-
+        inputs.yaml records this input as `version: inherited`.
+    local_modifications:
+      modified: false
+      changes: []
+    licence:
+      declared_spdx: MIT
+      determination: >-
+        The excerpt reproduces the upstream header verbatim, which states
+        `License: MIT` and links the upstream LICENSE. Confirmed against the
+        GitHub licence API for the upstream repository, retrieved 2026-08-27.
+    obligations:
+      required_license_text: third-party/docker-php-extension-installer/LICENSE
+      required_notice: null
+      local_notice: third-party/docker-php-extension-installer/NOTICE
+      copyright_attribution: Copyright (c) 2018-2023 Michele Locati
+      source_offer: not-applicable
+      reciprocity: none
+    hashes:
+      repository_content_sha256: 610ada5497e625b5b95a69ea3d4e902f933b06733e3c956097c83551e659b448
+      upstream_content_sha256: null
+    review:
+      status: reviewed
+      reviewed_by: lane-R-repository-material-review
+      reviewed_on: '2026-08-27'
+      tracked_issue: 120
+
+  - id: ipe-installer-gd-branch
+    path: docs/audits/libaom3-ownership-2026-08-26/evidence/installer-gd-branch.txt
+    material_identity: >-
+      Excerpt of the `install-php-extensions` helper script — the per-extension
+      build-dependency branch table. CARRIES NO INLINE ATTRIBUTION.
+    upstream:
+      project: mlocati/docker-php-extension-installer
+      source_url: https://github.com/mlocati/docker-php-extension-installer
+      revision: unpinned-inherited-from-base-image
+      path: install-php-extensions
+    acquisition:
+      method: excerpt
+      acquired_on: '2026-08-26'
+      recorded_by: lane-R-repository-material-review
+      detail: >-
+        FOUND BY MANUAL REVIEW, NOT BY ANY DISCOVERY SIGNAL. The file has no
+        copyright line, no licence reference, no upstream URL and no
+        distinctive filename. Its provenance is established by byte-identity
+        with regions of the sibling installer-helper.txt excerpt.
+    local_modifications:
+      modified: false
+      changes: []
+    licence:
+      declared_spdx: MIT
+      determination: >-
+        Same upstream file as ipe-installer-helper, which carries the MIT
+        header. The obligation follows the source, not the excerpt boundary.
+    obligations:
+      required_license_text: third-party/docker-php-extension-installer/LICENSE
+      required_notice: null
+      local_notice: third-party/docker-php-extension-installer/NOTICE
+      copyright_attribution: Copyright (c) 2018-2023 Michele Locati
+      source_offer: not-applicable
+      reciprocity: none
+    hashes:
+      repository_content_sha256: 9d54eb4c6afcea3255301c6f7f5f13ad59559d03461e7fe8cfd7737285e0093b
+      upstream_content_sha256: null
+    review:
+      status: reviewed
+      reviewed_by: lane-R-repository-material-review
+      reviewed_on: '2026-08-27'
+      tracked_issue: 120
+
+  - id: ipe-installer-gd-configure
+    path: docs/audits/libaom3-ownership-2026-08-26/evidence/installer-gd-configure.txt
+    material_identity: >-
+      Excerpt of the `install-php-extensions` helper script — the `gd)`
+      configure branch. CARRIES NO INLINE ATTRIBUTION.
+    upstream:
+      project: mlocati/docker-php-extension-installer
+      source_url: https://github.com/mlocati/docker-php-extension-installer
+      revision: unpinned-inherited-from-base-image
+      path: install-php-extensions
+    acquisition:
+      method: excerpt
+      acquired_on: '2026-08-26'
+      recorded_by: lane-R-repository-material-review
+      detail: >-
+        FOUND BY MANUAL REVIEW, NOT BY ANY DISCOVERY SIGNAL. Same silence as
+        ipe-installer-gd-branch. Its `isLibaomInstalled && isLibdav1dInstalled`
+        line matches installer-helper.txt byte for byte, which is how the
+        common source was established.
+    local_modifications:
+      modified: false
+      changes: []
+    licence:
+      declared_spdx: MIT
+      determination: >-
+        Same upstream file as ipe-installer-helper, which carries the MIT
+        header. The obligation follows the source, not the excerpt boundary.
+    obligations:
+      required_license_text: third-party/docker-php-extension-installer/LICENSE
+      required_notice: null
+      local_notice: third-party/docker-php-extension-installer/NOTICE
+      copyright_attribution: Copyright (c) 2018-2023 Michele Locati
+      source_offer: not-applicable
+      reciprocity: none
+    hashes:
+      repository_content_sha256: 9195fbe5ad78434daf5259018192ee8a2559267da0331ac63f47ffeeff3b3064
+      upstream_content_sha256: null
+    review:
+      status: reviewed
+      reviewed_by: lane-R-repository-material-review
+      reviewed_on: '2026-08-27'
+      tracked_issue: 120
+
+# --- dispositions ------------------------------------------------------------
+# Tracked files that TRIP a discovery signal and are NOT incorporated
+# third-party material. Every one needs a named reason and a reviewer, because
+# "the scanner is wrong here" is a judgement and judgements must be attributable.
+#
+# The gate reads this array as DATA. It contains no path-specific logic of its
+# own — a scanner that hardcodes which of its own hits to ignore is a scanner
+# whose findings nobody can audit.
+dispositions:
+  - path: scripts/license/assert-repository-material.sh
+    classification: scanner-self-reference
+    reason: >-
+      This is the discovery scanner itself. It necessarily contains the literal
+      licence-grant and copyright patterns it searches for, so it matches its
+      own signals. Disposing of it here rather than hardcoding an exclusion
+      keeps the exclusion visible and reviewable.
+    reviewed_by: lane-R-repository-material-review
+    reviewed_on: '2026-08-27'
+  - path: tests/license/test_repository_material_gate.sh
+    classification: scanner-self-reference
+    reason: >-
+      The scanner's test suite builds fixtures containing licence-grant text and
+      foreign copyright lines in order to prove the signals fire at all. A test
+      that could not contain those strings could not prove non-vacuity.
+    reviewed_by: lane-R-repository-material-review
+    reviewed_on: '2026-08-27'
+  - path: docs/licensing/repository-material.md
+    classification: scanner-self-reference
+    reason: >-
+      Documents the discovery signals by quoting the patterns verbatim, which is
+      the only way a reader can check whether a given file would be caught.
+    reviewed_by: lane-R-repository-material-review
+    reviewed_on: '2026-08-27'
+  - path: policies/repository-material.yaml
+    classification: scanner-self-reference
+    reason: >-
+      This inventory records the copyright attribution line required by each
+      entry's licence, so it contains foreign copyright strings by design.
+    reviewed_by: lane-R-repository-material-review
+    reviewed_on: '2026-08-27'
