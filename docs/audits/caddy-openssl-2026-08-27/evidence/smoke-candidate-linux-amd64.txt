@@ -1,0 +1,14 @@
+== smoke: caddy (lanek/caddy-candidate-amd64:prod) ==
+PASS  caddy validate accepts the baked Caddyfile
+PASS  runs as non-root (uid != 0)
+PASS  runs as the pinned uid 10001
+PASS  exposes HTTP port 8080
+PASS  exposes readiness port 8081
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+PASS  read-only rootfs: readiness /healthz returns ok on :8081
+PASS  shipped config creates no TLS app (no TLS termination)
+PASS  shipped config disables automatic HTTPS
+PASS  no listener on a TLS port (443/8443)
+PASS  image does not advertise a TLS port
+PASS  no file capabilities in the final image (cap_drop: ALL contract)
+SMOKE SUMMARY: 11 passed, 0 failed, 11 checks

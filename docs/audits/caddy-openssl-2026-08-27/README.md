@@ -35,7 +35,7 @@ The experiment asked, in order:
 change envelope is available today.** Consequently **no production child was
 rebuilt and no production image changed.** The finding must be governed by a
 temporary, tightly scoped exception owned by the vulnerability-exception lane —
-see §6 for the exact scoping facts.
+see §8 for the exact scoping facts.
 
 | Step | Result |
 |---|---|
@@ -202,7 +202,112 @@ Until upstream Caddy rebuilds, the cheaper outcome is usually the right one:
 the finding is governed by a **short-dated** exception and clears itself the
 moment the official image is rebuilt.
 
-## 6. Scoping facts for the temporary exception record
+## 6. Full candidate evidence (built, smoked, scanned — never published)
+
+Both variants were built for **both** platforms and measured. Nothing here was
+pushed, signed, promoted or dispatched; the candidate Dockerfile lives **out of
+tree** (`evidence/candidate-dockerfile.patch`) precisely so that
+`scripts/assert-no-wolfi.sh` is never bypassed. `docs/**` is outside that
+guard's scan set, which is why this document may quote the command at all.
+
+Control = the production Dockerfile at `f3883b9`, unmodified.
+Candidate = control + the enumerated upgrade in §5.
+
+### Base identity (all four children)
+
+`org.opencontainers.image.base.name = docker.io/library/caddy:2-alpine`,
+resolved to `sha256:5f5c8640…` → `sha256:98eb57d8…` (amd64) /
+`sha256:1172d421…` (arm64/v8). The candidate does **not** change the base.
+
+### Child digests
+
+A local build exports to the daemon and produces **no OCI manifest digest**
+(`policies/reproducibility.yaml`, `image-bytes` → `manifest_digest`:
+`not-observed`). The values below are image **config** digests and are recorded
+as such, not passed off as manifest digests.
+
+| Variant | Platform | Config digest |
+|---|---|---|
+| control | `linux/amd64` | `sha256:517832b0e83e9665ef733a556f79bc50b722e74bddba6c2ce5cb3b3fe3d526b8` |
+| control | `linux/arm64` | `sha256:324f1de98bfc3d1a0cb727dc3b19acdf644671dbcacfd17dfb492a39f1271230` |
+| candidate | `linux/amd64` | `sha256:9457dd0759692c820de6c8e5fdf15fd1b9bf934917c43834b836e6ad08014d30` |
+| candidate | `linux/arm64` | `sha256:92b65d775346fc1d25b0d2012b59953106a4a60a15c785ee737208dd137eadf6` |
+
+**No production child digest changed** — the control digests are what the
+current tree produces; the candidate digests belong to images that exist only
+in this experiment.
+
+### Package inventory, before → after (2026-08-27T10:09:04Z)
+
+32 packages before, 32 after, on both platforms. The complete `apk info -v`
+diff, identical on `linux/amd64` and `linux/arm64`, is **two lines**:
+
+```diff
+-libcrypto3-3.5.7-r0
++libcrypto3-3.5.8-r0
+-libssl3-3.5.7-r0
++libssl3-3.5.8-r0
+```
+
+Nothing else moved. SBOMs (`evidence/sbom-*.spdx.json`, Syft 1.50.0, SPDX-JSON)
+report 179 packages for every one of the four children, with `libssl3` and
+`libcrypto3` at `3.5.7-r0` (control) and `3.5.8-r0` (candidate).
+
+### Runtime smoke (2026-08-27T10:08:36Z)
+
+`scripts/smoke/smoke-caddy.sh`, unmodified, **11/11 passed on all four
+children** (`evidence/smoke-*.txt`). This is a real runtime gate, not a
+vacuous one: it starts the container under the full production profile
+(`--read-only --tmpfs /data --tmpfs /config --tmpfs /tmp --cap-drop ALL
+--security-opt no-new-privileges`) and polls `http://127.0.0.1:<mapped>/healthz`
+until it returns `ok` —
+
+```text
+PASS  read-only rootfs: readiness /healthz returns ok on :8081
+```
+
+— so a Caddy that starts but does not serve, or one whose binary cannot be
+exec'd under `no-new-privileges`, fails. The candidate's upgraded OpenSSL
+therefore demonstrably does not break the server.
+
+### Child scan (Trivy 0.73.0, 2026-08-27T10:09:17Z) — children only, never bases
+
+| Variant | Platform | Total findings | Fixable CRITICAL/HIGH | CVE-2026-14456 |
+|---|---|---|---|---|
+| control | `linux/amd64` | 55 | 21 | **PRESENT** — `libssl3` + `libcrypto3` `3.5.7-r0` → fixed `3.5.8-r0`, HIGH |
+| control | `linux/arm64` | 55 | 21 | **PRESENT** — same two packages, same versions, HIGH |
+| candidate | `linux/amd64` | 35 | 19 | **ABSENT** |
+| candidate | `linux/arm64` | 35 | 19 | **ABSENT** |
+
+The rescan finding is confirmed on the real children, on both architectures,
+and the candidate clears it.
+
+## 7. The candidate would not have made the children clean anyway
+
+This is the fact that decides the cost/benefit, and it is the reason not to
+spend an ADR amendment on this CVE alone. Breaking the candidate's remaining
+**19 fixable CRITICAL/HIGH** down by target (`linux/arm64`; `linux/amd64` is
+identical):
+
+| Target | Fixable CRIT/HIGH | Packages |
+|---|---|---|
+| `usr/bin/caddy` (gobinary) | **14** | `stdlib` (11 CVEs), `golang.org/x/net`, `golang.org/x/text` (CVE-2026-56852), `google.golang.org/grpc` |
+| alpine `3.23.5` os-pkgs | 5 | `c-ares` (CVE-2026-33630), `curl` + `libcurl` (CVE-2026-5773, CVE-2026-6276) |
+
+The 14 Go findings are compiled **into the statically linked Caddy binary**.
+They are clearable only by an upstream Caddy rebuild — rebuilding Caddy
+ourselves is forbidden. So even a perfectly executed package upgrade leaves the
+two children carrying fixable CRITICAL/HIGH and still needing an exception,
+while the *same* upstream rebuild that fixes the Go findings also picks up
+`libssl3 3.5.8-r0` for free. The remediation that actually closes the file is
+upstream's, and it closes all 21 at once.
+
+(The five remaining Alpine findings were deliberately left alone: the candidate
+upgraded exactly the two packages named by CVE-2026-14456 and nothing else. A
+blanket `apk upgrade` would have swept them up too, and is exactly the
+unbounded operation that must not appear in a production Dockerfile.)
+
+## 8. Scoping facts for the temporary exception record
 
 This lane does **not** edit `policies/vulnerability-exceptions.yaml`. The
 following are the exact facts the owning lane needs:
@@ -221,7 +326,7 @@ following are the exact facts the owning lane needs:
 | Clearing condition | Official `caddy:2-alpine` publishes a rebuild carrying `libssl3`/`libcrypto3 >= 3.5.8-r0`, on both platforms. |
 | Suggested expiry | Short-dated. The upstream image is rebuilt on Alpine's cadence; the last two Alpine rebuilds were 2026-05-14 and 2026-06-24. |
 
-## 7. What did not change
+## 9. What did not change
 
 - No production image was rebuilt; **no production child digest changed**.
 - `images/caddy/Dockerfile` is untouched — the base pin is still
@@ -238,7 +343,7 @@ following are the exact facts the owning lane needs:
 - No acceptance was dispatched, nothing was signed, published, promoted or
   tagged.
 
-## 8. Acceptance scope that would be owed
+## 10. Acceptance scope that would be owed
 
 **None is owed by this change**, because no production child was rebuilt and
 the existing acceptance evidence for the two Caddy children remains bound to
