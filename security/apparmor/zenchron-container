@@ -4,6 +4,17 @@
 # Load on an AppArmor host:   sudo apparmor_parser -r -W security/apparmor/zenchron-container
 # Use:                        docker run --security-opt apparmor=zenchron-container ...
 #
+# THIRD-PARTY ATTRIBUTION. This profile is DERIVED FROM the Moby/Docker
+# `docker-default` AppArmor template (https://github.com/moby/moby), which is
+# licensed Apache-2.0 (verified against the GitHub licence API, retrieved
+# 2026-08-27T10:36:03Z). Copyright 2012-2017 Docker, Inc.
+#
+# Apache-2.0 requires a redistributor to retain the copyright notice and the
+# licence reference and to state changes. The changes are exactly what the
+# paragraph below describes: docker-default plus the runtime-contract rules.
+# The obligation attaches TODAY, to material incorporated into this repository,
+# and does not depend on any future licence decision.
+#
 # This is docker-default plus the things the runtime contract already promises,
 # stated as kernel policy rather than as convention. It is deliberately close to
 # docker-default: a profile that diverges far from it breaks on the next base
