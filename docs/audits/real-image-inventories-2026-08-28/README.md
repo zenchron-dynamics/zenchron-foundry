@@ -3,6 +3,14 @@
 **Run date:** 2026-08-28 · **Source revision under evidence:**
 `7061caafb3ea09bd5b2342a1daf022151b33f822` · **Verdict: REFUSED.**
 
+> **SUPERSEDED IN PART — read `rerun-against-fixed-consumer.md` next.** The
+> refusal recorded below was caused by the consumer defect diagnosed in section
+> 5. That defect has since been fixed. The same 40 documents were re-run against
+> the fixed consumer without regenerating anything: **the binding gate now
+> passes, 20/20 children bound**, and the composed repository half passes. The
+> composed verdict is still REFUSED, but on measured licence content rather than
+> on plumbing. Sections 1 through 3 and 7 below are unaffected and still current.
+
 This is the run record for a *buildless* attempt to produce real image package
 inventories for every child of the accepted multi-architecture run
 (`docs/audits/acceptance-multiarch-2026-08-20/`) and to put the composed licence
@@ -266,3 +274,6 @@ neither.**
 | `licence/image-sbom-binding-gate.log` | the gate's own refusal output, verbatim |
 | `licence/identifier-reconciliation.json` | the four-way identifier classification |
 | `licence-identifier-reconciliation.md` | that classification, with the discrepancies investigated |
+| `rerun-against-fixed-consumer.md` | the re-run against the fixed consumer: 20/20 bound, and why the policy half still refuses |
+| `licence/rerun-*` | the re-run's own gate output |
+| `BLOCKED.md` | the two maintainer actions the first run could not take |

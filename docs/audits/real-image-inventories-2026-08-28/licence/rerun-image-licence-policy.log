@@ -1,0 +1,39 @@
+REFUSE: licence policy not satisfied — 8507 finding(s) across 8527 component(s):
+
+  no licence could be established (SBOM said NOASSERTION/nothing) (8292):
+    - sodium@8.3.32
+    - sodium@8.3.33
+    - sodium@8.4.23
+    - sodium@8.4.24
+    - zip@1.22.3
+    - zip@1.22.8
+
+  sources disagree about the licence (196):
+    - Archive_Tar@1.6.0 (LicenseRef-New-BSD-License vs NOASSERTION vs New BSD License)
+    - PEAR@1.10.18 (LicenseRef-New-BSD-License vs NOASSERTION vs New BSD License)
+    - XML_Util@1.4.5 (BSD License vs LicenseRef-BSD-License vs NOASSERTION)
+    - zstd-libs@1.5.7-r2 ((BSD-3-Clause OR GPL-2.0-or-later) vs BSD-3-Clause OR GPL-2.0-or-later vs NOASSERTION)
+
+  licence needs legal review and has not had it (19):
+    - alpine-baselayout-data@3.7.2-r0 [GPL-2.0-only]
+    - alpine-baselayout@3.7.2-r0 [GPL-2.0-only]
+    - apk-tools@3.0.6-r0 [GPL-2.0-only]
+    - busybox-binsh@1.37.0-r30 [GPL-2.0-only]
+    - busybox@1.37.0-r30 [GPL-2.0-only]
+    - curl@8.19.0-r0 [curl]
+    - hostname@3.23+nmu1 [GPL-2.0-only]
+    - libapk@3.0.6-r0 [GPL-2.0-only]
+    - libcurl@8.19.0-r0 [curl]
+    - libgssapi-krb5-2@1.20.1-2+deb12u5 [GPL-2.0-only]
+    - libk5crypto3@1.20.1-2+deb12u5 [GPL-2.0-only]
+    - libkrb5-3@1.20.1-2+deb12u5 [GPL-2.0-only]
+    - libkrb5support0@1.20.1-2+deb12u5 [GPL-2.0-only]
+    - libmpc3@1.3.1-1 [LGPL-3.0-only]
+    - libmpfr6@4.2.0-1 [LGPL-3.0-only]
+    - libseccomp2@2.5.4-1+deb12u1 [LGPL-2.1-only]
+    - libzip4@1.7.3-1+b1 [GPL-3.0-only]
+    - scanelf@1.3.8-r2 [GPL-2.0-only]
+    - ssl_client@1.37.0-r30 [GPL-2.0-only]
+
+  No release may ship on an unresolved licence finding. Resolve each
+  by recording a decision in /tmp/laneV-foundry/policies/license-policy.yaml — not by editing this gate.

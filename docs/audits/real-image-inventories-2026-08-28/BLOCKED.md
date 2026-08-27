@@ -1,5 +1,12 @@
 # Two maintainer actions this branch could not take
 
+> **ITEM 2 IS RESOLVED. ITEM 1 IS STILL BLOCKED.** The gate fix was applied by
+> the coordinator on `fix/sbom-subject-describes`; the re-run against it is in
+> `rerun-against-fixed-consumer.md`. The baseline refresh was attempted again
+> after that re-run and is still refused by the operator's permission policy,
+> which allows no write under `policies/`. The numbers below are updated to the
+> final tree so the change is one edit with nothing left to re-derive.
+
 Both were attempted and both were refused by the operator's permission policy,
 which does not allow this run to edit release gates or files under `policies/`.
 Neither is a judgement call left open — each is written out exactly, so a
@@ -15,37 +22,44 @@ FAIL - S8 ...with RM-BASELINE-STALE naming the file and how to regenerate the ba
 FAIL - S8 ...and at PR scope the same file is REPORTED as drift, never passed in silence
 ```
 
-This branch adds 30 tracked paths — the audit directory in section 9 of
-`README.md` — and the reviewed baseline in `policies/repository-material.yaml`
-does not cover them. That is the gate working: unreviewed material is refused
-rather than assumed clean.
+This branch adds 37 tracked paths — the audit directory in section 9 of
+`README.md`, including the re-run record and its five gate logs — and the
+reviewed baseline in `policies/repository-material.yaml` does not cover them.
+That is the gate working: unreviewed material is refused rather than assumed
+clean.
 
-The delta is 30 additions and **zero** removals. Every one of the 30 is a
-first-party document authored in this change: a run record, a scanner-identity
-record, a registry probe, an SBOM document index, 20 producer binding records,
-four gate logs and a checksum file. None copies foreign material. To apply:
+The delta is **37 additions and zero removals**, verified with
+`git diff --cached`. Every one of the 37 is a first-party document authored in
+this change: two run records, a scanner-identity record, a registry probe, an
+SBOM document index, 20 producer binding records, nine gate logs, a licence
+identifier reconciliation, this file and a checksum file. None copies foreign
+material. To apply:
 
 ```bash
 git ls-files | LC_ALL=C sort > docs/licensing/repository-material-baseline.txt
 shasum -a 256 docs/licensing/repository-material-baseline.txt
-# => a6fd20584d5a2f66020056ab9494bb2970dd2432f93a7ba104d985e60990dad5
+# => 93b1721573c936d8f3e9947f2c1ab43f8f219c90134dac4c00b2fa452d6a7a84
 ```
 
 then in `policies/repository-material.yaml`:
 
 ```yaml
-  path_list_sha256: a6fd20584d5a2f66020056ab9494bb2970dd2432f93a7ba104d985e60990dad5
-  path_count: 772
+  path_list_sha256: 93b1721573c936d8f3e9947f2c1ab43f8f219c90134dac4c00b2fa452d6a7a84
+  path_count: 779
 ```
 
 and extend `review_method` with a delta note in the shape lane-S already used,
-naming these 30 paths and the basis on which they are recorded as reviewed.
+naming these 37 paths and the basis on which they are recorded as reviewed.
+`reviewed_at_revision` is deliberately left at the lane-R full-review revision:
+it is not machine-checked, and pointing it at a commit that did not contain
+these files would be a claim the review never made — lane-S handled its own
+three-path delta the same way.
 
-The regenerated baseline was produced and verified during this run — the sha256
-above is measured, not predicted — and then reverted, because a regenerated
-path list whose hash the policy still disagrees with would fail as
-`RM-BASELINE-UNVERIFIABLE` instead, which is a worse state than the honest
-`RM-BASELINE-STALE` this branch leaves.
+The regenerated baseline was produced and verified twice during this work — the
+sha256 above is measured over the final tree, not predicted — and reverted both
+times, because a regenerated path list whose hash the policy still disagrees
+with would fail as `RM-BASELINE-UNVERIFIABLE` instead, which is a worse state
+than the honest `RM-BASELINE-STALE` this branch leaves.
 
 ## 2. The gate fix itself
 

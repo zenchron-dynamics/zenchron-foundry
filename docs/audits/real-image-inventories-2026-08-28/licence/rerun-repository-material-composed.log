@@ -1,0 +1,15 @@
+repository-material gate — four-source composition
+  SOURCE 1  image SBOM licence evidence  : artifacts/laneV/licence/image-inventory.json (8527 components)
+  SOURCE 2  repository-material inventory: policies/repository-material.yaml (5 materials, 6 dispositions, 5 reviewed)
+  SOURCE 3  licence texts and notices    : 6 artifact(s) named by source 2
+  SOURCE 4  project outbound licence     : LICENSE + license-policy.yaml -> NOT FINAL (placeholder / undetermined)
+  discovery: HEURISTIC over 773 tracked files; 17 signal hit(s), 1 unscannable (non-UTF-8), 13 advisory prose hit(s)
+            signal path-third-party           the path is under a directory conventionally used for foreign material
+            signal embedded-licence-grant     the file body contains the operative words of a licence grant
+            signal foreign-copyright-header   the file's first 40 lines carry a copyright line that is not Zenchron's
+  discovery CANNOT prove a file is first-party. Absence of a signal is not evidence; the reviewed baseline is what covers the silence.
+  ADVISORY (refuses nothing, low precision, ordinary English): 13 file(s) contain prose provenance phrases, e.g. .github/workflows/ci.yml, .github/workflows/stage-and-authorize.yml, docs/decisions/licence-legal-review-packet.md, docs/decisions/publication-rights-provenance-packet.md, docs/licensing/repository-material.md
+  LIMIT: 1 tracked file(s) could not be decoded as UTF-8 and were NOT content-scanned: docs/audits/package-acl-2026-08-03/package-acl-probe-30837370041-1.zip
+  NOTE: BASELINE DRIFT (not refused at this scope; --require-reviewed-baseline refuses it): 31 tracked file(s) are outside the reviewed baseline and in neither inventory array: docs/audits/real-image-inventories-2026-08-28/BLOCKED.md, docs/audits/real-image-inventories-2026-08-28/README.md, docs/audits/real-image-inventories-2026-08-28/SHA256SUMS, docs/audits/real-image-inventories-2026-08-28/licence-identifier-reconciliation.md, docs/audits/real-image-inventories-2026-08-28/licence/composed-authorization-validation.log, docs/audits/real-image-inventories-2026-08-28/licence/identifier-reconciliation.json, docs/audits/real-image-inventories-2026-08-28/licence/image-licence-policy-diagnostic.log, docs/audits/real-image-inventories-2026-08-28/licence/image-sbom-binding-gate.log, docs/audits/real-image-inventories-2026-08-28/registry-recoverability-probe.json, docs/audits/real-image-inventories-2026-08-28/sbom-bindings/caddy-prod-linux-amd64.binding.json, .... Nothing has established what they are. Review them, then regenerate the baseline with `git ls-files | LC_ALL=C sort > docs/licensing/repository-material-baseline.txt` and update baseline.path_list_sha256, path_count and reviewed_at_revision.
+repository-material OK: 5 reviewed material(s), 0 findings
+NOTE: the project's OUTBOUND licence is not settled (issue 98). This gate accounted for INBOUND obligations that attach today; it established no right to distribute anything.
