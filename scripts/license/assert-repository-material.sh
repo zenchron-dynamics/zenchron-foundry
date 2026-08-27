@@ -64,12 +64,14 @@
 #   RM-BASELINE-STALE            tracked paths outside the reviewed baseline
 #   RM-OUTBOUND-TERMS-PLACEHOLDER  placeholder terms presented as final
 #   RM-REPOSITORY-EVIDENCE-ABSENT  image evidence with no repository evidence
+#   RM-IMAGE-EVIDENCE-ABSENT     repository evidence with no image evidence
 #   RM-TREE-UNREADABLE           the tracked file set cannot be established
 #
 # Usage:
 #   assert-repository-material.sh [--root DIR] [--inventory FILE] [--policy FILE]
 #        [--license-file FILE] [--image-inventory FILE]
 #        [--require-reviewed-baseline] [--require-final-outbound-terms]
+#        [--require-image-evidence]
 #   assert-repository-material.sh --self-test
 # =============================================================================
 set -uo pipefail
@@ -77,7 +79,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
-  sed -n '69,74p' "$0" | sed 's/^# \{0,1\}//' >&2
+  sed -n '70,76p' "$0" | sed 's/^# \{0,1\}//' >&2
   exit 64
 }
 
@@ -100,6 +102,7 @@ lic_path   = os.environ["RM_LICENSE_FILE"]
 img_path   = os.environ.get("RM_IMAGE_INVENTORY") or ""
 req_base   = os.environ.get("RM_REQUIRE_BASELINE") == "1"
 req_final  = os.environ.get("RM_REQUIRE_FINAL_TERMS") == "1"
+req_image  = os.environ.get("RM_REQUIRE_IMAGE_EVIDENCE") == "1"
 
 try:
     import yaml
@@ -507,6 +510,29 @@ if baseline_paths is not None:
 # SOURCE 1 — image SBOM licence evidence, and the composition rule
 # =============================================================================
 image_components = None
+# THE OTHER DIRECTION OF THE COMPOSITION RULE.
+#
+# The block below already refuses image evidence presented beside an empty
+# repository verdict. The reverse was silently permitted: with no
+# --image-inventory this gate printed "not supplied (this run decides nothing
+# about image components)" and exited 0, so a repository-only PASS read exactly
+# like a licence clearance. It is not one. An SBOM sees what is IN the image and
+# this gate sees what is in the TREE; neither is a superset of the other, and a
+# clean result from one can never compensate for the absence of the other.
+#
+# --require-image-evidence is what a release-authorization caller passes. The
+# flag is off by default so the required `repo structure` job — which is
+# buildless and has no candidate image to build an SBOM from — keeps gating the
+# repository half exactly as it does today.
+if req_image and not img_path:
+    refuse("RM-IMAGE-EVIDENCE-ABSENT",
+           "image SBOM licence evidence was REQUIRED and none was supplied. The "
+           "repository-material inventory cannot see what is inside a candidate "
+           "image, so a clean repository verdict on its own licenses nothing. "
+           "Build the image half with "
+           "scripts/license/assert-image-sbom-licences.sh --authorization "
+           "<post-build-authorization.json> --sbom-dir <candidate SBOMs> and "
+           "pass the result as --image-inventory")
 if img_path:
     try:
         import json as _json2
@@ -533,7 +559,8 @@ if img_path:
 print("repository-material gate — four-source composition")
 print("  SOURCE 1  image SBOM licence evidence  : %s"
       % ("%s (%d components)" % (img_path, image_components) if img_path
-         else "not supplied (this run decides nothing about image components)"))
+         else ("REQUIRED AND ABSENT" if req_image
+               else "not supplied (this run decides nothing about image components)")))
 print("  SOURCE 2  repository-material inventory: %s (%d materials, %d dispositions, %d reviewed)"
       % (inv_path, len(materials), len(dispositions), reviewed_count))
 print("  SOURCE 3  licence texts and notices    : %d artifact(s) named by source 2"
@@ -601,7 +628,8 @@ self_test() {
   # heredoc through os.environ; `set -a` is what puts them there.
   run() { ( set -a; RM_ROOT="$1" RM_INVENTORY="$2" RM_POLICY="$3" \
             RM_LICENSE_FILE="$4" RM_IMAGE_INVENTORY="${5:-}" \
-            RM_REQUIRE_BASELINE="${6:-0}" RM_REQUIRE_FINAL_TERMS="${7:-0}"; \
+            RM_REQUIRE_BASELINE="${6:-0}" RM_REQUIRE_FINAL_TERMS="${7:-0}" \
+            RM_REQUIRE_IMAGE_EVIDENCE="${8:-0}"; \
             set +a; gate ) >"$tmp/out" 2>&1; }
   says() { grep -q "$1" "$tmp/out"; }
 
@@ -804,6 +832,23 @@ YAML
   ck "NON-VACUOUS: the same image evidence passes beside REVIEWED repo evidence" \
      "run '$F' '$I' '$P' '$L' '$tmp/img.json'"
 
+  # --- 7b. repository evidence present, image evidence absent ---------------
+  # The mirror of case 7, and the direction that used to pass in silence: with
+  # no --image-inventory the gate printed "not supplied" and exited 0, so a
+  # repository-only PASS read like a licence clearance for a release.
+  mkfix; mkinv
+  ck "a repository-only run still passes when image evidence is NOT required" \
+     "run '$F' '$I' '$P' '$L'"
+  ck "REFUSE: the identical clean tree once image evidence is REQUIRED" \
+     "! run '$F' '$I' '$P' '$L' '' 0 0 1"
+  ck "...with diagnostic RM-IMAGE-EVIDENCE-ABSENT" "says 'RM-IMAGE-EVIDENCE-ABSENT'"
+  ck "...naming the script that produces the missing half" \
+     "says 'assert-image-sbom-licences.sh'"
+  ck "...and SOURCE 1 is reported as REQUIRED AND ABSENT, not as 'not supplied'" \
+     "says 'REQUIRED AND ABSENT'"
+  ck "NON-VACUOUS: the same required run passes once image evidence IS supplied" \
+     "run '$F' '$I' '$P' '$L' '$tmp/img.json' 0 0 1"
+
   # --- the reviewed baseline ------------------------------------------------
   mkfix; mkinv
   printf 'nothing interesting at all\n' >"$F/quiet.txt"
@@ -850,7 +895,7 @@ sys.exit(0 if d.get(\"schema\")==\"foundry.repository-material/v1\"
 }
 
 main() {
-  local inv="" pol="" lic="" img="" req_base=0 req_final=0 root="$ROOT"
+  local inv="" pol="" lic="" img="" req_base=0 req_final=0 req_image=0 root="$ROOT"
   case "${1:-}" in --self-test) self_test; exit $? ;; esac
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -861,6 +906,7 @@ main() {
       --image-inventory)  img="${2:-}";  shift 2 ;;
       --require-reviewed-baseline)   req_base=1;  shift ;;
       --require-final-outbound-terms) req_final=1; shift ;;
+      --require-image-evidence)      req_image=1; shift ;;
       *) usage ;;
     esac
   done
@@ -871,6 +917,7 @@ main() {
   RM_IMAGE_INVENTORY="$img" \
   RM_REQUIRE_BASELINE="$req_base" \
   RM_REQUIRE_FINAL_TERMS="$req_final" \
+  RM_REQUIRE_IMAGE_EVIDENCE="$req_image" \
     gate
 }
 

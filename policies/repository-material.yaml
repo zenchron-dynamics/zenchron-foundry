@@ -63,8 +63,8 @@ tracked_issue: 120
 # supply-chain guard. Do not "tidy" it back into policies/.
 baseline:
   path_list: docs/licensing/repository-material-baseline.txt
-  path_list_sha256: aa2169cd8b46ecfc19a70dec6f484840871f275c9a1fe04fb31c38e8362a9068
-  path_count: 739
+  path_list_sha256: 8ed5728b5df9f4b080659d8473990daa1cc418dbb51cd42aab76b5b558812b07
+  path_count: 742
   reviewed_at_revision: ac1155716e7b244cca6dd3ecbaa89d467a71732c
   reviewed_by: lane-R-repository-material-review
   reviewed_on: '2026-08-27'
@@ -75,6 +75,13 @@ baseline:
     is large, structured and first-party-named — the shape the seccomp profile
     had. The machine-output classes were sampled, not read in full; that is a
     stated limit of this review, not a claim about them.
+
+    DELTA, lane-S image-SBOM licence gate: three paths were added to the tracked
+    tree by that change — scripts/license/assert-image-sbom-licences.sh,
+    tests/license/test_image_sbom_licence_gate.sh and
+    tests/lib/workflow_step.py. All three are first-party, authored in that
+    change, and copy no foreign material; they are recorded here as reviewed on
+    that basis and on no broader one. Nothing else in the baseline was re-read.
 
 # --- the material ------------------------------------------------------------
 materials:

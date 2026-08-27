@@ -581,6 +581,7 @@ scripts/lib/registry-probe.sh
 scripts/lib/release-manifest.sh
 scripts/lib/repo-identity.sh
 scripts/lib/strict_yaml.py
+scripts/license/assert-image-sbom-licences.sh
 scripts/license/assert-license-policy.sh
 scripts/license/assert-repository-material.sh
 scripts/license/generate-notice.sh
@@ -677,6 +678,8 @@ tests/lib/test_no_ambient_mutation.sh
 tests/lib/test_pipefail_sigpipe.sh
 tests/lib/test_repo_identity_guard.sh
 tests/lib/test_supply_chain_inputs.sh
+tests/lib/workflow_step.py
+tests/license/test_image_sbom_licence_gate.sh
 tests/license/test_license_gate.sh
 tests/license/test_repository_material_gate.sh
 tests/matrix/test_php_lifecycle_and_selectors.sh

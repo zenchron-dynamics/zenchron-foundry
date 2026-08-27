@@ -47,6 +47,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        # FULL HISTORY, and it is load-bearing rather than convenient.
+        #
+        # tests/license/test_image_sbom_licence_gate.sh justifies reusing the
+        # accepted production run's candidate identities by proving the image
+        # DEFINITIONS and the MATRIX_IMAGES/MATRIX_COUNT identity set have not
+        # moved since that revision. Both are `git diff` against a commit from
+        # 2026-08-20, and a depth-1 checkout does not have it — the diff then
+        # fails, prints nothing, and an emptiness check reads that as agreement.
+        # That is a check that is literally green and substantively absent, which
+        # is the class this repository keeps removing. The history is ~6 MB.
+        with: { fetch-depth: 0 }
       - name: Check required layout
         run: bash scripts/check-structure.sh
 
@@ -167,6 +178,22 @@ jobs:
           bash scripts/license/assert-repository-material.sh --self-test
           bash scripts/license/assert-repository-material.sh \
             --inventory policies/repository-material.yaml
+
+      # THE IMAGE HALF OF THE LICENCE GATE, EXECUTED — not grepped.
+      #
+      # The step above is `--self-test`: the gate testing itself. It gates no
+      # image, and an assertion that merely grepped .github/workflows/ for
+      # `scripts/license/` matched exactly that line and reported the gate as
+      # wired. That is why the image-SBOM gap survived so long.
+      #
+      # The candidate images live in the release path, not here — CI is
+      # buildless. So this step does the strongest thing a buildless job can:
+      # it PARSES stage-and-authorize.yml's licence-authorization job, extracts
+      # its gate step bodies, and EXECUTES them against the accepted production
+      # run's real immutable child digests. Delete that job, weaken a flag or
+      # stop consuming its result and this required check goes red.
+      - name: Gate — image-SBOM licence authorization (both halves required)
+        run: bash tests/license/test_image_sbom_licence_gate.sh
 
       - name: Gate — CRA control set
         run: bash scripts/cra/assert-cra-controls.sh

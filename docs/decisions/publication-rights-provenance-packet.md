@@ -617,6 +617,26 @@ test_evidence_path_e2e: PASS
 `:1303-1310` explains why this is pinned rather than quietly passing: the previous assertion matched `ci.yml`'s
 `--self-test` line and was "literally true, substantively false, and green forever".
 
+### ADDENDUM 2026-08-27 — the two pinned gaps are closed; T5 is not
+
+Everything above is the state as of run `33080410669` and is left unedited, because a dated audit record
+that gets rewritten stops being evidence. What changed after it:
+
+`.github/workflows/stage-and-authorize.yml` now carries a `licence-authorization` job. The `stage` job
+produces a per-child SBOM with `scripts/generate-sbom.sh` against the digest the registry resolved, and
+the licence job binds each document to image, version, platform, immutable digest and source revision,
+runs `scripts/license/assert-license-policy.sh` over the resulting inventory, and composes that with
+`scripts/license/assert-repository-material.sh --require-image-evidence` so that neither half can stand
+alone. Both `gap()` lines at `:1315` and `:1317` are therefore promoted to `ck()`, with their predicates
+unchanged, and the counts quoted above no longer reproduce.
+
+**T5 is NOT closed by this, and the distinction matters to the decision.** Wiring a gate is not running
+it. No dispatch has yet executed the composed authorization over real Foundry images, so which of the 17
+`legal-review-required` identifiers are actually present in any image remains unmeasured. What exists now
+is the control; what is still owed is the measurement, and it is still a maintainer-role action that is
+not blocked on this decision. Options A, B and C are affected exactly as the table below says, with
+"wiring defect" replaced by "the run has not happened yet".
+
 ### Effect of each option on the two gaps
 
 **None of A, B or C closes either gap.** They are wiring defects in the release path, not consequences of the
