@@ -140,7 +140,7 @@ as an explicit gap rather than describing the scanner as complete.
 
 ### The non-heuristic half: the reviewed baseline
 
-`policies/repository-material-baseline.txt` is the exact set of tracked paths a
+`docs/licensing/repository-material-baseline.txt` is the exact set of tracked paths a
 human reviewed, pinned by sha256 in the inventory. It is the answer to "what
 about material that trips no signal": everything inside the baseline was looked
 at, and anything outside it is unreviewed.
@@ -155,8 +155,8 @@ making the repository unusable, and the release path still refuses.
 Regenerate it **only after actually reviewing the delta**:
 
 ```sh
-git ls-files | LC_ALL=C sort > policies/repository-material-baseline.txt
-shasum -a 256 policies/repository-material-baseline.txt
+git ls-files | LC_ALL=C sort > docs/licensing/repository-material-baseline.txt
+shasum -a 256 docs/licensing/repository-material-baseline.txt
 # then update baseline.path_list_sha256, path_count and reviewed_at_revision
 ```
 

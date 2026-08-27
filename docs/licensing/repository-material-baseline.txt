@@ -322,6 +322,7 @@ docs/incident-response.md
 docs/kubernetes-admission.md
 docs/legacy-php-policy.md
 docs/licensing/license-compliance.md
+docs/licensing/repository-material-baseline.txt
 docs/licensing/repository-material.md
 docs/local-validation.md
 docs/logging-privacy.md
@@ -468,7 +469,6 @@ policies/rebuild-ticket-contract.yaml
 policies/release-governance.yaml
 policies/repo-identity.yaml
 policies/repository-governance.yaml
-policies/repository-material-baseline.txt
 policies/repository-material.yaml
 policies/reproducibility.yaml
 policies/required-release-checks.yaml

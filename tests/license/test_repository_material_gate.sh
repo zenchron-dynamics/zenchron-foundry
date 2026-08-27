@@ -37,7 +37,7 @@ gap() { ngap=$((ngap+1)); if eval "$2"; then echo "GAP  - $1"; else
 
 GATE=scripts/license/assert-repository-material.sh
 INV=policies/repository-material.yaml
-BASE=policies/repository-material-baseline.txt
+BASE=docs/licensing/repository-material-baseline.txt
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
