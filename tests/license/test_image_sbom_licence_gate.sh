@@ -191,6 +191,15 @@ build_set() { # build_set <sbom-dir> <binding-dir> [when]
 # from any acceptance record would be a bypass of the gate, not a fixture.
 python3 "$MKAUTH" "$ACCEPTED" "$TMP/auth.json"
 python3 "$MKAUTH" "$ACCEPTED" "$TMP/auth-short.json" --drop-child 0
+python3 "$MKAUTH" "$ACCEPTED" "$TMP/auth-extra.json" --extra-child
+python3 - "$TMP/auth.json" "$TMP/auth-dup.json" <<'PY'
+import json, sys
+rec = json.load(open(sys.argv[1]))
+# One child recorded twice. A duplicated child is how one image's clean bill of
+# materials stands in for another's while the count still looks right.
+rec["children"].append(dict(rec["children"][0]))
+json.dump(rec, open(sys.argv[2], "w"), indent=2)
+PY
 
 build_set "$TMP/sbom" "$TMP/bind"
 
@@ -419,6 +428,17 @@ ck "P4 ...for IL-CHILDREN-SHORT against the DECLARED matrix, not against what ar
    "says 'IL-CHILDREN-SHORT' && says 'expected_matrix declares'"
 ck "P4 ...and the leftover document is separately refused as bound to no child" \
    "says 'IL-SBOM-UNEXPECTED'"
+# An UNEXPECTED child: an experimental image the run never shipped, authorized
+# alongside the real matrix. Coverage is judged against expected_matrix, so a
+# 21st child is a refusal rather than a bonus.
+ck "P4 SABOTAGE: a child outside the DECLARED matrix REFUSES" \
+   "! gate bind AUTH_RECORD='$TMP/auth-extra.json' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4c.json'"
+ck "P4 ...for IL-CHILD-UNEXPECTED, and the experimental 8.5 image is how it shows up" \
+   "says 'IL-CHILD-UNEXPECTED' && says 'php-cli/8.5'"
+ck "P4 SABOTAGE: the SAME child recorded twice REFUSES" \
+   "! gate bind AUTH_RECORD='$TMP/auth-dup.json' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4d.json'"
+ck "P4 ...for IL-CHILD-DUPLICATE, naming the child claimed twice" \
+   "says 'IL-CHILD-DUPLICATE' && says 'two records for child'"
 ck "P4 NON-VACUOUS: the complete record over the same documents binds cleanly" \
    "gate bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4ok.json'"
 
