@@ -1,0 +1,228 @@
+name: upstream-monitor
+
+# ---------------------------------------------------------------------------
+# Buildless upstream monitor and expiry operating checkpoints.
+#
+# WHAT IT DOES. Resolves the watched official artifacts, records what they
+# contain, compares that against the exit conditions written into the exception
+# ledger, and reports. Separately, it renders the expiry checkpoints leading to
+# the 2026-09-30 fail-closed date.
+#
+# WHAT IT CANNOT DO. `issues: write` is the ONLY write it has. No contents:write,
+# no packages, no id-token. It cannot rebuild an image, move a base pin, dispatch
+# acceptance, publish, promote, sign, tag, renew an exception or remove one — not
+# by policy but by permission. Acting on what it reports is a maintainer
+# decision made in a reviewed pull request.
+#
+# WHY IT IS ALMOST ALWAYS SILENT. A monitor that reports every day is a monitor
+# nobody reads. It speaks only when a consumable official artifact appears to
+# satisfy an existing exit condition, when upstream evidence contradicts the
+# ledger, or when an expiry checkpoint is due. Tag movement — index or platform —
+# is recorded in the run log and never opens an issue: a moved tag is not
+# remediation, and this repository has measured that twice.
+#
+# TWO ISSUES, NOT MANY. One tracking issue for upstream alerts and one for the
+# expiry checkpoints, each updated in place and closed when it goes quiet. A new
+# issue per run is how a signal becomes noise and then becomes filtered.
+# ---------------------------------------------------------------------------
+
+on:
+  schedule:
+    # Daily. The cadence is about not MISSING a checkpoint date or a publication,
+    # not about reporting daily — the run is silent unless it has something.
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+    inputs:
+      today:
+        description: "Pin the checkpoint date (YYYY-MM-DD) — for rehearsing a checkpoint"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: upstream-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    name: buildless upstream monitor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Bind the watch config to the exception ledger before trusting it
+        # A watch config that no longer describes the live ledger must not be
+        # used to decide anything. This step FAILS CLOSED: a group naming a
+        # record that is gone, or a fail-closed record no group names, stops
+        # the run rather than producing a report nobody can rely on.
+        run: python3 scripts/upstream-monitor.py --self-test
+
+      - name: Install syft (pinned)
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          # Same version the scan-images workflow pins, so an inventory read
+          # here and an SBOM read there describe packages the same way.
+          syft-version: v1.42.3
+
+      - name: Observe the watched upstream artifacts and feeds
+        # Read-only: manifest resolution, a per-platform inventory read against
+        # the IMMUTABLE platform digest, the Debian bookworm remediation feed and
+        # the Alpine package index. Nothing is built and nothing is pulled into
+        # the local image store.
+        run: python3 scripts/upstream-monitor.py observe --out /tmp/observation.json
+
+      - name: Evaluate against the ledger's exit conditions
+        id: evaluate
+        run: |
+          set -uo pipefail
+          # Deliberately NOT `set -e`: rc 3 means an alert FIRED, which is a
+          # reportable outcome and not a workflow failure.
+          out="$(python3 scripts/upstream-monitor.py evaluate \
+                   --observation /tmp/observation.json --fail-on-alert 2>&1)"
+          rc=$?
+          printf '%s\n' "$out"
+          {
+            echo "alert=$([ "$rc" = 3 ] && echo true || echo false)"
+            echo "report<<MONITOR_EOF"
+            printf '%s\n' "$out"
+            echo "MONITOR_EOF"
+          } >> "$GITHUB_OUTPUT"
+          # Any code other than 0 or 3 is a real failure (bad config, unreadable
+          # observation) and must not be reported as a clean run.
+          if [ "$rc" != 0 ] && [ "$rc" != 3 ]; then exit "$rc"; fi
+
+      - name: Render the expiry checkpoints
+        id: checkpoints
+        env:
+          TODAY: ${{ inputs.today }}
+        run: |
+          set -uo pipefail
+          args=(checkpoints --fail-on-checkpoint)
+          [ -n "${TODAY:-}" ] && args+=(--today "$TODAY")
+          out="$(python3 scripts/upstream-monitor.py "${args[@]}" 2>&1)"
+          rc=$?
+          printf '%s\n' "$out"
+          {
+            echo "due=$([ "$rc" = 4 ] && echo true || echo false)"
+            echo "report<<CHECKPOINT_EOF"
+            printf '%s\n' "$out"
+            echo "CHECKPOINT_EOF"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$rc" != 0 ] && [ "$rc" != 4 ]; then exit "$rc"; fi
+
+      - name: Report to the run summary
+        env:
+          MONITOR: ${{ steps.evaluate.outputs.report }}
+          CHECKPOINT: ${{ steps.checkpoints.outputs.report }}
+        run: |
+          set -euo pipefail
+          # Written by python, not assembled in shell. The reports contain
+          # backticks and pipes; quoting those through a shell heredoc inside a
+          # YAML block scalar is how a report gets mangled, or a backtick gets
+          # executed.
+          python3 - >> "$GITHUB_STEP_SUMMARY" <<'PYSUM'
+          import os
+          for title, key in (("Expiry checkpoints", "CHECKPOINT"),
+                             ("Upstream monitor", "MONITOR")):
+              print("## %s" % title)
+              print()
+              print("```text")
+              print(os.environ.get(key, "").rstrip())
+              print("```")
+              print()
+          PYSUM
+
+      - name: Open, update or close the upstream alert issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERT: ${{ steps.evaluate.outputs.alert }}
+          REPORT: ${{ steps.evaluate.outputs.report }}
+        run: |
+          set -euo pipefail
+          title="Upstream monitor: an exit condition may be satisfiable (automated)"
+          REPORT="$REPORT" RUN_ID="$GITHUB_RUN_ID" python3 - > /tmp/alert-body.md <<'PYBODY'
+          import os
+          print("Automated report from `.github/workflows/upstream-monitor.yml`, "
+                "run %s." % os.environ["RUN_ID"])
+          print()
+          print("This workflow **observes and reports**. It has not rebuilt an image, "
+                "moved a pin, renewed an exception or removed one, and it cannot: "
+                "`issues: write` is its only write permission.")
+          print()
+          print("An alert means a watched artifact's CONTENT reached a clearing "
+                "floor on every required platform, or upstream evidence contradicts "
+                "a claim the ledger makes. Tag movement alone never appears here.")
+          print()
+          print("```text")
+          print(os.environ["REPORT"].rstrip())
+          print("```")
+          print()
+          print("Next step is a maintainer decision in a reviewed pull request: "
+                "verify the artifact, re-pin, rebuild, rescan, and only then remove "
+                "the records the evidence actually clears.")
+          PYBODY
+
+          existing="$(gh issue list --state open --search "\"$title\" in:title" \
+                        --json number --jq '.[0].number // empty')"
+
+          if [ "$ALERT" != "true" ]; then
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body "Run ${GITHUB_RUN_ID}: no exit condition appears satisfiable and no upstream evidence contradicts the ledger. Closing; this reopens automatically if that changes."
+              gh issue close "$existing"
+            fi
+            echo "quiet; nothing to report"
+            exit 0
+          fi
+
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file /tmp/alert-body.md
+            gh issue comment "$existing" --body "Re-observed in run ${GITHUB_RUN_ID}; the report above is current."
+          else
+            gh issue create --title "$title" --body-file /tmp/alert-body.md --label security
+          fi
+
+      - name: Open, update or close the expiry checkpoint issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DUE: ${{ steps.checkpoints.outputs.due }}
+          REPORT: ${{ steps.checkpoints.outputs.report }}
+        run: |
+          set -euo pipefail
+          title="Exception expiry checkpoints: 2026-09-30 fail-closed cohort (automated)"
+          REPORT="$REPORT" RUN_ID="$GITHUB_RUN_ID" python3 - > /tmp/checkpoint-body.md <<'PYBODY'
+          import os
+          print("Automated report from `.github/workflows/upstream-monitor.yml`, "
+                "run %s." % os.environ["RUN_ID"])
+          print()
+          print("**This issue prompts a decision. It does not schedule one, and "
+                "nothing here renews anything.** No workflow in this repository may "
+                "write `policies/vulnerability-exceptions.yaml`. If no decision is "
+                "recorded, the records below expire as written and reconciliation "
+                "refuses their findings as ungoverned.")
+          print()
+          print("```text")
+          print(os.environ["REPORT"].rstrip())
+          print("```")
+          PYBODY
+
+          existing="$(gh issue list --state open --search "\"$title\" in:title" \
+                        --json number --jq '.[0].number // empty')"
+
+          if [ "$DUE" != "true" ]; then
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body "Run ${GITHUB_RUN_ID}: no checkpoint is due or within the reporting window. Closing. Closing this issue changes no expiry date and renews nothing."
+              gh issue close "$existing"
+            fi
+            echo "no checkpoint due"
+            exit 0
+          fi
+
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file /tmp/checkpoint-body.md
+            gh issue comment "$existing" --body "Re-rendered in run ${GITHUB_RUN_ID}; the groups and records above are current. Still awaiting a maintainer decision — none is made by this workflow."
+          else
+            gh issue create --title "$title" --body-file /tmp/checkpoint-body.md --label security
+          fi
