@@ -1,0 +1,391 @@
+# Buildless upstream watch configuration — OBSERVATION ONLY.
+#
+# WHAT THIS FILE IS NOT. It is not governance. Nothing here accepts, widens,
+# narrows, renews, re-dates or removes a record in
+# policies/vulnerability-exceptions.yaml, and no tool that reads this file may
+# write that one. The monitor built on it (scripts/upstream-monitor.sh,
+# scripts/upstream-monitor.py) never rebuilds an image, never moves a pin,
+# never dispatches acceptance, never renews an exception and never removes one.
+# It resolves upstream artifacts, records what they contain, and reports.
+#
+# WHAT IT IS FOR. Every record in the ledger's 2026-09-30 fail-closed cohort has
+# an EXIT CONDITION written in prose. Prose cannot be evaluated on a schedule.
+# This file restates those exit conditions in a form a program can check against
+# a live observation, and binds each one to the exact ledger records it would
+# clear. The restatement is derived from, and subordinate to, the ledger text:
+# where they disagree the ledger is authoritative and the disagreement is itself
+# reported (`ledger-contradicted`).
+#
+# THE PROPERTY THIS FILE EXISTS TO PRESERVE.
+#   A MOVED TAG IS NOT REMEDIATION.
+# Three distinct observations are kept apart and never conflated:
+#   1. index movement    — the tag's manifest-list digest changed. Can happen
+#                          because a Windows manifest was rebuilt. Means nothing
+#                          about Linux content.
+#   2. platform movement — a linux/amd64 or linux/arm64 manifest digest changed.
+#                          The artifact really is a different object.
+#   3. content change    — a watched component's version inside the artifact
+#                          changed. Only this can bear on an exit condition.
+# Measured precedent for why: on 2026-08-25 the FrankenPHP 8.3 INDEX digest
+# moved while both platform manifests stayed byte-identical, and when 8.4 later
+# moved on BOTH platforms the embedded modules were unchanged at
+# kin-openapi v0.140.0 / grpc v1.81.1. Either would have produced a false
+# "remediation available" on a monitor that watched digests.
+# Only (3), reaching the declared `clearing_version` on EVERY required platform,
+# can raise an alert.
+#
+# ALERT DISCIPLINE. Silence is the normal output. See docs/upstream-monitor.md.
+schema_version: 1
+
+# --- watched official image artifacts ---------------------------------------
+# `baseline` is the artifact state the ledger's records were written against.
+# It is evidence, not a pin: the monitor compares an observation to it and the
+# Dockerfiles are unaffected either way.
+artifacts:
+  - id: caddy-2-alpine
+    tag: caddy:2-alpine
+    ref: caddy:2-alpine
+    # Both are REQUIRED. A component fixed on one platform and not the other
+    # does not satisfy an exit condition, because the cohort is 2 children.
+    required_platforms: [linux/amd64, linux/arm64]
+    baseline:
+      # The index digest currently pinned in config/base-images.env and
+      # images/caddy/Dockerfile. Unmoved since 2026-06-24.
+      index_digest: "sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648"
+      observed_at: "2026-08-27T13:56:20Z"
+      platforms:
+        linux/amd64: "sha256:98eb57d882ccd5213d1688764db10c1ca2c58a1ca3a6717a3411ad798f7a423a"
+        linux/arm64: "sha256:1172d4213087d3fc30bafc7ff2c2896180eb0c41ff7f75f315568fb36cabdcba"
+      evidence: docs/audits/caddy-openssl-2026-08-27/README.md
+    components:
+      - component: libssl3
+        ecosystem: apk
+        baseline_version: 3.5.7-r0
+        clearing_version: 3.5.8-r0
+        groups: [G22]
+      - component: libcrypto3
+        ecosystem: apk
+        baseline_version: 3.5.7-r0
+        clearing_version: 3.5.8-r0
+        groups: [G22]
+      - component: curl
+        ecosystem: apk
+        baseline_version: 8.19.0-r0
+        clearing_version: 8.20.0-r0
+        groups: [G06]
+      - component: libcurl
+        ecosystem: apk
+        baseline_version: 8.19.0-r0
+        clearing_version: 8.20.0-r0
+        groups: [G06]
+      - component: c-ares
+        ecosystem: apk
+        baseline_version: 1.34.6-r0
+        clearing_version: 1.34.8-r0
+        groups: [G16]
+      # Vendored into the static /usr/bin/caddy Go binary. No Foundry rebuild
+      # can relink these; only an upstream Caddy build moves them.
+      - component: stdlib
+        ecosystem: gomod
+        baseline_version: v1.26.3
+        clearing_version: v1.26.6
+        groups: [G02]
+      - component: google.golang.org/grpc
+        ecosystem: gomod
+        baseline_version: v1.81.0
+        clearing_version: v1.82.1
+        groups: [G17]
+      - component: golang.org/x/net
+        ecosystem: gomod
+        baseline_version: v0.55.0
+        clearing_version: v0.56.0
+        groups: [G18]
+      - component: golang.org/x/text
+        ecosystem: gomod
+        baseline_version: v0.37.0
+        clearing_version: v0.39.0
+        groups: [G19]
+
+  - id: frankenphp-8.3-bookworm
+    tag: dunglas/frankenphp:1-php8.3-bookworm
+    ref: dunglas/frankenphp:1-php8.3-bookworm
+    required_platforms: [linux/amd64, linux/arm64]
+    baseline:
+      index_digest: "sha256:55dc84d1146f98bc202e187c891517e7bb6b1b6e3331c6db3f4c1b8c3083e89c"
+      observed_at: "2026-08-27T13:56:20Z"
+      platforms:
+        linux/amd64: "sha256:a00d750e810d94d9ae9a4e181d4bcf829a54597e16d32ba463457633b9592a6e"
+        linux/arm64: "sha256:388fdcaa114953d38f824d39f33595803bb39e6a8512d50802f8272137c2a2d3"
+      evidence: docs/audits/expiry-refresh-2026-08-25/upstream-base-heads/base-head-movement.json
+    components:
+      # CRITICAL floor. NOT 0.141.0 and NOT 0.142.0: those are the per-CVE
+      # FixedVersions for CVE-2026-76905 / CVE-2026-77354 only. The same binary
+      # also carries GHSA-r277-6w6q-xmqw (CRITICAL, fixed 0.144.0), so an
+      # upstream move to 0.142.x would clear two HIGHs and LEAVE THE CRITICAL.
+      - component: github.com/getkin/kin-openapi
+        ecosystem: gomod
+        baseline_version: v0.140.0
+        clearing_version: v0.144.0
+        groups: [G21]
+      - component: google.golang.org/grpc
+        ecosystem: gomod
+        baseline_version: v1.81.1
+        clearing_version: v1.82.1
+        groups: [G20]
+      # Attribution probe, not a clearing condition. Six ledger records say
+      # libaom3 comes from the FrankenPHP base; measurement says it does not.
+      # `expect_absent` makes the monitor report if that ever stops being true.
+      - component: libaom3
+        ecosystem: deb
+        expect_absent: true
+        groups: [G03]
+
+  - id: frankenphp-8.4-bookworm
+    tag: dunglas/frankenphp:1-php8.4-bookworm
+    ref: dunglas/frankenphp:1-php8.4-bookworm
+    required_platforms: [linux/amd64, linux/arm64]
+    baseline:
+      index_digest: "sha256:4484f5fcb8f244e225d9f194d7e9f0a163de12c7d60c6bb9fa66368dd0c28b54"
+      observed_at: "2026-08-27T13:56:20Z"
+      platforms:
+        linux/amd64: "sha256:447ac21ca6ac7e6b07738af86e0fbd500f242a24262c64af4e89895d489be1d6"
+        linux/arm64: "sha256:da669918a35146fcfe8bcaaa51dcdbb9fb8d15345dbce46a6713aa4ccb7c8b02"
+      evidence: docs/audits/expiry-refresh-2026-08-25/upstream-base-heads/base-head-movement.json
+    components:
+      - component: github.com/getkin/kin-openapi
+        ecosystem: gomod
+        baseline_version: v0.140.0
+        clearing_version: v0.144.0
+        groups: [G21]
+      - component: google.golang.org/grpc
+        ecosystem: gomod
+        baseline_version: v1.81.1
+        clearing_version: v1.82.1
+        groups: [G20]
+      - component: libaom3
+        ecosystem: deb
+        expect_absent: true
+        groups: [G03]
+
+# --- Debian bookworm / bookworm-security remediation state -------------------
+# Observed from the Debian security tracker, per source package. This is a
+# REMEDIATION-STATE observation about the distribution, NOT an artifact
+# observation: a fixed Debian source package existing does not put it in any
+# image. It can therefore never satisfy an image exit condition on its own. It
+# is watched because the ledger asserts `fix_available: false` for these, and a
+# published fix would CONTRADICT that assertion.
+debian_watch:
+  suites: [bookworm, bookworm-security]
+  source_packages:
+    - source: openssl
+      advisories: [CVE-2026-14456]
+      binary_packages: [openssl, libssl3]
+      ledger_fix_available: false
+      groups: [G12]
+    - source: sqlite3
+      advisories: [CVE-2026-11822, CVE-2026-11824]
+      binary_packages: [libsqlite3-0]
+      ledger_fix_available: false
+      groups: [G13]
+    - source: aom
+      advisories: [CVE-2023-6879, CVE-2023-39616, CVE-2026-56208, CVE-2026-56209, CVE-2026-56210, CVE-2026-56211]
+      binary_packages: [libaom3]
+      ledger_fix_available: false
+      groups: [G03]
+
+# --- Alpine package availability ---------------------------------------------
+# Same rule: an available aport is NOT remediation. The caddy image is built
+# with no package-manager invocation (ADR-0001), so a fixed aport only matters
+# once an official caddy artifact ships it — which is what `artifacts` above
+# watches. Availability is recorded so the "a fix exists upstream, the exposure
+# is pinning lag" claim in the ledger stays checkable.
+alpine_watch:
+  branch: v3.23
+  repositories: [main, community]
+  packages:
+    - package: openssl
+      binary_packages: [libssl3, libcrypto3]
+      fixed_version: 3.5.8-r0
+      groups: [G22]
+    - package: curl
+      binary_packages: [curl, libcurl]
+      fixed_version: 8.20.0-r0
+      groups: [G06]
+    - package: c-ares
+      binary_packages: [c-ares]
+      fixed_version: 1.34.8-r0
+      groups: [G16]
+
+# --- root-cause groups in the 2026-09-30 fail-closed cohort -------------------
+# Group ids G01-G21 are the ones assigned in
+# docs/audits/expiry-refresh-2026-08-25/README.md section 6 and are reused
+# unchanged. G22 is assigned HERE for the Alpine `openssl` record created
+# 2026-08-27, which postdates that table; assigning a monitor-side label to it
+# changes nothing about the record.
+#
+# `records` are canonical ledger identities, `cve|image|package|installed_version`
+# as computed by scripts/lib/exception_id.py. Every id below MUST resolve to a
+# live ledger record and every ledger record expiring at `expiry_controls.
+# fail_closed` MUST appear in exactly one group — both are asserted, so ledger
+# drift is caught rather than silently un-monitored.
+groups:
+  G02:
+    title: "Caddy project — Go toolchain (stdlib) statically linked into the Caddy binary"
+    selector: caddy
+    exit_condition: >-
+      caddy:2-alpine publishes an image built with a fixed Go toolchain on both
+      required platforms, and the maintainer moves the pin to it.
+    records:
+      - CVE-2026-27145|caddy|stdlib|v1.26.3
+      - CVE-2026-42504|caddy|stdlib|v1.26.3
+      - CVE-2026-39822|caddy|stdlib|v1.26.3
+      - CVE-2026-46600|caddy|stdlib|v1.26.3
+      - CVE-2026-39821|caddy|stdlib|v1.26.3
+      - CVE-2026-33818|caddy|stdlib|v1.26.3
+      - CVE-2026-56853|caddy|stdlib|v1.26.3
+      - CVE-2026-56858|caddy|stdlib|v1.26.3
+      - CVE-2026-56859|caddy|stdlib|v1.26.3
+      - CVE-2026-56860|caddy|stdlib|v1.26.3
+      - CVE-2026-56862|caddy|stdlib|v1.26.3
+  G03:
+    title: "Foundry gd/AVIF layer — libaom3 (Debian owns the patch)"
+    selector: php-frankenphp-8.3-8.4
+    exit_condition: >-
+      either the gd build stops pulling AVIF support, or a fixed libaom reaches
+      the packages the Foundry layer installs. No contract-preserving Foundry
+      remediation exists today.
+    records:
+      - CVE-2023-6879|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2
+      - CVE-2026-56211|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2
+      - CVE-2026-56208|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2
+      - CVE-2026-56209|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2
+      - CVE-2026-56210|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2
+      - CVE-2023-39616|php-frankenphp-8.3-8.4|libaom3|3.6.0-1+deb12u2
+  G06:
+    title: "Alpine aports — curl"
+    selector: caddy
+    exit_condition: >-
+      caddy:2-alpine publishes an image carrying curl 8.20.0-r0 or later on both
+      required platforms, and the maintainer moves the pin to it.
+    records:
+      - CVE-2026-6276|caddy|curl,libcurl|8.19.0-r0
+      - CVE-2026-5773|caddy|curl,libcurl|8.19.0-r0
+  G12:
+    title: "Debian bookworm security — openssl"
+    selector: php-8.3-8.4, nginx
+    exit_condition: >-
+      Debian bookworm publishes a fixed openssl, or a patched official base is
+      published on a tracked tag.
+    records:
+      - CVE-2026-14456|php-8.3-8.4|libssl3,openssl|3.0.20-1~deb12u2
+      - CVE-2026-14456|nginx|libssl3,openssl|3.0.20-1~deb12u2
+  G13:
+    title: "Debian bookworm security — sqlite3"
+    selector: php-8.3-8.4
+    # The group's third record (CVE-2025-7458, same component at the same
+    # version) carries expires_at 2026-10-31 and is therefore NOT in the
+    # fail-closed cohort. Listing it here would misstate the checkpoint.
+    exit_condition: "Debian bookworm publishes a fixed sqlite3 source package."
+    records:
+      - CVE-2026-11822|php-8.3-8.4|libsqlite3-0|3.40.1-2+deb12u2
+      - CVE-2026-11824|php-8.3-8.4|libsqlite3-0|3.40.1-2+deb12u2
+  G16:
+    title: "Alpine aports — c-ares"
+    selector: caddy
+    exit_condition: >-
+      caddy:2-alpine publishes an image carrying c-ares 1.34.8-r0 or later on
+      both required platforms, and the maintainer moves the pin to it.
+    records:
+      - CVE-2026-33630|caddy|c-ares|1.34.6-r0
+  G17:
+    title: "Caddy project — google.golang.org/grpc vendored into the Caddy binary"
+    selector: caddy
+    exit_condition: >-
+      the Caddy image publishes a build vendoring grpc 1.82.1 or later on both
+      required platforms, and the maintainer moves the pin to it.
+    records:
+      - GHSA-hrxh-6v49-42gf|caddy|google.golang.org/grpc|v1.81.0
+  G18:
+    title: "Caddy project — golang.org/x/net vendored into the Caddy binary"
+    selector: caddy
+    exit_condition: >-
+      the Caddy image publishes a build vendoring x/net 0.56.0 or later on both
+      required platforms, and the maintainer moves the pin to it.
+    records:
+      - CVE-2026-46600|caddy|golang.org/x/net|v0.55.0
+  G19:
+    title: "Caddy project — golang.org/x/text vendored into the Caddy binary"
+    selector: caddy
+    exit_condition: >-
+      the Caddy image publishes a build vendoring x/text 0.39.0 or later on both
+      required platforms, and the maintainer moves the pin to it.
+    records:
+      - CVE-2026-56852|caddy|golang.org/x/text|v0.37.0
+  G20:
+    title: "FrankenPHP project — google.golang.org/grpc vendored into the FrankenPHP binary"
+    selector: php-frankenphp-8.3-8.4
+    exit_condition: >-
+      an official FrankenPHP image is published vendoring grpc 1.82.1 or later
+      on both required platforms, and the maintainer moves the pin to it.
+    records:
+      - GHSA-hrxh-6v49-42gf|php-frankenphp-8.3-8.4|google.golang.org/grpc|v1.81.1
+  G21:
+    title: "FrankenPHP project — github.com/getkin/kin-openapi vendored into the FrankenPHP binary"
+    selector: php-frankenphp-8.3-8.4
+    exit_condition: >-
+      an official CONSUMABLE FrankenPHP artifact embedding kin-openapi >= 0.144.0
+      on both required platforms, and the maintainer moves the pin to it. The
+      floor is 0.144.0, never 0.141.0 or 0.142.0.
+    records:
+      - GHSA-r277-6w6q-xmqw|php-frankenphp-8.3-8.4|github.com/getkin/kin-openapi|v0.140.0
+      - CVE-2026-76905|php-frankenphp-8.3-8.4|github.com/getkin/kin-openapi|v0.140.0
+      - CVE-2026-77354|php-frankenphp-8.3-8.4|github.com/getkin/kin-openapi|v0.140.0
+  G22:
+    title: "Alpine aports — openssl (libssl3 / libcrypto3 in the caddy children)"
+    selector: caddy
+    exit_condition: >-
+      an official caddy:2-alpine rebuild carrying libssl3 and libcrypto3
+      >= 3.5.8-r0 on BOTH linux/amd64 and linux/arm64, and the pin moved to it.
+    records:
+      - CVE-2026-14456|caddy|libcrypto3,libssl3|3.5.7-r0
+
+# --- expiry operating controls ------------------------------------------------
+# Checkpoints are PROMPTS. Reaching one schedules nothing, renews nothing and
+# extends nothing; the fail-closed date does not move because a checkpoint
+# passed unanswered. `scripts/upstream-monitor.py checkpoints` renders them with
+# the exact groups and records at stake, never a bare date.
+expiry_controls:
+  fail_closed: "2026-09-30"
+  fail_closed_effect: >-
+    On 2026-09-30 every record listed under `groups` becomes invalid — both
+    gates compare `expires_at <= today` — and reconcile-vulnerabilities.sh
+    refuses the matching findings as ungoverned. caddy/prod, nginx/prod and the
+    php-frankenphp children fail the release gate.
+  renewal_is_not_automatic: >-
+    NOTHING IN THIS REPOSITORY RENEWS AN EXCEPTION. There is no automatic
+    extension, no default roll-forward and no tool that may write
+    policies/vulnerability-exceptions.yaml. Continuing a record is a fresh risk
+    acceptance the maintainer role records by hand, with its own justification.
+  checkpoints:
+    - date: "2026-09-15"
+      id: first-review
+      title: "First review"
+      prompt: >-
+        Read each group's exit condition against the latest monitor observation
+        and decide, per group, which of remove / re-accept / lapse you intend.
+        Recording an intention here is not a decision and moves no date.
+    - date: "2026-09-23"
+      id: final-evidence-refresh
+      title: "Final evidence refresh"
+      prompt: >-
+        Refresh the evidence any continuation would rest on — a buildless rescan
+        of the retained cohort and a monitor observation — while there is still
+        time to act on what it says. Refreshing evidence is not a renewal.
+    - date: "2026-09-27"
+      id: maintainer-decision-deadline
+      title: "Maintainer decision deadline"
+      prompt: >-
+        Last date on which a decision can be recorded and reviewed before the
+        cohort lapses. If no decision is recorded, the records expire on
+        2026-09-30 as written. That is the default, and it is not a failure of
+        this process — it is the process working.
