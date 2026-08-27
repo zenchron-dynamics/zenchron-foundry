@@ -1111,27 +1111,238 @@ jobs:
             bash scripts/release/authorize-staged-candidates.sh \
               authorization/records authorization/post-build-authorization.json
           rc=$?
+          echo "$rc" > authorization/aggregate.rc
 
           echo "::group::authorization record"
           jq . authorization/post-build-authorization.json
           echo "::endgroup::"
 
+      # =====================================================================
+      # LICENCE AUTHORIZATION — the image half and the repository half, on one
+      # run, with BOTH required, and the composed verdict fed INTO the canonical
+      # authorization decision below.
+      #
+      # THE GAP THIS CLOSES. assert-license-policy.sh has shipped as a
+      # fail-closed licence gate since #120 and NO workflow ever ran it against
+      # a candidate image. ci.yml carried exactly one licence-policy line and it
+      # was `--self-test`: the gate testing itself. An earlier assertion that
+      # grepped the workflow directory matched that one line and reported the
+      # gate as wired — literally true, substantively false, and pinned in
+      # tests/integration/test_evidence_path_e2e.sh as
+      #
+      #     GAP - no workflow invokes the IMAGE-SBOM licence gate against a real
+      #           inventory
+      #
+      # It is HERE, in the authorize job, and not in a job of its own on purpose.
+      # A downstream job that files a verdict in an artifact repeats the original
+      # defect one layer out: a step whose output nothing reads is
+      # indistinguishable from a step that did not run. Here the verdict is bound
+      # to this record's sha256, consumed by validate-authorization-record.sh
+      # --require-licence-authorization, covered by the same SHA256SUMS, and the
+      # job's exit status is a function of it.
+      #
+      # WHY BOTH HALVES. An image SBOM enumerates what is INSIDE the image and
+      # cannot see repository material — 832 lines copied verbatim from Moby sat
+      # unattributed under a first-party filename exactly there. The
+      # repository-material inventory cannot see what a base image ships.
+      # Neither is a superset of the other:
+      #
+      #   image evidence, empty repository verdict -> RM-REPOSITORY-EVIDENCE-ABSENT
+      #   repository evidence, no image evidence   -> RM-IMAGE-EVIDENCE-ABSENT
+      #   either half refused                      -> AR-LICENCE-REFUSED
+      #   no licence evidence at all               -> AR-LICENCE-EVIDENCE-ABSENT
+      #
+      # ABSENT IS A REFUSAL, NEVER A SKIP. None of these steps carries a
+      # condition that can turn missing evidence into a green run.
+      #
+      # PUBLICATION STAYS REFUSED. This authorizes nothing for exposure and the
+      # validator refuses a licence record that claims otherwise. If publication
+      # is ever re-enabled, it cannot proceed without both evidence classes.
+      # =====================================================================
+      - name: Flatten the candidate SBOM set
+        # The SBOMs travel INSIDE each child's evidence directory, so they are
+        # covered by that child's evidence_sha256 — the checksum the aggregator
+        # RECOMPUTES against EVIDENCE_ROOT. They are flattened here because the
+        # gate reads one directory, and the flattening REFUSES a collision rather
+        # than letting one child's document overwrite another's.
+        run: |
+          set -euo pipefail
+          rm -rf authorization/sbom authorization/sbom-bindings
+          mkdir -p authorization/sbom authorization/sbom-bindings
+          n=0
+          while IFS= read -r f; do
+            b="$(basename "$f")"
+            if [ -e "authorization/sbom/$b" ]; then
+              echo "REFUSE: two children claim the SBOM document $b" >&2; exit 1
+            fi
+            cp "$f" "authorization/sbom/$b"; n=$((n + 1))
+          done < <(find authorization/child-evidence -path '*/sbom/*.json' -type f | sort)
+          while IFS= read -r f; do
+            b="$(basename "$f")"
+            if [ -e "authorization/sbom-bindings/$b" ]; then
+              echo "REFUSE: two children claim the binding record $b" >&2; exit 1
+            fi
+            cp "$f" "authorization/sbom-bindings/$b"
+          done < <(find authorization/child-evidence -path '*/sbom-bindings/*.json' -type f | sort)
+          echo "candidate SBOM documents: $n"
+          echo "binding records: $(find authorization/sbom-bindings -name '*.json' | wc -l | tr -d ' ')"
+
+      - name: Gate — bind the candidate SBOMs to the staged digests
+        id: lic_bind
+        # `always()` so a failure upstream cannot turn missing licence evidence
+        # into a SKIPPED step and a green run. Absent evidence must reach the
+        # refusal, not bypass it.
+        if: always()
+        env:
+          AUTH_RECORD: authorization/post-build-authorization.json
+          SBOM_DIR: authorization/sbom
+          BINDING_DIR: authorization/sbom-bindings
+          IMAGE_INVENTORY: authorization/licence/image-inventory.json
+        run: |
+          # `set +e` is LOAD-BEARING: GitHub runs this as `bash -e {0}`, and a
+          # REFUSED licence verdict is an expected outcome. Under errexit the
+          # refusal would abort before the result was recorded, losing the
+          # diagnostic exactly when it is needed.
+          set -uo pipefail; set +e
+          mkdir -p authorization/licence
+          bash scripts/license/assert-image-sbom-licences.sh \
+            --authorization "$AUTH_RECORD" \
+            --sbom-dir "$SBOM_DIR" \
+            --binding-dir "$BINDING_DIR" \
+            --out "$IMAGE_INVENTORY"
+          rc=$?
+          echo "$rc" > authorization/licence/bind.rc
+          exit "$rc"
+
+      - name: Gate — image-SBOM licence policy over the candidate inventory
+        id: lic_policy
+        if: always()
+        env:
+          IMAGE_INVENTORY: authorization/licence/image-inventory.json
+          EXPECT_REVISION: ${{ github.sha }}
+        run: |
+          set -uo pipefail; set +e   # see the note on the binding gate above
+          mkdir -p authorization/licence
+          bash scripts/license/assert-license-policy.sh \
+            --inventory "$IMAGE_INVENTORY" \
+            --require-image-binding \
+            --expect-source-revision "$EXPECT_REVISION"
+          rc=$?
+          echo "$rc" > authorization/licence/image-policy.rc
+          exit "$rc"
+
+      - name: Gate — repository material composed with the image evidence
+        id: lic_composed
+        if: always()
+        env:
+          IMAGE_INVENTORY: authorization/licence/image-inventory.json
+          MATERIAL_INVENTORY: policies/repository-material.yaml
+        run: |
+          set -uo pipefail; set +e   # see the note on the binding gate above
+          mkdir -p authorization/licence
+          bash scripts/license/assert-repository-material.sh \
+            --inventory "$MATERIAL_INVENTORY" \
+            --image-inventory "$IMAGE_INVENTORY" \
+            --require-image-evidence
+          rc=$?
+          echo "$rc" > authorization/licence/composed.rc
+          exit "$rc"
+
+      - name: Record the composed licence authorization
+        id: lic_decide
+        if: always()
+        env:
+          BIND: ${{ steps.lic_bind.outcome }}
+          IMAGE_POLICY: ${{ steps.lic_policy.outcome }}
+          COMPOSED: ${{ steps.lic_composed.outcome }}
+          AUTH_RECORD: authorization/post-build-authorization.json
+          IMAGE_INVENTORY: authorization/licence/image-inventory.json
+          MATERIAL_INVENTORY: policies/repository-material.yaml
+          LICENCE_RECORD: authorization/licence/licence-authorization.json
+        run: |
+          set -uo pipefail; set +e   # see the note on the binding gate above
+          mkdir -p authorization/licence
+          verdict=REFUSED
+          if [ "$BIND" = success ] && [ "$IMAGE_POLICY" = success ] \
+             && [ "$COMPOSED" = success ]; then verdict=PASS; fi
+          rev="$(jq -r '.source_revision // ""' "$AUTH_RECORD" 2>/dev/null)"
+          rsha="$(shasum -a 256 "$AUTH_RECORD" | cut -d' ' -f1)"
+          bound="$(jq -r '.image_binding.children_bound // 0' "$IMAGE_INVENTORY" 2>/dev/null || echo 0)"
+          expected="$(jq -r '.image_binding.children_expected // 0' "$IMAGE_INVENTORY" 2>/dev/null || echo 0)"
+          modes="$(jq -c '.image_binding.execution_modes // []' "$IMAGE_INVENTORY" 2>/dev/null || echo '[]')"
+          jq -n --arg v "$verdict" --arg b "$BIND" --arg p "$IMAGE_POLICY" \
+                --arg c "$COMPOSED" --arg rev "$rev" --arg rsha "$rsha" \
+                --argjson bound "${bound:-0}" --argjson expected "${expected:-0}" \
+                --argjson modes "${modes:-[]}" \
+                --arg mi "$MATERIAL_INVENTORY" '{
+              record_type: "licence-authorization",
+              schema_version: 1,
+              verdict: $v,
+              source_revision: $rev,
+              authorization_record_sha256: $rsha,
+              image_half: {
+                gate: "scripts/license/assert-license-policy.sh",
+                binding: $b, policy: $p,
+                children_bound: $bound, children_expected: $expected,
+                execution_modes: $modes
+              },
+              repository_half: {
+                gate: "scripts/license/assert-repository-material.sh",
+                inventory: $mi, composed: $c
+              },
+              both_halves_required: true,
+              public_exposure_authorized: false
+            }' > "$LICENCE_RECORD"
+          jq . "$LICENCE_RECORD"
+          # The record is written for PASS and for REFUSED alike. A refusal that
+          # produces no record is a refusal nobody can read afterwards, which is
+          # the retention failure the evidence bundle exists for. The refusal is
+          # ENFORCED one step below, by the validator that consumes it.
+          echo "licence authorization: $verdict (bind=$BIND image-policy=$IMAGE_POLICY composed=$COMPOSED)"
+
+      - name: Validate the authorization record, CONSUMING the licence verdict
+        id: schema
+        if: always()
+        env:
+          AUTH_RECORD: authorization/post-build-authorization.json
+          LICENCE_RECORD: authorization/licence/licence-authorization.json
+        run: |
+          set -uo pipefail; set +e
           # The schema is enforced HERE, in the producer, not only in tests and
           # not only by some future consumer. The aggregator decides the verdict
           # from the evidence; the schema constrains the shape, including fields
           # the aggregator never inspects. Both must hold, for PASS and for FAIL
           # alike — a malformed FAIL record is as useless as a malformed PASS.
+          #
+          # --require-licence-authorization is what makes the licence verdict an
+          # INPUT to this decision rather than a report filed beside it: the
+          # canonical record does not validate unless a composed licence
+          # authorization is present, PASSING, and bound to this record's sha256
+          # and source revision. An absent one REFUSES; it never skips.
           bash scripts/release/validate-authorization-record.sh \
-            authorization/post-build-authorization.json
+            "$AUTH_RECORD" \
+            --require-licence-authorization "$LICENCE_RECORD"
           schema_rc=$?
-          [ "$schema_rc" -eq 0 ] || echo "::error::the authorization record is not schema-valid"
+          echo "$schema_rc" > authorization/schema.rc
+          [ "$schema_rc" -eq 0 ] \
+            || echo "::error::the authorization record is not schema-valid, or its licence authorization is absent or refused"
+          exit 0
 
+      - name: Seal and gate the authorization evidence
+        id: seal
+        if: always()
+        run: |
+          set -uo pipefail; set +e
           # Written to a temporary file first: reading and writing SHA256SUMS in
-          # one pipeline would race with its own output.
+          # one pipeline would race with its own output. The licence records are
+          # inside authorization/, so the same checksum covers them — a verdict
+          # outside that coverage is a document anyone could replace afterwards.
           ( cd authorization \
             && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 shasum -a 256 > .sums.tmp \
             && mv .sums.tmp SHA256SUMS )
-
+          rc="$(cat authorization/aggregate.rc 2>/dev/null || echo 1)"
+          schema_rc="$(cat authorization/schema.rc 2>/dev/null || echo 1)"
+          echo "aggregate rc=$rc, schema+licence rc=$schema_rc"
           # Either failure fails the job, and the evidence bundle uploads either
           # way (the upload step is if: always()).
           [ "$rc" -eq 0 ] && [ "$schema_rc" -eq 0 ]
@@ -1161,6 +1372,14 @@ jobs:
             echo "| children | $(jq -r '.children|length' "$f") / $(jq -r .expected_matrix.expected_children "$f") |"
             echo "| native-arch gate (#111) | \`$(jq -r .native_arch_gate.verdict "$f")\` ($(jq -r .native_arch_gate.covered_images "$f")/$(jq -r .native_arch_gate.expected_images "$f") images) |"
             echo "| database snapshot | \`$(jq -r .trivy_db_snapshot.identity "$f")\` |"
+            # The licence verdict is reported from the RECORD, not from a step
+            # outcome: what a reader needs is the fact the validator consumed.
+            l=authorization/licence/licence-authorization.json
+            if [ -s "$l" ]; then
+              echo "| licence authorization | \`$(jq -r .verdict "$l")\` (image $(jq -r .image_half.children_bound "$l")/$(jq -r .image_half.children_expected "$l") bound, repository $(jq -r .repository_half.composed "$l")) |"
+            else
+              echo "| licence authorization | \`NO RECORD\` |"
+            fi
             echo
             echo "Staged only to \`$(jq -r .staging_package "$f")\`. No production package, no public tag, no index, no signature."
             # --- COST BASELINE (CI-COST-01) --------------------------------
@@ -1214,269 +1433,4 @@ jobs:
             ' "$f"
             echo
             echo "Emulated children dominate the critical path; \`max-parallel: 1\` is preserved deliberately (2 vCPU / 4 GB host). See \`docs/ci-cost-baseline.md\`."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  # -------------------------------------------------------------------------
-  # LICENCE AUTHORIZATION — the image half and the repository half, on one run,
-  # with BOTH required.
-  #
-  # THE GAP THIS CLOSES. scripts/license/assert-license-policy.sh has shipped as
-  # a fail-closed licence gate since #120 and NO workflow ever ran it against a
-  # candidate image. ci.yml carried exactly one licence-policy line —
-  # `assert-license-policy.sh --self-test` — which is the gate testing itself:
-  # it proves the script runs and gates nothing. An earlier assertion that
-  # grepped the workflow directory for `scripts/license/` matched that one line
-  # and reported the gate as wired. It was literally true and substantively
-  # false, and tests/integration/test_evidence_path_e2e.sh pinned it as
-  #
-  #     GAP - no workflow invokes the IMAGE-SBOM licence gate against a real
-  #           inventory
-  #
-  # THIS is that workflow, and it is here rather than in ci.yml because CI is
-  # buildless: no candidate image exists there, so no candidate SBOM exists
-  # there to build an inventory from. The candidate images exist exactly once —
-  # in this run, staged by digest, a few steps above.
-  #
-  # WHY BOTH HALVES ARE REQUIRED. An image SBOM enumerates what is INSIDE the
-  # image. It cannot see material that lives in the repository and in no image —
-  # 832 lines copied verbatim from Moby sat unattributed under a first-party
-  # filename precisely there. The repository-material inventory cannot see what
-  # a base image ships. Neither is a superset of the other, so a clean result
-  # from one can never compensate for the absence of the other, in either
-  # direction:
-  #
-  #   image evidence beside an empty repository verdict -> RM-REPOSITORY-EVIDENCE-ABSENT
-  #   repository evidence with no image evidence        -> RM-IMAGE-EVIDENCE-ABSENT
-  #
-  # PUBLICATION STAYS REFUSED. This job authorizes NOTHING for publication and
-  # cannot: it holds no packages permission, no id-token, and it asserts that the
-  # authorization record it read still carries public_exposure_authorized=false.
-  # The point is the reverse of a relaxation — if publication is ever enabled,
-  # it cannot proceed without both classes of licence evidence, because this job
-  # is where that evidence is produced and judged.
-  # -------------------------------------------------------------------------
-  licence-authorization:
-    name: licence authorization (image SBOMs + repository material)
-    # Deliberately NOT self-hosted: this reads artifacts and files, builds
-    # nothing and pulls nothing. It also must not be able to touch a package.
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # `always()` for the same reason the authorize job carries it — a refused
-    # licence verdict is the finding, and it must be RECORDED rather than
-    # skipped. The guard and the authorization record are required explicitly:
-    # without a canonical record there is no declared child set to judge SBOM
-    # coverage against, and coverage judged against whatever was collected is
-    # the shape that lets a silently missing child pass.
-    if: >-
-      ${{ always()
-          && !cancelled()
-          && needs.guard.result == 'success'
-          && needs.authorize.result == 'success' }}
-    needs: [guard, stage, authorize]
-    permissions:
-      contents: read
-    outputs:
-      verdict: ${{ steps.decide.outputs.verdict }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Install the validators this gate refuses to run without
-        run: |
-          set -euo pipefail
-          python3 -m pip install --quiet --disable-pip-version-check \
-            'PyYAML==6.0.2' 'jsonschema==4.23.0'
-          python3 -c 'import yaml, jsonschema' \
-            || { echo "REFUSE: validators missing; the gate would silently weaken" >&2; exit 1; }
-
-      - name: Collect the candidate child evidence
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          pattern: child-*-${{ github.run_id }}-${{ github.run_attempt }}
-          path: collected
-          merge-multiple: true
-
-      - name: Collect the canonical authorization record
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: post-build-authorization-${{ github.run_id }}-${{ github.run_attempt }}
-          path: authorization
-
-      # The SBOMs travel INSIDE each child's evidence directory, so they are
-      # covered by that child's evidence_sha256 — the checksum the aggregator
-      # recomputes and the authorization record binds. They are flattened here
-      # for the gate, which reads one directory; the flattening REFUSES a
-      # collision rather than letting one child's document overwrite another's.
-      - name: Flatten the candidate SBOM set
-        run: |
-          set -euo pipefail
-          mkdir -p sbom sbom-bindings
-          n=0
-          while IFS= read -r f; do
-            b="$(basename "$f")"
-            [ -e "sbom/$b" ] && { echo "REFUSE: two children claim $b" >&2; exit 1; }
-            cp "$f" "sbom/$b"; n=$((n + 1))
-          done < <(find collected -path '*/sbom/*.json' -type f | sort)
-          while IFS= read -r f; do
-            b="$(basename "$f")"
-            [ -e "sbom-bindings/$b" ] && { echo "REFUSE: two children claim $b" >&2; exit 1; }
-            cp "$f" "sbom-bindings/$b"
-          done < <(find collected -path '*/sbom-bindings/*.json' -type f | sort)
-          echo "candidate SBOM documents: $n"
-          echo "binding records: $(find sbom-bindings -name '*.json' | wc -l | tr -d ' ')"
-
-      # =====================================================================
-      # GATE 1 of 3 — bind every candidate SBOM to a staged child.
-      # =====================================================================
-      - name: Gate — bind the candidate SBOMs to the staged digests
-        id: bind
-        env:
-          AUTH_RECORD: authorization/post-build-authorization.json
-          SBOM_DIR: sbom
-          BINDING_DIR: sbom-bindings
-          IMAGE_INVENTORY: licence/image-inventory.json
-        run: |
-          # `set +e` is LOAD-BEARING: GitHub runs this as `bash -e {0}`, and a
-          # REFUSED licence verdict is an expected outcome here. Under errexit
-          # the refusal would abort the step before the result was recorded,
-          # losing the diagnostic exactly when it is needed. The step's own exit
-          # status is set explicitly at the end.
-          set -uo pipefail; set +e
-          mkdir -p licence
-          bash scripts/license/assert-image-sbom-licences.sh \
-            --authorization "$AUTH_RECORD" \
-            --sbom-dir "$SBOM_DIR" \
-            --binding-dir "$BINDING_DIR" \
-            --out "$IMAGE_INVENTORY"
-          rc=$?
-          echo "$rc" > licence/bind.rc
-          exit "$rc"
-
-      # =====================================================================
-      # GATE 2 of 3 — the IMAGE-SBOM licence gate, over that real inventory.
-      # This is the invocation that did not exist. It is NOT --self-test.
-      # =====================================================================
-      - name: Gate — image-SBOM licence policy over the candidate inventory
-        id: image_policy
-        if: always() && steps.bind.outcome == 'success'
-        env:
-          IMAGE_INVENTORY: licence/image-inventory.json
-          EXPECT_REVISION: ${{ github.sha }}
-        run: |
-          set -uo pipefail; set +e   # see the note on the binding gate above
-          bash scripts/license/assert-license-policy.sh \
-            --inventory "$IMAGE_INVENTORY" \
-            --require-image-binding \
-            --expect-source-revision "$EXPECT_REVISION"
-          rc=$?
-          echo "$rc" > licence/image-policy.rc
-          exit "$rc"
-
-      # =====================================================================
-      # GATE 3 of 3 — the composition. The repository half is re-run HERE with
-      # the image inventory supplied and REQUIRED, so the two verdicts meet on
-      # one run instead of being two clean results about different things.
-      # =====================================================================
-      - name: Gate — repository material composed with the image evidence
-        id: composed
-        if: always() && steps.image_policy.outcome == 'success'
-        env:
-          IMAGE_INVENTORY: licence/image-inventory.json
-          MATERIAL_INVENTORY: policies/repository-material.yaml
-        run: |
-          set -uo pipefail; set +e   # see the note on the binding gate above
-          bash scripts/license/assert-repository-material.sh \
-            --inventory "$MATERIAL_INVENTORY" \
-            --image-inventory "$IMAGE_INVENTORY" \
-            --require-image-evidence
-          rc=$?
-          echo "$rc" > licence/composed.rc
-          exit "$rc"
-
-      # =====================================================================
-      # THE RESULT IS CONSUMED, not merely produced. The three gate outcomes
-      # are read back into one record; the record is REFUSED unless all three
-      # succeeded, and it re-asserts that nothing here authorized exposure.
-      # =====================================================================
-      - name: Record the licence authorization decision
-        id: decide
-        if: always()
-        env:
-          BIND: ${{ steps.bind.outcome }}
-          IMAGE_POLICY: ${{ steps.image_policy.outcome }}
-          COMPOSED: ${{ steps.composed.outcome }}
-          AUTH_RECORD: authorization/post-build-authorization.json
-          IMAGE_INVENTORY: licence/image-inventory.json
-          MATERIAL_INVENTORY: policies/repository-material.yaml
-        run: |
-          set -uo pipefail; set +e   # see the note on the binding gate above
-          mkdir -p licence
-          verdict=REFUSED
-          if [ "$BIND" = success ] && [ "$IMAGE_POLICY" = success ] \
-             && [ "$COMPOSED" = success ]; then verdict=PASS; fi
-          rev="$(jq -r '.source_revision // ""' "$AUTH_RECORD" 2>/dev/null)"
-          exposure="$(jq -r '.public_exposure_authorized' "$AUTH_RECORD" 2>/dev/null)"
-          bound="$(jq -r '.image_binding.children_bound // 0' "$IMAGE_INVENTORY" 2>/dev/null || echo 0)"
-          expected="$(jq -r '.image_binding.children_expected // 0' "$IMAGE_INVENTORY" 2>/dev/null || echo 0)"
-          jq -n --arg v "$verdict" --arg b "$BIND" --arg p "$IMAGE_POLICY" \
-                --arg c "$COMPOSED" --arg rev "$rev" --arg exp "$exposure" \
-                --argjson bound "${bound:-0}" --argjson expected "${expected:-0}" \
-                --arg mi "$MATERIAL_INVENTORY" '{
-              record_type: "licence-authorization",
-              schema_version: 1,
-              verdict: $v,
-              source_revision: $rev,
-              image_half: {
-                gate: "scripts/license/assert-license-policy.sh",
-                binding: $b, policy: $p,
-                children_bound: $bound, children_expected: $expected
-              },
-              repository_half: {
-                gate: "scripts/license/assert-repository-material.sh",
-                inventory: $mi, composed: $c
-              },
-              both_halves_required: true,
-              public_exposure_authorized: false,
-              authorization_record_public_exposure: $exp
-            }' > licence/licence-authorization.json
-          jq . licence/licence-authorization.json
-          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
-          # Publication stays refused, and this job must never be the thing that
-          # changes that. A record that said otherwise would be the relaxation
-          # this whole change exists to make impossible.
-          [ "$exposure" = "false" ] || {
-            echo "REFUSE: the authorization record claims public_exposure_authorized=$exposure" >&2
-            exit 1; }
-          [ "$verdict" = PASS ] || {
-            echo "REFUSE: licence authorization $verdict — bind=$BIND image-policy=$IMAGE_POLICY composed=$COMPOSED" >&2
-            echo "Both the image half and the repository half must succeed. Neither compensates for the other." >&2
-            exit 1; }
-          echo "licence authorization PASS: $bound/$expected children bound at $rev, both halves satisfied"
-
-      - name: Upload the licence authorization evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: licence-authorization-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            licence/
-            sbom/
-            sbom-bindings/
-          if-no-files-found: error
-
-      - name: Summary
-        if: always()
-        env:
-          VERDICT: ${{ steps.decide.outputs.verdict }}
-        run: |
-          set -uo pipefail; set +e
-          {
-            echo "### Licence authorization"
-            echo
-            echo "| half | gate | result |"
-            echo "|---|---|---|"
-            echo "| image SBOM | \`scripts/license/assert-license-policy.sh\` | \`${{ steps.image_policy.outcome }}\` |"
-            echo "| repository material | \`scripts/license/assert-repository-material.sh\` | \`${{ steps.composed.outcome }}\` |"
-            echo
-            echo "Verdict: \`${VERDICT:-REFUSED}\`. Both halves are required; neither compensates for the other."
-            echo "Nothing here publishes, promotes, signs or tags anything."
           } >> "$GITHUB_STEP_SUMMARY"

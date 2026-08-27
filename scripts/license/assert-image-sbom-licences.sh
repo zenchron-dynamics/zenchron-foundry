@@ -82,6 +82,12 @@
 #   IL-EVIDENCE-FUTURE            the binding is dated after the decision date
 #   IL-INVENTORY-FAILED           license-inventory.sh refused the document set
 #
+# The cohort is derived from MATRIX_IMAGES and MATRIX_COUNT in
+# scripts/lib/common.sh and CROSS-CHECKED against the authorization record's own
+# expected_matrix. Taking the expected count from the record would make the check
+# self-confirming: a matrix change would not move the expectation. A disagreement
+# between the two IS a refusal, and it is the one worth having.
+#
 # It emits a foundry.license-inventory/v1 document carrying an `image_binding`
 # block, so the verdict that follows names what it is a verdict FOR. The VERDICT
 # itself is not made here: scripts/license/assert-license-policy.sh decides it
@@ -153,7 +159,8 @@ name_table() {
 # -----------------------------------------------------------------------------
 bind() {
   IL_AUTH="$1" IL_SBOM_DIR="$2" IL_BIND_DIR="$3" IL_NAMES="$4" IL_OUT="$5" \
-  IL_TODAY="$6" IL_MAX_AGE="$7" IL_MATRIX_COUNT="$MATRIX_COUNT" python3 <<'PY'
+  IL_TODAY="$6" IL_MAX_AGE="$7" IL_MATRIX_COUNT="$MATRIX_COUNT" \
+  IL_MATRIX_IMAGES="$(matrix_images | tr '\n' ' ')" python3 <<'PY'
 import datetime
 import hashlib
 import json
@@ -168,6 +175,16 @@ out_p    = os.environ["IL_OUT"]
 today_s  = os.environ["IL_TODAY"]
 max_age  = int(os.environ["IL_MAX_AGE"])
 matrix_n = int(os.environ["IL_MATRIX_COUNT"])
+# The SHIPPING MATRIX ITSELF, not merely its size. A count check accepts a
+# substituted image as long as the total stays right, which is how an
+# experimental family slips into a cohort that still reads 10/10. The labels
+# come from MATRIX_IMAGES in scripts/lib/common.sh, the one declaration every
+# other tool derives from; deriving the cohort from the evidence's own count
+# would make the check self-confirming.
+matrix_labels = set()
+for tok in os.environ["IL_MATRIX_IMAGES"].split():
+    fam, _, sel = tok.partition(":")
+    matrix_labels.add("%s/%s" % (fam, sel))
 
 findings = []
 
@@ -251,7 +268,27 @@ for c in rec["children"]:
         refuse("IL-CHILD-UNEXPECTED",
                "child %s is on platform %r, which expected_matrix does not "
                "declare (%s)" % (key, plat, ", ".join(platforms)))
+    if label not in matrix_labels:
+        refuse("IL-CHILD-UNEXPECTED",
+               "child %s names image %r, which is not in MATRIX_IMAGES. The "
+               "shipping matrix is declared in scripts/lib/common.sh and a "
+               "child outside it is an image nobody ships being licensed as "
+               "though they did — an experimental family is exactly this shape"
+               % (key, label))
     children[key] = c
+
+# COVERAGE BY IDENTITY, not by count. 19 of 20 and 20 of 20 with one image
+# duplicated and another absent are different failures and must read that way.
+seen_pairs = {(str(c.get("image_label") or ""), str(c.get("platform") or ""))
+              for c in children.values()}
+for label in sorted(matrix_labels):
+    for plat in platforms:
+        if (label, plat) not in seen_pairs:
+            refuse("IL-CHILDREN-SHORT",
+                   "the shipping matrix declares %s on %s and the authorization "
+                   "record covers no such child. A licence verdict that omits a "
+                   "shipped image is clean about images it never saw"
+                   % (label, plat))
 
 if len(children) < want_children:
     refuse("IL-CHILDREN-SHORT",
@@ -331,7 +368,7 @@ for key in sorted(children):
 
     missing = [f for f in ("image_family", "image_version", "platform",
                            "manifest_digest", "source_revision", "generated_at",
-                           "documents")
+                           "producer", "documents")
                if not b.get(f)]
     if missing:
         refuse("IL-BINDING-MALFORMED",
@@ -441,15 +478,35 @@ for key in sorted(children):
                "The filename matched and the file hashed cleanly — the SUBJECT "
                "did not" % (key, spdx_name, ", ".join(sorted(subjects)[:3]), digest))
 
+    # The SBOM's declared schema. A document in a format this repository does
+    # not declare cannot be read as a bill of materials, and recording which one
+    # it is keeps a CycloneDX file from silently standing in for SPDX.
+    sbom_schema = doc.get("spdxVersion") or doc.get("bomFormat")
+    if not sbom_schema:
+        refuse("IL-SBOM-SUBJECT-ABSENT",
+               "child %s: %s declares neither spdxVersion nor bomFormat; it is "
+               "not an SBOM in a format this repository declares"
+               % (key, spdx_name))
     bound.append({
         "child_key": key,
         "image_label": str(c.get("image_label") or ""),
+        "image_family": ident["family"],
+        "image_version": ident["version"],
         "platform": plat,
         "manifest_digest": digest,
         "digest_reference": str(c.get("digest_reference") or ""),
         "source_revision": revision,
         "sbom_file": spdx_name,
         "sbom_sha256": docs.get(spdx_name) if isinstance(docs, dict) else None,
+        "sbom_schema": sbom_schema,
+        "producer": str(b.get("producer") or ""),
+        "evidence_generated_at": str(b.get("generated_at") or ""),
+        # Carried, never flattened: an emulated child is a different quality of
+        # evidence from a natively built one, and the #111 native-arch gate
+        # decides what that is worth. Recording it here means a licence verdict
+        # cannot erase the disclosure on its way past.
+        "execution_mode": str(c.get("execution_mode") or "undisclosed"),
+        "host_architecture": str(c.get("host_architecture") or "undisclosed"),
     })
 
 # --- documents bound to no child --------------------------------------------
@@ -482,6 +539,9 @@ meta = {
     "children_expected": want_children,
     "children_bound": len(bound),
     "all_children_bound": len(bound) == want_children,
+    "execution_modes": sorted({c["execution_mode"] for c in bound}),
+    "sbom_schemas": sorted({str(c["sbom_schema"]) for c in bound}),
+    "producers": sorted({c["producer"] for c in bound}),
     "decision_date": today.isoformat(),
     "max_evidence_age_days": max_age,
     "children": bound,

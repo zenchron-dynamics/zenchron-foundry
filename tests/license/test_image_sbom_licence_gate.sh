@@ -83,7 +83,7 @@ gap() { ngap=$((ngap+1)); if eval "$2"; then echo "GAP  - $1"; else
           fail=1; nfail=$((nfail+1)); fi; }
 
 WF=.github/workflows/stage-and-authorize.yml
-JOB=licence-authorization
+JOB=authorize
 CI=.github/workflows/ci.yml
 ACCEPTED=docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json
 MKAUTH=tests/lib/make_authorization_fixture.py
@@ -117,6 +117,9 @@ REV="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["source_re
 # the matrix changes.
 CHILDREN=$(( MATRIX_COUNT * 2 ))
 NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+# Exported for the derivation checks below; MATRIX_IMAGES is the one
+# declaration of the shipping matrix and is never restated here.
+export MI="$MATRIX_IMAGES"
 
 # --- the disposable repository the extracted step bodies execute against -----
 # The step bodies write licence/*.rc relative to the working directory, and the
@@ -230,8 +233,8 @@ gate() {
   # GITHUB_OUTPUT / GITHUB_STEP_SUMMARY are the runner's, not the step's. They
   # are pointed at the scratch directory rather than stubbed away: a step that
   # writes its result somewhere is a step whose result something can read.
-  ( cd "$WORK" && mkdir -p licence \
-      && env "${envs[@]}" GITHUB_OUTPUT="$TMP/gh-output" \
+  ( cd "$WORK" && mkdir -p licence authorization/licence \
+      && env ${envs[@]+"${envs[@]}"} GITHUB_OUTPUT="$TMP/gh-output" \
              GITHUB_STEP_SUMMARY="$TMP/gh-summary" "$@" \
              bash --noprofile --norc -c "$body" ) >"$TMP/out" 2>&1
 }
@@ -243,6 +246,55 @@ S="$TMP/sbom"
 B="$TMP/bind"
 INV="$TMP/image-inventory.json"
 
+echo "== the accepted evidence: why reusing it is valid, and how far ==========="
+
+# THE REUSE RECORD. Nothing here builds an image, so the candidate identities
+# come from the accepted production run. That is only legitimate if the run
+# still describes what this tree would produce, and the claim has to be the
+# narrow true one rather than the comfortable wide one.
+#
+#   VALID:   the IMAGE IDENTITY SET has not moved. images/ and contracts/ carry
+#            no non-8.5 change since the accepted revision, and MATRIX_IMAGES /
+#            MATRIX_COUNT are byte-identical to that revision. The 10 x 2 cohort
+#            and its immutable digests are therefore the same cohort.
+#   NOT CLAIMED: that scripts/lib/common.sh is unchanged — it is not, by +132
+#            lines of comments, helpers and a self-test that moved from a
+#            hardcoded count to a shape assertion. "common.sh unchanged" would
+#            be false and a reviewer diffing it would find that immediately.
+#   NOT CLAIMED: that the SBOM package lists below are those images' real
+#            package inventories. They are not; see the pinned gap at the end.
+ck "the accepted run names a 40-hex source revision, not a branch or a tag" \
+   "printf '%s' '$REV' | grep -qE '^[0-9a-f]{40}$'"
+ck "every accepted child is addressed by an IMMUTABLE content digest" \
+   "python3 -c 'import json,re,sys
+ev=json.load(open(sys.argv[1]))
+rx=re.compile(r\"^sha256:[0-9a-f]{64}$\")
+sys.exit(0 if all(rx.match(c[\"manifest_digest\"])
+                  and c[\"digest_reference\"].endswith(\"@\"+c[\"manifest_digest\"])
+                  for c in ev[\"children\"]) else 1)' '$ACCEPTED'"
+ck "the IMAGE DEFINITIONS carry no non-8.5 change since that revision" \
+   "[ -z \"\$(git diff --name-only '$REV' HEAD -- images/ contracts/ 2>/dev/null \
+              | grep -v '/8\\.5/' || true)\" ]"
+ck "the IDENTITY SET is byte-identical to that revision (not the whole file)" \
+   "[ \"\$(git show '$REV':scripts/lib/common.sh | grep -E '^(MATRIX_IMAGES|MATRIX_COUNT)=')\" \
+    = \"\$(grep -E '^(MATRIX_IMAGES|MATRIX_COUNT)=' scripts/lib/common.sh)\" ]"
+ck "NON-VACUOUS: common.sh as a whole HAS changed, so the claim above is narrow" \
+   "! git diff --quiet '$REV' HEAD -- scripts/lib/common.sh"
+ck "the cohort is DERIVED from MATRIX_IMAGES, and the evidence agrees with it" \
+   "[ \"\$(matrix_images | wc -l | tr -d ' ')\" = \"$MATRIX_COUNT\" ] \
+    && python3 -c 'import json,os,sys
+ev=json.load(open(sys.argv[1]))
+want={\"%s/%s\"%(t.split(\":\")[0],t.split(\":\")[1]) for t in os.environ[\"MI\"].split()}
+have={c[\"image_label\"] for c in ev[\"children\"]}
+plat={c[\"platform\"] for c in ev[\"children\"]}
+sys.exit(0 if want==have and len(ev[\"children\"])==len(want)*len(plat) else 1)' '$ACCEPTED'"
+ck "the accepted run DISCLOSES how each child was executed, and it is carried" \
+   "python3 -c 'import json,sys
+ev=json.load(open(sys.argv[1]))
+sys.exit(0 if all(c.get(\"execution_mode\") for c in ev[\"children\"])
+             and ev.get(\"execution_disclosure\") else 1)' '$ACCEPTED'"
+
+echo
 echo "== the composed gate over the REAL accepted candidate evidence ==========="
 
 ck "the candidate SBOM set covers MATRIX_COUNT x 2 children, derived not counted" \
@@ -255,7 +307,7 @@ ck "every document is named by the PRODUCER's identity function, not a literal" 
 
 # --- PROOF 9 (run first: everything after it is a sabotage of THIS path) -----
 ck "P9 the workflow's binding step binds every real candidate SBOM" \
-   "gate bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$INV'"
+   "gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$INV'"
 ck "P9 ...to image, version, platform, IMMUTABLE DIGEST and source revision" \
    "python3 -c 'import json,sys
 i=json.load(open(sys.argv[1])); b=i[\"image_binding\"]
@@ -268,34 +320,86 @@ ok=all(d[c[\"child_key\"]][\"manifest_digest\"]==c[\"manifest_digest\"]
        for c in ev[\"children\"])
 sys.exit(0 if ok and b[\"all_children_bound\"] and b[\"children_bound\"]==$CHILDREN else 1)' \
       '$INV' '$ACCEPTED'"
+ck "P9 ...carrying SBOM checksum, SBOM schema, producer and creation time per child" \
+   "python3 -c 'import json,sys
+b=json.load(open(sys.argv[1]))[\"image_binding\"]
+ok=all(c[\"sbom_sha256\"] and c[\"sbom_schema\"] and c[\"producer\"]
+       and c[\"evidence_generated_at\"] and c[\"image_family\"] and c[\"image_version\"]
+       for c in b[\"children\"])
+sys.exit(0 if ok and b[\"sbom_schemas\"] and b[\"producers\"] else 1)' '$INV'"
+ck "P9 ...and the execution disclosure is CARRIED, not flattened away" \
+   "python3 -c 'import json,sys
+b=json.load(open(sys.argv[1]))[\"image_binding\"]
+ev=json.load(open(sys.argv[2]))
+want={c[\"child_key\"]: c.get(\"execution_mode\") for c in ev[\"children\"]}
+sys.exit(0 if all(c[\"execution_mode\"]==want[c[\"child_key\"]] for c in b[\"children\"])
+             and b[\"execution_modes\"] else 1)' '$INV' '$ACCEPTED'"
 ck "P9 ...and the binding names the same revision the accepted run recorded" \
    "[ \"\$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[\"image_binding\"][\"source_revision\"])' '$INV')\" = '$REV' ]"
 ck "P9 the workflow's IMAGE-SBOM licence gate passes over that real inventory" \
-   "gate image_policy IMAGE_INVENTORY='$INV' EXPECT_REVISION='$REV'"
+   "gate lic_policy IMAGE_INVENTORY='$INV' EXPECT_REVISION='$REV'"
 ck "P9 ...and it is the shipped fail-closed gate, not a self-test" \
-   "wf_run image_policy | grep -q 'assert-license-policy.sh' \
-    && ! wf_run image_policy | grep -q -- '--self-test'"
+   "wf_run lic_policy | grep -q 'assert-license-policy.sh' \
+    && ! wf_run lic_policy | grep -q -- '--self-test'"
 ck "P9 the workflow's COMPOSED step passes with both halves present" \
-   "gate composed IMAGE_INVENTORY='$INV' MATERIAL_INVENTORY='$WORK/policies/repository-material.yaml'"
+   "gate lic_composed IMAGE_INVENTORY='$INV' MATERIAL_INVENTORY='$WORK/policies/repository-material.yaml'"
 ck "P9 ...and it really did read the image half as SOURCE 1" \
    "says 'SOURCE 1' && says 'image-inventory.json'"
-ck "P9 the workflow CONSUMES the three results into one recorded decision" \
-   "gate decide BIND=success IMAGE_POLICY=success COMPOSED=success \
-      AUTH_RECORD='$A' IMAGE_INVENTORY='$INV' \
+LIC="$TMP/licence-authorization.json"
+ck "P9 the workflow composes the three results into one recorded decision" \
+   "gate lic_decide BIND=success IMAGE_POLICY=success COMPOSED=success \
+      AUTH_RECORD='$A' IMAGE_INVENTORY='$INV' LICENCE_RECORD='$LIC' \
       MATERIAL_INVENTORY='$WORK/policies/repository-material.yaml'"
 ck "P9 ...as verdict PASS naming both halves and the child count" \
    "python3 -c 'import json,sys
 d=json.load(open(sys.argv[1]))
 sys.exit(0 if d[\"verdict\"]==\"PASS\" and d[\"both_halves_required\"]
              and d[\"image_half\"][\"children_bound\"]==$CHILDREN
-             and d[\"repository_half\"][\"composed\"]==\"success\" else 1)' \
-      '$WORK/licence/licence-authorization.json'"
+             and d[\"repository_half\"][\"composed\"]==\"success\" else 1)' '$LIC'"
+ck "P9 ...BOUND to this authorization record by its sha256, not merely filed beside it" \
+   "python3 -c 'import hashlib,json,sys
+d=json.load(open(sys.argv[1]))
+sys.exit(0 if d[\"authorization_record_sha256\"]
+             == hashlib.sha256(open(sys.argv[2],\"rb\").read()).hexdigest() else 1)' \
+      '$LIC' '$A'"
 ck "P9 ...while publication stays REFUSED, unchanged by a licence PASS" \
    "python3 -c 'import json,sys
-d=json.load(open(sys.argv[1]))
-sys.exit(0 if d[\"public_exposure_authorized\"] is False
-             and d[\"authorization_record_public_exposure\"]==\"false\" else 1)' \
-      '$WORK/licence/licence-authorization.json'"
+sys.exit(0 if json.load(open(sys.argv[1]))[\"public_exposure_authorized\"] is False else 1)' '$LIC'"
+
+# THE CONSUMPTION PROOF. Producing a verdict and filing it in an artifact is the
+# original defect one layer out: a step whose output nothing reads is
+# indistinguishable from a step that did not run. The canonical record's own
+# validator is what reads it, so the authorization decision cannot be reached
+# without it.
+# The validator step records its result and the sealing step turns it into the
+# job verdict — the same two-stage shape the aggregator already uses, so a
+# refusal is still WRITTEN before it is acted on. consume() reads it exactly as
+# the workflow does.
+consume() { # consume <licence-record> [authorization-record]
+  gate schema AUTH_RECORD="${2:-$A}" LICENCE_RECORD="$1" || return 1
+  [ "$(cat "$WORK/authorization/schema.rc" 2>/dev/null)" = 0 ]
+}
+ck "P9 the CANONICAL authorization decision CONSUMES that verdict" \
+   "consume '$LIC'"
+ck "P9 ...and says so, naming the verdict and the bound child count" \
+   "says 'licence authorization CONSUMED' && says 'PASS' && says '$CHILDREN/$CHILDREN'"
+ck "P9 ...and the SEALING step turns that recorded result into the job verdict" \
+   "printf '0\n' > '$WORK/authorization/aggregate.rc'
+    printf '0\n' > '$WORK/authorization/schema.rc'
+    gate seal"
+ck "P9 SABOTAGE: a refused licence result FAILS the job at the same step" \
+   "printf '0\n' > '$WORK/authorization/aggregate.rc'
+    printf '1\n' > '$WORK/authorization/schema.rc'
+    ! gate seal"
+ck "P9 ...and the licence records are INSIDE the sealed checksum coverage" \
+   "gate lic_decide BIND=success IMAGE_POLICY=success COMPOSED=success \
+      AUTH_RECORD='$A' IMAGE_INVENTORY='$INV' \
+      LICENCE_RECORD=authorization/licence/licence-authorization.json \
+      MATERIAL_INVENTORY='$WORK/policies/repository-material.yaml' \
+    && printf '0\n' > '$WORK/authorization/aggregate.rc' \
+    && printf '0\n' > '$WORK/authorization/schema.rc' \
+    && gate seal \
+    && grep -q 'licence/licence-authorization.json' '$WORK/authorization/SHA256SUMS'"
 
 echo
 echo "== proof 1: removing the invocation recreates the EXACT pinned gap ========"
@@ -380,26 +484,26 @@ d["packages"].append({"name": "hand-written", "versionInfo": "0",
 json.dump(d, open(sys.argv[1], "w"), indent=2)
 PY
 ck "P2 SABOTAGE: a hand-written document under the candidate's own name REFUSES" \
-   "! gate bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s2' BINDING_DIR='$TMP/b2' IMAGE_INVENTORY='$TMP/i2.json'"
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s2' BINDING_DIR='$TMP/b2' IMAGE_INVENTORY='$TMP/i2.json'"
 ck "P2 ...for IL-SBOM-CONTENT-DRIFT: not the bytes the producing run hashed" \
    "says 'IL-SBOM-CONTENT-DRIFT' && says 'caddy-prod-linux-amd64.spdx.json'"
 build_set "$TMP/s2b" "$TMP/b2b"
 rm -rf "$TMP/b2b"; mkdir -p "$TMP/b2b"
 ck "P2 SABOTAGE: documents with NO binding record at all REFUSE" \
-   "! gate bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s2b' BINDING_DIR='$TMP/b2b' IMAGE_INVENTORY='$TMP/i2b.json'"
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s2b' BINDING_DIR='$TMP/b2b' IMAGE_INVENTORY='$TMP/i2b.json'"
 ck "P2 ...for IL-BINDING-MISSING, naming the document nobody's run vouches for" \
    "says 'IL-BINDING-MISSING' && says 'a fixture cannot license a release'"
 build_set "$TMP/s2c" "$TMP/b2c" "2020-01-01T00:00:00Z"
 ck "P2 SABOTAGE: STALE SBOM evidence REFUSES even when everything else agrees" \
-   "! gate bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s2c' BINDING_DIR='$TMP/b2c' IMAGE_INVENTORY='$TMP/i2c.json'"
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s2c' BINDING_DIR='$TMP/b2c' IMAGE_INVENTORY='$TMP/i2c.json'"
 ck "P2 ...for IL-EVIDENCE-STALE, naming the age and the limit" \
    "says 'IL-EVIDENCE-STALE' && says 'days old'"
 build_set "$TMP/s2d" "$TMP/b2d" "2099-01-01T00:00:00Z"
 ck "P2 SABOTAGE: evidence dated after the decision REFUSES (IL-EVIDENCE-FUTURE)" \
-   "! gate bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s2d' BINDING_DIR='$TMP/b2d' IMAGE_INVENTORY='$TMP/i2d.json' \
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s2d' BINDING_DIR='$TMP/b2d' IMAGE_INVENTORY='$TMP/i2d.json' \
     && says 'IL-EVIDENCE-FUTURE'"
 ck "P2 NON-VACUOUS: the untouched real set still binds cleanly" \
-   "gate bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i2ok.json'"
+   "gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i2ok.json'"
 
 echo
 echo "== proof 3: ONE MISSING PLATFORM is refused ==============================="
@@ -407,13 +511,13 @@ echo "== proof 3: ONE MISSING PLATFORM is refused ==============================
 build_set "$TMP/s3" "$TMP/b3"
 rm -f "$TMP/s3"/*-linux-arm64.spdx.json
 ck "P3 SABOTAGE: every arm64 bill of materials absent REFUSES" \
-   "! gate bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s3' BINDING_DIR='$TMP/b3' IMAGE_INVENTORY='$TMP/i3.json'"
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s3' BINDING_DIR='$TMP/b3' IMAGE_INVENTORY='$TMP/i3.json'"
 ck "P3 ...for IL-SBOM-MISSING, naming the platform's children, not a generic count" \
    "says 'IL-SBOM-MISSING' && says 'linux/arm64' && ! says 'linux/amd64'"
 ck "P3 ...MATRIX_COUNT children short, and the refusal is fatal not sbom.present=false" \
    "[ \"\$(grep -c '^REFUSE \\[IL-SBOM-MISSING\\]' '$TMP/out')\" = \"$MATRIX_COUNT\" ]"
 ck "P3 NON-VACUOUS: restoring that platform's documents binds cleanly" \
-   "gate bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i3ok.json'"
+   "gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i3ok.json'"
 
 echo
 echo "== proof 4: ONE MISSING IMAGE is refused =================================="
@@ -422,14 +526,14 @@ build_set "$TMP/s4" "$TMP/b4"
 rm -f "$TMP/s4/$(sbom_filename nginx prod linux/amd64 spdx-json)" \
       "$TMP/s4/$(sbom_filename nginx prod linux/arm64 spdx-json)"
 ck "P4 SABOTAGE: one image absent from the candidate SBOM set REFUSES" \
-   "! gate bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s4' BINDING_DIR='$TMP/b4' IMAGE_INVENTORY='$TMP/i4.json'"
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s4' BINDING_DIR='$TMP/b4' IMAGE_INVENTORY='$TMP/i4.json'"
 ck "P4 ...for IL-SBOM-MISSING, naming BOTH of that image's children" \
    "says 'IL-SBOM-MISSING' && says 'nginx/prod/linux/amd64' && says 'nginx/prod/linux/arm64'"
 # The other shape of a missing image: the RECORD itself is short. Coverage is
 # judged against expected_matrix, declared before evaluation, so a silently
 # missing child cannot produce a smaller passing record.
 ck "P4 SABOTAGE: an authorization record one child short REFUSES on coverage" \
-   "! gate bind AUTH_RECORD='$TMP/auth-short.json' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4b.json'"
+   "! gate lic_bind AUTH_RECORD='$TMP/auth-short.json' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4b.json'"
 ck "P4 ...for IL-CHILDREN-SHORT against the DECLARED matrix, not against what arrived" \
    "says 'IL-CHILDREN-SHORT' && says 'expected_matrix declares'"
 ck "P4 ...and the leftover document is separately refused as bound to no child" \
@@ -438,15 +542,15 @@ ck "P4 ...and the leftover document is separately refused as bound to no child" 
 # alongside the real matrix. Coverage is judged against expected_matrix, so a
 # 21st child is a refusal rather than a bonus.
 ck "P4 SABOTAGE: a child outside the DECLARED matrix REFUSES" \
-   "! gate bind AUTH_RECORD='$TMP/auth-extra.json' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4c.json'"
+   "! gate lic_bind AUTH_RECORD='$TMP/auth-extra.json' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4c.json'"
 ck "P4 ...for IL-CHILD-UNEXPECTED, and the experimental 8.5 image is how it shows up" \
    "says 'IL-CHILD-UNEXPECTED' && says 'php-cli/8.5'"
 ck "P4 SABOTAGE: the SAME child recorded twice REFUSES" \
-   "! gate bind AUTH_RECORD='$TMP/auth-dup.json' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4d.json'"
+   "! gate lic_bind AUTH_RECORD='$TMP/auth-dup.json' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4d.json'"
 ck "P4 ...for IL-CHILD-DUPLICATE, naming the child claimed twice" \
    "says 'IL-CHILD-DUPLICATE' && says 'two records for child'"
 ck "P4 NON-VACUOUS: the complete record over the same documents binds cleanly" \
-   "gate bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4ok.json'"
+   "gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i4ok.json'"
 
 echo
 echo "== proof 5: a WRONG IMAGE DIGEST is refused ==============================="
@@ -459,7 +563,7 @@ d["manifest_digest"] = "sha256:" + "d" * 64
 json.dump(d, open(sys.argv[1], "w"), indent=2)
 PY
 ck "P5 SABOTAGE: a binding naming another digest REFUSES" \
-   "! gate bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s5' BINDING_DIR='$TMP/b5' IMAGE_INVENTORY='$TMP/i5.json'"
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s5' BINDING_DIR='$TMP/b5' IMAGE_INVENTORY='$TMP/i5.json'"
 ck "P5 ...for IL-DIGEST-MISMATCH against the digest the REGISTRY resolved" \
    "says 'IL-DIGEST-MISMATCH' && says 'resolved'"
 # The attacker's best case: the SUBJECT is foreign, and the binding is honestly
@@ -481,11 +585,47 @@ b["documents"][os.path.basename(p)] = hashlib.sha256(open(p, "rb").read()).hexdi
 json.dump(b, open(bp, "w"), indent=2)
 PY
 ck "P5 SABOTAGE: a FOREIGN SUBJECT, honestly re-hashed, still REFUSES" \
-   "! gate bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s5b' BINDING_DIR='$TMP/b5b' IMAGE_INVENTORY='$TMP/i5b.json'"
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s5b' BINDING_DIR='$TMP/b5b' IMAGE_INVENTORY='$TMP/i5b.json'"
 ck "P5 ...for the SUBJECT, though the filename and the content hash both matched" \
    "says 'IL-DIGEST-MISMATCH' && says 'The filename matched and the file hashed cleanly'"
+# ONE PLATFORM SUBSTITUTED FOR ANOTHER. The binding says amd64 while the record
+# says arm64 — the collision that cost run 32123758374 before child_slug()
+# carried the platform.
+build_set "$TMP/s5c" "$TMP/b5c"
+python3 - "$TMP/b5c/$(child_slug nginx prod linux/arm64).binding.json" <<'PLAT'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["platform"] = "linux/amd64"
+json.dump(d, open(sys.argv[1], "w"), indent=2)
+PLAT
+ck "P5 SABOTAGE: one platform substituted for another REFUSES" \
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s5c' BINDING_DIR='$TMP/b5c' IMAGE_INVENTORY='$TMP/i5c.json'"
+ck "P5 ...for IL-PLATFORM-MISMATCH, saying an amd64 bill of materials is not arm64 evidence" \
+   "says 'IL-PLATFORM-MISMATCH' && says 'is not evidence about the arm64 child'"
+
+# A VALID SBOM ATTACHED TO THE WRONG CHILD: child A's whole document, filed under
+# child B's name, with B's binding honestly re-hashed over it.
+build_set "$TMP/s5d" "$TMP/b5d"
+python3 - "$TMP/ident.tsv" "$TMP/s5d" "$TMP/b5d" <<'WRONGCHILD'
+import hashlib, json, os, shutil, sys
+rows = [l.rstrip("\n").split("\t") for l in open(sys.argv[1]) if l.strip()]
+a, b = rows[0], rows[1]
+def slug(r):
+    return "%s-%s-%s" % (r[0], r[1], r[2].replace("/", "-"))
+src = os.path.join(sys.argv[2], slug(a) + ".spdx.json")
+dst = os.path.join(sys.argv[2], slug(b) + ".spdx.json")
+shutil.copyfile(src, dst)                      # a VALID document, wrong child
+bp = os.path.join(sys.argv[3], slug(b) + ".binding.json")
+rec = json.load(open(bp))
+rec["documents"][os.path.basename(dst)] = hashlib.sha256(open(dst, "rb").read()).hexdigest()
+json.dump(rec, open(bp, "w"), indent=2)
+WRONGCHILD
+ck "P5 SABOTAGE: a VALID SBOM attached to the WRONG child REFUSES" \
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s5d' BINDING_DIR='$TMP/b5d' IMAGE_INVENTORY='$TMP/i5d.json'"
+ck "P5 ...because its SUBJECT does not bind that child's candidate digest" \
+   "says 'IL-DIGEST-MISMATCH' && says 'not this child'\''s manifest digest'"
 ck "P5 NON-VACUOUS: the honest digest binds cleanly over the identical path" \
-   "gate bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i5ok.json'"
+   "gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$S' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i5ok.json'"
 
 echo
 echo "== proof 6: a WRONG SOURCE REVISION is refused ============================"
@@ -498,22 +638,22 @@ d["source_revision"] = "0" * 40
 json.dump(d, open(sys.argv[1], "w"), indent=2)
 PY
 ck "P6 SABOTAGE: an SBOM bound to another tree REFUSES" \
-   "! gate bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s6' BINDING_DIR='$TMP/b6' IMAGE_INVENTORY='$TMP/i6.json'"
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/s6' BINDING_DIR='$TMP/b6' IMAGE_INVENTORY='$TMP/i6.json'"
 ck "P6 ...for IL-REVISION-MISMATCH naming both revisions" \
    "says 'IL-REVISION-MISMATCH' && says '$REV'"
 # And the gate's own expectation, which is what the workflow passes github.sha to.
 ck "P6 SABOTAGE: a sound inventory presented for ANOTHER revision REFUSES" \
-   "! gate image_policy IMAGE_INVENTORY='$INV' EXPECT_REVISION='$(printf '0%.0s' {1..40})'"
+   "! gate lic_policy IMAGE_INVENTORY='$INV' EXPECT_REVISION='$(printf '0%.0s' {1..40})'"
 ck "P6 ...naming the revision the inventory is actually a verdict for" \
    "says 'is being presented for' && says '$REV'"
 ck "P6 NON-VACUOUS: the same inventory passes for the revision it was built for" \
-   "gate image_policy IMAGE_INVENTORY='$INV' EXPECT_REVISION='$REV'"
+   "gate lic_policy IMAGE_INVENTORY='$INV' EXPECT_REVISION='$REV'"
 
 echo
 echo "== proof 7: a MISSING REPOSITORY INVENTORY is refused ====================="
 
 ck "P7 SABOTAGE: the composed step with no repository inventory REFUSES" \
-   "! gate composed IMAGE_INVENTORY='$INV' MATERIAL_INVENTORY='$TMP/no-such-inventory.yaml'"
+   "! gate lic_composed IMAGE_INVENTORY='$INV' MATERIAL_INVENTORY='$TMP/no-such-inventory.yaml'"
 ck "P7 ...for RM-INVENTORY-UNREADABLE — an absent inventory is not an empty one" \
    "says 'RM-INVENTORY-UNREADABLE'"
 # The other way a repository half can be vacuously clean: it exists and asserts
@@ -528,11 +668,11 @@ for m in d.get("materials") or []:
 yaml.safe_dump(d, open(sys.argv[2], "w"), sort_keys=False)
 PY
 ck "P7 SABOTAGE: image evidence beside a repository inventory that reviewed nothing" \
-   "! gate composed IMAGE_INVENTORY='$INV' MATERIAL_INVENTORY='$TMP/rm-unreviewed.yaml'"
+   "! gate lic_composed IMAGE_INVENTORY='$INV' MATERIAL_INVENTORY='$TMP/rm-unreviewed.yaml'"
 ck "P7 ...for RM-REPOSITORY-EVIDENCE-ABSENT: an image-only PASS compensates for nothing" \
    "says 'RM-REPOSITORY-EVIDENCE-ABSENT'"
 ck "P7 NON-VACUOUS: the shipped inventory passes over the same image evidence" \
-   "gate composed IMAGE_INVENTORY='$INV' MATERIAL_INVENTORY='$WORK/policies/repository-material.yaml'"
+   "gate lic_composed IMAGE_INVENTORY='$INV' MATERIAL_INVENTORY='$WORK/policies/repository-material.yaml'"
 
 echo
 echo "== proof 8: MISSING IMAGE EVIDENCE is refused, in BOTH directions ========="
@@ -550,30 +690,69 @@ ck "P8 ...naming the script that produces the missing half" \
 ck "P8 SABOTAGE: the image gate REFUSES an inventory with no image binding at all" \
    "( cd '$WORK' && bash scripts/license/license-inventory.sh --sbom-dir '$S' \
         --out '$TMP/unbound.json' ) >/dev/null 2>&1
-    ! gate image_policy IMAGE_INVENTORY='$TMP/unbound.json' EXPECT_REVISION='$REV'"
+    ! gate lic_policy IMAGE_INVENTORY='$TMP/unbound.json' EXPECT_REVISION='$REV'"
 ck "P8 ...telling the reader exactly what to rebuild it with" \
    "says 'carries no image_binding' && says 'assert-image-sbom-licences.sh --authorization'"
-# The composition rule itself, executed through the workflow's own decide body:
-# a success in one half is never enough.
-ck "P8 SABOTAGE: the workflow REFUSES the decision when the image half failed" \
-   "! gate decide BIND=failure IMAGE_POLICY=skipped COMPOSED=skipped \
-        AUTH_RECORD='$A' IMAGE_INVENTORY='$INV' \
-        MATERIAL_INVENTORY='$WORK/policies/repository-material.yaml'"
-ck "P8 ...stating that neither half compensates for the other" \
-   "says 'Neither compensates for the other' && says 'licence authorization REFUSED'"
-ck "P8 SABOTAGE: and it REFUSES when the repository half failed" \
-   "! gate decide BIND=success IMAGE_POLICY=success COMPOSED=failure \
-        AUTH_RECORD='$A' IMAGE_INVENTORY='$INV' \
-        MATERIAL_INVENTORY='$WORK/policies/repository-material.yaml'"
-ck "P8 ...recording verdict REFUSED rather than skipping the record entirely" \
+echo
+echo "== the COMPOSITION TRUTH TABLE, all four cells, through the consumer ====="
+
+# Each cell runs the workflow's OWN decide body to produce the record, then the
+# workflow's OWN validator step to consume it. "Eligible to continue" is what a
+# PASS buys — never publication, which stays refused by its own control.
+cell() { # cell <name> <BIND> <IMAGE_POLICY> <COMPOSED> <out>
+  gate lic_decide BIND="$2" IMAGE_POLICY="$3" COMPOSED="$4" \
+       AUTH_RECORD="$A" IMAGE_INVENTORY="$INV" LICENCE_RECORD="$5" \
+       MATERIAL_INVENTORY="$WORK/policies/repository-material.yaml" >/dev/null 2>&1
+  consume "$5"
+}
+ck "TT repository PASS + image PASS  -> eligible to continue" \
+   "cell pp success success success '$TMP/tt-pp.json'"
+ck "TT ...and 'eligible' is NOT publication: the record still refuses exposure" \
    "python3 -c 'import json,sys
-d=json.load(open(sys.argv[1]))
-sys.exit(0 if d[\"verdict\"]==\"REFUSED\" and d[\"repository_half\"][\"composed\"]==\"failure\" else 1)' \
-      '$WORK/licence/licence-authorization.json'"
-ck "P8 NON-VACUOUS: with BOTH halves successful the same body records PASS" \
-   "gate decide BIND=success IMAGE_POLICY=success COMPOSED=success \
-        AUTH_RECORD='$A' IMAGE_INVENTORY='$INV' \
-        MATERIAL_INVENTORY='$WORK/policies/repository-material.yaml'"
+sys.exit(0 if json.load(open(sys.argv[1]))[\"public_exposure_authorized\"] is False else 1)' '$TMP/tt-pp.json'"
+ck "TT repository PASS + image REFUSED -> REFUSE" \
+   "! cell pr success failure success '$TMP/tt-pr.json'"
+ck "TT ...for AR-LICENCE-REFUSED, naming which half refused" \
+   "says 'AR-LICENCE-REFUSED' && says 'policy=failure'"
+ck "TT repository REFUSED + image PASS -> REFUSE" \
+   "! cell rp success success failure '$TMP/tt-rp.json'"
+ck "TT ...for AR-LICENCE-REFUSED, naming the repository half" \
+   "says 'AR-LICENCE-REFUSED' && says 'repository half: failure'"
+ck "TT repository REFUSED + image REFUSED -> REFUSE" \
+   "! cell rr failure failure failure '$TMP/tt-rr.json'"
+ck "TT ...and every refusing cell still WROTE a record, never nothing to read" \
+   "python3 -c 'import json,sys
+for f in sys.argv[1:]:
+    d=json.load(open(f))
+    if d[\"verdict\"]!=\"REFUSED\": sys.exit(1)
+sys.exit(0)' '$TMP/tt-pr.json' '$TMP/tt-rp.json' '$TMP/tt-rr.json'"
+
+echo
+echo "== ABSENT IS A REFUSAL, NEVER A SKIP ====================================="
+
+# The subtle failure this whole change exists to avoid: a wrapper that reports
+# success because its evidence never arrived.
+ck "P8 SABOTAGE: no licence record at all REFUSES the canonical decision" \
+   "! consume '$TMP/no-such-licence.json'"
+ck "P8 ...for AR-LICENCE-EVIDENCE-ABSENT, saying so in as many words" \
+   "says 'AR-LICENCE-EVIDENCE-ABSENT' && says 'never a skip'"
+ck "P8 SABOTAGE: an EMPTY path is not 'not asked for' — it also REFUSES" \
+   "! consume ''"
+ck "P8 SABOTAGE: a licence verdict for ANOTHER authorization record REFUSES" \
+   "! consume '$TMP/tt-pp.json' '$TMP/auth-extra.json'"
+ck "P8 ...for AR-LICENCE-UNBOUND, comparing the two record hashes" \
+   "says 'AR-LICENCE-UNBOUND'"
+ck "P8 SABOTAGE: an ABSENT SBOM directory REFUSES rather than reporting nothing to do" \
+   "! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/no-such-dir' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i8.json'"
+ck "P8 ...naming the absence as every child missing at once, not an empty result" \
+   "says 'IL-SBOM-MISSING' && says 'every child missing at once'"
+ck "P8 SABOTAGE: an EMPTY SBOM directory REFUSES the same way" \
+   "mkdir -p '$TMP/empty-sbom'
+    ! gate lic_bind AUTH_RECORD='$A' SBOM_DIR='$TMP/empty-sbom' BINDING_DIR='$B' IMAGE_INVENTORY='$TMP/i8b.json'"
+ck "P8 ...for IL-SBOM-MISSING once per expected child" \
+   "[ \"\$(grep -c '^REFUSE \\[IL-SBOM-MISSING\\]' '$TMP/out')\" = '$CHILDREN' ]"
+ck "P8 NON-VACUOUS: with BOTH halves successful the same bodies reach eligibility" \
+   "cell ok success success success '$TMP/tt-ok.json'"
 
 echo
 echo "== proof 10: the REQUIRED CI path executes this gate ======================"
@@ -589,20 +768,47 @@ ck "P10 ...and EXECUTING that exact command reaches this file" \
    "[ \"\$( IMAGE_SBOM_GATE_PROBE=1 bash --noprofile --norc -c \"\$CI_CMD\" 2>&1 )\" \
       = 'IMAGE-SBOM-LICENCE-GATE-REACHED' ]"
 ck "P10 ...so the workflow's OWN extracted gate bodies run on every pull request" \
-   "wf_run bind | grep -q 'assert-image-sbom-licences.sh' \
-    && wf_run image_policy | grep -q 'assert-license-policy.sh' \
-    && wf_run composed | grep -q 'assert-repository-material.sh'"
+   "wf_run lic_bind | grep -q 'assert-image-sbom-licences.sh' \
+    && wf_run lic_policy | grep -q 'assert-license-policy.sh' \
+    && wf_run lic_composed | grep -q 'assert-repository-material.sh'"
 ck "P10 ...with inputs, not bare: the binding step is HANDED a record and a set" \
-   "wf_run bind | grep -q -- '--authorization' && wf_run bind | grep -q -- '--sbom-dir' \
-    && wf_run bind | grep -q -- '--binding-dir' && wf_run bind | grep -q -- '--out'"
+   "wf_run lic_bind | grep -q -- '--authorization' && wf_run lic_bind | grep -q -- '--sbom-dir' \
+    && wf_run lic_bind | grep -q -- '--binding-dir' && wf_run lic_bind | grep -q -- '--out'"
 ck "P10 ...and every input the binding step reads is declared in its own env" \
    "for k in AUTH_RECORD SBOM_DIR BINDING_DIR IMAGE_INVENTORY; do
-      wf_keys bind | grep -qx \"\$k\" || exit 1; done"
-ck "P10 ...and the RESULT is consumed: the decision step reads all three outcomes" \
-   "wf_run decide | grep -q 'BIND' && wf_run decide | grep -q 'IMAGE_POLICY' \
-    && wf_run decide | grep -q 'COMPOSED' && wf_run decide | grep -q 'licence-authorization.json'"
+      wf_keys lic_bind | grep -qx \"\$k\" || exit 1; done"
+ck "P10 ...and the RESULT is composed: the decision step reads all three outcomes" \
+   "for k in BIND IMAGE_POLICY COMPOSED LICENCE_RECORD; do
+      wf_keys lic_decide | grep -qx \"\$k\" || exit 1; done"
+ck "P10 ...and the result is CONSUMED by the canonical record's own validator" \
+   "wf_run schema | grep -q 'validate-authorization-record.sh' \
+    && wf_run schema | grep -q -- '--require-licence-authorization'"
+ck "P10 ...whose refusal reaches the JOB verdict through the sealing step" \
+   "wf_run seal | grep -q 'schema.rc' && wf_run seal | grep -q 'schema_rc' \
+    && wf_run seal | grep -q -- '-eq 0'"
+ck "P10 ...and no gate step can SKIP its way past missing evidence" \
+   "python3 -c 'import sys, yaml
+wf = yaml.safe_load(open(\".github/workflows/stage-and-authorize.yml\"))
+job = wf[\"jobs\"][\"authorize\"]
+need = {\"lic_bind\", \"lic_policy\", \"lic_composed\", \"lic_decide\", \"schema\", \"seal\"}
+for st in job[\"steps\"]:
+    if st.get(\"id\") in need:
+        cond = str(st.get(\"if\") or \"always()\")
+        if \"always()\" not in cond:
+            sys.exit(1)
+        need.discard(st.get(\"id\"))
+sys.exit(1 if need else 0)'"
 ck "P10 ...and a licence PASS still cannot authorize exposure" \
-   "wf_run decide | grep -q 'public_exposure_authorized'"
+   "wf_run lic_decide | grep -q 'public_exposure_authorized: false'"
+ck "P10 the licence gates live in the job that EMITS the canonical record" \
+   "python3 -c 'import sys, yaml
+wf = yaml.safe_load(open(\".github/workflows/stage-and-authorize.yml\"))
+job = wf[\"jobs\"][\"authorize\"]
+bodies = [st.get(\"run\") or \"\" for st in job[\"steps\"]]
+joined = \"\\n\".join(bodies)
+sys.exit(0 if \"authorize-staged-candidates.sh\" in joined
+             and \"assert-license-policy.sh\" in joined
+             and \"assert-repository-material.sh\" in joined else 1)'"
 
 echo
 echo "== ambient safety ========================================================="
