@@ -23,6 +23,7 @@ ck() { if eval "$2"; then echo "ok   - $1"; else echo "FAIL - $1"; fail=1; fi; }
 # exercises it is a failure, which is the point.
 SUBSYSTEMS="
 scripts/license/assert-license-policy.sh
+scripts/license/assert-repository-material.sh
 scripts/cra/assert-cra-controls.sh
 scripts/continuity-verify.sh
 scripts/repro-guarantees.sh
