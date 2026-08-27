@@ -606,6 +606,14 @@ and **both are the licence gate not being invoked against a real inventory** —
 at all outside `--self-test`, and `:1317` that `ci.yml`'s only invocation is the gate testing itself, which
 gates no artifact. The arithmetic reproduces 231/2 exactly. **Confirmed.**
 
+**Confirmed independently by the authority.** CI's required `repo structure` job on this branch
+(run `33080410669`, job `98545760776`, 2026-08-27) printed:
+
+```text
+assertions: 231 proven, 2 pinned gaps
+test_evidence_path_e2e: PASS
+```
+
 `:1303-1310` explains why this is pinned rather than quietly passing: the previous assertion matched `ci.yml`'s
 `--self-test` line and was "literally true, substantively false, and green forever".
 
