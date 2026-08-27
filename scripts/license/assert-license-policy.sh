@@ -23,6 +23,7 @@
 # Usage:
 #   assert-license-policy.sh --inventory FILE [--policy FILE]
 #        [--require-release-binding] [--evidence-class CLASS]
+#        [--require-image-binding] [--expect-source-revision REV]
 #
 # --require-release-binding refuses an inventory that names no bundle, evidence
 # class or source revision. The gate could always consume the release path and
@@ -36,7 +37,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
-  sed -n '23,25p' "$0" | sed 's/^# \{0,1\}//' >&2
+  sed -n '23,26p' "$0" | sed 's/^# \{0,1\}//' >&2
   exit 64
 }
 
@@ -45,7 +46,8 @@ usage() {
 # -----------------------------------------------------------------------------
 gate() {
   INVENTORY="$1" POLICY="$2" REQUIRE_BINDING="${3:-0}" \
-    EXPECT_CLASS="${4:-}" python3 <<'PY'
+    EXPECT_CLASS="${4:-}" REQUIRE_IMAGE_BINDING="${5:-0}" \
+    EXPECT_REVISION="${6:-}" python3 <<'PY'
 import json, os, sys, datetime
 
 inv_path = os.environ["INVENTORY"]
@@ -97,6 +99,47 @@ if os.environ.get("REQUIRE_BINDING") == "1":
     if want and rb["evidence_class"] != want:
         refuse("%s is a licence verdict for evidence class %r; it is being "
                "presented as %r" % (inv_path, rb["evidence_class"], want))
+
+# --- the IMAGE binding -------------------------------------------------------
+# --require-release-binding above binds a verdict to a SEALED EVIDENCE BUNDLE.
+# That is the right binding once a bundle exists, and it does not exist while a
+# run is still staging candidates — which is precisely when the licence question
+# has to be answered, because that is the only point at which the candidate
+# images are in hand.
+#
+# --require-image-binding is the staging-time form. It refuses an inventory that
+# does not name the authorization record, the source revision and the complete
+# child set the SBOMs were produced against. Without it, `--inventory anything`
+# passes this gate over any SPDX files at all, which is exactly how a licence
+# gate ends up "wired" while gating no image.
+if os.environ.get("REQUIRE_IMAGE_BINDING") == "1":
+    ib = inv.get("image_binding")
+    if not ib:
+        refuse("%s carries no image_binding. --require-image-binding was asked "
+               "for, and a licence verdict that names no authorization record, "
+               "no source revision and no child set decides nothing about a "
+               "candidate image. Rebuild it with "
+               "scripts/license/assert-image-sbom-licences.sh --authorization "
+               "<post-build-authorization.json> --sbom-dir <candidate SBOMs>"
+               % inv_path)
+    for f in ("source_revision", "children_expected", "children_bound",
+              "authorization_record", "platforms"):
+        if not ib.get(f):
+            refuse("%s: image_binding.%s is missing" % (inv_path, f))
+    if not ib.get("all_children_bound"):
+        refuse("%s: only %s of %s expected children are bound to a staged "
+               "digest. A licence verdict over a partial matrix reports clean "
+               "for the images it happened to see"
+               % (inv_path, ib.get("children_bound"), ib.get("children_expected")))
+    if int(ib["children_bound"]) != int(ib["children_expected"]):
+        refuse("%s: image_binding claims completeness while binding %s of %s "
+               "children" % (inv_path, ib["children_bound"], ib["children_expected"]))
+    want_rev = os.environ.get("EXPECT_REVISION") or ""
+    if want_rev and str(ib["source_revision"]) != want_rev:
+        refuse("%s is a licence verdict for source revision %s; it is being "
+               "presented for %s. An inventory built from another run's SBOMs "
+               "licenses another run's images"
+               % (inv_path, ib["source_revision"], want_rev))
 
 try:
     with open(pol_path) as fh:
@@ -411,7 +454,7 @@ PY
 }
 
 main() {
-  local inv="" pol="$ROOT/policies/license-policy.yaml" req=0 cls=""
+  local inv="" pol="$ROOT/policies/license-policy.yaml" req=0 cls="" imgreq=0 rev=""
   case "${1:-}" in
     --self-test) self_test; exit $? ;;
     "") usage ;;
@@ -422,11 +465,13 @@ main() {
       --policy)    pol="${2:-}"; shift 2 ;;
       --require-release-binding) req=1; shift ;;
       --evidence-class) cls="${2:-}"; req=1; shift 2 ;;
+      --require-image-binding) imgreq=1; shift ;;
+      --expect-source-revision) rev="${2:-}"; imgreq=1; shift 2 ;;
       *) usage ;;
     esac
   done
   [ -n "$inv" ] || usage
-  gate "$inv" "$pol" "$req" "$cls"
+  gate "$inv" "$pol" "$req" "$cls" "$imgreq" "$rev"
 }
 
 main "$@"
