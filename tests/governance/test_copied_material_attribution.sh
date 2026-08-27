@@ -67,6 +67,34 @@ ck "README and NOTICE agree on the pinned upstream version" \
     v2=$(grep -oE "v[0-9]+\.[0-9]+\.[0-9]+" security/seccomp/NOTICE | head -1)
     [ -n "$v1" ] && [ "$v1" = "$v2" ]'
 
+# --- ALL FOUR Apache-2.0 obligations, not just the two that are easy ---------
+# policies/license-policy.yaml names four obligations for Apache-2.0:
+#   retain-copyright-notice, retain-license-text, state-changes, retain-notice-file
+# The first version of this check enforced the first and third and silently
+# ignored the other two, so the repository redistributed Apache-2.0 material
+# meeting half the obligations ITS OWN POLICY names — while a test asserted the
+# attribution was complete. Caught by the rights-provenance packet, not by this
+# test, which is the uncomfortable part.
+UP=third-party/moby-v27.3.1
+
+ck "the policy still names four Apache-2.0 obligations (source of this list)" \
+   "grep -qE 'retain-copyright-notice, retain-license-text, state-changes, retain-notice-file' policies/license-policy.yaml"
+ck "retain-license-text: the Apache-2.0 text is carried verbatim" \
+   "[ -s '$UP/LICENSE' ] && grep -q 'Apache License' '$UP/LICENSE' && grep -q 'Version 2.0' '$UP/LICENSE'"
+ck "retain-notice-file: upstream's own NOTICE is carried verbatim" \
+   "[ -s '$UP/NOTICE' ] && grep -qi 'docker' '$UP/NOTICE'"
+ck "...and the NOTICE carries upstream's copyright line, not ours" \
+   "grep -qi 'copyright' '$UP/NOTICE'"
+ck "both derived files point at the carried texts, so a reader can find them" \
+   "grep -q 'third-party/moby-v27.3.1' security/seccomp/NOTICE &&
+    grep -q 'third-party/moby-v27.3.1' security/apparmor/zenchron-container"
+# NON-VACUITY: the licence text must be the real thing, not a stub. Upstream's
+# is ~10.7KB; a placeholder would sail past a substring match.
+ck "NON-VACUOUS: the licence text is a full licence, not a stub" \
+   "[ \"\$(wc -c <'$UP/LICENSE')\" -gt 10000 ]"
+ck "NON-VACUOUS: an empty file would fail the same check" \
+   "t=\$(mktemp); ! { [ -s \"\$t\" ] && grep -q 'Apache License' \"\$t\"; }; r=\$?; rm -f \"\$t\"; [ \$r -eq 0 ]"
+
 echo "----"
 [ "$fail" -eq 0 ] && echo "test_copied_material_attribution: PASS" || echo "test_copied_material_attribution: FAIL"
 exit $fail

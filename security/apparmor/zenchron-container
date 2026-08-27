@@ -9,6 +9,10 @@
 # licensed Apache-2.0 (verified against the GitHub licence API, retrieved
 # 2026-08-27T10:36:03Z). Copyright 2012-2017 Docker, Inc.
 #
+# The Apache-2.0 text and upstream's NOTICE are carried verbatim at
+# third-party/moby-v27.3.1/{LICENSE,NOTICE}, retrieved at tag v27.3.1 on
+# 2026-08-27; they cover this file and security/seccomp/zenchron-default.json.
+#
 # Apache-2.0 requires a redistributor to retain the copyright notice and the
 # licence reference and to state changes. The changes are exactly what the
 # paragraph below describes: docker-default plus the runtime-contract rules.
