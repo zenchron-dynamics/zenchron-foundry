@@ -118,8 +118,13 @@ NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 # need a real checkout, and it must NOT be this one: a self-test that writes to
 # a path derived from the repository root is the class
 # tests/lib/test_no_ambient_mutation.sh exists to refuse.
+# The TARGET is the scratch directory and the SOURCE is the checkout, which is
+# the sanctioned direction: copying OUT of the checkout is how a fixture gets
+# built. Written as two statements so the target is the last token on the line
+# and tests/lib/test_no_ambient_mutation.sh's static rule can see that plainly.
 WORK="$TMP/repo"
-mkdir -p "$WORK" && cp -R "$ROOT/." "$WORK/" 2>/dev/null
+mkdir -p "$WORK"
+cp -R "$ROOT/." "$WORK/"
 
 # --- the candidate identity table, from the ACCEPTED PRODUCTION RUN ----------
 python3 - "$ACCEPTED" "$TMP/ident.tsv" <<'PY'
