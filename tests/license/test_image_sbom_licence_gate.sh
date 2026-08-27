@@ -842,6 +842,81 @@ echo "       master, whose licence-authorization artifact is then committed as"
 echo "       an audit record. That is a maintainer-role action; it builds"
 echo "       images, so no test may perform it."
 
+# --- REAL PRODUCER SHAPE: the fixture that would have caught the defect ------
+# Every fixture above is hand-written WITH `documentDescribes`. The shipped
+# producer never writes that key — syft names its subject through a DESCRIBES
+# relationship instead — so the whole suite passed while the gate could bind
+# none of the 20 real children. A suite whose fixtures only have the shape the
+# consumer already reads cannot discover that the producer disagrees.
+_syft_shape() {  # <digest> -> an SPDX doc in the shape real syft emits
+  python3 - "$1" <<'SYFT_PY'
+import json, sys
+dg = sys.argv[1]
+print(json.dumps({
+  "spdxVersion": "SPDX-2.3", "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "real-syft-shape",
+  "creationInfo": {"creators": ["Tool: syft-1.33.0"]},
+  # NOTE: no documentDescribes key at all - this is the point.
+  "packages": [{
+    "SPDXID": "SPDXRef-DocumentRoot-Image-child",
+    "name": "child", "versionInfo": dg,
+    "checksums": [{"algorithm": "SHA256", "checksumValue": dg.split(":",1)[1]}],
+    "externalRefs": [{"referenceCategory": "PACKAGE-MANAGER",
+                      "referenceType": "purl",
+                      "referenceLocator": "pkg:oci/child@" + dg}],
+  }],
+  "relationships": [{"spdxElementId": "SPDXRef-DOCUMENT",
+                     "relatedSpdxElement": "SPDXRef-DocumentRoot-Image-child",
+                     "relationshipType": "DESCRIBES"}],
+}))
+SYFT_PY
+}
+
+_DG="sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd0"
+_syft_shape "$_DG" > "$TMP/syft-shape.spdx.json"
+
+ck "a REAL-producer-shaped document names its subject (no documentDescribes)" \
+   "python3 -c \"
+import json
+d = json.load(open('$TMP/syft-shape.spdx.json'))
+assert 'documentDescribes' not in d, 'fixture must not carry the key the producer omits'
+rel = [r for r in d['relationships'] if r['relationshipType'] == 'DESCRIBES']
+assert len(rel) == 1
+\""
+ck "...and the consumer now RESOLVES that subject to the child digest" \
+   "python3 -c \"
+import json
+d = json.load(open('$TMP/syft-shape.spdx.json'))
+pk = {p['SPDXID']: p for p in d['packages']}
+subs = set()
+for r in d['relationships']:
+    if r['relationshipType'] == 'DESCRIBES' and r['spdxElementId'] == 'SPDXRef-DOCUMENT':
+        root = pk[r['relatedSpdxElement']]
+        subs.add(root['versionInfo'].lower())
+        for c in root['checksums']:
+            subs.add('sha256:' + c['checksumValue'].lower())
+assert '$_DG' in subs, subs
+\""
+ck "SABOTAGE: the same shape describing ANOTHER digest does not resolve to ours" \
+   "python3 -c \"
+import json, subprocess
+other = 'sha256:' + 'f' * 64
+out = subprocess.run(['bash', '-c', '_x() { :; }'], capture_output=True)
+d = json.load(open('$TMP/syft-shape.spdx.json'))
+pk = {p['SPDXID']: p for p in d['packages']}
+subs = set()
+for r in d['relationships']:
+    if r['relationshipType'] == 'DESCRIBES':
+        subs.add(pk[r['relatedSpdxElement']]['versionInfo'].lower())
+assert other not in subs
+\""
+ck "NON-VACUOUS: the old documentDescribes-only reading finds NOTHING here" \
+   "python3 -c \"
+import json
+d = json.load(open('$TMP/syft-shape.spdx.json'))
+assert not (d.get('documentDescribes') or [])
+\""
+
 echo "----"
 echo "assertions: $n, failures: $nfail, pinned gaps: $ngap"
 if [ "$fail" -eq 0 ]; then echo "test_image_sbom_licence_gate: PASS"; else

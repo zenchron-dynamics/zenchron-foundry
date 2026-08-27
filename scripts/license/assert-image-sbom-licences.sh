@@ -454,9 +454,46 @@ for key in sorted(children):
                % (key, spdx_name, e))
         continue
     subjects = set()
+    # SPDX names its subject in TWO places, and the shipped producer uses the
+    # one this consumer did not read. syft has never written `documentDescribes`
+    # (verified against v0.105.1, v1.0.1 and v1.33.0); it emits a DESCRIBES
+    # relationship from SPDXRef-DOCUMENT to a root package that carries the
+    # digest in versionInfo, checksums[SHA-256] and a pkg:oci/... purl.
+    #
+    # So the gate could not bind ANY document its own generate-sbom.sh writes:
+    # 20/20 real children refused IL-SBOM-SUBJECT-ABSENT. The 113-assertion
+    # suite could not see it because every fixture was hand-written WITH
+    # documentDescribes — producer and consumer naming one subject in two
+    # places, which is the defect child_slug() removed, one field further in.
     for v in doc.get("documentDescribes") or []:
         if isinstance(v, str):
             subjects.add(v.strip().lower())
+
+    # ...and the relationship form, resolved through the package it points at.
+    pkgs = {p_.get("SPDXID"): p_ for p_ in (doc.get("packages") or [])
+            if isinstance(p_, dict)}
+    for rel in doc.get("relationships") or []:
+        if not isinstance(rel, dict):
+            continue
+        if (rel.get("relationshipType") or "").upper() != "DESCRIBES":
+            continue
+        if (rel.get("spdxElementId") or "") != "SPDXRef-DOCUMENT":
+            continue
+        root = pkgs.get(rel.get("relatedSpdxElement"))
+        if not isinstance(root, dict):
+            continue
+        for cand in (root.get("versionInfo"),):
+            if isinstance(cand, str) and cand.strip().lower().startswith("sha256:"):
+                subjects.add(cand.strip().lower())
+        for ck_ in root.get("checksums") or []:
+            if isinstance(ck_, dict) and (ck_.get("algorithm") or "").upper() == "SHA256":
+                v_ = str(ck_.get("checksumValue") or "").strip().lower()
+                if v_:
+                    subjects.add("sha256:" + v_ if not v_.startswith("sha256:") else v_)
+        for r_ in root.get("externalRefs") or []:
+            loc = str((r_ or {}).get("referenceLocator") or "")
+            if "sha256:" in loc:
+                subjects.add("sha256:" + loc.rsplit("sha256:", 1)[1].strip().lower())
     comp = ((doc.get("metadata") or {}).get("component") or {})
     for h in comp.get("hashes") or []:
         if isinstance(h, dict) and h.get("content"):
