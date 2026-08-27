@@ -1309,13 +1309,46 @@ ck "NON-VACUOUS: it passes for the class it was actually built for" \
 # the gate was ever wired to a real artifact. That is the vacuous-check class
 # this suite exists to eliminate, so it does not get to live inside it.
 _lic_real() {
-  # any invocation that is NOT a self-test
+  # any invocation of anything under scripts/license/ that is NOT a self-test
   grep -rn 'scripts/license/' .github/workflows/ 2>/dev/null | grep -v -- '--self-test'
 }
-gap "no workflow invokes the licence gate against a real inventory" \
-    "[ -z \"$(_lic_real)\" ]"
-gap "...ci.yml runs it only as --self-test, which gates no artifact" \
-    "grep -rq -- 'scripts/license/assert-license-policy.sh --self-test' .github/workflows/ci.yml"
+_lic_policy_real() {
+  # any invocation of the IMAGE-SBOM gate specifically that is NOT a self-test
+  grep -rn 'scripts/license/assert-license-policy.sh' .github/workflows/ 2>/dev/null \
+    | grep -v -- '--self-test'
+}
+# PROMOTED FROM gap TO ck BY #120's repository-material work. This line used to
+# read "no workflow invokes the licence gate against a real inventory" and it
+# was true: ci.yml carried exactly one `--self-test` step. ci.yml now runs
+# scripts/license/assert-repository-material.sh against the committed
+# policies/repository-material.yaml over the real tree, in the REQUIRED
+# `repo structure` job. That is a real inventory and a real artifact.
+#
+# It closes the REPOSITORY half and only the repository half. The image half is
+# re-pinned immediately below, narrower and still true, because promoting a gap
+# by widening what counts as closing it is how a suite starts lying.
+ck "a workflow invokes a licence gate against a REAL inventory, not only --self-test" \
+   "[ -n \"\$(_lic_real)\" ]"
+ck "...and the real invocation is the repository-material gate over the tree" \
+   "_lic_real | grep -q 'assert-repository-material.sh'"
+ck "...in the REQUIRED 'repo structure' job, not an optional one" \
+   "python3 -c 'import sys
+s=open(\".github/workflows/ci.yml\").read()
+i=s.find(\"assert-repository-material.sh\")
+sys.exit(0 if i>0 and \"repo structure\" in s[:i] else 1)'"
+ck "...and that gate REFUSES a tree whose copied material is unaccounted for" \
+   "says 'RM-UNINVENTORIED-MATERIAL' bash scripts/license/assert-repository-material.sh --self-test"
+
+gap "no workflow invokes the IMAGE-SBOM licence gate against a real inventory" \
+    "[ -z \"\$(_lic_policy_real)\" ]"
+gap "...ci.yml runs assert-license-policy.sh ONLY as --self-test, which gates no image" \
+    "grep -rq -- 'scripts/license/assert-license-policy.sh --self-test' .github/workflows/ci.yml \
+     && [ -z \"\$(_lic_policy_real)\" ]"
+# WHAT WOULD CLOSE THE TWO REMAINING GAPS: an image-SBOM licence inventory
+# built from a sealed evidence bundle and gated in a workflow that has one —
+# the release path, not CI, because CI is buildless and no image SBOM exists
+# there to build an inventory from. The stages above prove the pipeline works
+# end to end on a real bundle; what no workflow does is RUN it.
 ck "NON-VACUOUS: the real-invocation search would match a non-self-test call" \
    "printf 'run: bash scripts/license/assert-license-policy.sh --inventory x\n' > '$TMP/wf-probe' &&
     grep -n 'scripts/license/' '$TMP/wf-probe' | grep -vq -- '--self-test'"

@@ -1,0 +1,58 @@
+Third-party attribution — mlocati/docker-php-extension-installer
+================================================================
+
+Three files under docs/audits/libaom3-ownership-2026-08-26/evidence/ reproduce
+source from the `install-php-extensions` helper. The helper is not vendored
+into this repository and is not built here; it arrives inside the upstream
+`php`/`frankenphp` base images, and the audit captured parts of it as evidence.
+Capturing it put its source text into THIS repository, which is what creates
+the obligation — regardless of how the bytes got here.
+
+    Upstream:  https://github.com/mlocati/docker-php-extension-installer
+    Licence:   MIT
+    Copyright: Copyright (c) 2018-2023 Michele Locati
+
+MATERIAL COVERED BY THIS NOTICE
+  docs/audits/libaom3-ownership-2026-08-26/evidence/installer-helper.txt
+      Excerpt. Carries the upstream header inline (copyright, source URL and
+      MIT reference), so it was already self-attributing.
+  docs/audits/libaom3-ownership-2026-08-26/evidence/installer-gd-branch.txt
+      Excerpt. Carries NO inline attribution of any kind.
+  docs/audits/libaom3-ownership-2026-08-26/evidence/installer-gd-configure.txt
+      Excerpt. Carries NO inline attribution of any kind.
+
+  The last two were found by a file-by-file read of the evidence directory, NOT
+  by any automated signal. Nothing in them says "third party": no copyright
+  line, no licence reference, no upstream URL, no distinctive filename. That is
+  recorded here deliberately, because it is the honest measure of what
+  heuristic discovery is worth — see docs/licensing/repository-material.md,
+  "What discovery cannot prove".
+
+LICENCE TEXT
+  The adjacent LICENSE file is the upstream MIT text, retrieved verbatim from
+
+    https://raw.githubusercontent.com/mlocati/docker-php-extension-installer/9bc48add504dc87fa87717796b2d8ea9a7e97866/LICENSE
+
+  pinned at commit 9bc48add504dc87fa87717796b2d8ea9a7e97866 (the last commit
+  touching that path), retrieved 2026-08-27.
+
+    sha256   720dbf49956ea50910c71a3cf1e99dffefa239582f9b20c84fea48ffe398a8d9
+    git blob 94bb7cf25cd7060b646667e516f04002c0bdc486
+
+  The git blob id was verified independently against
+  `gh api repos/mlocati/docker-php-extension-installer/license --jq .sha`,
+  which returns the same value. Two paths, one identifier: the text carried
+  here is the text GitHub reports as that repository's licence.
+
+CHANGES FROM UPSTREAM
+  State every deviation here. If this list is empty, the copy is verbatim.
+
+  - none: LICENSE is byte-for-byte the retrieved upstream file.
+  - The three evidence files are EXCERPTS, not complete copies. Each reproduces
+    a contiguous region of the upstream script; none has been edited.
+
+WHAT THIS NOTICE DOES NOT DECIDE
+  Whether Foundry may distribute anything at all is issue #98 and is
+  undetermined. This notice discharges an INBOUND obligation that attaches
+  today to material already sitting in this tree. It asserts nothing about
+  outbound terms.
