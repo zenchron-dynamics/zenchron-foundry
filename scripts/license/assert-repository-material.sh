@@ -597,6 +597,8 @@ self_test() {
 
   # `gate | grep` inherits gate's status under pipefail, so a MATCHING grep on a
   # refusal reads as a failure — backwards. Capture, then assert on the capture.
+  # shellcheck disable=SC2034  # every RM_* below is read by gate()'s python
+  # heredoc through os.environ; `set -a` is what puts them there.
   run() { ( set -a; RM_ROOT="$1" RM_INVENTORY="$2" RM_POLICY="$3" \
             RM_LICENSE_FILE="$4" RM_IMAGE_INVENTORY="${5:-}" \
             RM_REQUIRE_BASELINE="${6:-0}" RM_REQUIRE_FINAL_TERMS="${7:-0}"; \
