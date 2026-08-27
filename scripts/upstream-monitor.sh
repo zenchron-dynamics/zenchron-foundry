@@ -15,6 +15,7 @@
 #   scripts/upstream-monitor.sh --fail-on-alert     exit 3 if an alert fires
 #   scripts/upstream-monitor.sh --checkpoints-only  expiry checkpoints only
 #   scripts/upstream-monitor.sh --today 2026-09-15  pin the checkpoint date
+#   scripts/upstream-monitor.sh --out-dir DIR       keep the observation JSON
 #
 # Exit codes: 0 quiet, 2 usage/observation failure, 3 alert (with
 # --fail-on-alert), 4 a checkpoint is due (with --fail-on-checkpoint).
@@ -25,7 +26,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 MON="$ROOT/scripts/upstream-monitor.py"
-OUT_DIR="${UPSTREAM_MONITOR_OUT:-$ROOT/.monitor}"
+# NOT rooted at the checkout. A tool that writes into $ROOT by default is one
+# crash away from leaving debris in a working tree, which is a class this
+# repository has already been bitten by (tests/lib/test_no_ambient_mutation.sh).
+OUT_DIR=""
 MANIFESTS_ONLY=""
 FAIL_ON_ALERT=""
 FAIL_ON_CHECKPOINT=""
@@ -74,6 +78,7 @@ echo "=============================================================="
 
 # --- part 1: buildless upstream observation ----------------------------------
 if [ -z "$OBSERVATION" ]; then
+    [ -n "$OUT_DIR" ] || OUT_DIR="$(mktemp -d)"
     mkdir -p "$OUT_DIR"
     OBSERVATION="$OUT_DIR/observation.json"
     obs_args=(observe --out "$OBSERVATION")
