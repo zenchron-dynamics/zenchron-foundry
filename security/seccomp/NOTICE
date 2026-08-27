@@ -1,0 +1,33 @@
+Third-party attribution — security/seccomp/zenchron-default.json
+================================================================
+
+`zenchron-default.json` is a PINNED COPY of the Moby default seccomp profile
+(`profiles/seccomp/default.json`) at tag v27.3.1. It is not first-party work,
+and the filename does not say so.
+
+    Upstream:  https://github.com/moby/moby
+    Version:   v27.3.1
+    Licence:   Apache-2.0  (verified against the GitHub licence API,
+               retrieved 2026-08-27T10:36:03Z)
+    Copyright: Copyright 2012-2017 Docker, Inc.
+
+Apache-2.0 requires that a redistributor retain the copyright notice and the
+licence text, and state changes made to the file. This NOTICE exists because
+the JSON format admits no comments, so the attribution cannot live inside the
+artifact it describes.
+
+CHANGES FROM UPSTREAM
+  State every deviation here. If this list is empty, the copy is verbatim.
+
+  - none recorded
+
+WHY THIS FILE EXISTS
+  The copy carried no copyright line, no licence reference and a first-party
+  filename, while security/README.md described it accurately as an upstream
+  copy. The obligation is present TODAY under the current proprietary LICENSE
+  and does not depend on any future licence decision — it attaches to material
+  incorporated into this repository, not to how the repository is distributed.
+
+  It is also invisible to the existing licence gate by construction: that
+  pipeline reads SBOMs of BUILT IMAGES, and this file is repository material
+  that no image SBOM enumerates.
