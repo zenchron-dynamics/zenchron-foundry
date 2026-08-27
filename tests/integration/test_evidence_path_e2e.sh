@@ -1339,16 +1339,80 @@ sys.exit(0 if i>0 and \"repo structure\" in s[:i] else 1)'"
 ck "...and that gate REFUSES a tree whose copied material is unaccounted for" \
    "says 'RM-UNINVENTORIED-MATERIAL' bash scripts/license/assert-repository-material.sh --self-test"
 
-gap "no workflow invokes the IMAGE-SBOM licence gate against a real inventory" \
-    "[ -z \"\$(_lic_policy_real)\" ]"
-gap "...ci.yml runs assert-license-policy.sh ONLY as --self-test, which gates no image" \
-    "grep -rq -- 'scripts/license/assert-license-policy.sh --self-test' .github/workflows/ci.yml \
-     && [ -z \"\$(_lic_policy_real)\" ]"
-# WHAT WOULD CLOSE THE TWO REMAINING GAPS: an image-SBOM licence inventory
-# built from a sealed evidence bundle and gated in a workflow that has one —
-# the release path, not CI, because CI is buildless and no image SBOM exists
-# there to build an inventory from. The stages above prove the pipeline works
-# end to end on a real bundle; what no workflow does is RUN it.
+# PROMOTED FROM gap TO ck. These two lines used to read
+#
+#   GAP - no workflow invokes the IMAGE-SBOM licence gate against a real inventory
+#   GAP - ...ci.yml runs assert-license-policy.sh ONLY as --self-test, which
+#         gates no image
+#
+# and they were true: ci.yml carried exactly one licence-policy line and it was
+# a self-test. .github/workflows/stage-and-authorize.yml now carries a
+# licence-authorization job that produces per-child SBOMs against the digests
+# the registry resolved, binds each one to image, version, platform, immutable
+# digest and source revision, and runs assert-license-policy.sh over the
+# resulting inventory with --require-image-binding. That is a real inventory
+# over real candidate images.
+#
+# THE PREDICATE IS UNCHANGED. It is still the same non-self-test search, so the
+# promotion cannot be an artefact of widening what counts as closing it — which
+# is how a suite starts lying. What is added is the part a grep cannot do:
+# tests/license/test_image_sbom_licence_gate.sh EXECUTES the workflow's own
+# extracted step bodies against the accepted production run's real immutable
+# child digests, and proves that removing the job recreates exactly the two
+# lines above. A grep proves a name is present; only execution proves a gate
+# runs, is handed inputs, and has its answer read.
+ck "a workflow invokes the IMAGE-SBOM licence gate against a real inventory" \
+   "[ -n \"\$(_lic_policy_real)\" ]"
+# A grep sees ONE line; the invocation spans several. The step body is read
+# whole, through the same YAML parser the executed proofs use.
+_lic_step() {
+  python3 tests/lib/workflow_step.py .github/workflows/stage-and-authorize.yml \
+    licence-authorization image_policy --run 2>/dev/null
+}
+ck "...not as --self-test, and handed an --inventory it did not invent" \
+   "_lic_step | grep -q -- '--inventory' \
+    && _lic_step | grep -q -- '--require-image-binding' \
+    && ! _lic_step | grep -q -- '--self-test'"
+ck "...in stage-and-authorize.yml, the release path — CI is buildless and has no image" \
+   "_lic_policy_real | grep -q 'stage-and-authorize.yml'"
+ck "...while ci.yml's --self-test line survives, unchanged and still gating no image" \
+   "grep -rq -- 'scripts/license/assert-license-policy.sh --self-test' .github/workflows/ci.yml"
+ck "...and the executed proof of that invocation is itself in the REQUIRED job" \
+   "python3 -c 'import sys, yaml
+wf = yaml.safe_load(open(\".github/workflows/ci.yml\"))
+for jid, job in (wf[\"jobs\"] or {}).items():
+    if (job.get(\"name\") or jid) != \"repo structure\":
+        continue
+    for st in job.get(\"steps\") or []:
+        if \"test_image_sbom_licence_gate.sh\" in (st.get(\"run\") or \"\"):
+            sys.exit(0)
+sys.exit(1)'"
+ck "...and the image gate REFUSES an inventory that names no candidate at all" \
+   "says 'carries no image_binding' \
+      bash '$LGATE' --inventory '$TMP/inventory.json' --require-image-binding"
+ck "NON-VACUOUS: the same gate still passes on that inventory without the binding" \
+   "bash '$LGATE' --inventory '$TMP/inventory.json' >/dev/null 2>&1"
+
+# WHAT REMAINS PINNED, narrowly. The composed licence authorization runs in the
+# RELEASE path, on a dispatch that stages candidate images. The required CI
+# path executes the workflow's extracted gate bodies against the accepted
+# production evidence — it does not, and buildlessly cannot, execute the
+# workflow itself. Closing that would need CI to hold a candidate image, which
+# is the boundary trusted-validation.yml exists to keep it away from.
+# Structural, not a grep: ci.yml MENTIONS the workflow in a comment (the CI
+# gate step explains where the candidate images live). Mentioning is not
+# running, and this gap is about running.
+gap "the REQUIRED CI path does not itself RUN stage-and-authorize.yml" \
+    "python3 -c 'import sys, yaml
+wf = yaml.safe_load(open(\".github/workflows/ci.yml\"))
+for jid, job in (wf[\"jobs\"] or {}).items():
+    if \"stage-and-authorize\" in str(job.get(\"uses\") or \"\"):
+        sys.exit(1)
+    for st in job.get(\"steps\") or []:
+        body = (st.get(\"run\") or \"\") + str(st.get(\"uses\") or \"\")
+        if \"workflow run\" in body or \"stage-and-authorize.yml\" in str(st.get(\"uses\") or \"\"):
+            sys.exit(1)
+sys.exit(0)'"
 ck "NON-VACUOUS: the real-invocation search would match a non-self-test call" \
    "printf 'run: bash scripts/license/assert-license-policy.sh --inventory x\n' > '$TMP/wf-probe' &&
     grep -n 'scripts/license/' '$TMP/wf-probe' | grep -vq -- '--self-test'"
