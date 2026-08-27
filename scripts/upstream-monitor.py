@@ -7,6 +7,7 @@ policies/upstream-watch.yaml, reads policies/vulnerability-exceptions.yaml,
 reads an observation document produced by scripts/upstream-monitor.sh, and
 prints a verdict. Every write path this repository has is somewhere else.
 
+  observe      resolve the watched upstream artifacts and feeds (read-only)
   evaluate     compare an observation against the watch config + ledger
   checkpoints  render the expiry operating checkpoints for a given date
   --self-test  run the offline unit checks
@@ -86,16 +87,35 @@ def _cmp_seq(a, b):
     return 0
 
 
+def normalize(ecosystem, version):
+    """One spelling per version, so two tools describing the same thing agree.
+
+    The Go toolchain is reported as `go1.26.3` by syft and as `v1.26.3` by
+    Trivy and by the ledger. Left un-normalised, a string compare calls those
+    two spellings a content CHANGE and the monitor reports movement that did
+    not happen — the exact false positive this design is built to avoid.
+    """
+    if version is None:
+        return None
+    v = str(version).strip()
+    if ecosystem == "gomod":
+        if v[:2].lower() == "go" and v[2:3].isdigit():
+            v = v[2:]
+        elif v[:1] in ("v", "V"):
+            v = v[1:]
+    return v
+
+
 def cmp_version(ecosystem, left, right):
     """Return -1/0/1 for left vs right, or None when the order is not certain."""
     if left is None or right is None:
         return None
-    left, right = str(left).strip(), str(right).strip()
+    left, right = normalize(ecosystem, left), normalize(ecosystem, right)
     if left == right:
         return 0
 
     if ecosystem == "gomod":
-        lv, rv = left.lstrip("vV"), right.lstrip("vV")
+        lv, rv = left, right
         # A pre-release ("v1.2.3-rc1") is not ordered here; refuse rather than
         # guess, because guessing high would fake a cleared exit condition.
         if "-" in lv or "-" in rv or "+" in lv or "+" in rv:
@@ -218,6 +238,9 @@ def evaluate(watch, ledger, observation):
             report["gaps"].append("observation names an artifact absent from the watch config: %s" % aid)
             continue
         seen.add(aid)
+        # Per-artifact retrieval time falls back to the run's timestamp, so a
+        # bind always carries one: an observation with no time is unciteable.
+        art_obs.setdefault("observed_at", observation.get("observed_at"))
         report["binds"].append(_evaluate_artifact(art, art_obs, watch, ledger, report))
 
     for aid in sorted(set(by_id) - seen):
@@ -329,8 +352,10 @@ def _evaluate_artifact(art, obs, watch, ledger, report):
             bind["components"].append(entry)
             continue
 
+        # Normalised comparison: `go1.26.3` and `v1.26.3` are the same toolchain.
         changed = [p for p, v in per_platform.items()
-                   if v is not None and baseline_version is not None and v != baseline_version]
+                   if v is not None and baseline_version is not None
+                   and normalize(eco, v) != normalize(eco, baseline_version)]
         if changed:
             content_changed = True
 
@@ -633,6 +658,11 @@ def _self_test():  # noqa: C901
        cmp_version("deb", "3.0.20-1~deb12u2", "3.0.20-1~deb12u3") is None)
     ck("a missing observation never satisfies a floor",
        not satisfies("apk", None, "3.5.8-r0"))
+    ck("syft's `go1.26.3` and the ledger's `v1.26.3` are the SAME version",
+       cmp_version("gomod", "go1.26.3", "v1.26.3") == 0)
+    ck("...and go1.26.3 still does not satisfy the v1.26.6 floor",
+       not satisfies("gomod", "go1.26.3", "v1.26.6"))
+    ck("...while go1.26.6 does", satisfies("gomod", "go1.26.6", "v1.26.6"))
 
     watch = _load_yaml(WATCH)
     ledger = load_ledger()
@@ -740,15 +770,231 @@ def _self_test():  # noqa: C901
     return 1 if fails else 0
 
 
+# --- observation -------------------------------------------------------------
+# BUILDLESS AND READ-ONLY. Three external reads, all GETs:
+#   registry   `docker buildx imagetools inspect --raw` — resolves the tag's
+#              manifest LIST and each platform manifest. Nothing is pulled.
+#   inventory  `syft` against the immutable PLATFORM digest — never the index,
+#              never the tag. Comparing an index digest to a platform digest is
+#              the mistake this repository has already paid for.
+#   feeds      api.osv.dev for Debian bookworm remediation state and the Alpine
+#              APKINDEX for aport availability.
+# Any of the three failing produces a GAP, never a clean result: a monitor that
+# reports "quiet" because it could not look is worse than one that says nothing.
+
+DEBIAN_ECOSYSTEM = "Debian:12"   # bookworm; bookworm-security fixes land here
+OSV_VULN_URL = "https://api.osv.dev/v1/vulns/DEBIAN-%s"
+APKINDEX_URL = "https://dl-cdn.alpinelinux.org/alpine/%s/%s/x86_64/APKINDEX.tar.gz"
+
+
+def _run(cmd, timeout):
+    import subprocess
+    proc = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False)
+    return proc.returncode, proc.stdout, proc.stderr.decode("utf-8", "replace")
+
+
+def _http_get(url, timeout):
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(url, headers={"User-Agent": "zenchron-foundry-upstream-monitor"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as exc:
+        return exc.code, b""
+    except Exception as exc:  # network down, DNS, TLS...
+        return None, str(exc).encode()
+
+
+def _platform_key(desc):
+    """Canonical `os/arch` for a manifest descriptor, ignoring the arm64 variant.
+
+    linux/arm64 and linux/arm64/v8 are the same platform for our purposes and
+    upstreams publish both spellings; folding them here is what lets the watch
+    config name one string.
+    """
+    plat = desc.get("platform") or {}
+    if plat.get("os") != "linux":
+        return None
+    arch = plat.get("architecture")
+    variant = plat.get("variant") or ""
+    if arch == "arm64":
+        return "linux/arm64"
+    if arch == "arm":
+        return "linux/arm/%s" % variant if variant else "linux/arm"
+    return "linux/%s" % arch
+
+
+def observe_artifact(art, timeout, inventory, gaps):
+    import hashlib
+    ref = art["ref"]
+    out = {"id": art["id"], "tag": art["tag"], "platforms": {}}
+    rc, raw, err = _run(["docker", "buildx", "imagetools", "inspect", "--raw", ref], timeout)
+    if rc != 0:
+        gaps.append("registry resolution failed for %s: %s" % (ref, err.strip()[:200]))
+        return out
+    # The index digest is the digest OF THE RAW BYTES. Recomputing it locally
+    # means the value reported is the object actually read, not a label.
+    out["index_digest"] = "sha256:" + hashlib.sha256(raw).hexdigest()
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except ValueError:
+        gaps.append("registry returned a manifest that is not JSON for %s" % ref)
+        return out
+
+    found = {}
+    for desc in doc.get("manifests") or []:
+        key = _platform_key(desc)
+        if key:
+            found.setdefault(key, desc.get("digest"))
+    for plat in art.get("required_platforms") or []:
+        digest = found.get(plat)
+        if not digest:
+            gaps.append("%s publishes no %s manifest" % (ref, plat))
+            continue
+        entry = {"manifest_digest": digest}
+        if inventory:
+            inv, src, why = _inventory(ref, digest, timeout)
+            if inv is None:
+                gaps.append("no inventory for %s %s (%s)" % (art["id"], plat, why))
+            else:
+                entry["inventory"] = inv
+                entry["inventory_source"] = src
+        out["platforms"][plat] = entry
+    return out
+
+
+def _repo_of(ref):
+    """Strip any tag or digest, leaving the repository name.
+
+    A registry host may carry a port (`host:5000/x`), so only a colon AFTER the
+    last slash is a tag separator.
+    """
+    base = ref.split("@", 1)[0]
+    head, sep, tail = base.rpartition("/")
+    if ":" in tail:
+        tail = tail.split(":", 1)[0]
+    return head + sep + tail
+
+
+def _inventory(ref, platform_digest, timeout):
+    """Package/module inventory of ONE immutable platform manifest."""
+    import shutil
+    if shutil.which("syft") is None:
+        return None, None, "syft is not installed"
+    target = "%s@%s" % (_repo_of(ref), platform_digest)
+    rc, out, err = _run(["syft", "--from", "registry", "-q", "-o", "syft-json", target], timeout)
+    if rc != 0:
+        return None, None, "syft failed: %s" % err.strip()[:200]
+    try:
+        doc = json.loads(out.decode("utf-8"))
+    except ValueError:
+        return None, None, "syft output was not JSON"
+    inv = {}
+    for a in doc.get("artifacts") or []:
+        name, version = a.get("name"), a.get("version")
+        if name and version and name not in inv:
+            inv[name] = version
+    return inv, "syft --from registry %s" % target, None
+
+
+def observe_debian(watch, timeout, gaps):
+    out = {}
+    for spec in (watch.get("debian_watch") or {}).get("source_packages") or []:
+        src = spec["source"]
+        state = {"suite": "bookworm/bookworm-security", "ecosystem": DEBIAN_ECOSYSTEM, "fixed": {}}
+        ok = False
+        for adv in spec.get("advisories") or []:
+            if not adv.startswith("CVE-"):
+                continue
+            status, body = _http_get(OSV_VULN_URL % adv, timeout)
+            if status == 404:
+                ok = True          # a definite "no Debian record", not a gap
+                continue
+            if status != 200:
+                gaps.append("OSV lookup failed for %s (%s)" % (adv, status))
+                continue
+            ok = True
+            try:
+                doc = json.loads(body.decode("utf-8"))
+            except ValueError:
+                gaps.append("OSV returned non-JSON for %s" % adv)
+                continue
+            for aff in doc.get("affected") or []:
+                pkg = aff.get("package") or {}
+                if pkg.get("ecosystem") != DEBIAN_ECOSYSTEM or pkg.get("name") != src:
+                    continue
+                fixes = [e["fixed"] for r in aff.get("ranges") or []
+                         for e in r.get("events") or [] if "fixed" in e]
+                if fixes:
+                    state["fixed"][adv] = sorted(fixes)[-1]
+        if ok:
+            out[src] = state
+    return out
+
+
+def observe_alpine(watch, timeout, gaps):
+    import io
+    import tarfile
+    aw = watch.get("alpine_watch") or {}
+    branch = aw.get("branch", "v3.23")
+    wanted = {p["package"] for p in aw.get("packages") or []}
+    out = {}
+    for repo in aw.get("repositories") or ["main"]:
+        status, body = _http_get(APKINDEX_URL % (branch, repo), timeout)
+        if status != 200:
+            gaps.append("APKINDEX fetch failed for %s/%s (%s)" % (branch, repo, status))
+            continue
+        try:
+            with tarfile.open(fileobj=io.BytesIO(body), mode="r:gz") as tar:
+                member = tar.extractfile("APKINDEX")
+                text = member.read().decode("utf-8", "replace")
+        except Exception as exc:
+            gaps.append("APKINDEX unreadable for %s/%s: %s" % (branch, repo, exc))
+            continue
+        name = None
+        for line in text.splitlines():
+            if line.startswith("P:"):
+                name = line[2:]
+            elif line.startswith("V:") and name in wanted:
+                out.setdefault(name, line[2:])
+    return out
+
+
+def observe(watch, args):
+    import hashlib
+    gaps = []
+    obs = {
+        "schema_version": 1,
+        "record_type": "upstream-monitor-observation",
+        "observed_at": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "watch_config_sha256": hashlib.sha256(open(args.watch, "rb").read()).hexdigest(),
+        "ledger_sha256": hashlib.sha256(open(args.ledger, "rb").read()).hexdigest(),
+        "artifacts": [],
+    }
+    for art in watch.get("artifacts") or []:
+        obs["artifacts"].append(
+            observe_artifact(art, args.timeout, not args.manifests_only, gaps))
+    if not args.manifests_only:
+        obs["debian"] = observe_debian(watch, args.timeout, gaps)
+        obs["alpine"] = observe_alpine(watch, args.timeout, gaps)
+    obs["observation_gaps"] = gaps
+    return obs
+
+
 # --- CLI ---------------------------------------------------------------------
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("command", nargs="?", choices=["evaluate", "checkpoints"])
+    ap.add_argument("command", nargs="?", choices=["observe", "evaluate", "checkpoints"])
     ap.add_argument("--self-test", action="store_true")
     ap.add_argument("--watch", default=WATCH)
     ap.add_argument("--ledger", default=LEDGER)
-    ap.add_argument("--observation", help="observation JSON from scripts/upstream-monitor.sh")
+    ap.add_argument("--observation", help="observation JSON produced by `observe`")
+    ap.add_argument("--out", help="write the observation JSON here")
+    ap.add_argument("--timeout", type=int, default=300)
+    ap.add_argument("--manifests-only", action="store_true",
+                    help="resolve manifests only; skip inventory and feed reads")
     ap.add_argument("--today", help="pin the date (YYYY-MM-DD); default is UTC today")
     ap.add_argument("--window-days", type=int, default=45)
     ap.add_argument("--json", action="store_true", help="emit the report as JSON")
@@ -766,6 +1012,20 @@ def main(argv=None):
     watch = _load_yaml(args.watch)
     ledger = load_ledger(args.ledger)
 
+    if args.command == "observe":
+        obs = observe(watch, args)
+        text = json.dumps(obs, indent=2, sort_keys=True)
+        if args.out:
+            with open(args.out, "w", encoding="utf-8") as fh:
+                fh.write(text + "\n")
+            print("observation written to %s (%d gap(s))"
+                  % (args.out, len(obs["observation_gaps"])))
+        else:
+            print(text)
+        for g in obs["observation_gaps"]:
+            print("gap:  %s" % g, file=sys.stderr)
+        return 0
+
     if args.command == "checkpoints":
         today = args.today or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d")
         rep = checkpoints(watch, ledger, today, args.window_days)
@@ -780,6 +1040,7 @@ def main(argv=None):
         observation = json.load(fh)
     rep = evaluate(watch, ledger, observation)
     evaluate_distro(watch, observation, rep)
+    rep["gaps"].extend(observation.get("observation_gaps") or [])
     rep["alert_count"] = len(rep["alerts"])
     rep["verdict"] = "ALERT" if rep["alerts"] else "QUIET"
     print(json.dumps(rep, indent=2, sort_keys=True) if args.json else render_verdict(rep))
