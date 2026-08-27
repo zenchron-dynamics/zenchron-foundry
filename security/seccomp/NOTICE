@@ -21,6 +21,19 @@ CHANGES FROM UPSTREAM
 
   - none recorded
 
+LICENCE TEXT AND UPSTREAM NOTICE
+  Apache-2.0 requires more than a copyright line. policies/license-policy.yaml
+  names four obligations for this licence — retain-copyright-notice,
+  retain-license-text, state-changes, retain-notice-file — and the first
+  version of this file met only two of them. The missing two are now carried:
+
+    third-party/moby-v27.3.1/LICENSE   the Apache-2.0 text, verbatim
+    third-party/moby-v27.3.1/NOTICE    upstream's own NOTICE, verbatim
+
+  Both are byte-for-byte copies retrieved from the moby repository at tag
+  v27.3.1 on 2026-08-27. They cover BOTH files derived from that upstream:
+  this seccomp profile and security/apparmor/zenchron-container.
+
 WHY THIS FILE EXISTS
   The copy carried no copyright line, no licence reference and a first-party
   filename, while security/README.md described it accurately as an upstream
