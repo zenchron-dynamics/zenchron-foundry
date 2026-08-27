@@ -63,8 +63,8 @@ tracked_issue: 120
 # supply-chain guard. Do not "tidy" it back into policies/.
 baseline:
   path_list: docs/licensing/repository-material-baseline.txt
-  path_list_sha256: 8ed5728b5df9f4b080659d8473990daa1cc418dbb51cd42aab76b5b558812b07
-  path_count: 742
+  path_list_sha256: 93b1721573c936d8f3e9947f2c1ab43f8f219c90134dac4c00b2fa452d6a7a84
+  path_count: 779
   reviewed_at_revision: ac1155716e7b244cca6dd3ecbaa89d467a71732c
   reviewed_by: lane-R-repository-material-review
   reviewed_on: '2026-08-27'

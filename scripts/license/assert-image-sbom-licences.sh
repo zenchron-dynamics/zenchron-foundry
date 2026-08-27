@@ -492,8 +492,15 @@ for key in sorted(children):
                     subjects.add("sha256:" + v_ if not v_.startswith("sha256:") else v_)
         for r_ in root.get("externalRefs") or []:
             loc = str((r_ or {}).get("referenceLocator") or "")
+            # syft PERCENT-ENCODES the purl: pkg:oci/name@sha256%3Ac99e...?arch=amd64
+            # A literal "sha256:" match finds nothing on real output, so this
+            # branch would have been dead code that looked load-bearing.
+            loc = loc.replace("%3A", ":").replace("%3a", ":")
             if "sha256:" in loc:
-                subjects.add("sha256:" + loc.rsplit("sha256:", 1)[1].strip().lower())
+                tail = loc.rsplit("sha256:", 1)[1].strip().lower()
+                tail = tail.split("?", 1)[0].split("#", 1)[0]   # drop qualifiers
+                if tail:
+                    subjects.add("sha256:" + tail)
     comp = ((doc.get("metadata") or {}).get("component") or {})
     for h in comp.get("hashes") or []:
         if isinstance(h, dict) and h.get("content"):

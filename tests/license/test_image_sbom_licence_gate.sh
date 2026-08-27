@@ -910,6 +910,21 @@ for r in d['relationships']:
         subs.add(pk[r['relatedSpdxElement']]['versionInfo'].lower())
 assert other not in subs
 \""
+# syft PERCENT-ENCODES the purl separator. A literal "sha256:" match finds
+# nothing on real output, so a purl branch without decoding is dead code that
+# reads as load-bearing. Fixture carries the real encoding.
+ck "the purl branch decodes %3A, so it is not dead code on real output" \
+   "python3 -c \"
+loc = 'pkg:oci/child@sha256%3A' + 'a'*64 + '?arch=amd64'
+loc = loc.replace('%3A', ':')
+tail = loc.rsplit('sha256:', 1)[1].split('?', 1)[0]
+assert tail == 'a'*64, tail
+\""
+ck "NON-VACUOUS: without decoding, that same purl yields NO subject" \
+   "python3 -c \"
+loc = 'pkg:oci/child@sha256%3A' + 'a'*64 + '?arch=amd64'
+assert 'sha256:' not in loc
+\""
 ck "NON-VACUOUS: the old documentDescribes-only reading finds NOTHING here" \
    "python3 -c \"
 import json
