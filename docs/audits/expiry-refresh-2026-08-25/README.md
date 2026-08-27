@@ -275,6 +275,122 @@ repository's own gate (`matched_exception_ids`); the machine-readable form is
 | ownership boundary changed | **6** |
 | **total** | **59** |
 
+## 5b. CORRECTIONS TO THIS DOCUMENT — 2026-08-27
+
+This audit is a decision input. Two of its cells were materially wrong and are
+retracted here rather than silently rewritten, because a reader who acted on the
+original text would have reached a different decision.
+
+### C-1 — G21 clearing floor was INCOMPLETE
+
+| | |
+|---|---|
+| was | exit condition: *"a FrankenPHP image is published vendoring `kin-openapi 0.141.0` or later"* |
+| is | an official **consumable** FrankenPHP artifact embedding `kin-openapi >= 0.144.0` |
+| why it was wrong | Trivy reports per-CVE FixedVersions `0.141.0` (CVE-2026-76905) and `0.142.0` (CVE-2026-77354). The same binary also carries `GHSA-r277-6w6q-xmqw` (CRITICAL, fixed `0.144.0`). Acting on `0.141.0` would clear the two HIGH findings and **leave the CRITICAL one**. |
+| blast radius if acted on | a maintainer could accept an artifact believing the group cleared, while a CRITICAL finding remained ungoverned |
+| ledger status | **the ledger was always correct** — both authorized records state `>= 0.144.0` and explicitly *"NOT 0.141.0 or 0.142.0"*. Only this audit's prose was wrong. |
+
+`fix_available: true` on those records is **scanner metadata** (a `FixedVersion` exists for the module) and is NOT a claim that a consumable remediation is available to Foundry.
+
+### C-2 — G03 asserted a Foundry remediation path that does not exist
+
+| | |
+|---|---|
+| was | *"a Foundry-side removal path exists today and is not blocked on upstream"* |
+| is | **no contract-preserving Foundry remediation exists today** |
+| disproven by | the ownership investigation merged as `5cfe665` (#224), which built and measured every candidate |
+
+Proven determination, replacing the retracted claim:
+
+- Foundry selects **GD**;
+- the upstream-owned `install-php-extensions` helper selects **AVIF and its dependency chain**;
+- **Debian owns and patches `libaom3`**;
+- **no contract-preserving Foundry remediation exists today**;
+- package purge removes `libavif15` too and **breaks GD loading entirely** (not just AVIF);
+- `IPE_GD_WITHOUTAVIF=1` is **ineffective on Debian 12** — the knob lives in the `< 12` arm;
+- disabling AVIF is a **capability deprecation**, not remediation;
+- a **Debian Trixie migration** is a separate major-distribution change.
+
+The records' *source attribution* still needs correcting — they name the base, and the base does not ship the package — but that is an attribution fix, not a remediation path.
+
+### C-3 — the expiring population is 61 records, not 59
+
+This document was bound to the ledger at sha256 `babc8971…` (59 exceptions). The
+maintainer-authorized `kin-openapi` records landed as `d369f20` (#220). At master
+`d4f1f6f` the ledger is sha256 `babb3fb9…` with **61 exceptions, 57 expiring
+2026-08-31 and 4 expiring 2026-09-01**. The two advisories described in section 7
+as having *no ledger record* now have records.
+
+### C-4 — what "suspension" means, and the four kinds of work an option can owe
+
+**Suspension does not remove the risk.** It withdraws the affected artifacts from
+supported production availability, eliminating supported deployment exposure while
+the underlying vulnerability remains in the withdrawn images and in anything
+already pulled. Any wording that says suspension "removes" or "eliminates" the
+risk is wrong and must not be used in a decision packet.
+
+Every option is scored on four independent axes. They are routinely conflated,
+and conflating them is how a decision acquires unbudgeted cost:
+
+| axis | question |
+|---|---|
+| **image rebuild owed** | does any production image byte change? |
+| **acceptance owed** | is prior acceptance evidence staled, and for which children? |
+| **governance/policy evidence owed** | must a policy, ledger record or evidence artifact change, and must a gate prove it fails closed? |
+| **publication/promotion owed** | is any registry, tag or visibility action required? |
+
+Worked example — **G03 option B (suspend the FrankenPHP family)**: image rebuild
+owed **NO** (no Dockerfile or image byte changes); acceptance owed **NO** (no child
+is rebuilt); governance/policy evidence owed **YES** — fail-closed suspension and
+release-path enforcement must be recorded and proven, not merely intended;
+publication/promotion owed **NO** under the current refusal stub, but a withdrawal
+action would be owed the moment publication is enabled.
+
+## 5c. UPSTREAM RE-VERIFICATION — 2026-08-27T09:11Z–09:24Z
+
+Independent recheck of everything that could have changed. Every row states its
+source, retrieval time, and the immutable digest actually resolved.
+
+| subject | source | retrieved (UTC) | tag | immutable digest | installed version | tag moved? | consumable patched artifact? |
+|---|---|---|---|---|---|---|---|
+| `libaom3` bookworm | security-tracker.debian.org `source-package/aom` | 2026-08-27T09:11:47Z | — | — | bookworm `3.6.0-1+deb12u2`; **bookworm-security `3.6.0-1+deb12u1` (OLDER)** | n/a | **NO** |
+| `libaom3` CVE status | same, per-CVE pages | 2026-08-27T09:19:26Z | — | — | all six CVEs **vulnerable** in bookworm and bookworm-security | n/a | **NO** |
+| DSA-6411-1 | security-tracker.debian.org | 2026-08-27T09:19:11Z | — | — | fixes 56208/56209/56210/56211 in **trixie only** (`3.12.1-1+deb13u1`) | n/a | **NO for bookworm** |
+| apt policy in current base | `dunglas/frankenphp` base, `apt-cache policy` | 2026-08-27T09:16:58Z | `1-php8.3-bookworm` | `sha256:a00d750e…` (amd64) | candidate `3.6.0-1+deb12u2`; `libaom*` **not installed in base** | n/a | **NO** |
+| retained child | `foundry-staging` by digest | 2026-08-27T09:20:09Z | — | `sha256:54992c07…` | `libaom3 3.6.0-1+deb12u2`; `--only-upgrade` → *already the newest* | n/a | **NO** |
+| FrankenPHP release | `repos/dunglas/frankenphp/releases/latest` (redirects to `php/frankenphp`) | 2026-08-27T09:12:12Z | `v1.12.7` | — | released 2026-08-07T07:49:19Z | — | — |
+| FrankenPHP 8.3 | `docker buildx imagetools inspect` | 2026-08-27T09:13:04Z | `1-php8.3-bookworm` | index `sha256:55dc84d1…`; amd64 `sha256:a00d750e…`; arm64 `sha256:388fdcaa…` | `kin-openapi v0.140.0`, `grpc v1.81.1` | **index moved, but BOTH Foundry platforms unchanged** (only `linux/arm`) | **NO** |
+| FrankenPHP 8.4 | same | 2026-08-27T09:13:29Z | `1-php8.4-bookworm` | index `sha256:4484f5fc…`; amd64 `sha256:447ac21c…`; arm64 `sha256:da669918…` | `kin-openapi v0.140.0`, `grpc v1.81.1` | yes, both Foundry platforms | **NO — movement is not remediation** |
+| clearing floor | OSV `POST /v1/query` | 2026-08-27T09:15:17Z | — | — | fixed: 76905→`0.141.0`, 77354→`0.142.0`, GHSA-r277→`0.144.0`, GHSA-jpcw→`0.144.0` | — | floor = **`>= 0.144.0`** |
+| `caddy:2-alpine` | `docker buildx imagetools inspect` | 2026-08-27T09:22:55Z | `2-alpine` | `sha256:5f5c8640…` | — | **NOT moved** — equals the cohort pin | **NO** |
+| nginx base | same | 2026-08-27T09:23:16Z | `1.28-bookworm` | `sha256:cd33960e…` | — | **NOT moved** — equals the cohort pin | **NO** |
+
+**Disappearance check.** All 20 retained child digests rescanned buildless against a
+newly frozen database `trivy-db v2+updated:2026-08-27T02:16:59Z` (downloaded
+2026-08-27T09:17:36Z) — deliberately NOT the `2026-08-25T13:00:57Z` snapshot this
+document was built on. Result: **0 findings gone, 0 severity changes, 0 newly
+appearing FixedVersions** on any ledger-backing finding. Confirmed with a second
+scanner artifact (`aquasec/trivy@sha256:4bbf3824…`): identical sets. The
+`fix now available = 0` bucket is unchanged under a two-day-newer database.
+
+**Newly appearing findings, ungoverned today** (not present when this document was written):
+
+| advisory | package @ version | children | FixedVersion | ledger |
+|---|---|---|---|---|
+| CVE-2026-11822 | `libsqlite3-0 @ 3.40.1-2+deb12u2` | all 16 PHP-family | none (deferred) | **no record** |
+| CVE-2026-11824 | `libsqlite3-0 @ 3.40.1-2+deb12u2` | all 16 PHP-family | none (deferred) | **no record** |
+| CVE-2026-14456 | `libssl3`, `libcrypto3 @ 3.5.7-r0` (Alpine) | `caddy/prod` ×2 | **`3.5.8-r0`** | **no record** — the existing CVE-2026-14456 records are scoped `php-8.3-8.4` and `nginx` on Debian `3.0.20-1~deb12u2` |
+
+The `caddy` case vindicates the deliberate exclusion recorded in the ledger — Alpine,
+a different package build, a different advisory — and that advisory has now landed
+there, with a fix available. A fourth `kin-openapi` advisory
+(`GHSA-jpcw-4wr7-c3vq` / CVE-2026-73502, floor `0.144.0`) also matches `v0.140.0`
+and is in neither the risk packet nor the ledger.
+
+**Renewing all 61 records does not restore a green reconciliation** while these
+three remain ungoverned.
+
 ## 6. Phase 2 — consolidated decisions, one row per root-cause group
 
 The 59 records reduce to **21 root-cause groups**, keyed on the upstream owner
@@ -295,7 +411,7 @@ column has been written anywhere.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | G01 | Debian bookworm security — `perl` | 2, 3, 15, 16, 17, 18, 19, 36, 37, 38 (10) | CVE-2026-8376, CVE-2026-9538, CVE-2026-42496, CVE-2026-42497, CVE-2026-48962, CVE-2026-57432, CVE-2026-57433 | `perl`, `perl-base`, `perl-modules-5.36`, `libperl5.36` @ `5.36.0-7+deb12u3` | `php-8.3-8.4`, `php-frankenphp-8.3-8.4`, `nginx` | amd64+arm64 | none — no fixed version offered | PHP and FrankenPHP base heads moved and still ship `5.36.0-7+deb12u3`; nginx base tag unmoved | not-reachable-under-intended-use | 2026-08-31 | continue as accepted risk — maintainer decision; no removal is supportable, the finding is present at the bound version on every in-scope child | 2026-11-30 | Debian bookworm publishes a fixed `perl` source package, or the images move to a base line that does | ten records lapse; reconciliation refuses the findings as ungoverned and every PHP-family and nginx child fails the release gate |
 | G02 | Caddy project — Go toolchain (`stdlib`) statically linked into the Caddy binary | 6, 7, 13, 48, 49, 50, 51, 52, 53, 54, 55 (11) | CVE-2026-27145, CVE-2026-33818, CVE-2026-39821, CVE-2026-39822, CVE-2026-42504, CVE-2026-46600, CVE-2026-56853, CVE-2026-56858, CVE-2026-56859, CVE-2026-56860, CVE-2026-56862 | `stdlib` @ `v1.26.3` | `caddy` | amd64+arm64 | yes — fixed toolchains published (`1.25.11`/`1.26.4` through `1.25.13`/`1.26.6`/`1.27.0-rc.3` depending on advisory) | `caddy:2-alpine` tag has NOT moved; no rebuilt upstream image exists to re-pin to | mixed as recorded: conditionally-reachable-outside-the-certified-topology, conditionally-reachable-via-consuming-application, unresolved-no-concrete-path-identified | 2026-08-31 | continue as accepted risk with a shortened window — a fix exists upstream and the exposure is a pinning lag, not an unfixable defect; no Foundry rebuild can relink a vendored toolchain | 2026-09-30 | the `caddy:2-alpine` tag publishes an image built with a fixed Go toolchain and the pin is moved to it | eleven records lapse; `caddy/prod` fails reconciliation on both platforms and cannot be released |
-| G03 | Foundry Dockerfile (`php-frankenphp` gd/AVIF layer) — `libaom3` | 5, 30, 31, 32, 33, 34 (6) | CVE-2023-6879, CVE-2023-39616, CVE-2026-56208, CVE-2026-56209, CVE-2026-56210, CVE-2026-56211 | `libaom3` @ `3.6.0-1+deb12u2` | `php-frankenphp-8.3-8.4` | amd64+arm64 | none — no fixed version offered | package is **absent from both the pinned FrankenPHP base and the current head**; it enters through the Foundry `install-php-extensions … gd` step | conditionally-reachable-via-consuming-application (four records carry an encoder-only analysis) | 2026-08-31 | continue as accepted risk ONLY alongside correcting the ownership attribution — the records name the base as the source and the base does not ship the package; a Foundry-side removal path exists today and is not blocked on upstream | 2026-10-31 | either the gd build stops pulling AVIF support, or a fixed `libaom` reaches the packages the Foundry layer installs | six records lapse; both FrankenPHP versions fail reconciliation on both platforms — on top of the two already-ungoverned advisories in section 7 |
+| G03 | Foundry Dockerfile (`php-frankenphp` gd/AVIF layer) — `libaom3` | 5, 30, 31, 32, 33, 34 (6) | CVE-2023-6879, CVE-2023-39616, CVE-2026-56208, CVE-2026-56209, CVE-2026-56210, CVE-2026-56211 | `libaom3` @ `3.6.0-1+deb12u2` | `php-frankenphp-8.3-8.4` | amd64+arm64 | none — no fixed version offered | package is **absent from both the pinned FrankenPHP base and the current head**; it enters through the Foundry `install-php-extensions … gd` step | conditionally-reachable-via-consuming-application (four records carry an encoder-only analysis) | 2026-08-31 | **RETRACTED AND REPLACED 2026-08-27.** The claim this cell previously made about a Foundry-side removal path is WITHDRAWN — it is quoted in full and dispositioned in section 5b (C-2), and is not restated here so it cannot be skim-read as live. It was disproven by the ownership investigation merged as `5cfe665` (#224). PROVEN DETERMINATION: Foundry selects GD; the upstream-owned `install-php-extensions` helper selects AVIF and its dependency chain; **Debian owns and patches `libaom3`**; **no contract-preserving Foundry remediation exists today**; package purge takes `libavif15` with it and breaks GD loading entirely; `IPE_GD_WITHOUTAVIF=1` is INEFFECTIVE on Debian 12 (the knob lives in the `< 12` arm); disabling AVIF is a CAPABILITY DEPRECATION, not remediation; a Debian Trixie migration is a separate major-distribution change. The records' source attribution still needs correcting — they name the base, and the base does not ship the package — but that is an attribution fix, not a remediation path | 2026-10-31 | either the gd build stops pulling AVIF support, or a fixed `libaom` reaches the packages the Foundry layer installs | six records lapse; both FrankenPHP versions fail reconciliation on both platforms — on top of the two already-ungoverned advisories in section 7 |
 | G04 | Debian bookworm security — `curl` | 21, 22, 23, 35, 45 (5) | CVE-2026-6276, CVE-2026-8286, CVE-2026-8458, CVE-2026-8927, CVE-2026-12064 | `curl`, `libcurl4` @ `7.88.1-10+deb12u15` | `php-8.3-8.4` | amd64+arm64 | none — no fixed version offered | PHP base heads moved and still ship `7.88.1-10+deb12u15` | conditionally-reachable-via-consuming-application | 2026-08-31 | continue as accepted risk — maintainer decision; conditional reachability means the decision turns on consumer guidance, not on new scan data | 2026-10-31 | Debian bookworm publishes a fixed `curl` source package | five records lapse; all six PHP-family children fail reconciliation on both platforms |
 | G05 | Debian bookworm security — `util-linux` | 27, 42, 58, 59 (4) | CVE-2026-53613, CVE-2026-53615 | `bsdutils` @ `1:2.38.1-5+deb12u3`; `libblkid1`, `libmount1`, `libsmartcols1`, `libuuid1`, `mount`, `util-linux`, `util-linux-extra` @ `2.38.1-5+deb12u3` | `php-8.3-8.4`, `nginx` | amd64+arm64 | none — no fixed version offered | PHP base heads moved and still ship the same eight builds; nginx base tag unmoved | not-reachable-under-intended-use (53615) and unresolved-no-concrete-path-identified (53613) | 2026-08-31 (53615), 2026-09-01 (53613) | continue as separate records — the two advisories were deliberately not merged and both still match independently; the per-package `package_versions` binding, including the `bsdutils` epoch split, was re-verified and holds exactly | 2026-11-30 (53615), 2026-09-30 (53613) | Debian bookworm publishes a fixed `util-linux` source package | four records lapse; PHP-family and nginx children fail reconciliation on both platforms |
 | G06 | Alpine aports — `curl` | 9, 12 (2) | CVE-2026-5773, CVE-2026-6276 | `curl`, `libcurl` @ `8.19.0-r0` | `caddy` | amd64+arm64 | yes — `8.20.0-r0` | `caddy:2-alpine` tag has NOT moved | not-reachable-under-intended-use | 2026-08-31 | continue as accepted risk with a shortened window — a fixed aport exists and the exposure is a pinning lag | 2026-09-30 | the `caddy:2-alpine` tag publishes an image carrying `curl 8.20.0-r0` or later and the pin is moved | two records lapse; `caddy/prod` fails reconciliation on both platforms |
@@ -313,7 +429,7 @@ column has been written anywhere.
 | G18 | Caddy project — `golang.org/x/net` vendored into the Caddy binary | 47 (1) | CVE-2026-46600 | `golang.org/x/net` @ `v0.55.0` | `caddy` | amd64+arm64 | yes — `0.56.0` | `caddy:2-alpine` tag has NOT moved | unresolved-no-concrete-path-identified | 2026-08-31 | continue as accepted risk with a shortened window; reachability is recorded as unresolved, so the re-decision turns on impact and appetite, not on scan data | 2026-09-30 | the Caddy image publishes a build vendoring `x/net 0.56.0` or later and the pin is moved | one record lapses; `caddy/prod` fails reconciliation on both platforms |
 | G19 | Caddy project — `golang.org/x/text` vendored into the Caddy binary | 44 (1) | CVE-2026-56852 | `golang.org/x/text` @ `v0.37.0` | `caddy` | amd64+arm64 | yes — `0.39.0` | `caddy:2-alpine` tag has NOT moved | conditionally-reachable-outside-the-certified-topology | 2026-08-31 | continue as accepted risk with a shortened window | 2026-09-30 | the Caddy image publishes a build vendoring `x/text 0.39.0` or later and the pin is moved | one record lapses; `caddy/prod` fails reconciliation on both platforms |
 | G20 | FrankenPHP project — `google.golang.org/grpc` vendored into the FrankenPHP binary | 11 (1) | GHSA-hrxh-6v49-42gf | `google.golang.org/grpc` @ `v1.81.1` | `php-frankenphp-8.3-8.4` | amd64+arm64 | yes — `1.82.1` | base tag moved; **the new head still vendors `v1.81.1`**, so re-pinning would not remediate | not-reachable-under-intended-use | 2026-08-31 | continue as accepted risk with a shortened window; record explicitly that a rebuild on the current head cannot clear it, contradicting the `rebuild_can_remediate=yes` the ownership heuristic returns | 2026-09-30 | a FrankenPHP image is published vendoring `grpc 1.82.1` or later and the pin is moved to it | one record lapses; both FrankenPHP versions fail reconciliation on both platforms |
-| G21 | FrankenPHP project — `github.com/getkin/kin-openapi` vendored into the FrankenPHP binary | 14 (1) | GHSA-r277-6w6q-xmqw | `github.com/getkin/kin-openapi` @ `v0.140.0` | `php-frankenphp-8.3-8.4` | amd64+arm64 | yes — `0.144.0` | base tag moved; **the new head still vendors `v0.140.0`**, so re-pinning would not remediate | not-reachable-under-intended-use | 2026-08-31 | continue as accepted risk with a shortened window; this is the same binary and the same module version as the two ungoverned advisories in section 7, so one upstream publication clears all three | 2026-09-30 | a FrankenPHP image is published vendoring `kin-openapi 0.141.0` or later and the pin is moved to it | one record lapses; both FrankenPHP versions fail reconciliation on both platforms |
+| G21 | FrankenPHP project — `github.com/getkin/kin-openapi` vendored into the FrankenPHP binary | 14 (1) | GHSA-r277-6w6q-xmqw | `github.com/getkin/kin-openapi` @ `v0.140.0` | `php-frankenphp-8.3-8.4` | amd64+arm64 | yes — `0.144.0` | base tag moved; **the new head still vendors `v0.140.0`**, so re-pinning would not remediate | not-reachable-under-intended-use | 2026-08-31 | continue as accepted risk with a shortened window; this is the same binary and the same module version as the two ungoverned advisories in section 7, so one upstream publication clears all three | 2026-09-30 | **CORRECTED 2026-08-27** — an official CONSUMABLE FrankenPHP artifact embedding `kin-openapi >= 0.144.0`. This cell previously read `0.141.0 or later`, which is an INCOMPLETE clearing floor: Trivy reports per-CVE FixedVersions of `0.141.0` (CVE-2026-76905) and `0.142.0` (CVE-2026-77354), but the same binary also carries `GHSA-r277-6w6q-xmqw` (CRITICAL, fixed `0.144.0`). Moving only to 0.141.x or 0.142.x would clear the two HIGH findings and LEAVE THE CRITICAL ONE. `fix_available: true` remains correct scanner metadata and is not a claim that remediation is available | one record lapses; both FrankenPHP versions fail reconciliation on both platforms |
 
 Group sizes sum to 59. No group proposes removal: removal requires the finding
 to have disappeared, the installed version to have moved, or a patched official
@@ -322,6 +438,24 @@ so there is no record for which regression proof could be produced, and none is
 offered. Nothing in this table is proposed in order to obtain a green acceptance
 verdict; four of the twenty children fail reconciliation today and continue to
 fail it for the reason in section 7.
+
+## 6b. SELECTOR APPENDIX — what each family label in section 6 actually governs
+
+Section 6 uses family labels for width. They are NOT selectors. The governed
+selector is the immutable cohort string in the ledger, and it is what
+`reconcile-vulnerabilities.sh` matches. A label such as "php" governs nothing.
+
+| governed selector (ledger `image:`) | production children it resolves to |
+|---|---|
+| `caddy` | caddy:prod  (1 image x 2 platforms = 2 children) |
+| `nginx` | nginx:prod  (1 image x 2 platforms = 2 children) |
+| `php-8.3-8.4` | php-cli:8.3, php-cli:8.4, php-fpm:8.3, php-fpm:8.4, php-worker:8.3, php-worker:8.4  (6 images x 2 platforms = 12 children) |
+| `php-frankenphp-8.3-8.4` | php-frankenphp:8.3, php-frankenphp:8.4  (2 images x 2 platforms = 4 children) |
+
+Production matrix is `MATRIX_COUNT=10` images x 2 platforms = **20 children**.
+The cohort selectors are immutable by design: re-adding a future PHP line (for
+example the experimental 8.5 cohort) cannot widen a historical risk decision,
+because `php-8.3-8.4` and `php-frankenphp-8.3-8.4` cannot reach it.
 
 ## 7. Two advisories with no ledger record at all
 
