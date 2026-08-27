@@ -1159,6 +1159,21 @@ jobs:
       # validator refuses a licence record that claims otherwise. If publication
       # is ever re-enabled, it cannot proceed without both evidence classes.
       # =====================================================================
+      - name: Ensure the licence validators, refusing to run degraded
+        # The repository-material half reads YAML and the record validator reads
+        # JSON Schema. A missing library must NOT turn into a skipped gate: that
+        # is the fail-open shape this whole change exists to remove, so the
+        # install is attempted once and its absence afterwards is a refusal.
+        run: |
+          set -uo pipefail
+          if ! python3 -c 'import yaml, jsonschema' 2>/dev/null; then
+            python3 -m pip install --quiet --disable-pip-version-check --user \
+              'PyYAML==6.0.2' 'jsonschema==4.23.0' || true
+          fi
+          python3 -c 'import yaml, jsonschema' || {
+            echo "REFUSE: PyYAML/jsonschema unavailable; the licence gates would silently weaken" >&2
+            exit 1; }
+
       - name: Flatten the candidate SBOM set
         # The SBOMs travel INSIDE each child's evidence directory, so they are
         # covered by that child's evidence_sha256 — the checksum the aggregator

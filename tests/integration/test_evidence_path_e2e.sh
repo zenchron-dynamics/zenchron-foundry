@@ -1367,7 +1367,11 @@ ck "a workflow invokes the IMAGE-SBOM licence gate against a real inventory" \
 # whole, through the same YAML parser the executed proofs use.
 _lic_step() {
   python3 tests/lib/workflow_step.py .github/workflows/stage-and-authorize.yml \
-    licence-authorization image_policy --run 2>/dev/null
+    authorize lic_policy --run 2>/dev/null
+}
+_lic_consumer() {
+  python3 tests/lib/workflow_step.py .github/workflows/stage-and-authorize.yml \
+    authorize schema --run 2>/dev/null
 }
 ck "...not as --self-test, and handed an --inventory it did not invent" \
    "_lic_step | grep -q -- '--inventory' \
@@ -1375,6 +1379,24 @@ ck "...not as --self-test, and handed an --inventory it did not invent" \
     && ! _lic_step | grep -q -- '--self-test'"
 ck "...in stage-and-authorize.yml, the release path — CI is buildless and has no image" \
    "_lic_policy_real | grep -q 'stage-and-authorize.yml'"
+# A produced verdict nobody reads is the original defect one layer out. The
+# canonical record's own validator is the consumer, so the authorization
+# decision cannot be reached without it.
+ck "...and the verdict is CONSUMED by the canonical authorization decision" \
+   "_lic_consumer | grep -q 'validate-authorization-record.sh' \
+    && _lic_consumer | grep -q -- '--require-licence-authorization'"
+ck "...in the SAME job that emits the canonical record, not a downstream reporter" \
+   "python3 -c 'import sys, yaml
+wf = yaml.safe_load(open(\".github/workflows/stage-and-authorize.yml\"))
+b = \"\\n\".join((st.get(\"run\") or \"\") for st in wf[\"jobs\"][\"authorize\"][\"steps\"])
+sys.exit(0 if \"authorize-staged-candidates.sh\" in b
+             and \"assert-license-policy.sh\" in b
+             and \"assert-repository-material.sh\" in b else 1)'"
+ck "...and ABSENT licence evidence refuses rather than skipping" \
+   "says 'AR-LICENCE-EVIDENCE-ABSENT' \
+      bash '$AUTHV' '$TMP/auth-right.json' --require-licence-authorization '$TMP/no-such.json'"
+ck "NON-VACUOUS: the same record validates when the flag is not asked for" \
+   "bash '$AUTHV' '$TMP/auth-right.json' >/dev/null 2>&1"
 ck "...while ci.yml's --self-test line survives, unchanged and still gating no image" \
    "grep -rq -- 'scripts/license/assert-license-policy.sh --self-test' .github/workflows/ci.yml"
 ck "...and the executed proof of that invocation is itself in the REQUIRED job" \

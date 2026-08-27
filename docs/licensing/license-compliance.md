@@ -118,7 +118,8 @@ bash scripts/license/generate-notice.sh --inventory artifacts/license-inventory.
 
 The three lines above decide nothing about a release: they read whatever SBOMs are in a directory. The
 release form binds the inventory to the candidate images a run staged, and requires the repository half
-alongside it. This is what `.github/workflows/stage-and-authorize.yml`'s `licence-authorization` job runs:
+alongside it. This is what `.github/workflows/stage-and-authorize.yml`'s **`authorize`** job runs, in the same job that
+emits the canonical `post-build-authorization.json` — not in a downstream job that files a report:
 
 ```bash
 # 1. bind every candidate SBOM to a staged child — image, version, platform,
@@ -136,16 +137,27 @@ bash scripts/license/assert-repository-material.sh --inventory policies/reposito
   --image-inventory licence/image-inventory.json --require-image-evidence
 ```
 
+The composed verdict is then **consumed**, not filed:
+
+```bash
+bash scripts/release/validate-authorization-record.sh authorization/post-build-authorization.json \
+  --require-licence-authorization authorization/licence/licence-authorization.json
+```
+
+The canonical record does not validate unless that verdict is present, `PASS`, and bound to the record's
+own sha256 and source revision. An absent one is `AR-LICENCE-EVIDENCE-ABSENT` — a refusal, never a skip.
+
 Neither half compensates for the other. Image evidence beside an empty repository verdict is
-`RM-REPOSITORY-EVIDENCE-ABSENT`; repository evidence with no image evidence is `RM-IMAGE-EVIDENCE-ABSENT`.
-A licence PASS authorizes nothing for publication — publication stays refused, and the job asserts that
-the authorization record it read still carries `public_exposure_authorized: false`.
+`RM-REPOSITORY-EVIDENCE-ABSENT`; repository evidence with no image evidence is `RM-IMAGE-EVIDENCE-ABSENT`;
+either half refusing is `AR-LICENCE-REFUSED`. A licence PASS authorizes nothing for publication —
+publication stays refused by its own independent control, and the validator refuses a licence record that
+claims `public_exposure_authorized` at all.
 
 ## Known gaps
 
 - **The composed authorization runs in the release path, and the required CI path does not run that
-  workflow.** `.github/workflows/stage-and-authorize.yml`'s `licence-authorization` job is where a real
-  candidate inventory is gated; CI is buildless and holds no candidate image, so the required `repo
+  workflow.** `.github/workflows/stage-and-authorize.yml`'s `authorize` job is where a real candidate
+  inventory is gated; CI is buildless and holds no candidate image, so the required `repo
   structure` job instead EXECUTES that job's extracted step bodies against the accepted production run
   (`tests/license/test_image_sbom_licence_gate.sh`). Closing the remainder would need CI to hold a
   candidate image, which is the boundary `trusted-validation.yml` exists to keep it away from.
