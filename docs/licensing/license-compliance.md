@@ -114,11 +114,41 @@ bash scripts/license/assert-license-policy.sh --inventory artifacts/license-inve
 bash scripts/license/generate-notice.sh --inventory artifacts/license-inventory.json --out artifacts/NOTICE-candidate.txt
 ```
 
+### The release path, where the verdict is actually a control
+
+The three lines above decide nothing about a release: they read whatever SBOMs are in a directory. The
+release form binds the inventory to the candidate images a run staged, and requires the repository half
+alongside it. This is what `.github/workflows/stage-and-authorize.yml`'s `licence-authorization` job runs:
+
+```bash
+# 1. bind every candidate SBOM to a staged child — image, version, platform,
+#    immutable digest, source revision, and the bytes the producing run hashed
+bash scripts/license/assert-image-sbom-licences.sh \
+  --authorization authorization/post-build-authorization.json \
+  --sbom-dir sbom --binding-dir sbom-bindings --out licence/image-inventory.json
+
+# 2. the IMAGE-SBOM gate over that inventory, refusing one that names no candidate
+bash scripts/license/assert-license-policy.sh --inventory licence/image-inventory.json \
+  --require-image-binding --expect-source-revision "$GITHUB_SHA"
+
+# 3. compose with the repository half, which the image half cannot see, and require it
+bash scripts/license/assert-repository-material.sh --inventory policies/repository-material.yaml \
+  --image-inventory licence/image-inventory.json --require-image-evidence
+```
+
+Neither half compensates for the other. Image evidence beside an empty repository verdict is
+`RM-REPOSITORY-EVIDENCE-ABSENT`; repository evidence with no image evidence is `RM-IMAGE-EVIDENCE-ABSENT`.
+A licence PASS authorizes nothing for publication — publication stays refused, and the job asserts that
+the authorization record it read still carries `public_exposure_authorized: false`.
+
 ## Known gaps
 
-- **The gate is not yet wired into the publish path.** `scripts/macro-validate.sh` runs its self-test
-  offline, and `tests/run-all.sh` runs the full suite, but no release workflow currently blocks on a real
-  SBOM-derived inventory. Wiring it there is a change to the release path and belongs to whoever owns it.
+- **The composed authorization runs in the release path, and the required CI path does not run that
+  workflow.** `.github/workflows/stage-and-authorize.yml`'s `licence-authorization` job is where a real
+  candidate inventory is gated; CI is buildless and holds no candidate image, so the required `repo
+  structure` job instead EXECUTES that job's extracted step bodies against the accepted production run
+  (`tests/license/test_image_sbom_licence_gate.sh`). Closing the remainder would need CI to hold a
+  candidate image, which is the boundary `trusted-validation.yml` exists to keep it away from.
 - **Licence *texts* are not preserved.** The inventory records identifiers and their provenance, not the
   full text of each licence. Notice obligations that require reproducing the text are therefore only
   partially served by the generated candidate.

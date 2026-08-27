@@ -72,9 +72,15 @@ cd "$ROOT" || exit 1
 set +e
 set +o pipefail
 
-fail=0 n=0 nfail=0
+fail=0 n=0 nfail=0 ngap=0
 ck() { n=$((n+1)); if eval "$2"; then echo "ok   - $1"; else
          echo "FAIL - $1"; fail=1; nfail=$((nfail+1)); fi; }
+# A gap() states something TRUE TODAY that ought to become false when somebody
+# closes it — at which point this test fails and says to promote the line. A gap
+# that silently starts passing is a gap nobody notices was fixed.
+gap() { ngap=$((ngap+1)); if eval "$2"; then echo "GAP  - $1"; else
+          echo "FAIL - GAP ASSERTION NO LONGER HOLDS (promote to ck): $1"
+          fail=1; nfail=$((nfail+1)); fi; }
 
 WF=.github/workflows/stage-and-authorize.yml
 JOB=licence-authorization
@@ -603,8 +609,29 @@ echo "== ambient safety ========================================================
 ck "the checkout was not mutated: no licence/ directory was created in it" \
    "[ ! -e '$ROOT/licence' ] && [ ! -e '$ROOT/sbom' ] && [ ! -e '$ROOT/sbom-bindings' ]"
 
+echo
+echo "== what is WIRED but not yet MEASURED — pinned, not narrated ============="
+
+# WIRING A GATE IS NOT RUNNING IT. Everything above proves the control exists,
+# is handed real candidate identities, refuses ten ways and has its answer read.
+# What it does not prove is that any Foundry image has ever been MEASURED: the
+# SBOM documents here carry the accepted run's real child identities and real
+# immutable digests, but their package lists are not the real package
+# inventories of those images, because pulling them buildlessly is impossible
+# and rebuilding the production matrix to test workflow composition is
+# forbidden. So the 17 `legal-review-required` identifiers in
+# policies/license-policy.yaml remain a policy table rather than a measurement
+# of this product — the T5 finding in
+# docs/decisions/publication-rights-provenance-packet.md.
+gap "no committed run record shows the composed gate over REAL image package inventories" \
+    "[ -z \"\$(find docs/audits -name 'licence-authorization*.json' 2>/dev/null)\" ]"
+echo "       WHAT WOULD CLOSE IT: one dispatch of stage-and-authorize.yml on"
+echo "       master, whose licence-authorization artifact is then committed as"
+echo "       an audit record. That is a maintainer-role action; it builds"
+echo "       images, so no test may perform it."
+
 echo "----"
-echo "assertions: $n, failures: $nfail"
+echo "assertions: $n, failures: $nfail, pinned gaps: $ngap"
 if [ "$fail" -eq 0 ]; then echo "test_image_sbom_licence_gate: PASS"; else
   echo "test_image_sbom_licence_gate: FAIL"; fi
 exit "$fail"
