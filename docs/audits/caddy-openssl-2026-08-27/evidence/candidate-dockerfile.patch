@@ -1,0 +1,18 @@
+--- images/caddy/Dockerfile	2026-08-27 13:01:35
++++ /private/tmp/claude-501/-Users-m3tagh0st-orca-workspaces-zenchron-infra-leatherback/125233f0-dfae-4c25-bf51-706bf96c9d39/scratchpad/cand/Dockerfile	2026-08-27 13:08:11
+@@ -15,6 +15,15 @@
+ 
+ FROM ${CADDY_BASE} AS runtime
+ 
++# EXPERIMENT ONLY (lane K, out of tree): enumerated security-only package
++# upgrade of exactly the two CVE-2026-14456 packages, from the official
++# Alpine v3.23 repository the pinned base already uses. Caddy is neither
++# recompiled nor replaced.
++RUN set -eux; \
++    apk upgrade --no-cache libssl3 libcrypto3; \
++    apk info -v | grep -E "^libssl3-3\\.5\\.8-r0$"; \
++    apk info -v | grep -E "^libcrypto3-3\\.5\\.8-r0$"
++
+ ARG BUILD_DATE
+ ARG VCS_REF
+ 

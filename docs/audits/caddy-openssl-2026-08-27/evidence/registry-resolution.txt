@@ -1,0 +1,61 @@
+# Registry resolution transcript — docker.io/library/caddy
+# Captured 2026-08-27T10:02:43Z (platform manifests) and 2026-08-27T10:03:01Z
+# (index digests), against registry-1.docker.io via `docker buildx imagetools
+# inspect`. A later re-capture at 10:10:57Z was refused with HTTP 429
+# (unauthenticated pull rate limit); the values below are the first capture.
+
+$ docker buildx imagetools inspect docker.io/library/caddy:<tag> --format '{{.Manifest.Digest}}'
+2-alpine   sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+alpine     sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+latest     sha256:df7f1c2fb114453b951de51a98efc010db1655a92c2e86be6706714e2417a78d
+
+# Dockerfile pin (images/caddy/Dockerfile):
+#   sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+# => caddy:2-alpine has NOT moved.
+
+$ docker buildx imagetools inspect docker.io/library/caddy:2-alpine   # platform manifests
+linux/amd64     sha256:98eb57d882ccd5213d1688764db10c1ca2c58a1ca3a6717a3411ad798f7a423a
+linux/arm/v6    sha256:424824ddba95aeefbfe21c0a2583b4a05b2ac5500d00d31f81418f60fc10ecac
+linux/arm/v7    sha256:9c40d7f18e317171e94fc8cbd354e71050e322034d6dcede1763bce6d18fadc6
+linux/arm64/v8  sha256:1172d4213087d3fc30bafc7ff2c2896180eb0c41ff7f75f315568fb36cabdcba
+linux/ppc64le   sha256:12da9ddb61518de56f24a524ef17e36cd8916e54ab8e558b01b8a4ed5c4ed1cc
+linux/riscv64   sha256:f3257d33b5a851e4e46f48cd50f13ef096a6cbb3ffd5b4032cb5f60f5b148498
+linux/s390x     sha256:fd8c0d7fda5e83a9b19770632a1bfa2f55599e5e033e04c6a9cb75912067e0fe
+
+$ docker buildx imagetools inspect docker.io/library/caddy:alpine    # platform manifests
+linux/amd64     sha256:98eb57d882ccd5213d1688764db10c1ca2c58a1ca3a6717a3411ad798f7a423a
+linux/arm64/v8  sha256:1172d4213087d3fc30bafc7ff2c2896180eb0c41ff7f75f315568fb36cabdcba
+# (identical to 2-alpine on every linux platform)
+
+$ docker buildx imagetools inspect docker.io/library/caddy:latest    # platform manifests
+linux/amd64     sha256:98eb57d882ccd5213d1688764db10c1ca2c58a1ca3a6717a3411ad798f7a423a
+linux/arm64/v8  sha256:1172d4213087d3fc30bafc7ff2c2896180eb0c41ff7f75f315568fb36cabdcba
+windows/amd64   sha256:d4ae0aefa9e0abcfc417a85fb96b7bb16b0b3b1cc732d520e8503897df31df84
+windows/amd64   sha256:20c633152372a1cfd3745a6f74163bd21c8966c8c1caccba1c97f53addb21570
+# The `latest` INDEX digest differs from `2-alpine`'s only because the index
+# also lists the Windows manifests (rebuilt 2026-08-12). Its linux/amd64 and
+# linux/arm64/v8 PLATFORM manifests are the same objects as 2-alpine's.
+
+$ curl -s https://hub.docker.com/v2/repositories/library/caddy/tags   # 2026-08-27T10:03:11Z
+2-alpine        2026-06-24T05:52:17Z  sha256:5f5c8640...
+2.11-alpine     2026-06-24T05:52:28Z  sha256:5f5c8640...
+2.11.4-alpine   2026-06-24T05:52:39Z  sha256:5f5c8640...
+alpine          2026-06-24T05:52:47Z  sha256:5f5c8640...
+2               2026-08-12T20:52:20Z  sha256:df7f1c2f...
+2.11            2026-08-12T20:53:01Z  sha256:df7f1c2f...
+2.11.4          2026-08-12T20:53:23Z  sha256:df7f1c2f...
+latest          2026-08-12T20:53:53Z  sha256:df7f1c2f...
+2-builder-alpine 2026-08-20T02:52:19Z sha256:7bac9be4...   # Go TOOLCHAIN image, not a runtime
+
+$ apk info -v   # inside each pinned platform manifest, 2026-08-27T10:04:17Z
+linux/amd64  (sha256:98eb57d8...)  alpine 3.23.5  libcrypto3-3.5.7-r0  libssl3-3.5.7-r0  caddy v2.11.4
+linux/arm64  (sha256:1172d421...)  alpine 3.23.5  libcrypto3-3.5.7-r0  libssl3-3.5.7-r0  caddy v2.11.4
+
+$ curl -sfSL https://dl-cdn.alpinelinux.org/alpine/v3.23/main/<arch>/APKINDEX.tar.gz   # 2026-08-27T10:04:28Z
+x86_64   P:libcrypto3 V:3.5.8-r0   P:libssl3 V:3.5.8-r0   P:openssl V:3.5.8-r0
+aarch64  P:libcrypto3 V:3.5.8-r0   P:libssl3 V:3.5.8-r0   P:openssl V:3.5.8-r0
+
+$ ldd /usr/bin/caddy   # inside the pinned base, 2026-08-27T10:06:00Z
+/lib/ld-musl-aarch64.so.1: /usr/bin/caddy: Not a valid dynamic program
+# statically linked Go binary — links neither libssl.so.3 nor libcrypto.so.3.
+# Files that DO link them: /sbin/apk /usr/bin/c_rehash /usr/bin/curl /usr/bin/ssl_client

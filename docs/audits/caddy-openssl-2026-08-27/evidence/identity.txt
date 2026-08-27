@@ -1,0 +1,13 @@
+# base identity + child config digests — captured 2026-08-27T10:10:41Z
+
+## base (official, pinned) — resolved from registry
+index   caddy:2-alpine = sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+amd64   platform manifest = sha256:98eb57d882ccd5213d1688764db10c1ca2c58a1ca3a6717a3411ad798f7a423a
+arm64/v8 platform manifest = sha256:1172d4213087d3fc30bafc7ff2c2896180eb0c41ff7f75f315568fb36cabdcba
+
+## children (local builds; a local build exports to the daemon and produces
+## NO OCI manifest digest — the value below is the image CONFIG digest)
+control    linux/arm64  config_digest=sha256:324f1de98bfc3d1a0cb727dc3b19acdf644671dbcacfd17dfb492a39f1271230 arch=arm64 base.name=docker.io/library/caddy:2-alpine
+control    linux/amd64  config_digest=sha256:517832b0e83e9665ef733a556f79bc50b722e74bddba6c2ce5cb3b3fe3d526b8 arch=amd64 base.name=docker.io/library/caddy:2-alpine
+candidate  linux/arm64  config_digest=sha256:92b65d775346fc1d25b0d2012b59953106a4a60a15c785ee737208dd137eadf6 arch=arm64 base.name=docker.io/library/caddy:2-alpine
+candidate  linux/amd64  config_digest=sha256:9457dd0759692c820de6c8e5fdf15fd1b9bf934917c43834b836e6ad08014d30 arch=amd64 base.name=docker.io/library/caddy:2-alpine
