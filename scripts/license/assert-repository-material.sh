@@ -325,7 +325,7 @@ for m in materials:
                    % (mid, mpath, spdx))
         elif not os.path.isfile(lt_full) or os.path.getsize(lt_full) == 0:
             refuse("RM-LICENCE-TEXT-MISSING",
-                   "%s (%s): %s requires the licence text to be retained, and "
+                   "%s (%s): %s obligation retain-license-text is unmet — "
                    "%s is absent or empty. The obligation attaches TODAY, to "
                    "material already in this tree; it does not wait on any "
                    "outbound licence decision."
@@ -340,8 +340,8 @@ for m in materials:
                    "entry names no required_notice." % (mid, mpath, spdx))
         elif not os.path.isfile(nt_full) or os.path.getsize(nt_full) == 0:
             refuse("RM-NOTICE-MISSING",
-                   "%s (%s): %s requires the upstream NOTICE to be carried "
-                   "forward, and %s is absent or empty. A local attribution "
+                   "%s (%s): %s obligation retain-notice-file is unmet — the "
+                   "upstream NOTICE %s is absent or empty. A local attribution "
                    "note is not a substitute for the upstream NOTICE file."
                    % (mid, mpath, spdx, nt))
 
