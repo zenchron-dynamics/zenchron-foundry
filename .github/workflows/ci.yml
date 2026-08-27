@@ -156,6 +156,18 @@ jobs:
       - name: Gate — licence policy
         run: bash scripts/license/assert-license-policy.sh --self-test
 
+      # The licence gate above reads IMAGE SBOMs. Material that lives in the
+      # repository and in no image is invisible to it BY CONSTRUCTION — that is
+      # how 832 lines copied verbatim from Moby v27.3.1 sat unattributed with no
+      # control able to see them (#120). This step is the other half, and unlike
+      # the line above it is NOT only a self-test: the second invocation gates
+      # the real, committed inventory over the real tree.
+      - name: Gate — repository material (the licence gate's repository-side blind spot)
+        run: |
+          bash scripts/license/assert-repository-material.sh --self-test
+          bash scripts/license/assert-repository-material.sh \
+            --inventory policies/repository-material.yaml
+
       - name: Gate — CRA control set
         run: bash scripts/cra/assert-cra-controls.sh
 
