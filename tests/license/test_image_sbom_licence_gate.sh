@@ -263,6 +263,12 @@ echo "== the accepted evidence: why reusing it is valid, and how far ===========
 #            be false and a reviewer diffing it would find that immediately.
 #   NOT CLAIMED: that the SBOM package lists below are those images' real
 #            package inventories. They are not; see the pinned gap at the end.
+# CHECKED FIRST, because the two history claims below are `git diff` against a
+# 2026-08-20 commit. In a shallow checkout that diff FAILS, prints nothing, and
+# an emptiness test reads the silence as agreement — green and substantively
+# absent. So the precondition is asserted rather than assumed.
+ck "the accepted revision is present in this checkout, so the reuse claim is checkable" \
+   "git cat-file -e '$REV^{commit}' 2>/dev/null"
 ck "the accepted run names a 40-hex source revision, not a branch or a tag" \
    "printf '%s' '$REV' | grep -qE '^[0-9a-f]{40}$'"
 ck "every accepted child is addressed by an IMMUTABLE content digest" \
