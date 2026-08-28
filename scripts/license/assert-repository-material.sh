@@ -60,6 +60,11 @@
 #   RM-COPYRIGHT-MISSING         obligation retain-copyright-notice is unmet
 #   RM-CHANGES-NOT-STATED        obligation state-changes is unmet
 #   RM-UNINVENTORIED-MATERIAL    a signal fired on a file in neither array
+#   RM-LICENCE-TEXT-STORE-UNREADABLE  the carried licence-text store is declared
+#                                and its provenance record is absent or not one
+#   RM-LICENCE-TEXT-STORE-UNTRACKED   the record lists a path git does not track
+#   RM-LICENCE-TEXT-STORE-MISSING     the record lists a text that is not there
+#   RM-LICENCE-TEXT-STORE-DRIFT       a carried text is not the bytes recorded
 #   RM-BASELINE-UNVERIFIABLE     the reviewed baseline cannot be checked
 #   RM-BASELINE-STALE            tracked paths outside the reviewed baseline
 #   RM-BASELINE-COHORT-INVALID   the reviewed/unreviewed/generated-audit split
@@ -377,8 +382,73 @@ for m in materials:
                    "upstream it credits is worse than an uncredited copy."
                    % (mid, mpath, spdx, method))
 
+# =============================================================================
+# THE CARRIED LICENCE-TEXT STORE
+# -----------------------------------------------------------------------------
+# A redistributor of a component licensed under X owes the recipient the text of
+# X. Those texts are third-party material sitting in the tree, so the discovery
+# scanner finds every one of them — correctly. They are not `materials` (nothing
+# in this repository INCORPORATES the text of GPL-2.0; it is carried to
+# DISCHARGE an obligation) and they are not `dispositions` (a disposition says
+# "this is not copied material", and a licence text plainly is).
+#
+# So the inventory declares the store once, by naming its provenance record, and
+# this gate reads that record: every file it lists is covered, and every file it
+# lists must EXIST, be TRACKED and hash to the bytes the record claims. Listing a
+# text is not carrying it, and carrying a different text than the one recorded is
+# worse than carrying none — a recipient checking the hash would be the first to
+# find out.
+# =============================================================================
+store = inv.get("carried_licence_texts") or {}
+store_paths = set()
+if store:
+    sp = store.get("provenance") or ""
+    sp_full = abspath(sp) if sp else ""
+    if not sp or not os.path.isfile(sp_full):
+        refuse("RM-LICENCE-TEXT-STORE-UNREADABLE",
+               "carried_licence_texts.provenance is %r and there is no such file. "
+               "A declared store with no provenance record is a directory of "
+               "texts nobody can check the origin of." % (sp or "<unset>",))
+    else:
+        try:
+            with open(sp_full) as fh:
+                prov = yaml.safe_load(fh) or {}
+        except (OSError, ValueError, yaml.YAMLError) as e:
+            prov = None
+            refuse("RM-LICENCE-TEXT-STORE-UNREADABLE",
+                   "%s is unreadable: %s" % (sp, e))
+        if prov is not None:
+            if prov.get("record_type") != "carried-licence-texts":
+                refuse("RM-LICENCE-TEXT-STORE-UNREADABLE",
+                       "%s is not a carried-licence-texts record (record_type=%r)"
+                       % (sp, prov.get("record_type")))
+            store_paths.add(sp)
+            for f in prov.get("files") or []:
+                fp = f.get("path") or ""
+                store_paths.add(fp)
+                if fp and fp not in tracked_set:
+                    refuse("RM-LICENCE-TEXT-STORE-UNTRACKED",
+                           "%s lists %s and git does not track it. A licence text "
+                           "that is not in the tree is not carried, whatever the "
+                           "record says." % (sp, fp))
+                    continue
+                full = abspath(fp)
+                if not fp or not os.path.isfile(full) or os.path.getsize(full) == 0:
+                    refuse("RM-LICENCE-TEXT-STORE-MISSING",
+                           "%s lists %s and it is absent or empty."
+                           % (sp, fp or "<unset>"))
+                    continue
+                want = f.get("sha256") or ""
+                got = sha256_file(full)
+                if want != got:
+                    refuse("RM-LICENCE-TEXT-STORE-DRIFT",
+                           "%s: %s hashes to %s and the record claims %s. A text "
+                           "that is not the bytes its provenance names discharges "
+                           "nothing — a recipient checking it would be the first "
+                           "to find out." % (sp, fp, got[:16], (want or "<unset>")[:16]))
+
 disposition_paths = [d.get("path") or "" for d in dispositions]
-covered = set(material_paths) | set(disposition_paths) | obligation_artifacts
+covered = set(material_paths) | set(disposition_paths) | obligation_artifacts | store_paths
 
 # =============================================================================
 # DISCOVERY — heuristic. Read the module header before trusting it.

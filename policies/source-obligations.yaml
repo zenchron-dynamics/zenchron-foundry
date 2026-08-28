@@ -1,0 +1,2308 @@
+# =============================================================================
+# policies/source-obligations.yaml
+#   MECHANICALLY SUPPORTABLE FACTS about the reciprocal / source-offer
+#   obligations the shipped image cohort carries. Issue #120.
+# -----------------------------------------------------------------------------
+# THIS FILE DECIDES NOTHING AND SATISFIES NOTHING.
+#
+# It does not conclude that any obligation is met, does not approve a source
+# delivery mechanism, does not state that a URL is a sufficient written offer,
+# and does not interpret LGPL relinking. Every one of those is a legal decision,
+# there is no appointed legal owner (#98), and an engineer recording a fact is
+# not an engineer discharging an obligation.
+#
+# What it does is remove the excuse that the facts were unknown. For every
+# component in the accepted 20-child cohort that carries a reciprocal identifier,
+# it records the exact binary package and version, the exact SOURCE package and
+# version resolved from an immutable archive, which licence texts are carried,
+# and what is still unresolved. A lawyer can act on this. Nobody has to re-derive
+# it, and nobody can quietly narrow it.
+#
+# HOW THE SET WAS DERIVED, so it can be checked rather than trusted.
+#   Input: the committed gate refusal
+#     docs/audits/real-image-inventories-2026-08-28/licence/image-licence-policy-diagnostic.log
+#   Every finding line in the "sources disagree" (196) and "licence needs legal
+#   review" (19) sections was scanned for an SPDX identifier matching
+#   ^(GPL|LGPL|AGPL|MPL|EPL|CDDL). 162 components carry at least one.
+#   Debian binary -> source came from snapshot.debian.org /mr/binary/<name>/,
+#   matched on the EXACT binary_version, 143 of 143 resolved.
+#   Alpine binary -> source came from the aports git tag below, matched on
+#   pkgver-pkgrel, 19 of 19 resolved across 10 origins.
+#
+# THE COUNT CORRECTION. An earlier audit note said LGPL-2.0 sat on "25 distinct
+# core Debian packages". The measurement here is 28 (binary package, version)
+# pairs over 27 distinct binary package names — liblzma5 appears at two versions.
+# The 28 are the ones flagged `lgpl_2_0: true` below. The earlier figure was
+# prose and is corrected here, not carried forward.
+# =============================================================================
+schema: foundry.source-obligations/v1
+version: 1
+tracked_issue: 120
+
+measurement:
+  cohort: the 20 accepted production children
+  source_revision: 7061caafb3ea09bd5b2342a1daf022151b33f822
+  evidence: docs/audits/real-image-inventories-2026-08-28/licence/image-licence-policy-diagnostic.log
+  components_with_a_reciprocal_identifier: 162
+  debian_components: 143
+  alpine_components: 19
+  lgpl_2_0_bearing_components: 28
+  collected_at: '2026-08-28T10:16:19Z'
+
+source_authorities:
+  debian:
+    name: snapshot.debian.org
+    api: https://snapshot.debian.org/mr/binary/<binary>/
+    immutability: >-
+      snapshot.debian.org retains every version ever published in the Debian
+      archive and serves it by exact version. A (binary, binary_version) pair
+      resolves to one (source, source_version) permanently.
+    source_url_template: https://snapshot.debian.org/package/<source>/<source_version>/
+  alpine:
+    name: alpine/aports
+    repository: https://gitlab.alpinelinux.org/alpine/aports
+    revision_tag: v3.23.5
+    revision_commit: 1fa9ca1a79c5fd52c46a70b2199059c41ead572a
+    immutability: >-
+      The release tag is immutable. main/<origin>/APKBUILD at that tag declares
+      pkgver and pkgrel, which reconstruct the exact -rN binary version. The
+      dl-cdn APKINDEX was used only to discover candidate origins and is NOT
+      cited as an authority: it is mutable and had already moved past two of
+      these versions when this was collected.
+    source_url_template: https://gitlab.alpinelinux.org/alpine/aports/-/tree/v3.23.5/main/<origin>
+
+# --- facts that are uniform across every entry, stated once ------------------
+uniform_facts:
+  modified_by_foundry:
+    value: false
+    basis: >-
+      No image definition under images/ patches, rebuilds, relinks or otherwise
+      modifies any of these packages. Every one is installed unmodified from its
+      distribution archive by apt-get or apk in the Dockerfile, and
+      policies/supply-chain-inputs.yaml records the only externally fetched
+      inputs Foundry does build (phpredis, and the extensions compiled by
+      docker-php-ext-install from php-src). A redistributor who does not modify
+      still owes the corresponding source; "we did not change it" narrows the
+      state-changes obligation and narrows nothing else.
+  linkage:
+    determined: false
+    hypothesis: >-
+      The Debian shared-library packages (lib*.so.N) are dynamically linked by
+      the construction of the Debian package split, and the Alpine ones the same
+      way. That is a convention, not a measurement.
+    why_not_determined: >-
+      Proving linkage requires reading the shipped binaries. The 40 SBOM
+      documents for this cohort are 86 MB and are not committed, and this batch
+      was required to rebuild nothing. Recording a convention as a measurement
+      is exactly the substitution this repository keeps removing.
+    determination_method: >-
+      For each child, by immutable digest and without rebuilding:
+        syft/crane the layer, then for each candidate library
+        `readelf -d <consumer> | grep NEEDED` and `ldd <consumer>`
+      inside a container run from the pinned digest. The result belongs in an
+      audit record beside this file, not in prose here.
+  upstream_notice_files:
+    carried: false
+    detail: >-
+      No upstream NOTICE file is carried for any entry below. Debian records
+      per-package copyright and licence in /usr/share/doc/<pkg>/copyright inside
+      the image; that file is the per-package attribution and it is NOT currently
+      extracted, carried or hashed. Doing so is engineering work, it is named as
+      an unresolved obligation below, and its absence is why the notice producer
+      REFUSES rather than emitting a bundle that looks complete.
+  licence_texts:
+    carried: true
+    where: third-party/licence-texts/
+    provenance: third-party/licence-texts/PROVENANCE.yaml
+    detail: >-
+      The canonical SPDX text for every reciprocal identifier appearing below is
+      carried verbatim from spdx/license-list-data v3.28.0. Carrying the text of
+      a licence discharges "retain-license-text" and discharges NOTHING ELSE —
+      in particular it does not discharge the corresponding-source obligation
+      that GPL-2.0, GPL-3.0, LGPL-2.0, LGPL-2.1 and LGPL-3.0 each impose.
+
+# --- what a source offer COULD be, enumerated and NONE approved --------------
+# Listing an option is not choosing it. Each carries a duration or availability
+# commitment that only a rights holder can make.
+delivery_mechanisms_considered:
+  - id: accompany-with-source
+    description: >-
+      Ship the corresponding source alongside the binary — for images, a source
+      artifact pushed to the same registry repository and referenced from the
+      image manifest.
+    foundry_can_execute_today: false
+    blocked_on: >-
+      No source artifact is built, published or retained. Building one is
+      engineering work of a size that needs its own change; it is not blocked on
+      a legal decision.
+  - id: written-offer
+    description: >-
+      A written offer, valid for the period the licence requires, to provide the
+      corresponding source to any third party.
+    foundry_can_execute_today: false
+    blocked_on: >-
+      A duration and availability COMMITMENT. Only a rights holder can make one.
+      GPL-2.0 s.3(b) attaches a three-year term; GPL-3.0 s.6(b) ties it to the
+      support period. Nothing in this repository may promise either.
+  - id: upstream-url-pass-through
+    description: >-
+      Point recipients at snapshot.debian.org and the aports tag.
+    foundry_can_execute_today: false
+    blocked_on: >-
+      Sufficiency. A URL to somebody else's archive is NOT on its face a
+      conforming source offer, and this file does not claim it is. It is recorded
+      because the identifiers below make it CHECKABLE, not because it is enough.
+  - id: no-distribution
+    description: >-
+      If #98 resolves to internal-only distribution, the analysis changes
+      entirely and some of these obligations may not attach at all.
+    foundry_can_execute_today: false
+    blocked_on: '#98'
+
+# --- the questions engineering must NOT answer -------------------------------
+unresolved_legal_questions:
+  - id: SO-Q1
+    question: >-
+      Under the distribution model #98 settles, does distributing these container
+      images constitute "distribution" or "conveying" for GPL-2.0 s.3, GPL-3.0
+      s.6, and the LGPL corresponding-source obligations at all?
+    owner: '#98 — rights holder and counsel'
+  - id: SO-Q2
+    question: >-
+      Which of the enumerated delivery mechanisms is sufficient, and for what
+      duration and availability?
+    owner: '#98 — rights holder and counsel'
+  - id: SO-Q3
+    question: >-
+      For the LGPL components, does shipping the unmodified shared library in a
+      container image satisfy the relinking condition, and does the image form
+      change the answer?
+    owner: '#98 — counsel'
+  - id: SO-Q4
+    question: >-
+      Do the "OR" expressions (libcap "BSD-3-Clause OR GPL-2.0-only", libidn2 and
+      libunistring "GPL-2.0-or-later OR LGPL-3.0-or-later", zstd "BSD-3-Clause OR
+      GPL-2.0-or-later") let Foundry elect the permissive branch, and who records
+      the election?
+    owner: '#98 — counsel. An election is a legal act and no tool here makes one.'
+  - id: SO-Q5
+    question: >-
+      Is the PHP-3.01 naming clause compatible with the outbound terms #98
+      selects? The identifier is now established by
+      policies/upstream-licence-attestations.yaml; the compatibility question is
+      not.
+    owner: '#98 — counsel'
+
+# --- the components ----------------------------------------------------------
+# One line per (binary package, version). `texts_carried` says the SPDX text for
+# every reciprocal identifier on that line exists under third-party/licence-texts/.
+# `source_obligation` is `unresolved` on every line, and stays unresolved until a
+# rights holder approves a mechanism: there is no field an engineer can set.
+components:
+  - binary: adduser
+    binary_version: '3.134'
+    eco: deb
+    source: adduser
+    source_version: '3.134'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: alpine-baselayout-data
+    binary_version: '3.7.2-r0'
+    eco: apk
+    source: main/alpine-baselayout
+    source_version: '3.7.2-r0'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: alpine-baselayout
+    binary_version: '3.7.2-r0'
+    eco: apk
+    source: main/alpine-baselayout
+    source_version: '3.7.2-r0'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: apk-tools
+    binary_version: '3.0.6-r0'
+    eco: apk
+    source: main/apk-tools
+    source_version: '3.0.6-r0'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: apt
+    binary_version: '2.6.1'
+    eco: deb
+    source: apt
+    source_version: '2.6.1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: base-passwd
+    binary_version: '3.6.1'
+    eco: deb
+    source: base-passwd
+    source_version: '3.6.1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: bash
+    binary_version: '5.2.15-2+b10'
+    eco: deb
+    source: bash
+    source_version: '5.2.15-2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: bash
+    binary_version: '5.2.15-2+b13'
+    eco: deb
+    source: bash
+    source_version: '5.2.15-2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: bsdutils
+    binary_version: '1:2.38.1-5+deb12u3'
+    eco: deb
+    source: util-linux
+    source_version: '2.38.1-5+deb12u3'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: busybox-binsh
+    binary_version: '1.37.0-r30'
+    eco: apk
+    source: main/busybox
+    source_version: '1.37.0-r30'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: busybox
+    binary_version: '1.37.0-r30'
+    eco: apk
+    source: main/busybox
+    source_version: '1.37.0-r30'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: bzip2
+    binary_version: '1.0.8-5+b1'
+    eco: deb
+    source: bzip2
+    source_version: '1.0.8-5'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: ca-certificates-bundle
+    binary_version: '20260611-r0'
+    eco: apk
+    source: main/ca-certificates
+    source_version: '20260611-r0'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - MPL-2.0
+  - binary: ca-certificates
+    binary_version: '20230311+deb12u1'
+    eco: deb
+    source: ca-certificates
+    source_version: '20230311+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - MPL-2.0
+  - binary: ca-certificates
+    binary_version: '20250419~deb12u1'
+    eco: deb
+    source: ca-certificates
+    source_version: '20250419~deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - MPL-2.0
+  - binary: ca-certificates
+    binary_version: '20260611-r0'
+    eco: apk
+    source: main/ca-certificates
+    source_version: '20260611-r0'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - MPL-2.0
+  - binary: coreutils
+    binary_version: '9.1-1'
+    eco: deb
+    source: coreutils
+    source_version: '9.1-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: cpp-12
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: curl
+    binary_version: '7.88.1-10+deb12u15'
+    eco: deb
+    source: curl
+    source_version: '7.88.1-10+deb12u15'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-or-later
+  - binary: dash
+    binary_version: '0.5.12-2'
+    eco: deb
+    source: dash
+    source_version: '0.5.12-2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: debianutils
+    binary_version: '5.7-0.5~deb12u1'
+    eco: deb
+    source: debianutils
+    source_version: '5.7-0.5~deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: diffutils
+    binary_version: '1:3.8-4'
+    eco: deb
+    source: diffutils
+    source_version: '1:3.8-4'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: dpkg
+    binary_version: '1.21.22'
+    eco: deb
+    source: dpkg
+    source_version: '1.21.22'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: dpkg
+    binary_version: '1.21.23'
+    eco: deb
+    source: dpkg
+    source_version: '1.21.23'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: e2fsprogs
+    binary_version: '1.47.0-2+b2'
+    eco: deb
+    source: e2fsprogs
+    source_version: '1.47.0-2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.0-only
+  - binary: findutils
+    binary_version: '4.9.0-4'
+    eco: deb
+    source: findutils
+    source_version: '4.9.0-4'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: gcc-12-base
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: gpgv
+    binary_version: '2.2.40-1.1+deb12u2'
+    eco: deb
+    source: gnupg2
+    source_version: '2.2.40-1.1+deb12u2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: grep
+    binary_version: '3.8-5'
+    eco: deb
+    source: grep
+    source_version: '3.8-5'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: gzip
+    binary_version: '1.12-1'
+    eco: deb
+    source: gzip
+    source_version: '1.12-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: hostname
+    binary_version: '3.23+nmu1'
+    eco: deb
+    source: hostname
+    source_version: '3.23+nmu1'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: init-system-helpers
+    binary_version: '1.65.2+deb12u1'
+    eco: deb
+    source: init-system-helpers
+    source_version: '1.65.2+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libacl1
+    binary_version: '2.3.1-3'
+    eco: deb
+    source: acl
+    source_version: '2.3.1-3'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+  - binary: libapk
+    binary_version: '3.0.6-r0'
+    eco: apk
+    source: main/apk-tools
+    source_version: '3.0.6-r0'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libapt-pkg6.0
+    binary_version: '2.6.1'
+    eco: deb
+    source: apt
+    source_version: '2.6.1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libasan8
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libatomic1
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libattr1
+    binary_version: '1:2.5.1-4'
+    eco: deb
+    source: attr
+    source_version: '1:2.5.1-4'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+  - binary: libaudit-common
+    binary_version: '1:3.0.9-1'
+    eco: deb
+    source: audit
+    source_version: '1:3.0.9-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libaudit1
+    binary_version: '1:3.0.9-1'
+    eco: deb
+    source: audit
+    source_version: '1:3.0.9-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libblkid1
+    binary_version: '2.38.1-5+deb12u3'
+    eco: deb
+    source: util-linux
+    source_version: '2.38.1-5+deb12u3'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: libbz2-1.0
+    binary_version: '1.0.8-5+b1'
+    eco: deb
+    source: bzip2
+    source_version: '1.0.8-5'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libc-bin
+    binary_version: '2.36-9+deb12u13'
+    eco: deb
+    source: glibc
+    source_version: '2.36-9+deb12u13'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libc-bin
+    binary_version: '2.36-9+deb12u14'
+    eco: deb
+    source: glibc
+    source_version: '2.36-9+deb12u14'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libc-dev-bin
+    binary_version: '2.36-9+deb12u14'
+    eco: deb
+    source: glibc
+    source_version: '2.36-9+deb12u14'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libc6
+    binary_version: '2.36-9+deb12u13'
+    eco: deb
+    source: glibc
+    source_version: '2.36-9+deb12u13'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libc6
+    binary_version: '2.36-9+deb12u14'
+    eco: deb
+    source: glibc
+    source_version: '2.36-9+deb12u14'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libcap-getcap
+    binary_version: '2.78-r0'
+    eco: apk
+    source: main/libcap
+    source_version: '2.78-r0'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libcap-ng0
+    binary_version: '0.8.3-1+b3'
+    eco: deb
+    source: libcap-ng
+    source_version: '0.8.3-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libcap-setcap
+    binary_version: '2.78-r0'
+    eco: apk
+    source: main/libcap
+    source_version: '2.78-r0'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libcap-utils
+    binary_version: '2.78-r0'
+    eco: apk
+    source: main/libcap
+    source_version: '2.78-r0'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libcap2
+    binary_version: '1:2.66-4+deb12u3+b1'
+    eco: deb
+    source: libcap2
+    source_version: '1:2.66-4+deb12u3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libcap2
+    binary_version: '2.78-r0'
+    eco: apk
+    source: main/libcap
+    source_version: '2.78-r0'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libcap
+    binary_version: '2.78-r0'
+    eco: apk
+    source: main/libcap
+    source_version: '2.78-r0'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libcc1-0
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libcom-err2
+    binary_version: '1.47.0-2+b2'
+    eco: deb
+    source: e2fsprogs
+    source_version: '1.47.0-2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.0-only
+  - binary: libcurl4
+    binary_version: '7.88.1-10+deb12u15'
+    eco: deb
+    source: curl
+    source_version: '7.88.1-10+deb12u15'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-or-later
+  - binary: libdb5.3
+    binary_version: '5.3.28+dfsg2-1'
+    eco: deb
+    source: db5.3
+    source_version: '5.3.28+dfsg2-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+  - binary: libdebconfclient0
+    binary_version: '0.270'
+    eco: deb
+    source: cdebconf
+    source_version: '0.270'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libdpkg-perl
+    binary_version: '1.21.23'
+    eco: deb
+    source: dpkg
+    source_version: '1.21.23'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libext2fs2
+    binary_version: '1.47.0-2+b2'
+    eco: deb
+    source: e2fsprogs
+    source_version: '1.47.0-2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.0-only
+  - binary: libffi8
+    binary_version: '3.4.4-1'
+    eco: deb
+    source: libffi
+    source_version: '3.4.4-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-or-later
+      - GPL-3.0-or-later
+      - MPL-1.1
+  - binary: libfreetype6
+    binary_version: '2.12.1+dfsg-5+deb12u4'
+    eco: deb
+    source: freetype
+    source_version: '2.12.1+dfsg-5+deb12u4'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: libgcc-12-dev
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libgcc-s1
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libgcrypt20
+    binary_version: '1.10.1-3'
+    eco: deb
+    source: libgcrypt20
+    source_version: '1.10.1-3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libgcrypt20
+    binary_version: '1.10.1-3+deb12u1'
+    eco: deb
+    source: libgcrypt20
+    source_version: '1.10.1-3+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libgdbm-compat4
+    binary_version: '1.23-3'
+    eco: deb
+    source: gdbm
+    source_version: '1.23-3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: libgdbm6
+    binary_version: '1.23-3'
+    eco: deb
+    source: gdbm
+    source_version: '1.23-3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: libgmp10
+    binary_version: '2:6.2.1+dfsg1-1.1'
+    eco: deb
+    source: gmp
+    source_version: '2:6.2.1+dfsg1-1.1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: libgnutls30
+    binary_version: '3.7.9-2+deb12u7'
+    eco: deb
+    source: gnutls28
+    source_version: '3.7.9-2+deb12u7'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - LGPL-3.0-only
+  - binary: libgomp1
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libgpg-error0
+    binary_version: '1.46-1'
+    eco: deb
+    source: libgpg-error
+    source_version: '1.46-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libgssapi-krb5-2
+    binary_version: '1.20.1-2+deb12u5'
+    eco: deb
+    source: krb5
+    source_version: '1.20.1-2+deb12u5'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libhogweed6
+    binary_version: '3.8.1-2'
+    eco: deb
+    source: nettle
+    source_version: '3.8.1-2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-3.0-or-later
+  - binary: libhwasan0
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libicu72
+    binary_version: '72.1-3+deb12u1'
+    eco: deb
+    source: icu
+    source_version: '72.1-3+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+  - binary: libidn2-0
+    binary_version: '2.3.3-1+b1'
+    eco: deb
+    source: libidn2
+    source_version: '2.3.3-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: libidn2
+    binary_version: '2.3.8-r0'
+    eco: apk
+    source: main/libidn2
+    source_version: '2.3.8-r0'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-or-later
+      - LGPL-3.0-or-later
+  - binary: libisl23
+    binary_version: '0.25-1.1'
+    eco: deb
+    source: isl
+    source_version: '0.25-1.1'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - LGPL-2.0-only
+      - LGPL-2.1-or-later
+  - binary: libitm1
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libk5crypto3
+    binary_version: '1.20.1-2+deb12u5'
+    eco: deb
+    source: krb5
+    source_version: '1.20.1-2+deb12u5'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libkeyutils1
+    binary_version: '1.6.3-2'
+    eco: deb
+    source: keyutils
+    source_version: '1.6.3-2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+  - binary: libkrb5-3
+    binary_version: '1.20.1-2+deb12u5'
+    eco: deb
+    source: krb5
+    source_version: '1.20.1-2+deb12u5'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libkrb5support0
+    binary_version: '1.20.1-2+deb12u5'
+    eco: deb
+    source: krb5
+    source_version: '1.20.1-2+deb12u5'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libldap-2.5-0
+    binary_version: '2.5.13+dfsg-5'
+    eco: deb
+    source: openldap
+    source_version: '2.5.13+dfsg-5'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: liblsan0
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: liblz4-1
+    binary_version: '1.9.4-1'
+    eco: deb
+    source: lz4
+    source_version: '1.9.4-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: liblzma5
+    binary_version: '5.4.1-1'
+    eco: deb
+    source: xz-utils
+    source_version: '5.4.1-1'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - LGPL-2.0-only
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: liblzma5
+    binary_version: '5.4.1-1+deb12u1'
+    eco: deb
+    source: xz-utils
+    source_version: '5.4.1-1+deb12u1'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - LGPL-2.0-only
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libmount1
+    binary_version: '2.38.1-5+deb12u3'
+    eco: deb
+    source: util-linux
+    source_version: '2.38.1-5+deb12u3'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: libmpc3
+    binary_version: '1.3.1-1'
+    eco: deb
+    source: mpclib3
+    source_version: '1.3.1-1'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - LGPL-3.0-only
+  - binary: libmpfr6
+    binary_version: '4.2.0-1'
+    eco: deb
+    source: mpfr4
+    source_version: '4.2.0-1'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - LGPL-3.0-only
+  - binary: libnettle8
+    binary_version: '3.8.1-2'
+    eco: deb
+    source: nettle
+    source_version: '3.8.1-2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-3.0-or-later
+  - binary: libnghttp2-14
+    binary_version: '1.52.0-1+deb12u3'
+    eco: deb
+    source: nghttp2
+    source_version: '1.52.0-1+deb12u3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: libnsl-dev
+    binary_version: '1.3.0-2'
+    eco: deb
+    source: libnsl
+    source_version: '1.3.0-2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libnsl2
+    binary_version: '1.3.0-2'
+    eco: deb
+    source: libnsl
+    source_version: '1.3.0-2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libonig5
+    binary_version: '6.9.8-1'
+    eco: deb
+    source: libonig
+    source_version: '6.9.8-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libp11-kit0
+    binary_version: '0.24.1-2'
+    eco: deb
+    source: p11-kit
+    source_version: '0.24.1-2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libpam-modules-bin
+    binary_version: '1.5.2-6+deb12u2'
+    eco: deb
+    source: pam
+    source_version: '1.5.2-6+deb12u2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+  - binary: libpam-modules
+    binary_version: '1.5.2-6+deb12u2'
+    eco: deb
+    source: pam
+    source_version: '1.5.2-6+deb12u2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+  - binary: libpam-runtime
+    binary_version: '1.5.2-6+deb12u2'
+    eco: deb
+    source: pam
+    source_version: '1.5.2-6+deb12u2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+  - binary: libpam0g
+    binary_version: '1.5.2-6+deb12u2'
+    eco: deb
+    source: pam
+    source_version: '1.5.2-6+deb12u2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+  - binary: libperl5.36
+    binary_version: '5.36.0-7+deb12u3'
+    eco: deb
+    source: perl
+    source_version: '5.36.0-7+deb12u3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-1.0-or-later
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.1-only
+  - binary: libpkgconf3
+    binary_version: '1.8.1-1'
+    eco: deb
+    source: pkgconf
+    source_version: '1.8.1-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libpng16-16
+    binary_version: '1.6.39-2+deb12u5'
+    eco: deb
+    source: libpng1.6
+    source_version: '1.6.39-2+deb12u5'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libpq5
+    binary_version: '15.19-0+deb12u1'
+    eco: deb
+    source: postgresql-15
+    source_version: '15.19-0+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+  - binary: libquadmath0
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libreadline8
+    binary_version: '8.2-1.3'
+    eco: deb
+    source: readline
+    source_version: '8.2-1.3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: librtmp1
+    binary_version: '2.4+20151223.gitfa8646d.1-2+b2'
+    eco: deb
+    source: rtmpdump
+    source_version: '2.4+20151223.gitfa8646d.1-2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libsasl2-2
+    binary_version: '2.1.28+dfsg-10'
+    eco: deb
+    source: cyrus-sasl2
+    source_version: '2.1.28+dfsg-10'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: libsasl2-modules-db
+    binary_version: '2.1.28+dfsg-10'
+    eco: deb
+    source: cyrus-sasl2
+    source_version: '2.1.28+dfsg-10'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: libseccomp2
+    binary_version: '2.5.4-1+deb12u1'
+    eco: deb
+    source: libseccomp
+    source_version: '2.5.4-1+deb12u1'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - LGPL-2.1-only
+  - binary: libselinux1
+    binary_version: '3.4-1+b6'
+    eco: deb
+    source: libselinux
+    source_version: '3.4-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libsepol2
+    binary_version: '3.4-2.1'
+    eco: deb
+    source: libsepol
+    source_version: '3.4-2.1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libsmartcols1
+    binary_version: '2.38.1-5+deb12u3'
+    eco: deb
+    source: util-linux
+    source_version: '2.38.1-5+deb12u3'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: libsodium23
+    binary_version: '1.0.18-1+deb12u1'
+    eco: deb
+    source: libsodium
+    source_version: '1.0.18-1+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libsqlite3-0
+    binary_version: '3.40.1-2+deb12u2'
+    eco: deb
+    source: sqlite3
+    source_version: '3.40.1-2+deb12u2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: libss2
+    binary_version: '1.47.0-2+b2'
+    eco: deb
+    source: e2fsprogs
+    source_version: '1.47.0-2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.0-only
+  - binary: libssl3
+    binary_version: '3.0.20-1~deb12u2'
+    eco: deb
+    source: openssl
+    source_version: '3.0.20-1~deb12u2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-1.0-or-later
+  - binary: libstdc++6
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libsvtav1enc1
+    binary_version: '1.4.1+dfsg-1'
+    eco: deb
+    source: svt-av1
+    source_version: '1.4.1+dfsg-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libsystemd0
+    binary_version: '252.39-1~deb12u2'
+    eco: deb
+    source: systemd
+    source_version: '252.39-1~deb12u2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libtasn1-6
+    binary_version: '4.19.0-2+deb12u1'
+    eco: deb
+    source: libtasn1-6
+    source_version: '4.19.0-2+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - LGPL-2.1-only
+  - binary: libtirpc-common
+    binary_version: '1.3.3+ds-1'
+    eco: deb
+    source: libtirpc
+    source_version: '1.3.3+ds-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libtirpc-dev
+    binary_version: '1.3.3+ds-1'
+    eco: deb
+    source: libtirpc
+    source_version: '1.3.3+ds-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libtirpc3
+    binary_version: '1.3.3+ds-1'
+    eco: deb
+    source: libtirpc
+    source_version: '1.3.3+ds-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - LGPL-2.1-only
+  - binary: libtsan2
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libubsan1
+    binary_version: '12.2.0-14+deb12u1'
+    eco: deb
+    source: gcc-12
+    source_version: '12.2.0-14+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: libudev1
+    binary_version: '252.39-1~deb12u2'
+    eco: deb
+    source: systemd
+    source_version: '252.39-1~deb12u2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: libunistring2
+    binary_version: '1.0-2'
+    eco: deb
+    source: libunistring
+    source_version: '1.0-2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: libunistring
+    binary_version: '1.4.1-r0'
+    eco: apk
+    source: main/libunistring
+    source_version: '1.4.1-r0'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-or-later
+      - LGPL-3.0-or-later
+  - binary: libuuid1
+    binary_version: '2.38.1-5+deb12u3'
+    eco: deb
+    source: util-linux
+    source_version: '2.38.1-5+deb12u3'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: libxxhash0
+    binary_version: '0.8.1-1'
+    eco: deb
+    source: xxhash
+    source_version: '0.8.1-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: libzip4
+    binary_version: '1.7.3-1+b1'
+    eco: deb
+    source: libzip
+    source_version: '1.7.3-1'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+  - binary: libzstd1
+    binary_version: '1.5.4+dfsg2-5'
+    eco: deb
+    source: libzstd
+    source_version: '1.5.4+dfsg2-5'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: login
+    binary_version: '1:4.13+dfsg1-1+deb12u2'
+    eco: deb
+    source: shadow
+    source_version: '1:4.13+dfsg1-1+deb12u2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: logsave
+    binary_version: '1.47.0-2+b2'
+    eco: deb
+    source: e2fsprogs
+    source_version: '1.47.0-2'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.0-only
+  - binary: mawk
+    binary_version: '1.3.4.20200120-3.1'
+    eco: deb
+    source: mawk
+    source_version: '1.3.4.20200120-3.1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: mount
+    binary_version: '2.38.1-5+deb12u3'
+    eco: deb
+    source: util-linux
+    source_version: '2.38.1-5+deb12u3'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: musl-utils
+    binary_version: '1.2.5-r23'
+    eco: apk
+    source: main/musl
+    source_version: '1.2.5-r23'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-or-later
+  - binary: openssl
+    binary_version: '3.0.20-1~deb12u2'
+    eco: deb
+    source: openssl
+    source_version: '3.0.20-1~deb12u2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-1.0-or-later
+  - binary: passwd
+    binary_version: '1:4.13+dfsg1-1+deb12u2'
+    eco: deb
+    source: shadow
+    source_version: '1:4.13+dfsg1-1+deb12u2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: perl-base
+    binary_version: '5.36.0-7+deb12u3'
+    eco: deb
+    source: perl
+    source_version: '5.36.0-7+deb12u3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-1.0-or-later
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.1-only
+  - binary: perl-modules-5.36
+    binary_version: '5.36.0-7+deb12u3'
+    eco: deb
+    source: perl
+    source_version: '5.36.0-7+deb12u3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-1.0-or-later
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.1-only
+  - binary: perl
+    binary_version: '5.36.0-7+deb12u3'
+    eco: deb
+    source: perl
+    source_version: '5.36.0-7+deb12u3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-1.0-only
+      - GPL-1.0-or-later
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - LGPL-2.1-only
+  - binary: pkg-config
+    binary_version: '1.8.1-1'
+    eco: deb
+    source: pkgconf
+    source_version: '1.8.1-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: pkgconf-bin
+    binary_version: '1.8.1-1'
+    eco: deb
+    source: pkgconf
+    source_version: '1.8.1-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: pkgconf
+    binary_version: '1.8.1-1'
+    eco: deb
+    source: pkgconf
+    source_version: '1.8.1-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: readline-common
+    binary_version: '8.2-1.3'
+    eco: deb
+    source: readline
+    source_version: '8.2-1.3'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: rpcsvc-proto
+    binary_version: '1.4.3-1'
+    eco: deb
+    source: rpcsvc-proto
+    source_version: '1.4.3-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-3.0-only
+  - binary: scanelf
+    binary_version: '1.3.8-r2'
+    eco: apk
+    source: main/pax-utils
+    source_version: '1.3.8-r2'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: sed
+    binary_version: '4.9-1'
+    eco: deb
+    source: sed
+    source_version: '4.9-1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: sed
+    binary_version: '4.9-1+deb12u1'
+    eco: deb
+    source: sed
+    source_version: '4.9-1+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+  - binary: ssl_client
+    binary_version: '1.37.0-r30'
+    eco: apk
+    source: main/busybox
+    source_version: '1.37.0-r30'
+    finding: legal-review-required
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+  - binary: sysvinit-utils
+    binary_version: '3.06-4'
+    eco: deb
+    source: sysvinit
+    source_version: '3.06-4'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+  - binary: tar
+    binary_version: '1.34+dfsg-1.2+deb12u1'
+    eco: deb
+    source: tar
+    source_version: '1.34+dfsg-1.2+deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: usr-is-merged
+    binary_version: '37~deb12u1'
+    eco: deb
+    source: usrmerge
+    source_version: '37~deb12u1'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+  - binary: util-linux-extra
+    binary_version: '2.38.1-5+deb12u3'
+    eco: deb
+    source: util-linux
+    source_version: '2.38.1-5+deb12u3'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: util-linux
+    binary_version: '2.38.1-5+deb12u3'
+    eco: deb
+    source: util-linux
+    source_version: '2.38.1-5+deb12u3'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - GPL-3.0-or-later
+      - LGPL-2.0-only
+      - LGPL-2.0-or-later
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+      - LGPL-3.0-only
+      - LGPL-3.0-or-later
+  - binary: xz-utils
+    binary_version: '5.4.1-1+deb12u1'
+    eco: deb
+    source: xz-utils
+    source_version: '5.4.1-1+deb12u1'
+    finding: conflict
+    lgpl_2_0: true
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-only
+      - GPL-2.0-or-later
+      - GPL-3.0-only
+      - LGPL-2.0-only
+      - LGPL-2.1-only
+      - LGPL-2.1-or-later
+  - binary: zstd-libs
+    binary_version: '1.5.7-r2'
+    eco: apk
+    source: main/zstd
+    source_version: '1.5.7-r2'
+    finding: conflict
+    lgpl_2_0: false
+    texts_carried: true
+    source_obligation: unresolved
+    reciprocal:
+      - GPL-2.0-or-later

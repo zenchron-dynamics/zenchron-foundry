@@ -63,19 +63,19 @@ tracked_issue: 120
 # supply-chain guard. Do not "tidy" it back into policies/.
 baseline:
   path_list: docs/licensing/repository-material-baseline.txt
-  path_list_sha256: ad9ffdd7996ff31256a46a1589da483ed0a2c17a0b8b5a3e0747e8432f114717
-  path_count: 785
+  path_list_sha256: 1f73dcd9aaa05423c5b036bcc6900d819a4393c3d4f3edd2ad909c65eb44acd5
+  path_count: 844
   # WHERE THE LIST CAME FROM. Generating a path list is not reviewing it, so
   # this is a SEPARATE field from reviewed_at_revision, and the gate refuses if
   # the two are equal while any path is recorded unreviewed.
-  observed_at_revision: b15ab0e716f8ef3afa532e4e48c98824f3984110
+  observed_at_revision: 033d51e0388b57659f3e5e634632dbc7e761e6e1
   # WHAT WAS ACTUALLY REVIEWED. This describes the REVIEWED COHORT only. It is
   # deliberately NOT advanced by the lane-S, lane-V or lane-W refreshes: those
   # added paths to the list, and adding a path to a list is not reading it.
   reviewed_at_revision: ac1155716e7b244cca6dd3ecbaa89d467a71732c
   reviewed_by: lane-R-repository-material-review
   reviewed_on: '2026-08-27'
-  reviewed_count: 746
+  reviewed_count: 805
   unreviewed_count: 5
   generated_audit_count: 34
   cohort_note: >-
@@ -160,6 +160,58 @@ baseline:
     generated-audit. Nothing else was re-read. In particular the audit prose
     added by the earlier refresh is recorded as UNREVIEWED rather than being
     absorbed into a review nobody performed.
+
+    DELTA, lane-notice-source-obligations: 59 paths were added to the tracked
+    tree by that change and none was removed.
+
+      * policies/source-obligations.yaml, policies/upstream-licence-attestations.yaml
+        and third-party/licence-texts/PROVENANCE.yaml are first-party records
+        authored in that change. They copy no foreign material except the
+        copyright and licence identifiers they exist to attribute, and they are
+        recorded as reviewed on that basis and on no broader one.
+      * the 56 files under third-party/licence-texts/ are canonical SPDX licence
+        TEXTS, copied verbatim from spdx/license-list-data v3.28.0. They are
+        recorded as reviewed, and the review performed is stated exactly: each
+        file is wholly third-party licence text, its upstream project, pinned
+        revision, upstream path and sha256 are recorded in
+        third-party/licence-texts/PROVENANCE.yaml, and every gate run
+        re-verifies those bytes (RM-LICENCE-TEXT-STORE-DRIFT). NO claim is made
+        that a human read 656 KB of licence prose, and none is needed: the
+        question the baseline asks of a path is whether its copied material is
+        accounted for, and for these it is accounted for exhaustively and
+        machine-checkably. Recording them as unreviewed would create a permanent
+        release-scope blocker on the one class of file whose provenance is the
+        most completely established in the tree.
+
+    observed_at_revision was advanced to 033d51e0, the revision the generating
+    checkout was at when `git ls-files` was run. reviewed_at_revision is
+    deliberately NOT advanced: it still describes the lane-R full-review cohort,
+    and the 39 paths the earlier refreshes left unreviewed or generated-audit
+    remain in those cohorts, unabsorbed.
+
+# --- the carried licence-text store ------------------------------------------
+# Canonical SPDX licence TEXTS, carried to DISCHARGE the "retain-license-text"
+# obligation of components inside the IMAGES. They are declared here once, by
+# naming their provenance record; scripts/license/assert-repository-material.sh
+# reads that record and refuses if any listed text is untracked, absent, or not
+# the bytes the record hashes.
+#
+# They are deliberately NOT `materials`: nothing in this repository incorporates
+# the text of GPL-2.0 into a first-party file. They are deliberately NOT
+# `dispositions` either: a disposition asserts "this is not copied material",
+# and a licence text plainly is. Forcing them into either array would have made
+# one of those two sentences false.
+carried_licence_texts:
+  provenance: third-party/licence-texts/PROVENANCE.yaml
+  reason: >-
+    Canonical licence texts for every identifier the licence policy classifies
+    and every identifier the 20-child production cohort resolved, carried
+    verbatim from spdx/license-list-data v3.28.0 so that "retain-license-text"
+    is mechanically dischargeable rather than asserted. Carrying a text
+    discharges that obligation and nothing else; it selects no outbound licence
+    and answers no question in #98.
+  reviewed_by: lane-notice-source-obligations
+  reviewed_on: '2026-08-28'
 
 # --- the material ------------------------------------------------------------
 materials:

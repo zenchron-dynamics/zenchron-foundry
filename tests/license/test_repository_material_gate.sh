@@ -297,6 +297,73 @@ ck "S8c NON-VACUOUS: restoring the accounted cohorts passes again" \
 ck "S9 an edited baseline whose hash no longer matches the inventory is REFUSED" \
    "printf 'zzz-not-a-real-path\n' >> '$SB/$BASE'; ! sb && says 'RM-BASELINE-UNVERIFIABLE'"
 
+# --- S10 THE CARRIED LICENCE-TEXT STORE -------------------------------------
+# A redistributor owes the recipient the TEXT of each licence it ships under.
+# Recording that a text is carried is not carrying it, and carrying different
+# bytes than the record names is worse than carrying none: the first person to
+# find out would be the recipient checking the hash. Each of the three ways that
+# can go wrong has its own code.
+STORE=third-party/licence-texts/PROVENANCE.yaml
+ck "S10 NON-VACUOUS: the untouched store passes, so every refusal below is sabotage" \
+   "( cd '$SB' && git checkout -q -- . ); sb"
+ck "S10 the store really is non-empty, so the assertions below are not about nothing" \
+   "python3 -c \"
+import yaml,sys
+d=yaml.safe_load(open('$STORE'))
+assert d['record_type']=='carried-licence-texts', d.get('record_type')
+assert len(d['files'])>=50, len(d['files'])
+sys.exit(0)\""
+ck "S10 SABOTAGE: a carried text whose bytes differ from the record is REFUSED" \
+   "printf 'tampered\n' >> '$SB/third-party/licence-texts/MIT.txt'
+    ! sb && says 'RM-LICENCE-TEXT-STORE-DRIFT' && says 'third-party/licence-texts/MIT.txt'"
+ck "S10 ...saying why a text that is not its recorded bytes discharges nothing" \
+   "says 'discharges' && says 'recipient checking it'"
+ck "S10 SABOTAGE: a carried text that is DELETED is REFUSED, not skipped" \
+   "( cd '$SB' && git checkout -q -- . )
+    rm -f '$SB/third-party/licence-texts/GPL-2.0-only.txt'
+    ! sb && says 'RM-LICENCE-TEXT-STORE-MISSING' && says 'GPL-2.0-only.txt'"
+ck "S10 SABOTAGE: an EMPTY carried text is refused exactly like an absent one" \
+   "( cd '$SB' && git checkout -q -- . )
+    : > '$SB/third-party/licence-texts/Apache-2.0.txt'
+    ! sb && says 'RM-LICENCE-TEXT-STORE-MISSING'"
+ck "S10 SABOTAGE: a declared store with no provenance record is REFUSED" \
+   "( cd '$SB' && git checkout -q -- . )
+    rm -f '$SB/$STORE'
+    ! sb && says 'RM-LICENCE-TEXT-STORE-UNREADABLE'"
+ck "S10 SABOTAGE: a provenance record listing an UNTRACKED text is REFUSED" \
+   "( cd '$SB' && git checkout -q -- . )
+    python3 - '$SB/$STORE' <<'PY10'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+s += (\"  - spdx_id: NOT-TRACKED\n\"
+      \"    path: third-party/licence-texts/NOT-TRACKED.txt\n\"
+      \"    upstream_path: text/NOT-TRACKED.txt\n\"
+      \"    source_url: https://example.invalid/NOT-TRACKED.txt\n\"
+      \"    bytes: 1\n\"
+      \"    sha256: \" + \"0\" * 64 + \"\\n\"
+      \"    verbatim: true\n\"
+      \"    local_modifications: none\n\"
+      \"    policy_state: legal-review-required\n\"
+      \"    policy_obligations: []\n\"
+      \"    measured_occurrences_in_cohort: null\n\")
+open(p, 'w').write(s)
+PY10
+    ! sb && says 'RM-LICENCE-TEXT-STORE-UNTRACKED' && says 'NOT-TRACKED.txt'"
+ck "S10 the store's paths are COVERED, so they do not also refuse as uninventoried" \
+   "( cd '$SB' && git checkout -q -- . ); sb && ! says 'RM-UNINVENTORIED-MATERIAL'"
+ck "S10 NON-VACUOUS: removing the declaration makes all 56 texts refuse as uninventoried" \
+   "python3 - '$SB/$INV' <<'PY11'
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+s = re.sub(r'^carried_licence_texts:\n(  .*\n|\n(?=  ))*', '', s, count=1, flags=re.M)
+open(p, 'w').write(s)
+PY11
+    ! sb && says 'RM-UNINVENTORIED-MATERIAL' && says 'third-party/licence-texts/'"
+ck "S10 ...and restoring it clears them again" \
+   "( cd '$SB' && git checkout -q -- . ); sb"
+
 echo
 echo "== the composition is WIRED, not merely available ========================="
 # The precedent this repository paid for: `grep -rq 'scripts/license/'` matched
