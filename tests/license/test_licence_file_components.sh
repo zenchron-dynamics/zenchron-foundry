@@ -369,6 +369,35 @@ ck "the GATE reports findings split by component type, not as one number" \
     && grep -q 'gated exactly like a package' '$TMP/g4'"
 
 # ---------------------------------------------------------------------------
+# 5b. The BACKLOG GROUPER loses nothing. A grouping that drops a finding is a
+#     suppression with a nicer name, so the tool reconciles or refuses.
+# ---------------------------------------------------------------------------
+GROUP=scripts/license/group-licence-backlog.py
+DIAG=docs/audits/real-image-inventories-2026-08-28/licence/image-licence-policy-diagnostic.log
+BACKLOG=docs/licensing/image-licence-backlog-2026-08-28.json
+ck "the committed backlog is exactly what the grouper produces from the committed log" \
+   "python3 '$GROUP' --diagnostic '$DIAG' --out '$TMP/regen.json' 2>/dev/null
+    cmp -s '$TMP/regen.json' '$BACKLOG'"
+ck "every finding in the diagnostic lands in exactly one group" \
+   "python3 -c \"
+import json
+d=json.load(open('$BACKLOG'))
+assert sum(g['count'] for g in d['groups'])==d['total_findings']==8507, d['total_findings']
+assert d['image_file_findings']==7972 and d['substantive_findings']==535, d
+assert sum(d['totals'].values())==8507, d['totals']\""
+ck "SABOTAGE: a truncated diagnostic is REFUSED, not silently under-reported" \
+   "head -200 '$DIAG' > '$TMP/trunc.log'
+    ! python3 '$GROUP' --diagnostic '$TMP/trunc.log' --out - >'$TMP/tg' 2>'$TMP/tge'
+    grep -q 'under-reports the thing it exists to report' '$TMP/tge'"
+ck "SABOTAGE: a Go module path is NOT mistaken for an image file path" \
+   "python3 -c \"
+import json
+d=json.load(open('$BACKLOG'))
+g={x['group_id']:x for x in d['groups']}
+assert g['G-NOASSERT-PKG-GOLANG-GO-MODULE']['count']==248, g['G-NOASSERT-PKG-GOLANG-GO-MODULE']['count']
+assert g['G-FILE-NOASSERTION']['count']==7972, g['G-FILE-NOASSERTION']['count']\""
+
+# ---------------------------------------------------------------------------
 # 6. The checkout is untouched.
 # ---------------------------------------------------------------------------
 ck "the test mutated no tracked file" \
