@@ -548,7 +548,10 @@ for f, kind, doc in loaded:
                 "owner_versions": sorted(e["owner_versions"])[:8],
                 "owner_relationships": sorted(e["owner_relationships"]),
                 "inherited_licence_expression": sorted(e["owner_licences"]),
-                "conflicting_or_exceptional_licence_metadata": len(lics) > 1,
+                "conflicting_or_exceptional_licence_metadata": (
+                    len(lics) > 1
+                    or bool(lics and e["owner_licences"]
+                            and set(lics) != set(e["owner_licences"]))),
             })
             if cls in FILE_CLASS_VISIBLE:
                 # ONE canonical spelling for a file component, so that the SPDX
