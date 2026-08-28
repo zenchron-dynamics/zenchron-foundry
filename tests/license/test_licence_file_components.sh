@@ -362,6 +362,12 @@ import json
 n=json.load(open('$TMP/real.json'))['image_files']['note']
 assert 'does NOT cover' in n and 'never in the tree' in n, n\""
 
+ck "the GATE reports findings split by component type, not as one number" \
+   "! bash $GATE --inventory '$TMP/pair.json' --policy policies/license-policy.yaml >'$TMP/g4' 2>&1
+    grep -q 'by component type' '$TMP/g4' \
+    && grep -q 'image FILE components' '$TMP/g4' \
+    && grep -q 'gated exactly like a package' '$TMP/g4'"
+
 # ---------------------------------------------------------------------------
 # 6. The checkout is untouched.
 # ---------------------------------------------------------------------------
