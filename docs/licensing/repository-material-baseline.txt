@@ -360,6 +360,7 @@ docs/incident-response.md
 docs/kubernetes-admission.md
 docs/legacy-php-policy.md
 docs/licensing/image-licence-backlog-2026-08-28.json
+docs/licensing/image-licence-backlog-2026-08-28.md
 docs/licensing/license-compliance.md
 docs/licensing/repository-material-baseline-refresh-2026-08-28.md
 docs/licensing/repository-material-baseline.txt

@@ -777,9 +777,13 @@ baseline:
   path_list: policies/baseline.txt
   path_list_sha256: $bh
   path_count: $(wc -l <"$F/policies/baseline.txt" | tr -d ' ')
+  observed_at_revision: $(printf '0%.0s' $(seq 40))
   reviewed_at_revision: $(printf '0%.0s' $(seq 40))
   reviewed_by: fixture-owner
   reviewed_on: '2026-08-27'
+  reviewed_count: $(wc -l <"$F/policies/baseline.txt" | tr -d ' ')
+  unreviewed_count: 0
+  generated_audit_count: 0
 materials:
   - id: fixture-profile
     path: security/seccomp/prof.json
@@ -831,6 +835,7 @@ YAML
     local n; n="$(wc -l <"$F/policies/baseline.txt" | tr -d ' ')"
     sed -i.bak -e "s|^  path_list_sha256: .*|  path_list_sha256: $bh|" \
                -e "s|^  path_count: .*|  path_count: $n|" \
+               -e "s|^  reviewed_count: .*|  reviewed_count: $n|" \
                "$F/policies/repository-material.yaml"
     rm -f "$F/policies/repository-material.yaml.bak"
     ( cd "$F" && git add -A && git commit -qm inv2 ) >/dev/null 2>&1
@@ -897,7 +902,7 @@ YAML
       ( cd '$F' && git ls-files | LC_ALL=C sort ) > '$F/policies/baseline.txt'
       b=\$(shasum -a 256 '$F/policies/baseline.txt' | cut -d' ' -f1)
       n=\$(wc -l <'$F/policies/baseline.txt' | tr -d ' ')
-      sed -i.bak -e \"s|^  path_list_sha256: .*|  path_list_sha256: \$b|\" -e \"s|^  path_count: .*|  path_count: \$n|\" '$I' && rm -f '$I.bak'
+      sed -i.bak -e \"s|^  path_list_sha256: .*|  path_list_sha256: \$b|\" -e \"s|^  path_count: .*|  path_count: \$n|\" -e \"s|^  reviewed_count: .*|  reviewed_count: \$n|\" '$I' && rm -f '$I.bak'
       ( cd '$F' && git add -A && git commit -qm disp2 ) >/dev/null 2>&1
       ( cd '$F' && git ls-files | LC_ALL=C sort ) > '$F/policies/baseline.txt'
       run '$F' '$I' '$P' '$L'"

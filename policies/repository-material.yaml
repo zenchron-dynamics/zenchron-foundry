@@ -63,11 +63,76 @@ tracked_issue: 120
 # supply-chain guard. Do not "tidy" it back into policies/.
 baseline:
   path_list: docs/licensing/repository-material-baseline.txt
-  path_list_sha256: 93b1721573c936d8f3e9947f2c1ab43f8f219c90134dac4c00b2fa452d6a7a84
-  path_count: 779
+  path_list_sha256: ad9ffdd7996ff31256a46a1589da483ed0a2c17a0b8b5a3e0747e8432f114717
+  path_count: 785
+  # WHERE THE LIST CAME FROM. Generating a path list is not reviewing it, so
+  # this is a SEPARATE field from reviewed_at_revision, and the gate refuses if
+  # the two are equal while any path is recorded unreviewed.
+  observed_at_revision: b15ab0e716f8ef3afa532e4e48c98824f3984110
+  # WHAT WAS ACTUALLY REVIEWED. This describes the REVIEWED COHORT only. It is
+  # deliberately NOT advanced by the lane-S, lane-V or lane-W refreshes: those
+  # added paths to the list, and adding a path to a list is not reading it.
   reviewed_at_revision: ac1155716e7b244cca6dd3ecbaa89d467a71732c
   reviewed_by: lane-R-repository-material-review
   reviewed_on: '2026-08-27'
+  reviewed_count: 746
+  unreviewed_count: 5
+  generated_audit_count: 34
+  cohort_note: >-
+    Three cohorts, validated by scripts/license/assert-repository-material.sh
+    (RM-BASELINE-COHORT-INVALID): they must be disjoint, every listed path must
+    be in exactly one of them, and reviewed_at_revision may not equal
+    observed_at_revision while any path is unreviewed or generated-audit. At
+    release scope RM-BASELINE-UNREVIEWED refuses while either non-reviewed
+    cohort is non-empty, so listing a path can never substitute for reading it.
+    generated-audit is a CONTENT CLASS, not an exemption and NOT a path rule:
+    docs/audits/ is not blanket-exempt, because an audit record can itself carry
+    copied material and MIT excerpts already live under docs/. Every entry below
+    is deterministic output of a NAMED producer - syft via
+    scripts/generate-sbom.sh, a licence gate's own stderr, the registry probe,
+    or scripts/license/group-licence-backlog.py over a committed log - and
+    carries no prose an author could have copied from anywhere.
+  unreviewed_paths:
+    - docs/audits/real-image-inventories-2026-08-28/BLOCKED.md
+    - docs/audits/real-image-inventories-2026-08-28/README.md
+    - docs/audits/real-image-inventories-2026-08-28/licence-identifier-reconciliation.md
+    - docs/audits/real-image-inventories-2026-08-28/rerun-against-fixed-consumer.md
+    - docs/licensing/repository-material-baseline-refresh-2026-08-28.md
+  generated_audit_paths:
+    - docs/audits/real-image-inventories-2026-08-28/SHA256SUMS
+    - docs/audits/real-image-inventories-2026-08-28/licence/composed-authorization-validation.log
+    - docs/audits/real-image-inventories-2026-08-28/licence/identifier-reconciliation.json
+    - docs/audits/real-image-inventories-2026-08-28/licence/image-licence-policy-diagnostic.log
+    - docs/audits/real-image-inventories-2026-08-28/licence/image-sbom-binding-gate.log
+    - docs/audits/real-image-inventories-2026-08-28/licence/rerun-composed-authorization-validation.log
+    - docs/audits/real-image-inventories-2026-08-28/licence/rerun-image-binding.json
+    - docs/audits/real-image-inventories-2026-08-28/licence/rerun-image-licence-policy.log
+    - docs/audits/real-image-inventories-2026-08-28/licence/rerun-image-sbom-binding-gate.log
+    - docs/audits/real-image-inventories-2026-08-28/licence/rerun-repository-material-composed.log
+    - docs/audits/real-image-inventories-2026-08-28/registry-recoverability-probe.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/caddy-prod-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/caddy-prod-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/nginx-prod-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/nginx-prod-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-cli-8.3-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-cli-8.3-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-cli-8.4-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-cli-8.4-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-fpm-8.3-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-fpm-8.3-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-fpm-8.4-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-fpm-8.4-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-frankenphp-8.3-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-frankenphp-8.3-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-frankenphp-8.4-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-frankenphp-8.4-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-worker-8.3-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-worker-8.3-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-worker-8.4-linux-amd64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-bindings/php-worker-8.4-linux-arm64.binding.json
+    - docs/audits/real-image-inventories-2026-08-28/sbom-document-index.json
+    - docs/audits/real-image-inventories-2026-08-28/scanner-identity.json
+    - docs/licensing/image-licence-backlog-2026-08-28.json
   review_method: >-
     File-by-file read of every tracked path outside the deterministic
     machine-output classes (SBOM JSON, scanner findings JSON, dpkg/apt captures,
@@ -82,6 +147,19 @@ baseline:
     tests/lib/workflow_step.py. All three are first-party, authored in that
     change, and copy no foreign material; they are recorded here as reviewed on
     that basis and on no broader one. Nothing else in the baseline was re-read.
+
+    DELTA, lane-W file-component disposition: four paths were added to the
+    tracked tree by that change - scripts/license/group-licence-backlog.py,
+    tests/license/test_licence_file_components.sh,
+    docs/audits/real-image-inventories-2026-08-28/file-component-disposition.md
+    and docs/licensing/image-licence-backlog-2026-08-28.md. All four are
+    first-party, authored in that change, and copy no foreign material; they are
+    recorded as reviewed on that basis and on no broader one. A fifth,
+    docs/licensing/image-licence-backlog-2026-08-28.json, is generated output of
+    group-licence-backlog.py over a committed log and is recorded as
+    generated-audit. Nothing else was re-read. In particular the audit prose
+    added by the earlier refresh is recorded as UNREVIEWED rather than being
+    absorbed into a review nobody performed.
 
 # --- the material ------------------------------------------------------------
 materials:

@@ -209,16 +209,91 @@ ck "S8 ...with RM-BASELINE-STALE naming the file and how to regenerate the basel
    "says 'RM-BASELINE-STALE' && says 'quiet-new-file.txt' && says 'git ls-files'"
 ck "S8 ...and at PR scope the same file is REPORTED as drift, never passed in silence" \
    "sb && says 'BASELINE DRIFT' && says 'quiet-new-file.txt'"
+# The refresh that added 37 paths to the list left reviewed_at_revision alone and
+# reasoned that the field is not machine-checked. It is not, and it was still a
+# CLAIM about the list. The list now carries three cohorts and the gate validates
+# the split, so "in the list" can no longer read as "somebody looked at it".
+#
+# The cohort rewriter is a FILE, not an inline heredoc: `ck` runs its argument
+# through eval, and a heredoc body inside an eval'd double-quoted string is one
+# stray quote away from being reinterpreted.
+COH="$TMP/cohorts.py"
+cat >"$COH" <<'COHPY'
+import hashlib, re, sys
+inv, mode = sys.argv[1], sys.argv[2]
+s = open(inv).read()
+def setf(src, key, val):
+    return re.sub(r'^  %s: .*$' % key, '  %s: %s' % (key, val), src, count=1, flags=re.M)
+def emptylist(src, key):
+    return re.sub(r'^  %s:\n(    - .*\n)*' % key, '  %s: []\n' % key, src, flags=re.M)
+def setlist(src, key, items):
+    body = ''.join('    - %s\n' % i for i in items)
+    src = emptylist(src, key)
+    return re.sub(r'^  %s: \[\]\n' % key, '  %s:\n%s' % (key, body), src, count=1, flags=re.M)
+if mode == 'review-all':
+    # Reviewing the delta MOVES paths between cohorts. It never deletes the model.
+    lst = sys.argv[3]
+    paths = [l.strip() for l in open(lst) if l.strip()]
+    s = emptylist(s, 'unreviewed_paths')
+    s = emptylist(s, 'generated_audit_paths')
+    s = setf(s, 'path_list_sha256', hashlib.sha256(open(lst, 'rb').read()).hexdigest())
+    s = setf(s, 'path_count', len(paths))
+    s = setf(s, 'reviewed_count', len(paths))
+    s = setf(s, 'unreviewed_count', 0)
+    s = setf(s, 'generated_audit_count', 0)
+elif mode == 'rehash':
+    lst = sys.argv[3]
+    paths = [l.strip() for l in open(lst) if l.strip()]
+    s = setf(s, 'path_list_sha256', hashlib.sha256(open(lst, 'rb').read()).hexdigest())
+    s = setf(s, 'path_count', len(paths))
+    s = setf(s, 'reviewed_count', len(paths))
+elif mode == 'undercount':
+    n = int(re.search(r'^  reviewed_count: (\d+)$', s, re.M).group(1))
+    s = setf(s, 'reviewed_count', n - 1)
+elif mode == 'advance-review-revision':
+    rev = re.search(r'^  observed_at_revision: ([0-9a-f]{40})$', s, re.M).group(1)
+    n = int(re.search(r'^  reviewed_count: (\d+)$', s, re.M).group(1))
+    s = setf(s, 'reviewed_count', n - 1)
+    s = setf(s, 'unreviewed_count', 1)
+    s = setlist(s, 'unreviewed_paths', ['LICENSE'])
+    s = setf(s, 'reviewed_at_revision', rev)
+elif mode == 'phantom-path':
+    n = int(re.search(r'^  reviewed_count: (\d+)$', s, re.M).group(1))
+    s = setf(s, 'reviewed_count', n - 1)
+    s = setf(s, 'unreviewed_count', 1)
+    s = setlist(s, 'unreviewed_paths', ['no/such/path.txt'])
+else:
+    raise SystemExit('unknown mode %r' % mode)
+open(inv, 'w').write(s)
+COHPY
+
+ck "S8b release scope REFUSES while any path is recorded unreviewed or generated-audit" \
+   "! sb --require-reviewed-baseline && says 'RM-BASELINE-UNREVIEWED'"
+ck "S8b ...saying that listing a path is not reviewing it" \
+   "says 'does not become reviewed by being listed'"
+ck "S8b ...and at PR scope the cohorts are REPORTED, never silent" \
+   "sb; says 'BASELINE COHORTS' && says 'UNREVIEWED' && says 'not an exemption'"
 ck "S8 NON-VACUOUS: reviewing it and regenerating the baseline clears the refusal" \
    "( cd '$SB' && git ls-files | LC_ALL=C sort ) > '$SB/$BASE'
-    h=\$(shasum -a 256 '$SB/$BASE' | cut -d' ' -f1)
-    n=\$(wc -l < '$SB/$BASE' | tr -d ' ')
-    sed -i.bak -e \"s|^  path_list_sha256: .*|  path_list_sha256: \$h|\" \
-               -e \"s|^  path_count: .*|  path_count: \$n|\" '$SB/$INV'
-    rm -f '$SB/$INV.bak'
+    python3 '$COH' '$SB/$INV' review-all '$SB/$BASE'
     ( cd '$SB' && git add -A && git commit -qm rebase ) >/dev/null 2>&1
     ( cd '$SB' && git ls-files | LC_ALL=C sort ) > '$SB/$BASE'
+    python3 '$COH' '$SB/$INV' rehash '$SB/$BASE'
     sb --require-reviewed-baseline"
+cp "$SB/$INV" "$TMP/inv-cohort-keep.yaml"
+ck "S8c SABOTAGE: cohorts that do not account for every listed path are REFUSED" \
+   "python3 '$COH' '$SB/$INV' undercount
+    ! sb && says 'RM-BASELINE-COHORT-INVALID' && says 'in exactly one cohort'"
+ck "S8c SABOTAGE: advancing the review revision to cover unreviewed paths is REFUSED" \
+   "cp '$TMP/inv-cohort-keep.yaml' '$SB/$INV'
+    python3 '$COH' '$SB/$INV' advance-review-revision
+    ! sb && says 'RM-BASELINE-COHORT-INVALID' && says 'Generating the list is not reviewing it'"
+ck "S8c SABOTAGE: a cohort naming a path the list does not hold is REFUSED" \
+   "cp '$TMP/inv-cohort-keep.yaml' '$SB/$INV'
+    python3 '$COH' '$SB/$INV' phantom-path
+    ! sb && says 'RM-BASELINE-COHORT-INVALID' && says 'not in the path list at all'"
+ck "S8c NON-VACUOUS: restoring the accounted cohorts passes again" \
+   "cp '$TMP/inv-cohort-keep.yaml' '$SB/$INV'; sb --require-reviewed-baseline"
 ck "S9 an edited baseline whose hash no longer matches the inventory is REFUSED" \
    "printf 'zzz-not-a-real-path\n' >> '$SB/$BASE'; ! sb && says 'RM-BASELINE-UNVERIFIABLE'"
 
