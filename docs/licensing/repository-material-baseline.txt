@@ -554,6 +554,7 @@ release-verify-results.json
 schemas/build-input-lock-evidence-v1.schema.json
 schemas/build-input-lock-v1.schema.json
 schemas/evidence-class-v1.schema.json
+schemas/notice-bundle-v1.schema.json
 schemas/post-build-authorization-v1.schema.json
 schemas/promotion-manifest.schema.json
 schemas/release-evidence-bundle-v1.schema.json
@@ -627,6 +628,7 @@ scripts/lib/strict_yaml.py
 scripts/license/assert-image-sbom-licences.sh
 scripts/license/assert-license-policy.sh
 scripts/license/assert-repository-material.sh
+scripts/license/generate-notice-bundle.py
 scripts/license/generate-notice.sh
 scripts/license/group-licence-backlog.py
 scripts/license/license-inventory.sh
@@ -713,6 +715,7 @@ tests/integration/test_evidence_path_e2e.sh
 tests/integration/test_integration.sh
 tests/lib/make_authorization_fixture.py
 tests/lib/make_native_arm64_fixture.py
+tests/lib/make_replay_inventory.py
 tests/lib/test_dependabot_manifests.sh
 tests/lib/test_fixture_date_rot.sh
 tests/lib/test_foundations.sh

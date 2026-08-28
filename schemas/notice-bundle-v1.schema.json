@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zenchron.dev/schemas/notice-bundle-v1.schema.json",
+  "title": "foundry.notice-bundle/v1",
+  "description": "The manifest of a distribution-notice and source-obligation bundle produced by scripts/license/generate-notice-bundle.py for ONE release candidate. It is scoped to the candidate images it names and is NOT Zenchron Foundry's outbound licence. A PASS makes a candidate eligible for the next independent release control and authorizes nothing else. BOTH PASS AND REFUSE RECORDS MUST VALIDATE: a refusal is exactly when the record gets read, so a malformed REFUSE is as useless as a malformed PASS.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema",
+    "record_type",
+    "schema_version",
+    "producer",
+    "verdict",
+    "status",
+    "draft",
+    "satisfies_authorization",
+    "publication_authority_present",
+    "engineering_complete",
+    "legal_review_outstanding",
+    "source_revision",
+    "authorization_record_sha256",
+    "candidate",
+    "finding_count",
+    "finding_codes",
+    "artifacts",
+    "inputs",
+    "bundle_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "foundry.notice-bundle/v1"
+    },
+    "record_type": {
+      "const": "notice-bundle"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "scripts/license/generate-notice-bundle.py"
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "REFUSE"
+      ]
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "incomplete",
+        "legal-review-required",
+        "publication-authority-missing"
+      ],
+      "description": "complete is the ONLY status the canonical authorization accepts. incomplete means an engineering refusal is outstanding; legal-review-required means every engineering refusal is cleared and an identifier still needs counsel; publication-authority-missing means the bundle is engineering-complete and legally clear and nobody has authorized distribution (#98)."
+    },
+    "draft": {
+      "type": "boolean",
+      "description": "true whenever verdict is not PASS. A refusal still WRITES its bundle \u2014 a refusal that produces nothing is a refusal nobody can read afterwards \u2014 and the draft must never satisfy authorization, sealing, signing, promotion or publication."
+    },
+    "satisfies_authorization": {
+      "type": "boolean"
+    },
+    "publication_authority_present": {
+      "type": "boolean"
+    },
+    "engineering_complete": {
+      "type": "boolean"
+    },
+    "legal_review_outstanding": {
+      "type": "boolean"
+    },
+    "source_revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "candidate": {
+      "type": "object",
+      "required": [
+        "source_revision",
+        "children_expected",
+        "children_bound",
+        "platforms",
+        "children"
+      ],
+      "properties": {
+        "source_revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "children_expected": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "children_bound": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "execution_modes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "child_key",
+              "platform",
+              "manifest_digest"
+            ],
+            "properties": {
+              "child_key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "image_label": {
+                "type": "string"
+              },
+              "platform": {
+                "type": "string",
+                "minLength": 1
+              },
+              "manifest_digest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "finding_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "finding_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^NB-[A-Z-]+$"
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "sha256 of every emitted artifact, keyed by filename. Missing, stale or substituted artifacts must refuse at the consumer.",
+      "minProperties": 4,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "required": [
+        "inventory",
+        "authorization",
+        "material",
+        "policy",
+        "licence_texts",
+        "attestations",
+        "source_obligations"
+      ],
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "bundle_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "authorization_record_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "sha256 of the post-build authorization record this bundle is FOR. The consumer recomputes it; a bundle bound to another record decides nothing about this one."
+    }
+  },
+  "allOf": [
+    {
+      "description": "A PASS means the notice and source material is complete and legally clear. It does NOT by itself mean the candidate may be distributed: publication authority is a separate axis, so a PASS bundle may still carry status publication-authority-missing and satisfies_authorization false. Folding authority into the verdict would make the independent publication refusal unreachable, because every bundle would already be a draft for some other reason.",
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "complete",
+              "publication-authority-missing"
+            ]
+          },
+          "engineering_complete": {
+            "const": true
+          },
+          "legal_review_outstanding": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "description": "A REFUSE never satisfies authorization and always carries at least one finding.",
+      "if": {
+        "properties": {
+          "verdict": {
+            "const": "REFUSE"
+          }
+        },
+        "required": [
+          "verdict"
+        ]
+      },
+      "then": {
+        "properties": {
+          "satisfies_authorization": {
+            "const": false
+          },
+          "draft": {
+            "const": true
+          },
+          "finding_count": {
+            "minimum": 1
+          }
+        }
+      }
+    },
+    {
+      "description": "status `complete` is the ONLY state the canonical authorization accepts, and it requires all three axes.",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "complete"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "verdict": {
+            "const": "PASS"
+          },
+          "draft": {
+            "const": false
+          },
+          "satisfies_authorization": {
+            "const": true
+          },
+          "publication_authority_present": {
+            "const": true
+          },
+          "engineering_complete": {
+            "const": true
+          },
+          "legal_review_outstanding": {
+            "const": false
+          },
+          "finding_count": {
+            "const": 0
+          }
+        }
+      }
+    }
+  ]
+}
