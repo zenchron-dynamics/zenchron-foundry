@@ -1,0 +1,18 @@
+{
+  "child_key": "php-worker/8.3/linux/arm64",
+  "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:5188a56952b0d5c610255bd5945aef14ab39d168b116738109a2048516d9b934",
+  "documents": {
+    "php-worker-8.3-linux-arm64.cdx.json": "f8c51b35b6c1186db9cc06615719a4060b36b1ed518711d9f63751cb891d70c9",
+    "php-worker-8.3-linux-arm64.spdx.json": "ad8a35e05e9c763c34a6e8a280fa8a6e2f91badf494d9517586740180e0df6a1"
+  },
+  "generated_at": "2026-08-27T21:12:21Z",
+  "image_family": "php-worker",
+  "image_version": "8.3",
+  "manifest_digest": "sha256:5188a56952b0d5c610255bd5945aef14ab39d168b116738109a2048516d9b934",
+  "platform": "linux/arm64",
+  "producer": "scripts/generate-sbom.sh",
+  "record_type": "candidate-sbom-binding",
+  "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+  "workflow_run_attempt": 1,
+  "workflow_run_id": 32395890071
+}

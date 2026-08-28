@@ -1,0 +1,27 @@
+{
+  "record_type": "licence-authorization",
+  "schema_version": 1,
+  "verdict": "REFUSED",
+  "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+  "authorization_record_sha256": "d592904c189e21efcd2d228406ead57dbe75e8132d72fced4a9fd45a2a15fcd3",
+  "image_half": {
+    "gate": "scripts/license/assert-license-policy.sh",
+    "binding": "failure",
+    "policy": "failure",
+    "children_bound": 0,
+    "children_expected": 0,
+    "execution_modes": []
+  },
+  "repository_half": {
+    "gate": "scripts/license/assert-repository-material.sh",
+    "inventory": "policies/repository-material.yaml",
+    "composed": "failure"
+  },
+  "both_halves_required": true,
+  "public_exposure_authorized": false
+}
+licence authorization: REFUSED (bind=failure image-policy=failure composed=failure)
+=== canonical authorization validation, CONSUMING the licence verdict ===
+record satisfies schema v1 (verdict=PASS, children=20)
+REFUSE [AR-LICENCE-INCOMPLETE]: artifacts/laneV/licence/licence-authorization.json binds 0 of 0 expected children. A licence verdict over a partial matrix reports clean for the images it happened to see
+validator rc=1

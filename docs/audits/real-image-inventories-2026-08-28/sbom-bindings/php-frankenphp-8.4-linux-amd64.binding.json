@@ -1,0 +1,18 @@
+{
+  "child_key": "php-frankenphp/8.4/linux/amd64",
+  "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:abbb0bec12d80d26878811b1a487dd5c1962103a94d043fd313fa7b99639159f",
+  "documents": {
+    "php-frankenphp-8.4-linux-amd64.cdx.json": "1055246f331baeb1a847923a29a8aa45344b616057458e830b83e95488583015",
+    "php-frankenphp-8.4-linux-amd64.spdx.json": "6e709278c21e9fd4a824d5b4d8674656d472f29e8d77dee2e13cc0b5e6a06aa8"
+  },
+  "generated_at": "2026-08-27T21:12:21Z",
+  "image_family": "php-frankenphp",
+  "image_version": "8.4",
+  "manifest_digest": "sha256:abbb0bec12d80d26878811b1a487dd5c1962103a94d043fd313fa7b99639159f",
+  "platform": "linux/amd64",
+  "producer": "scripts/generate-sbom.sh",
+  "record_type": "candidate-sbom-binding",
+  "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+  "workflow_run_attempt": 1,
+  "workflow_run_id": 32395890071
+}
