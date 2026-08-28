@@ -1,0 +1,30 @@
+{
+  "record_type": "licence-authorization",
+  "schema_version": 1,
+  "verdict": "REFUSED",
+  "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+  "authorization_record_sha256": "d592904c189e21efcd2d228406ead57dbe75e8132d72fced4a9fd45a2a15fcd3",
+  "image_half": {
+    "gate": "scripts/license/assert-license-policy.sh",
+    "binding": "success",
+    "policy": "failure",
+    "children_bound": 20,
+    "children_expected": 20,
+    "execution_modes": [
+      "native",
+      "qemu"
+    ]
+  },
+  "repository_half": {
+    "gate": "scripts/license/assert-repository-material.sh",
+    "inventory": "policies/repository-material.yaml",
+    "composed": "success"
+  },
+  "both_halves_required": true,
+  "public_exposure_authorized": false
+}
+licence authorization: REFUSED (bind=success image-policy=failure composed=success)
+=== canonical authorization validation, CONSUMING the licence verdict ===
+record satisfies schema v1 (verdict=PASS, children=20)
+REFUSE [AR-LICENCE-REFUSED]: the composed licence authorization is 'REFUSED' (image half: binding=success, policy=failure; repository half: success). Both evidence classes are required and neither compensates for the other
+validator rc=1

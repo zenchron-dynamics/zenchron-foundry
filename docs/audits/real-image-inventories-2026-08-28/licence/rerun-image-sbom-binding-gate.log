@@ -1,0 +1,4 @@
+image-SBOM binding OK: 20/20 children bound to staged digests at 7061caafb3ea09bd5b2342a1daf022151b33f822
+inventory written: artifacts/laneV/licence/image-inventory.json
+components: 8527, unknown: 8292, conflicting: 196
+image inventory bound: artifacts/laneV/licence/image-inventory.json

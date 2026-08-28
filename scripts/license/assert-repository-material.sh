@@ -62,6 +62,12 @@
 #   RM-UNINVENTORIED-MATERIAL    a signal fired on a file in neither array
 #   RM-BASELINE-UNVERIFIABLE     the reviewed baseline cannot be checked
 #   RM-BASELINE-STALE            tracked paths outside the reviewed baseline
+#   RM-BASELINE-COHORT-INVALID   the reviewed/unreviewed/generated-audit split
+#                                does not account for every listed path, or the
+#                                review revision was advanced to cover paths
+#                                nobody read
+#   RM-BASELINE-UNREVIEWED       release scope, and the list holds paths recorded
+#                                as unreviewed or generated-audit
 #   RM-OUTBOUND-TERMS-PLACEHOLDER  placeholder terms presented as final
 #   RM-REPOSITORY-EVIDENCE-ABSENT  image evidence with no repository evidence
 #   RM-IMAGE-EVIDENCE-ABSENT     repository evidence with no image evidence
@@ -490,6 +496,93 @@ else:
                    % (os.path.basename(inv_path), base.get("path_count"),
                       base_rel, len(baseline_paths)))
 
+# =============================================================================
+# the baseline COHORTS — being in the list is not being reviewed
+# =============================================================================
+# The defect this closes: a refresh added 37 paths to the path list and left
+# `reviewed_at_revision` unchanged, on the reasoning that the field is not
+# machine-checked. It is not machine-checked and it is still a CLAIM — it
+# describes the list, and the list had grown by 37 paths nobody had read.
+# Validation passing does not make a claim true.
+#
+# So the list now carries three cohorts, and the split is validated:
+#
+#   reviewed        somebody read it under the declared review_method
+#   unreviewed      it is in the list and nobody has read it. Recorded, never
+#                   implied, and refused at release scope.
+#   generated-audit deterministic machine output with a recorded producer.
+#                   Classified by PROVENANCE AND CONTENT CLASS, never by
+#                   directory: docs/audits/ is NOT blanket-exempt, because an
+#                   audit record can itself carry copied material and three MIT
+#                   excerpts already live under it.
+#
+# `observed_at_revision` records where the list came from. `reviewed_at_revision`
+# records what was actually reviewed. Conflating them is the original error.
+if baseline_paths is not None:
+    _unrev = list(base.get("unreviewed_paths") or [])
+    _gen = list(base.get("generated_audit_paths") or [])
+    _rc = base.get("reviewed_count")
+    _uc = base.get("unreviewed_count")
+    _gc = base.get("generated_audit_count")
+    for _f, _v in (("reviewed_count", _rc), ("unreviewed_count", _uc),
+                   ("generated_audit_count", _gc),
+                   ("observed_at_revision", base.get("observed_at_revision"))):
+        if _v is None:
+            refuse("RM-BASELINE-COHORT-INVALID",
+                   "baseline.%s is missing. A path list with no cohort breakdown "
+                   "cannot distinguish a path somebody read from a path somebody "
+                   "added" % _f)
+    if len(_unrev) != _uc or len(_gen) != _gc:
+        refuse("RM-BASELINE-COHORT-INVALID",
+               "baseline declares unreviewed_count %r / generated_audit_count %r "
+               "but enumerates %d / %d path(s). A count with no list is a claim "
+               "nobody can check" % (_uc, _gc, len(_unrev), len(_gen)))
+    if (_rc or 0) + (_uc or 0) + (_gc or 0) != len(baseline_paths):
+        refuse("RM-BASELINE-COHORT-INVALID",
+               "baseline cohorts total %d (reviewed %r + unreviewed %r + "
+               "generated-audit %r) over a path list of %d. Every path must be in "
+               "exactly one cohort, or some of them are in none"
+               % ((_rc or 0) + (_uc or 0) + (_gc or 0), _rc, _uc, _gc,
+                  len(baseline_paths)))
+    _overlap = sorted(set(_unrev) & set(_gen))
+    if _overlap:
+        refuse("RM-BASELINE-COHORT-INVALID",
+               "%d path(s) are in two cohorts at once: %s"
+               % (len(_overlap), ", ".join(_overlap[:5])))
+    _absent = sorted((set(_unrev) | set(_gen)) - baseline_paths)
+    if _absent:
+        refuse("RM-BASELINE-COHORT-INVALID",
+               "%d cohort path(s) are not in the path list at all: %s. A cohort "
+               "that names paths the list does not hold describes a different "
+               "list" % (len(_absent), ", ".join(_absent[:5])))
+    if (_uc or 0) + (_gc or 0) > 0 and \
+       base.get("reviewed_at_revision") == base.get("observed_at_revision"):
+        refuse("RM-BASELINE-COHORT-INVALID",
+               "reviewed_at_revision equals observed_at_revision while %d path(s) "
+               "are recorded as unreviewed or generated-audit. Generating the "
+               "list is not reviewing it, and advancing the review revision to "
+               "cover paths nobody read is the false claim this check exists to "
+               "prevent" % ((_uc or 0) + (_gc or 0)))
+    if _unrev or _gen:
+        notes.append(
+            "BASELINE COHORTS: %d reviewed, %d UNREVIEWED, %d generated-audit of "
+            "%d tracked path(s). The unreviewed and generated-audit cohorts are "
+            "IN the list and have NOT been reviewed; generated-audit is a content "
+            "class, not an exemption. reviewed_at_revision (%s) describes the "
+            "reviewed cohort only; the list was generated at %s."
+            % (_rc, _uc, _gc, len(baseline_paths),
+               str(base.get("reviewed_at_revision"))[:12],
+               str(base.get("observed_at_revision"))[:12]))
+    if req_base and (_uc or 0) + (_gc or 0) > 0:
+        refuse("RM-BASELINE-UNREVIEWED",
+               "%d of %d baseline path(s) are recorded as unreviewed or "
+               "generated-audit: %s%s. --require-reviewed-baseline means every "
+               "tracked path was reviewed, and a cohort nobody read does not "
+               "become reviewed by being listed"
+               % ((_uc or 0) + (_gc or 0), len(baseline_paths),
+                  ", ".join(sorted(_unrev + _gen)[:6]),
+                  "" if len(_unrev) + len(_gen) <= 6 else ", ..."))
+
 if baseline_paths is not None:
     outside = sorted(p for p in tracked_set - baseline_paths if p not in covered)
     if outside:
@@ -684,9 +777,13 @@ baseline:
   path_list: policies/baseline.txt
   path_list_sha256: $bh
   path_count: $(wc -l <"$F/policies/baseline.txt" | tr -d ' ')
+  observed_at_revision: $(printf '0%.0s' $(seq 40))
   reviewed_at_revision: $(printf '0%.0s' $(seq 40))
   reviewed_by: fixture-owner
   reviewed_on: '2026-08-27'
+  reviewed_count: $(wc -l <"$F/policies/baseline.txt" | tr -d ' ')
+  unreviewed_count: 0
+  generated_audit_count: 0
 materials:
   - id: fixture-profile
     path: security/seccomp/prof.json
@@ -738,6 +835,7 @@ YAML
     local n; n="$(wc -l <"$F/policies/baseline.txt" | tr -d ' ')"
     sed -i.bak -e "s|^  path_list_sha256: .*|  path_list_sha256: $bh|" \
                -e "s|^  path_count: .*|  path_count: $n|" \
+               -e "s|^  reviewed_count: .*|  reviewed_count: $n|" \
                "$F/policies/repository-material.yaml"
     rm -f "$F/policies/repository-material.yaml.bak"
     ( cd "$F" && git add -A && git commit -qm inv2 ) >/dev/null 2>&1
@@ -804,7 +902,7 @@ YAML
       ( cd '$F' && git ls-files | LC_ALL=C sort ) > '$F/policies/baseline.txt'
       b=\$(shasum -a 256 '$F/policies/baseline.txt' | cut -d' ' -f1)
       n=\$(wc -l <'$F/policies/baseline.txt' | tr -d ' ')
-      sed -i.bak -e \"s|^  path_list_sha256: .*|  path_list_sha256: \$b|\" -e \"s|^  path_count: .*|  path_count: \$n|\" '$I' && rm -f '$I.bak'
+      sed -i.bak -e \"s|^  path_list_sha256: .*|  path_list_sha256: \$b|\" -e \"s|^  path_count: .*|  path_count: \$n|\" -e \"s|^  reviewed_count: .*|  reviewed_count: \$n|\" '$I' && rm -f '$I.bak'
       ( cd '$F' && git add -A && git commit -qm disp2 ) >/dev/null 2>&1
       ( cd '$F' && git ls-files | LC_ALL=C sort ) > '$F/policies/baseline.txt'
       run '$F' '$I' '$P' '$L'"

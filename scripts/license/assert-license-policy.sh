@@ -201,16 +201,25 @@ RANK = {"allowed": 0, "legal-review-required": 1, "denied": 2}
 problems = {"unknown": [], "conflicting": [], "denied": [],
             "unreviewed": [], "expired_exception": []}
 
+# Findings are additionally split by COMPONENT TYPE. A licence inventory that
+# carries image FILE components alongside package components must report which is
+# which, or a total that moved gives no way to say what moved. The split changes
+# no verdict: a file component is gated exactly like a package.
+by_type = {"package": 0, "file": 0}
+
 for c in inv.get("components") or []:
     name, ver = c.get("name", ""), c.get("version", "")
     label = "%s@%s" % (name, ver) if ver else name
+    ctype = "file" if c.get("component_type") == "file" else "package"
 
     if c.get("unknown"):
         problems["unknown"].append(label)
+        by_type[ctype] += 1
         continue
     if c.get("conflict"):
         detail = sorted({s["value"] for s in c.get("sources", []) if s.get("value")})
         problems["conflicting"].append("%s (%s)" % (label, " vs ".join(detail)))
+        by_type[ctype] += 1
         continue
 
     for lic in c.get("licenses") or []:
@@ -224,11 +233,13 @@ for c in inv.get("components") or []:
                 problems["expired_exception"].append(
                     "%s [%s] exception expired %s (granted by %s, issue %s)"
                     % (label, lic, exp.isoformat(), ex["granted_by"], ex["tracked_issue"]))
+                by_type[ctype] += 1
             continue
         if state == "denied":
             problems["denied"].append("%s [%s]" % (label, lic))
         else:
             problems["unreviewed"].append("%s [%s]" % (label, lic))
+        by_type[ctype] += 1
 
 total = sum(len(v) for v in problems.values())
 
@@ -241,8 +252,16 @@ HEADINGS = [
 ]
 
 if total:
+    _all = inv.get("components") or []
+    _pkgs = sum(1 for c in _all if c.get("component_type") != "file")
+    _files = len(_all) - _pkgs
     out = ["REFUSE: licence policy not satisfied — %d finding(s) across %d component(s):"
-           % (total, len(inv.get("components") or []))]
+           % (total, len(_all))]
+    out.append("  by component type: %d finding(s) on package components, %d on "
+               "image FILE components (%d package + %d file components in the "
+               "inventory). A file component is gated exactly like a package; the "
+               "split is reported so a total that moves can say what moved."
+               % (by_type["package"], by_type["file"], _pkgs, _files))
     for key, heading in HEADINGS:
         items = problems[key]
         if not items:
@@ -263,8 +282,10 @@ if total:
 # governed by the repository's own LICENSE and is undecided.
 publication = pol.get("publication") or {}
 decision = publication.get("decision")
-print("licence policy OK: %d component(s), 0 unknown, 0 conflicting, 0 denied, 0 unreviewed"
-      % len(inv.get("components") or []))
+_all = inv.get("components") or []
+_pkgs = sum(1 for c in _all if c.get("component_type") != "file")
+print("licence policy OK: %d component(s) (%d package, %d image file), 0 unknown, "
+      "0 conflicting, 0 denied, 0 unreviewed" % (len(_all), _pkgs, len(_all) - _pkgs))
 if decision == "undetermined" or not publication.get("notices_approved_for_distribution"):
     print("NOTE: distribution of Foundry itself remains UNDETERMINED (issue %s). "
           "Third-party licences are accounted for; the right to publish is not "

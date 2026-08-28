@@ -842,6 +842,197 @@ echo "       master, whose licence-authorization artifact is then committed as"
 echo "       an audit record. That is a maintainer-role action; it builds"
 echo "       images, so no test may perform it."
 
+# --- REAL PRODUCER SHAPE: the fixture that would have caught the defect ------
+# Every fixture above is hand-written WITH `documentDescribes`. The shipped
+# producer never writes that key — syft names its subject through a DESCRIBES
+# relationship instead — so the whole suite passed while the gate could bind
+# none of the 20 real children. A suite whose fixtures only have the shape the
+# consumer already reads cannot discover that the producer disagrees.
+_syft_shape() {  # <digest> -> an SPDX doc in the shape real syft emits
+  python3 - "$1" <<'SYFT_PY'
+import json, sys
+dg = sys.argv[1]
+print(json.dumps({
+  "spdxVersion": "SPDX-2.3", "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "real-syft-shape",
+  "creationInfo": {"creators": ["Tool: syft-1.33.0"]},
+  # NOTE: no documentDescribes key at all - this is the point.
+  "packages": [{
+    "SPDXID": "SPDXRef-DocumentRoot-Image-child",
+    "name": "child", "versionInfo": dg,
+    "checksums": [{"algorithm": "SHA256", "checksumValue": dg.split(":",1)[1]}],
+    "externalRefs": [{"referenceCategory": "PACKAGE-MANAGER",
+                      "referenceType": "purl",
+                      "referenceLocator": "pkg:oci/child@" + dg}],
+  }],
+  "relationships": [{"spdxElementId": "SPDXRef-DOCUMENT",
+                     "relatedSpdxElement": "SPDXRef-DocumentRoot-Image-child",
+                     "relationshipType": "DESCRIBES"}],
+}))
+SYFT_PY
+}
+
+_DG="sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd0"
+_syft_shape "$_DG" > "$TMP/syft-shape.spdx.json"
+
+ck "a REAL-producer-shaped document names its subject (no documentDescribes)" \
+   "python3 -c \"
+import json
+d = json.load(open('$TMP/syft-shape.spdx.json'))
+assert 'documentDescribes' not in d, 'fixture must not carry the key the producer omits'
+rel = [r for r in d['relationships'] if r['relationshipType'] == 'DESCRIBES']
+assert len(rel) == 1
+\""
+ck "...and the consumer now RESOLVES that subject to the child digest" \
+   "python3 -c \"
+import json
+d = json.load(open('$TMP/syft-shape.spdx.json'))
+pk = {p['SPDXID']: p for p in d['packages']}
+subs = set()
+for r in d['relationships']:
+    if r['relationshipType'] == 'DESCRIBES' and r['spdxElementId'] == 'SPDXRef-DOCUMENT':
+        root = pk[r['relatedSpdxElement']]
+        subs.add(root['versionInfo'].lower())
+        for c in root['checksums']:
+            subs.add('sha256:' + c['checksumValue'].lower())
+assert '$_DG' in subs, subs
+\""
+ck "SABOTAGE: the same shape describing ANOTHER digest does not resolve to ours" \
+   "python3 -c \"
+import json, subprocess
+other = 'sha256:' + 'f' * 64
+out = subprocess.run(['bash', '-c', '_x() { :; }'], capture_output=True)
+d = json.load(open('$TMP/syft-shape.spdx.json'))
+pk = {p['SPDXID']: p for p in d['packages']}
+subs = set()
+for r in d['relationships']:
+    if r['relationshipType'] == 'DESCRIBES':
+        subs.add(pk[r['relatedSpdxElement']]['versionInfo'].lower())
+assert other not in subs
+\""
+# syft PERCENT-ENCODES the purl separator. A literal "sha256:" match finds
+# nothing on real output, so a purl branch without decoding is dead code that
+# reads as load-bearing. Fixture carries the real encoding.
+ck "the purl branch decodes %3A, so it is not dead code on real output" \
+   "python3 -c \"
+loc = 'pkg:oci/child@sha256%3A' + 'a'*64 + '?arch=amd64'
+loc = loc.replace('%3A', ':')
+tail = loc.rsplit('sha256:', 1)[1].split('?', 1)[0]
+assert tail == 'a'*64, tail
+\""
+ck "NON-VACUOUS: without decoding, that same purl yields NO subject" \
+   "python3 -c \"
+loc = 'pkg:oci/child@sha256%3A' + 'a'*64 + '?arch=amd64'
+assert 'sha256:' not in loc
+\""
+ck "NON-VACUOUS: the old documentDescribes-only reading finds NOTHING here" \
+   "python3 -c \"
+import json
+d = json.load(open('$TMP/syft-shape.spdx.json'))
+assert not (d.get('documentDescribes') or [])
+\""
+
+# --- SUBJECT BINDING: every path proven ALONE ---------------------------------
+# The consumer resolves an SPDX subject from three places. If they are only
+# ever tested together, a fallback that works conceals a primary that does not
+# — which is precisely how the purl branch shipped as dead code: versionInfo
+# and checksums both carried the digest, so nothing revealed that a literal
+# "sha256:" match never fires against syft's percent-encoded purl.
+#
+# So each path is exercised in ISOLATION, with the other two removed.
+_D64="384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd0"
+
+_subject_of() {  # <spdx-file> -> resolved subjects, one per line
+  python3 - "$1" <<'SUBJ_PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+pk = {p.get("SPDXID"): p for p in (d.get("packages") or []) if isinstance(p, dict)}
+subs = set()
+for v in d.get("documentDescribes") or []:
+    if isinstance(v, str):
+        subs.add(v.strip().lower())
+for r in d.get("relationships") or []:
+    if not isinstance(r, dict):
+        continue
+    if (r.get("relationshipType") or "").upper() != "DESCRIBES":
+        continue
+    if (r.get("spdxElementId") or "") != "SPDXRef-DOCUMENT":
+        continue
+    root = pk.get(r.get("relatedSpdxElement")) or {}
+    v = root.get("versionInfo")
+    if isinstance(v, str) and v.strip().lower().startswith("sha256:"):
+        subs.add(v.strip().lower())
+    for c in root.get("checksums") or []:
+        if isinstance(c, dict) and (c.get("algorithm") or "").upper() == "SHA256":
+            cv = str(c.get("checksumValue") or "").strip().lower()
+            if cv:
+                subs.add(cv if cv.startswith("sha256:") else "sha256:" + cv)
+    for e in root.get("externalRefs") or []:
+        loc = str((e or {}).get("referenceLocator") or "")
+        loc = loc.replace("%3A", ":").replace("%3a", ":")
+        if "sha256:" in loc:
+            tail = loc.rsplit("sha256:", 1)[1].strip().lower()
+            tail = tail.split("?", 1)[0].split("#", 1)[0]
+            if tail:
+                subs.add("sha256:" + tail)
+for x in sorted(subs):
+    print(x)
+SUBJ_PY
+}
+
+_mk() {  # <out> <purl|-> <versionInfo|-> <checksum|->
+  python3 - "$1" "$2" "$3" "$4" <<'MK_PY'
+import json, sys
+out, purl, ver, ck_ = sys.argv[1:5]
+root = {"SPDXID": "SPDXRef-DocumentRoot-Image-c", "name": "c"}
+if ver != "-":
+    root["versionInfo"] = ver
+if ck_ != "-":
+    root["checksums"] = [{"algorithm": "SHA256", "checksumValue": ck_}]
+if purl != "-":
+    root["externalRefs"] = [{"referenceCategory": "PACKAGE-MANAGER",
+                             "referenceType": "purl", "referenceLocator": purl}]
+json.dump({"spdxVersion": "SPDX-2.3", "SPDXID": "SPDXRef-DOCUMENT",
+           "packages": [root],
+           "relationships": [{"spdxElementId": "SPDXRef-DOCUMENT",
+                              "relatedSpdxElement": "SPDXRef-DocumentRoot-Image-c",
+                              "relationshipType": "DESCRIBES"}]}, open(out, "w"))
+MK_PY
+}
+
+# 1. canonical purl ALONE
+_mk "$TMP/p1.json" "pkg:oci/c@sha256:$_D64" - -
+ck "purl ALONE (canonical) resolves the digest" \
+   "[ \"\$(_subject_of '$TMP/p1.json')\" = 'sha256:$_D64' ]"
+# 2. percent-encoded purl ALONE
+_mk "$TMP/p2.json" "pkg:oci/c@sha256%3A$_D64" - -
+ck "purl ALONE (percent-encoded) resolves the digest" \
+   "[ \"\$(_subject_of '$TMP/p2.json')\" = 'sha256:$_D64' ]"
+# 3. purl WITH qualifiers ALONE
+_mk "$TMP/p3.json" "pkg:oci/c@sha256%3A$_D64?arch=amd64&tag=x" - -
+ck "purl ALONE (with qualifiers) strips them and resolves the digest" \
+   "[ \"\$(_subject_of '$TMP/p3.json')\" = 'sha256:$_D64' ]"
+# 4. versionInfo ALONE
+_mk "$TMP/p4.json" - "sha256:$_D64" -
+ck "versionInfo ALONE resolves the digest" \
+   "[ \"\$(_subject_of '$TMP/p4.json')\" = 'sha256:$_D64' ]"
+# 5. checksum ALONE
+_mk "$TMP/p5.json" - - "$_D64"
+ck "checksum ALONE resolves the digest" \
+   "[ \"\$(_subject_of '$TMP/p5.json')\" = 'sha256:$_D64' ]"
+# 6. conflicting identities must NOT collapse to one
+_mk "$TMP/p6.json" "pkg:oci/c@sha256%3A$_D64" "sha256:$(printf 'b%.0s' $(seq 64))" -
+ck "conflicting identities surface BOTH, so a mismatch can be refused" \
+   "[ \"\$(_subject_of '$TMP/p6.json' | wc -l | tr -d ' ')\" = 2 ]"
+# 7. malformed purl must not accidentally match
+_mk "$TMP/p7.json" "pkg:oci/c@sha256%3Anot-a-digest" - -
+ck "a malformed purl cannot accidentally match the real digest" \
+   "! _subject_of '$TMP/p7.json' | grep -qx 'sha256:$_D64'"
+# 8. NON-VACUITY: removing every binding path yields NOTHING
+_mk "$TMP/p8.json" - - -
+ck "NON-VACUOUS: with all three paths removed, NO subject resolves" \
+   "[ -z \"\$(_subject_of '$TMP/p8.json')\" ]"
+
 echo "----"
 echo "assertions: $n, failures: $nfail, pinned gaps: $ngap"
 if [ "$fail" -eq 0 ]; then echo "test_image_sbom_licence_gate: PASS"; else

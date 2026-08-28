@@ -1,0 +1,33 @@
+{
+  "record_type": "frozen-scanner-identity",
+  "schema_version": 1,
+  "purpose": "The ONE tool identity every SBOM in this run was produced by. Recorded by digest, never by tag: a tag is mutable and cannot identify what enumerated the packages.",
+  "scanner": {
+    "image": "anchore/syft@sha256:f94e5d9fce1f2278491a8e3a63bd5f6ddb81fdfdbb8bf7a1637565c1d5344357",
+    "resolved_from_tag": "anchore/syft:v1.33.0",
+    "version": "syft-1.33.0",
+    "spdx_license_list_version": "3.27",
+    "recorded_in_every_document": "creationInfo.creators = [\"Organization: Anchore, Inc\", \"Tool: syft-1.33.0\"]"
+  },
+  "invocation": {
+    "producer": "scripts/generate-sbom.sh",
+    "producer_note": "The producer is the SHIPPED script, unmodified. Only the syft binary it finds on PATH was replaced, by a shim that execs the digest-pinned container above. Filenames therefore come from sbom_filename() in scripts/lib/common.sh, the same function the consumer calls.",
+    "source_scheme": "registry:",
+    "source_note": "syft reads each child straight out of the registry by immutable digest. Nothing was built, nothing was installed, no Dockerfile was executed, and no image was pulled into a local daemon whose image ID would have replaced the manifest digest as the document's subject.",
+    "config": "policies/syft.yaml",
+    "platform_flag": "--platform <the child's own platform>",
+    "formats": ["spdx-json", "cyclonedx-json"]
+  },
+  "registry": {
+    "package": "ghcr.io/zenchron-dynamics/foundry-staging",
+    "visibility": "private",
+    "auth": "SYFT_REGISTRY_AUTH_* against ghcr.io; read scope only"
+  },
+  "cohort": {
+    "derivation": "MATRIX_IMAGES x expected_matrix.platforms, from scripts/lib/common.sh — never a literal",
+    "matrix_images": 10,
+    "platforms": ["linux/amd64", "linux/arm64"],
+    "children": 20,
+    "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+  }
+}

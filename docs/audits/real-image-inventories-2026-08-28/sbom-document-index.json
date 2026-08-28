@@ -1,0 +1,526 @@
+{
+  "authorization_record": {
+    "children": 20,
+    "committed": false,
+    "reproduce": "python3 tests/lib/make_authorization_fixture.py docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json <out.json>",
+    "schema_valid": true,
+    "sha256": "d592904c189e21efcd2d228406ead57dbe75e8132d72fced4a9fd45a2a15fcd3",
+    "why_not": "tests/lib/make_authorization_fixture.py: a reconstruction filed beside real audit records is a reconstruction somebody will later read as one."
+  },
+  "children": [
+    {
+      "binding_record": "sbom-bindings/caddy-prod-linux-amd64.binding.json",
+      "child_key": "caddy/prod/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd8",
+      "execution_mode": "native",
+      "image_label": "caddy/prod",
+      "manifest_digest": "sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd8",
+      "packages_enumerated_by_syft": 178,
+      "packages_recorded_by_the_accepted_run": 178,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd8",
+      "sbom_documents": {
+        "caddy-prod-linux-amd64.cdx.json": {
+          "bytes": 294708,
+          "sha256": "e12aea828bd5f1d1277479a373461b58b2029bdab122fe5e6ef25411e5476d60"
+        },
+        "caddy-prod-linux-amd64.spdx.json": {
+          "bytes": 467656,
+          "sha256": "1c540a4cf42ff8e39fd86d446234a9b4a9b661c8f1168cc62c80f518fa570e66"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/caddy-prod-linux-arm64.binding.json",
+      "child_key": "caddy/prod/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:0dd4b80108f81fcf4dca4c6c98924b7fef913a186c9f92231579d442cd2b9858",
+      "execution_mode": "qemu",
+      "image_label": "caddy/prod",
+      "manifest_digest": "sha256:0dd4b80108f81fcf4dca4c6c98924b7fef913a186c9f92231579d442cd2b9858",
+      "packages_enumerated_by_syft": 178,
+      "packages_recorded_by_the_accepted_run": 178,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:0dd4b80108f81fcf4dca4c6c98924b7fef913a186c9f92231579d442cd2b9858",
+      "sbom_documents": {
+        "caddy-prod-linux-arm64.cdx.json": {
+          "bytes": 294595,
+          "sha256": "2e6d16b274ef0080f90c671c85f0bd67d2a9552feea2826fbc54789061659222"
+        },
+        "caddy-prod-linux-arm64.spdx.json": {
+          "bytes": 466894,
+          "sha256": "baefb2dc870be30e5db2e05ef141a87aa94ce5fef91b5f382f760032ffb2185f"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/nginx-prod-linux-amd64.binding.json",
+      "child_key": "nginx/prod/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:bf8e662ddcfc986b9a859217adf7e826e3f1d186914f8bf3a36cf9c5eee82828",
+      "execution_mode": "native",
+      "image_label": "nginx/prod",
+      "manifest_digest": "sha256:bf8e662ddcfc986b9a859217adf7e826e3f1d186914f8bf3a36cf9c5eee82828",
+      "packages_enumerated_by_syft": 94,
+      "packages_recorded_by_the_accepted_run": 94,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:bf8e662ddcfc986b9a859217adf7e826e3f1d186914f8bf3a36cf9c5eee82828",
+      "sbom_documents": {
+        "nginx-prod-linux-amd64.cdx.json": {
+          "bytes": 1090816,
+          "sha256": "85f9dd113e498ae7c1dff01dd09a103cb518150c3ac219dd198921ef13502096"
+        },
+        "nginx-prod-linux-amd64.spdx.json": {
+          "bytes": 2600306,
+          "sha256": "8d1df807935b5e67569a5bd6b73d7f59009888d5ea456968ca256e6bd203909c"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/nginx-prod-linux-arm64.binding.json",
+      "child_key": "nginx/prod/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:2a0775971ea58491207e6287ce8897133e22bab2b36053bf515d2e55fbfe01d2",
+      "execution_mode": "qemu",
+      "image_label": "nginx/prod",
+      "manifest_digest": "sha256:2a0775971ea58491207e6287ce8897133e22bab2b36053bf515d2e55fbfe01d2",
+      "packages_enumerated_by_syft": 94,
+      "packages_recorded_by_the_accepted_run": 94,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:2a0775971ea58491207e6287ce8897133e22bab2b36053bf515d2e55fbfe01d2",
+      "sbom_documents": {
+        "nginx-prod-linux-arm64.cdx.json": {
+          "bytes": 1091549,
+          "sha256": "e3d63382961f79d5b107f183d2b95dc22736e6933f08a4709feb1df21ba233ba"
+        },
+        "nginx-prod-linux-arm64.spdx.json": {
+          "bytes": 2600234,
+          "sha256": "51933993f3b2e4a5a47b32a5f43b6a80cf1cb2e8da9b767f03569e12433ca917"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-cli-8.3-linux-amd64.binding.json",
+      "child_key": "php-cli/8.3/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:9a598e747d4710492a0be60dfff422cc08db5d193e0980cdf235e53736584988",
+      "execution_mode": "native",
+      "image_label": "php-cli/8.3",
+      "manifest_digest": "sha256:9a598e747d4710492a0be60dfff422cc08db5d193e0980cdf235e53736584988",
+      "packages_enumerated_by_syft": 144,
+      "packages_recorded_by_the_accepted_run": 127,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:9a598e747d4710492a0be60dfff422cc08db5d193e0980cdf235e53736584988",
+      "sbom_documents": {
+        "php-cli-8.3-linux-amd64.cdx.json": {
+          "bytes": 1217019,
+          "sha256": "a02e2ff7321257daeac80365fcac7b1abd5b7da90b2a8bc5f0446b62702cc5c2"
+        },
+        "php-cli-8.3-linux-amd64.spdx.json": {
+          "bytes": 2819757,
+          "sha256": "3c115fe298d44a4961e37133aeeadd115a7f200a608a378025deac0f34a72085"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-cli-8.3-linux-arm64.binding.json",
+      "child_key": "php-cli/8.3/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:5e0f95bdd570c181e21d0d6ef837d27de9658f92aecab40c2d4dc548a3ca24dd",
+      "execution_mode": "qemu",
+      "image_label": "php-cli/8.3",
+      "manifest_digest": "sha256:5e0f95bdd570c181e21d0d6ef837d27de9658f92aecab40c2d4dc548a3ca24dd",
+      "packages_enumerated_by_syft": 144,
+      "packages_recorded_by_the_accepted_run": 127,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:5e0f95bdd570c181e21d0d6ef837d27de9658f92aecab40c2d4dc548a3ca24dd",
+      "sbom_documents": {
+        "php-cli-8.3-linux-arm64.cdx.json": {
+          "bytes": 1217794,
+          "sha256": "a316a4619ae6a383bcaee28fd2f8e43f49168d034d79e73cbf14b188d4009fea"
+        },
+        "php-cli-8.3-linux-arm64.spdx.json": {
+          "bytes": 2819577,
+          "sha256": "c167361fad188239edecfb5557372cd7bd38f28e27ba4b99c7fab31e28246bdb"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-cli-8.4-linux-amd64.binding.json",
+      "child_key": "php-cli/8.4/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:124887dda8667be5a26711c675af7b466fd98c4a4a63d2fb93fb06053cb75d23",
+      "execution_mode": "native",
+      "image_label": "php-cli/8.4",
+      "manifest_digest": "sha256:124887dda8667be5a26711c675af7b466fd98c4a4a63d2fb93fb06053cb75d23",
+      "packages_enumerated_by_syft": 144,
+      "packages_recorded_by_the_accepted_run": 127,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:124887dda8667be5a26711c675af7b466fd98c4a4a63d2fb93fb06053cb75d23",
+      "sbom_documents": {
+        "php-cli-8.4-linux-amd64.cdx.json": {
+          "bytes": 1217012,
+          "sha256": "7f50d36c6578797251fd9eb99ef6e8d3e05ca2adff837dc59d7b36dcd4aa7a16"
+        },
+        "php-cli-8.4-linux-amd64.spdx.json": {
+          "bytes": 2819757,
+          "sha256": "e3cd3ceb8c36eb478000d19cac353f4e4e5ed7ea205266efc69652785a0a6b38"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-cli-8.4-linux-arm64.binding.json",
+      "child_key": "php-cli/8.4/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:6e885b182b8082fa8a76bcc4d465094caa3725be5acf3216b3dc88e590222a76",
+      "execution_mode": "qemu",
+      "image_label": "php-cli/8.4",
+      "manifest_digest": "sha256:6e885b182b8082fa8a76bcc4d465094caa3725be5acf3216b3dc88e590222a76",
+      "packages_enumerated_by_syft": 144,
+      "packages_recorded_by_the_accepted_run": 127,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:6e885b182b8082fa8a76bcc4d465094caa3725be5acf3216b3dc88e590222a76",
+      "sbom_documents": {
+        "php-cli-8.4-linux-arm64.cdx.json": {
+          "bytes": 1217787,
+          "sha256": "93b737a2231254c98e305da835c399f11bfa8ac1a593cb1523681c369c483b2b"
+        },
+        "php-cli-8.4-linux-arm64.spdx.json": {
+          "bytes": 2819577,
+          "sha256": "e2f7249e3dd44ae446517c8afd2f3de0b1cce151808409ef672bb35a4f168e79"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-fpm-8.3-linux-amd64.binding.json",
+      "child_key": "php-fpm/8.3/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:ca9acdf0adc5179d80d712cedc141d810bf719e8db692c4c527557ba50b89d46",
+      "execution_mode": "native",
+      "image_label": "php-fpm/8.3",
+      "manifest_digest": "sha256:ca9acdf0adc5179d80d712cedc141d810bf719e8db692c4c527557ba50b89d46",
+      "packages_enumerated_by_syft": 144,
+      "packages_recorded_by_the_accepted_run": 127,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:ca9acdf0adc5179d80d712cedc141d810bf719e8db692c4c527557ba50b89d46",
+      "sbom_documents": {
+        "php-fpm-8.3-linux-amd64.cdx.json": {
+          "bytes": 1217429,
+          "sha256": "3d9dc48f012a6cde2a5cf9b5514460a3d22bb05285d73e67ff2465cf7f0c47a2"
+        },
+        "php-fpm-8.3-linux-amd64.spdx.json": {
+          "bytes": 2819911,
+          "sha256": "ae59a7c7395871b288087ec5514923ecc1d982a8cf8fdb7d32d17a4301a3e635"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-fpm-8.3-linux-arm64.binding.json",
+      "child_key": "php-fpm/8.3/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:bea8ee4d6033b56ad3bd8621284e4d1298ca5b477469423ad02934bade02cf0b",
+      "execution_mode": "qemu",
+      "image_label": "php-fpm/8.3",
+      "manifest_digest": "sha256:bea8ee4d6033b56ad3bd8621284e4d1298ca5b477469423ad02934bade02cf0b",
+      "packages_enumerated_by_syft": 144,
+      "packages_recorded_by_the_accepted_run": 127,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:bea8ee4d6033b56ad3bd8621284e4d1298ca5b477469423ad02934bade02cf0b",
+      "sbom_documents": {
+        "php-fpm-8.3-linux-arm64.cdx.json": {
+          "bytes": 1218204,
+          "sha256": "281c1564db9b043d6b53cc8755adee3a07721b761ef158edf5d09d0efddd2f5a"
+        },
+        "php-fpm-8.3-linux-arm64.spdx.json": {
+          "bytes": 2819731,
+          "sha256": "3f11d61c017c4860ac36f6a2bf8a471706c409694f20c82de7874dcf6e3c4e8f"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-fpm-8.4-linux-amd64.binding.json",
+      "child_key": "php-fpm/8.4/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:8eab0f293935f717f07a33906aa4ea060acfcf75f21395219d5208adfda0ff6b",
+      "execution_mode": "native",
+      "image_label": "php-fpm/8.4",
+      "manifest_digest": "sha256:8eab0f293935f717f07a33906aa4ea060acfcf75f21395219d5208adfda0ff6b",
+      "packages_enumerated_by_syft": 144,
+      "packages_recorded_by_the_accepted_run": 127,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:8eab0f293935f717f07a33906aa4ea060acfcf75f21395219d5208adfda0ff6b",
+      "sbom_documents": {
+        "php-fpm-8.4-linux-amd64.cdx.json": {
+          "bytes": 1217422,
+          "sha256": "b6847254a879d69e49c054ebc1f6f7e103d43c78dd42caa6ee277a5fd8c55595"
+        },
+        "php-fpm-8.4-linux-amd64.spdx.json": {
+          "bytes": 2819911,
+          "sha256": "f1878c07cd9f30a70d1202dc402f8c22477162dd7376fc150eb0a3d3b74993e3"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-fpm-8.4-linux-arm64.binding.json",
+      "child_key": "php-fpm/8.4/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:ae52345c2851b896f981f67f451f18cb14b409a9c0f71df2546be78561e54ec8",
+      "execution_mode": "qemu",
+      "image_label": "php-fpm/8.4",
+      "manifest_digest": "sha256:ae52345c2851b896f981f67f451f18cb14b409a9c0f71df2546be78561e54ec8",
+      "packages_enumerated_by_syft": 144,
+      "packages_recorded_by_the_accepted_run": 127,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:ae52345c2851b896f981f67f451f18cb14b409a9c0f71df2546be78561e54ec8",
+      "sbom_documents": {
+        "php-fpm-8.4-linux-arm64.cdx.json": {
+          "bytes": 1218197,
+          "sha256": "da8915a00b2c70d2aac4343a4ac6bb598c6ee7be0e450cfd7155a35b0eacedfb"
+        },
+        "php-fpm-8.4-linux-arm64.spdx.json": {
+          "bytes": 2819731,
+          "sha256": "c1b48981b9ecdb2fd34209ebd734f73e8c0e3e64bd361657e0bd229cbaec589c"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-frankenphp-8.3-linux-amd64.binding.json",
+      "child_key": "php-frankenphp/8.3/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:54992c07f9dc27e5bff59bd413f19f2416014537f3dc9f782d5a90833dd6edcb",
+      "execution_mode": "native",
+      "image_label": "php-frankenphp/8.3",
+      "manifest_digest": "sha256:54992c07f9dc27e5bff59bd413f19f2416014537f3dc9f782d5a90833dd6edcb",
+      "packages_enumerated_by_syft": 382,
+      "packages_recorded_by_the_accepted_run": 364,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:54992c07f9dc27e5bff59bd413f19f2416014537f3dc9f782d5a90833dd6edcb",
+      "sbom_documents": {
+        "php-frankenphp-8.3-linux-amd64.cdx.json": {
+          "bytes": 2217949,
+          "sha256": "6b8ac8a624383bea66c444f1871eb796003629a15218c12faa2f26effd6bea4e"
+        },
+        "php-frankenphp-8.3-linux-amd64.spdx.json": {
+          "bytes": 5093304,
+          "sha256": "2ef95c9579d4560838914f7fb00050a86a45aa88ff86ae4314544dddbcbabe73"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-frankenphp-8.3-linux-arm64.binding.json",
+      "child_key": "php-frankenphp/8.3/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:f42f06b143c7ff154e0c055076864871b9962ca6a7eec540eab6454e7b65f43b",
+      "execution_mode": "qemu",
+      "image_label": "php-frankenphp/8.3",
+      "manifest_digest": "sha256:f42f06b143c7ff154e0c055076864871b9962ca6a7eec540eab6454e7b65f43b",
+      "packages_enumerated_by_syft": 382,
+      "packages_recorded_by_the_accepted_run": 364,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:f42f06b143c7ff154e0c055076864871b9962ca6a7eec540eab6454e7b65f43b",
+      "sbom_documents": {
+        "php-frankenphp-8.3-linux-arm64.cdx.json": {
+          "bytes": 2239043,
+          "sha256": "8d38dc751b48ee36e49f9f113c962516d7b1aee9d79e0adfd23ce99686cf4c6a"
+        },
+        "php-frankenphp-8.3-linux-arm64.spdx.json": {
+          "bytes": 5146965,
+          "sha256": "20537771cf97d4d8605e6fab2777dc003d1bb9f53715d90b9bd0296383736d17"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-frankenphp-8.4-linux-amd64.binding.json",
+      "child_key": "php-frankenphp/8.4/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:abbb0bec12d80d26878811b1a487dd5c1962103a94d043fd313fa7b99639159f",
+      "execution_mode": "native",
+      "image_label": "php-frankenphp/8.4",
+      "manifest_digest": "sha256:abbb0bec12d80d26878811b1a487dd5c1962103a94d043fd313fa7b99639159f",
+      "packages_enumerated_by_syft": 382,
+      "packages_recorded_by_the_accepted_run": 364,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:abbb0bec12d80d26878811b1a487dd5c1962103a94d043fd313fa7b99639159f",
+      "sbom_documents": {
+        "php-frankenphp-8.4-linux-amd64.cdx.json": {
+          "bytes": 2217942,
+          "sha256": "1055246f331baeb1a847923a29a8aa45344b616057458e830b83e95488583015"
+        },
+        "php-frankenphp-8.4-linux-amd64.spdx.json": {
+          "bytes": 5093304,
+          "sha256": "6e709278c21e9fd4a824d5b4d8674656d472f29e8d77dee2e13cc0b5e6a06aa8"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-frankenphp-8.4-linux-arm64.binding.json",
+      "child_key": "php-frankenphp/8.4/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:2daeb138033eb251a9a83fc4f0eb01a76aacebb6aab3c11d6ca1c08036225603",
+      "execution_mode": "qemu",
+      "image_label": "php-frankenphp/8.4",
+      "manifest_digest": "sha256:2daeb138033eb251a9a83fc4f0eb01a76aacebb6aab3c11d6ca1c08036225603",
+      "packages_enumerated_by_syft": 382,
+      "packages_recorded_by_the_accepted_run": 364,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:2daeb138033eb251a9a83fc4f0eb01a76aacebb6aab3c11d6ca1c08036225603",
+      "sbom_documents": {
+        "php-frankenphp-8.4-linux-arm64.cdx.json": {
+          "bytes": 2239036,
+          "sha256": "15b7965ff3447ceac600160be0b03b44a7fedf09aac71a404e681730a1bea8ce"
+        },
+        "php-frankenphp-8.4-linux-arm64.spdx.json": {
+          "bytes": 5146965,
+          "sha256": "15d7c60ccde46cacbbc533c90a5687473706b1717deb0976d24afb9aea28f0b4"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-worker-8.3-linux-amd64.binding.json",
+      "child_key": "php-worker/8.3/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:d35023c581faa639999878e3e48c8a187ed66611cac80bda5a97bdcc738037ba",
+      "execution_mode": "native",
+      "image_label": "php-worker/8.3",
+      "manifest_digest": "sha256:d35023c581faa639999878e3e48c8a187ed66611cac80bda5a97bdcc738037ba",
+      "packages_enumerated_by_syft": 145,
+      "packages_recorded_by_the_accepted_run": 128,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:d35023c581faa639999878e3e48c8a187ed66611cac80bda5a97bdcc738037ba",
+      "sbom_documents": {
+        "php-worker-8.3-linux-amd64.cdx.json": {
+          "bytes": 1220068,
+          "sha256": "779c5ad12bda30d5f34c17796c260b81497c41a209e95cd134be7e01cfe40287"
+        },
+        "php-worker-8.3-linux-amd64.spdx.json": {
+          "bytes": 2825111,
+          "sha256": "c81933c041dc0bbba7cda84d9ddb079c8fe7e739809cdf566b6f0d01a3882bfc"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-worker-8.3-linux-arm64.binding.json",
+      "child_key": "php-worker/8.3/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:5188a56952b0d5c610255bd5945aef14ab39d168b116738109a2048516d9b934",
+      "execution_mode": "qemu",
+      "image_label": "php-worker/8.3",
+      "manifest_digest": "sha256:5188a56952b0d5c610255bd5945aef14ab39d168b116738109a2048516d9b934",
+      "packages_enumerated_by_syft": 145,
+      "packages_recorded_by_the_accepted_run": 128,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:5188a56952b0d5c610255bd5945aef14ab39d168b116738109a2048516d9b934",
+      "sbom_documents": {
+        "php-worker-8.3-linux-arm64.cdx.json": {
+          "bytes": 1220843,
+          "sha256": "f8c51b35b6c1186db9cc06615719a4060b36b1ed518711d9f63751cb891d70c9"
+        },
+        "php-worker-8.3-linux-arm64.spdx.json": {
+          "bytes": 2824931,
+          "sha256": "ad8a35e05e9c763c34a6e8a280fa8a6e2f91badf494d9517586740180e0df6a1"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-worker-8.4-linux-amd64.binding.json",
+      "child_key": "php-worker/8.4/linux/amd64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:7627fae4d7b144c94e95e4863deb9a99195bbfb46d840673e75b4b328c1b0d64",
+      "execution_mode": "native",
+      "image_label": "php-worker/8.4",
+      "manifest_digest": "sha256:7627fae4d7b144c94e95e4863deb9a99195bbfb46d840673e75b4b328c1b0d64",
+      "packages_enumerated_by_syft": 145,
+      "packages_recorded_by_the_accepted_run": 128,
+      "platform": "linux/amd64",
+      "sbom_declared_subject": "sha256:7627fae4d7b144c94e95e4863deb9a99195bbfb46d840673e75b4b328c1b0d64",
+      "sbom_documents": {
+        "php-worker-8.4-linux-amd64.cdx.json": {
+          "bytes": 1220061,
+          "sha256": "91ec99001ba439a9ab96c25812bea274ce39d25017f9f6d7d004e4014b2b7dca"
+        },
+        "php-worker-8.4-linux-amd64.spdx.json": {
+          "bytes": 2825111,
+          "sha256": "d39f43660254827647451b8917fdde8a0f6d596056b473021c133526b6c526a8"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    },
+    {
+      "binding_record": "sbom-bindings/php-worker-8.4-linux-arm64.binding.json",
+      "child_key": "php-worker/8.4/linux/arm64",
+      "digest_reference": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:33aaa754c4c60eebce844411e5eb334cee53d07045ba564a04058081d5ea39db",
+      "execution_mode": "qemu",
+      "image_label": "php-worker/8.4",
+      "manifest_digest": "sha256:33aaa754c4c60eebce844411e5eb334cee53d07045ba564a04058081d5ea39db",
+      "packages_enumerated_by_syft": 145,
+      "packages_recorded_by_the_accepted_run": 128,
+      "platform": "linux/arm64",
+      "sbom_declared_subject": "sha256:33aaa754c4c60eebce844411e5eb334cee53d07045ba564a04058081d5ea39db",
+      "sbom_documents": {
+        "php-worker-8.4-linux-arm64.cdx.json": {
+          "bytes": 1220836,
+          "sha256": "69645ad9a2e70138b380cdd29e3fa260a206e9225d270eae2c2d28ec8461708f"
+        },
+        "php-worker-8.4-linux-arm64.spdx.json": {
+          "bytes": 2824931,
+          "sha256": "c59b616e792148723f3695925cc725b91d113cae48c1f4ad7497c103efd8cf5c"
+        }
+      },
+      "sbom_subject_equals_manifest_digest": true,
+      "sbom_subject_location": "relationships[DESCRIBES] -> packages[root].versionInfo / .checksums[SHA256] / .externalRefs[purl]",
+      "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+    }
+  ],
+  "documents": 40,
+  "documents_total_bytes": 86781974,
+  "licence_inventory": {
+    "built_by": "scripts/license/license-inventory.sh --sbom-dir <the 40 documents>",
+    "component_count": 8527,
+    "conflict_count": 196,
+    "image_binding": "ABSENT \u2014 the binding gate refused, so no bound inventory exists. This inventory is UNBOUND and is recorded as a measurement, never as a verdict.",
+    "inventory_sha256": "ab61d4b57f530e894d5f1d8c13eaac8506963c1cd4da6fd6494c20a30d623a12",
+    "schema": "foundry.license-inventory/v1",
+    "unknown_count": 8292
+  },
+  "note": "The SBOM documents are NOT committed: 83 MB of bill-of-materials belongs in an evidence bundle, and *.cdx.json is gitignored repository-wide. Their names, sizes and sha256 are committed here and in sbom-bindings/, so the run is checkable without them.",
+  "record_type": "real-image-sbom-document-index",
+  "schema_version": 1
+}

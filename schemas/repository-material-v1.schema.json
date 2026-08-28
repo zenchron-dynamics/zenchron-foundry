@@ -14,14 +14,21 @@
       "type": "object",
       "description": "The explicit REVIEWED BASELINE. Discovery is heuristic and cannot prove that an arbitrary file was not copied from somewhere; the baseline is the non-heuristic half. Material outside it is unreviewed, and unreviewed is a refusal, not a pass.",
       "additionalProperties": false,
-      "required": ["path_list", "path_list_sha256", "path_count", "reviewed_at_revision", "reviewed_by", "reviewed_on"],
+      "required": ["path_list", "path_list_sha256", "path_count", "observed_at_revision", "reviewed_at_revision", "reviewed_by", "reviewed_on", "reviewed_count", "unreviewed_count", "generated_audit_count"],
       "properties": {
         "path_list": {"type": "string"},
         "path_list_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "path_count": {"type": "integer", "minimum": 1},
-        "reviewed_at_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "observed_at_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The revision the PATH LIST was generated from. Separate from reviewed_at_revision on purpose: generating a list is not reviewing it, and the two may not be equal while any path is recorded unreviewed."},
+        "reviewed_at_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The last revision whose declared review scope was ACTUALLY reviewed. It describes the reviewed COHORT, not the whole path list, and must never be advanced to cover paths recorded as unreviewed or generated-audit."},
         "reviewed_by": {"type": "string", "minLength": 1},
         "reviewed_on": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+        "reviewed_count": {"type": "integer", "minimum": 0, "description": "Paths somebody read under review_method. reviewed + unreviewed + generated_audit MUST equal path_count."},
+        "unreviewed_count": {"type": "integer", "minimum": 0, "description": "Paths in the list that nobody has read. Recorded, never implied."},
+        "generated_audit_count": {"type": "integer", "minimum": 0, "description": "Deterministic machine output with a named producer. A CONTENT CLASS, not an exemption and not a path rule: generated evidence can itself carry copied material."},
+        "unreviewed_paths": {"type": "array", "items": {"type": "string"}, "description": "Every path in the unreviewed cohort, enumerated. A count with no list is a claim nobody can check."},
+        "generated_audit_paths": {"type": "array", "items": {"type": "string"}, "description": "Every path in the generated-audit cohort, enumerated, classified by PROVENANCE AND CONTENT CLASS rather than by directory. docs/audits/ is not blanket-exempt."},
+        "cohort_note": {"type": "string", "minLength": 1},
         "review_method": {"type": "string", "minLength": 1}
       }
     },
