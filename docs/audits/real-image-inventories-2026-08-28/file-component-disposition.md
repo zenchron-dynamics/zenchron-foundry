@@ -225,6 +225,28 @@ from every control. Here it is excluded **only** because the document names the
 `pkg:golang` modules it is evident by. Remove that evidence and it becomes
 `unresolved` and stays visible.
 
+### The obligation is preserved, not dropped — shown on one real file
+
+`/bin/busybox` was one of the 7,972 bare "no licence could be established"
+findings. It is now a disposition, verbatim from the inventory the parser writes:
+
+```json
+{"path": "bin/busybox", "class": "package-attributed",
+ "owning_package": ["pkg:apk/alpine/busybox@1.37.0-r30?arch=x86_64&distro=alpine-3.23.5",
+                    "pkg:apk/alpine/busybox-binsh@1.37.0-r30?..."],
+ "owning_package_version": ["1.37.0-r30"],
+ "relationship_evidence": ["SPDX:CONTAINS"],
+ "inherited_licence_expression": ["GPL-2.0-only"],
+ "conflicting_or_exceptional_licence_metadata": false,
+ "reason": "owned by ... via SPDX:CONTAINS; licence obligation INHERITED as
+            GPL-2.0-only and counted once on the package rather than once per
+            path — the obligation is not removed, it is de-duplicated"}
+```
+
+`GPL-2.0-only` on `busybox` is one of the **19 legal-review findings that
+survive**. The file stopped being its own finding; the obligation did not stop
+existing, and it is still refused at the gate on the package.
+
 *A fixture that only carries the shape the consumer already reads cannot discover
 that the producer disagrees.* That is how this repository's 113-assertion suite
 missed a gate that bound nothing, and it is why one assertion here is pointed at
