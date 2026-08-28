@@ -715,6 +715,7 @@ tests/integration/test_evidence_path_e2e.sh
 tests/integration/test_integration.sh
 tests/lib/make_authorization_fixture.py
 tests/lib/make_native_arm64_fixture.py
+tests/lib/make_notice_inputs.py
 tests/lib/make_replay_inventory.py
 tests/lib/test_dependabot_manifests.sh
 tests/lib/test_fixture_date_rot.sh
@@ -729,6 +730,7 @@ tests/lib/workflow_step.py
 tests/license/test_image_sbom_licence_gate.sh
 tests/license/test_licence_file_components.sh
 tests/license/test_license_gate.sh
+tests/license/test_notice_bundle.sh
 tests/license/test_repository_material_gate.sh
 tests/matrix/test_php_lifecycle_and_selectors.sh
 tests/promotion/test_promotion.sh

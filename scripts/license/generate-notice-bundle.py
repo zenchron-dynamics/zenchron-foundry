@@ -816,8 +816,12 @@ def produce(args):
         "producer": PRODUCER,
         "verdict": verdict,
         "status": status,
-        "draft": verdict != "PASS",
-        "satisfies_authorization": verdict == "PASS" and status == STATUS_COMPLETE,
+        # DRAFT means "cannot authorize", not merely "the notice material is
+        # incomplete". A bundle whose notice and source material is perfect but
+        # which nobody has authority to distribute is still a draft, because the
+        # thing a non-draft claims is that it may be used — and it may not.
+        "draft": status != STATUS_COMPLETE,
+        "satisfies_authorization": status == STATUS_COMPLETE,
         "publication_authority_present": pub_present,
         "engineering_complete": not engineering_codes,
         "legal_review_outstanding": legal_outstanding,
