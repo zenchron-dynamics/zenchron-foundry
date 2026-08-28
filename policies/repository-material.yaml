@@ -63,8 +63,8 @@ tracked_issue: 120
 # supply-chain guard. Do not "tidy" it back into policies/.
 baseline:
   path_list: docs/licensing/repository-material-baseline.txt
-  path_list_sha256: 461cbf0edbe11ddd1d6145d93b51afaccd6055146ff200ca7728c9199411d4b1
-  path_count: 849
+  path_list_sha256: e9f488f263a5c6f35556e05517ddf7d36b22002bf9f3ce0ca227dc0d744c85ac
+  path_count: 851
   # WHERE THE LIST CAME FROM. Generating a path list is not reviewing it, so
   # this is a SEPARATE field from reviewed_at_revision, and the gate refuses if
   # the two are equal while any path is recorded unreviewed.
@@ -75,7 +75,7 @@ baseline:
   reviewed_at_revision: ac1155716e7b244cca6dd3ecbaa89d467a71732c
   reviewed_by: lane-R-repository-material-review
   reviewed_on: '2026-08-27'
-  reviewed_count: 810
+  reviewed_count: 812
   unreviewed_count: 5
   generated_audit_count: 34
   cohort_note: >-
@@ -182,6 +182,10 @@ baseline:
         machine-checkably. Recording them as unreviewed would create a permanent
         release-scope blocker on the one class of file whose provenance is the
         most completely established in the tree.
+
+    The full record of this delta, with both hashes and all 66 additions
+    enumerated, is
+    docs/licensing/repository-material-baseline-refresh-2026-08-28-notices.md.
 
     observed_at_revision was advanced to 033d51e0, the revision the generating
     checkout was at when `git ls-files` was run. reviewed_at_revision is

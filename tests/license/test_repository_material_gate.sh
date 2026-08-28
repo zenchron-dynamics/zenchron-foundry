@@ -474,6 +474,38 @@ ck "every enumerated addition is under the intended audit directory" \
 ck "NON-VACUOUS: the enumeration is not empty and matches the stated count" \
    "[ \"\$(_enum_paths | wc -l | tr -d ' ')\" = 37 ]"
 
+# --- BASELINE REFRESH INTEGRITY, notice/source-obligation delta -------------
+# A second refresh, recorded the same way: the list and its hash move together,
+# and the record enumerates every addition so a half-applied refresh is visible.
+_REC2=docs/licensing/repository-material-baseline-refresh-2026-08-28-notices.md
+ck "the notice refresh is recorded, with both hashes" \
+   "[ -f '$_REC2' ] &&
+    grep -q 'ad9ffdd7996ff31256a46a1589da483ed0a2c17a0b8b5a3e0747e8432f114717' '$_REC2' &&
+    grep -q 'e9f488f263a5c6f35556e05517ddf7d36b22002bf9f3ce0ca227dc0d744c85ac' '$_REC2'"
+ck "...and the recorded new hash IS the shipped baseline's hash" \
+   "grep -q \"\$(shasum -a 256 '$BASE' | cut -d' ' -f1)\" '$_REC2' &&
+    grep -q \"\$(shasum -a 256 '$BASE' | cut -d' ' -f1)\" '$INV'"
+ck "...enumerating every addition, with zero removals" \
+   "grep -qE '\| additions \| 66 \|' '$_REC2' && grep -qE '\| removals \| \*\*0\*\* \|' '$_REC2'"
+ck "...stating that inclusion is NOT legal review" \
+   "grep -qi 'NOT equivalent to legal review' '$_REC2'"
+ck "...and saying exactly what the review of a carried licence text consisted of" \
+   "grep -qi 'No claim is made that a human read' '$_REC2' &&
+    grep -qi 'accounted for' '$_REC2'"
+ck "...and that reviewed_at_revision is deliberately unchanged" \
+   "grep -qi 'reviewed_at_revision' '$_REC2' && grep -qi 'unchanged' '$_REC2'"
+ck "NON-VACUOUS: every enumerated addition is a path the tree really tracks" \
+   "n=0
+    while IFS= read -r pth; do
+      case \"\$pth\" in
+        policies/*|third-party/*|scripts/*|tests/*|docs/*|schemas/*) ;;
+        *) continue ;;
+      esac
+      git ls-files --error-unmatch \"\$pth\" >/dev/null 2>&1 || exit 1
+      n=\$((n+1))
+    done < <(sed -n '/^\`\`\`text\$/,/^\`\`\`\$/p' '$_REC2' | sed '1d;\$d')
+    [ \"\$n\" = 66 ]"
+
 echo "----"
 printf 'assertions: %d proven, %d pinned gaps\n' "$nck" "$ngap"
 [ "$fail" -eq 0 ] && echo "test_repository_material_gate: PASS" || echo "test_repository_material_gate: FAIL"
