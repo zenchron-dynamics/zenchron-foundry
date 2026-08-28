@@ -37,8 +37,9 @@
 #     suite that only ever saw a refusal would prove the producer can say no and
 #     nothing about whether it can ever say yes.
 #
-# TWENTY-ONE SABOTAGES, each asserting its INTENDED diagnostic rather than a
-# non-zero exit. They are numbered S1..S21 below.
+# TWENTY-SEVEN SABOTAGES, each asserting its INTENDED diagnostic rather than a
+# non-zero exit. They are numbered S1..S25 below (S16 has three variants: one
+# per axis an attestation could widen along).
 #
 # AMBIENT SAFETY. Every byte written lands under one mktemp -d.
 # =============================================================================
@@ -778,6 +779,9 @@ ck "ci.yml's REQUIRED 'repo structure' job runs this exact file" \
    "printf '%s' \"\$CI_CMD\" | grep -q 'tests/license/test_notice_bundle.sh'"
 ck "the subsystem-coverage list names the producer, so losing its test goes red" \
    "grep -q 'scripts/license/generate-notice-bundle.py' tests/governance/test_subsystem_ci_coverage.sh"
+ck "the header's sabotage count is the number this file actually asserts" \
+   "[ \"\$(grep -c 'ck \"S[0-9]' '$0')\" = 27 ] \\
+    && grep -q 'TWENTY-SEVEN SABOTAGES' '$0'"
 ck "run-all's discovery finds this file" \
    "find tests -name 'test_*.sh' | grep -qx 'tests/license/test_notice_bundle.sh'"
 
