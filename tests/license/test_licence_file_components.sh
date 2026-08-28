@@ -389,6 +389,56 @@ ck "SABOTAGE: a truncated diagnostic is REFUSED, not silently under-reported" \
    "head -200 '$DIAG' > '$TMP/trunc.log'
     ! python3 '$GROUP' --diagnostic '$TMP/trunc.log' --out - >'$TMP/tg' 2>'$TMP/tge'
     grep -q 'under-reports the thing it exists to report' '$TMP/tge'"
+# ---------------------------------------------------------------------------
+# 5c. The OWNER PARTITION. "Assign the backlog to #98" buries the four questions
+#     only a rights holder can answer under 516 that engineering owns, so every
+#     substantive finding gets exactly ONE primary owner and the classes
+#     reconcile to the substantive total or the tool refuses.
+# ---------------------------------------------------------------------------
+ck "every substantive finding has exactly one primary owner, and they reconcile" \
+   "python3 -c \"
+import json
+p=json.load(open('$BACKLOG'))['owner_partition']
+assert p['assigned']==p['substantive_findings']==535, p
+assert sum(p['by_class'].values())==535, p['by_class']
+assert set(p['by_class'])==set(p['classes']), p
+assert p['unowned']==0 and p['double_counted']==0, p\""
+ck "the partition does NOT dump the backlog on #98" \
+   "python3 -c \"
+import json
+p=json.load(open('$BACKLOG'))['owner_partition']['by_class']
+assert p['project-rights-98']==0, p
+assert p['legal-interpretation']==19, p
+assert p['evidence-producer-defect']==298, p
+assert p['normalization-or-mapping-gap']==218, p\""
+ck "the PHP binary/extension gap is owned as EVIDENCE COMPLETENESS, not as a legal call" \
+   "python3 -c \"
+import json
+g={x['group_id']:x for x in json.load(open('$BACKLOG'))['groups']}
+x=g['G-NOASSERT-PKG-GENERIC-PHP-BINARY-EXTENSION']
+assert x['owner_class']=='evidence-producer-defect', x['owner_class']
+assert x['owner_class_residual_after_primary_fix']=='legal-interpretation', x\""
+ck "SABOTAGE: a group with no owner rule REFUSES rather than defaulting to #98" \
+   "python3 -c \"
+import importlib.util, sys
+spec=importlib.util.spec_from_file_location('g','$GROUP')
+m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+try:
+    m.owner_of('G-SOMETHING-NOBODY-CLASSIFIED')
+except SystemExit as e:
+    sys.exit(0 if e.code==1 else 1)
+sys.exit(1)\""
+ck "SABOTAGE: a partition that does not reconcile REFUSES" \
+   "python3 -c \"
+import importlib.util, sys
+spec=importlib.util.spec_from_file_location('g','$GROUP')
+m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+try:
+    m.partition([{'group_id':'G-REVIEW-X','count':3}], 99)
+except SystemExit as e:
+    sys.exit(0 if e.code==1 else 1)
+sys.exit(1)\""
+
 ck "SABOTAGE: a Go module path is NOT mistaken for an image file path" \
    "python3 -c \"
 import json

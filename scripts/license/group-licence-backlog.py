@@ -45,6 +45,148 @@ EXP_HEAD = "the exception that permitted this has EXPIRED"
 HEADS = [UNK_HEAD, CON_HEAD, REV_HEAD, DEN_HEAD, EXP_HEAD]
 
 
+# =============================================================================
+# THE OWNER PARTITION — every SUBSTANTIVE finding to exactly ONE primary owner.
+# -----------------------------------------------------------------------------
+# "Assign the backlog to #98" is the failure this block exists to prevent. #98
+# is a LEGAL issue about project rights and outbound terms; handing it 535
+# parser, cataloguer and normalisation defects buries the four questions only a
+# rights holder can answer under 516 that engineering owns.
+#
+# So every substantive finding lands in exactly one of six classes, the classes
+# are disjoint by construction, and the totals reconcile to the substantive
+# total or the tool refuses. A finding with no owner and a finding with two are
+# both refusals.
+#
+#   evidence-producer-defect      the SCANNER did not observe a licence the
+#                                 upstream project does state. Fix: an
+#                                 attestation bound to the upstream artifact,
+#                                 or a cataloguer that reads the field.
+#   normalization-or-mapping-gap  the evidence is present and the CONSUMER
+#                                 mis-reads it: an expression vs its own
+#                                 members, one identifier spelled twice, a
+#                                 self-reference treated as a dependency.
+#   notice-generation-gap         the licence is known and the notice/attribution
+#                                 artifact is not produced.
+#   missing-licence-artifact      the identifier is known and its canonical
+#                                 TEXT, upstream NOTICE or source material is
+#                                 not carried.
+#   legal-interpretation          whether this expression is compatible with the
+#                                 intended distribution model. Not engineering.
+#   project-rights-98             copyright, contributor authority, outbound
+#                                 terms, publication authority.
+#
+# PHP-3.01 is the worked example of the first class and NOT of the fifth:
+# `PHP-3.01` never reaches the inventory because the binary cataloguer emits no
+# licence field, so the policy row never fires. That is an evidence-completeness
+# defect. It BECOMES a legal question only once the identifier is established.
+# =============================================================================
+OWNER_CLASSES = (
+    "evidence-producer-defect",
+    "normalization-or-mapping-gap",
+    "notice-generation-gap",
+    "missing-licence-artifact",
+    "legal-interpretation",
+    "project-rights-98",
+)
+
+# group_id prefix -> (primary owner, residual owner once the primary is fixed).
+# The residual is INFORMATIONAL and is never counted: a finding counted twice is
+# a partition that reconciles to a number nobody can act on.
+OWNER_RULES = (
+    # The scanner emitted no licence for a component whose upstream states one.
+    ("G-NOASSERT-PKG-GOLANG-GO-MODULE", "evidence-producer-defect", None),
+    ("G-NOASSERT-PKG-GENERIC-PHP-BINARY-EXTENSION", "evidence-producer-defect", "legal-interpretation"),
+    ("G-NOASSERT-PKG-GENERIC-UNCLASSIFIED", "evidence-producer-defect", None),
+    ("G-NOASSERT-PKG-PEAR-PEAR-PECL", "evidence-producer-defect", None),
+    # The component is the SUBJECT of the document or the distro identity of the
+    # base layer. Neither is a third-party dependency with an obligation; both
+    # are the consumer failing to tell a self-reference from a dependency.
+    ("G-NOASSERT-PKG-OCI-IMAGE-ROOT", "normalization-or-mapping-gap", None),
+    ("G-NOASSERT-PKG-GENERIC-DISTRO-IDENTITY", "normalization-or-mapping-gap", None),
+    # RC1/RC2/RC3 are one assertion read as two. RC4 is one unresolved licence
+    # spelled two ways; normalising it removes the CONFLICT and leaves the
+    # component licence-unknown, which is the recorded residual.
+    ("G-CONFLICT-RC1", "normalization-or-mapping-gap", None),
+    ("G-CONFLICT-RC2", "normalization-or-mapping-gap", None),
+    ("G-CONFLICT-RC3", "normalization-or-mapping-gap", None),
+    ("G-CONFLICT-RC4", "normalization-or-mapping-gap", "evidence-producer-defect"),
+    # A known identifier the policy classifies as needing counsel. The text and
+    # NOTICE for it are a separate, engineering obligation and are counted in
+    # the notice bundle, not here: this finding is the legal question itself.
+    ("G-REVIEW-", "legal-interpretation", "missing-licence-artifact"),
+    # Denied / expired-exception classes, if they ever appear.
+    ("G-LICENCE-IS-DENIED-BY-POLICY", "legal-interpretation", None),
+    ("G-THE-EXCEPTION-THAT-PERMITTED-THIS-HAS-EXPIRED", "legal-interpretation", None),
+)
+
+
+def owner_of(group_id):
+    """Exactly one primary owner, or a refusal. Longest prefix wins so
+    G-CONFLICT-RC4 cannot be swallowed by a shorter rule."""
+    hits = [r for r in OWNER_RULES if group_id.startswith(r[0])]
+    if not hits:
+        sys.stderr.write(
+            "REFUSE: group %r has no owner rule. An unowned finding is a finding "
+            "that will be assigned to whoever is least able to refuse it\n"
+            % group_id)
+        raise SystemExit(1)
+    hits.sort(key=lambda r: -len(r[0]))
+    if len(hits) > 1 and len(hits[0][0]) == len(hits[1][0]):
+        sys.stderr.write("REFUSE: group %r matches two owner rules of equal "
+                         "specificity\n" % group_id)
+        raise SystemExit(1)
+    return hits[0][1], hits[0][2]
+
+
+def partition(groups, substantive_total):
+    """Reconcile the substantive findings to the six owner classes, or refuse."""
+    by_class = {c: 0 for c in OWNER_CLASSES}
+    by_class_groups = {c: [] for c in OWNER_CLASSES}
+    assigned = 0
+    for g in groups:
+        if g["group_id"] == "G-FILE-NOASSERTION":
+            # Not substantive: dispositioned by the four-way file-component
+            # accounting in scripts/license/license-inventory.sh, which is a
+            # different control and is counted there.
+            g["owner_class"] = "not-substantive-file-component-disposition"
+            continue
+        primary, residual = owner_of(g["group_id"])
+        g["owner_class"] = primary
+        g["owner_class_residual_after_primary_fix"] = residual
+        by_class[primary] += g["count"]
+        by_class_groups[primary].append(g["group_id"])
+        assigned += g["count"]
+    if assigned != substantive_total:
+        sys.stderr.write(
+            "REFUSE: %d substantive finding(s) went in and %d were assigned an "
+            "owner. A partition that does not reconcile is a partition that "
+            "silently drops the findings nobody wanted\n"
+            % (substantive_total, assigned))
+        raise SystemExit(1)
+    return {
+        "model": "foundry.licence-finding-ownership/v1",
+        "substantive_findings": substantive_total,
+        "assigned": assigned,
+        "classes": OWNER_CLASSES,
+        "by_class": by_class,
+        "by_class_groups": {k: sorted(v) for k, v in by_class_groups.items()},
+        "reconciles": True,
+        "double_counted": 0,
+        "unowned": 0,
+        "note": (
+            "Primary owner only, one class per finding. "
+            "owner_class_residual_after_primary_fix records what a finding "
+            "BECOMES once its primary owner acts; it is informational and is "
+            "not counted, because a finding counted twice reconciles to a "
+            "number nobody can act on. Classes with 0 are reported rather than "
+            "omitted: notice-generation-gap and missing-licence-artifact carry "
+            "no POLICY finding because the licence gate reports unresolved "
+            "licences, not missing notices — those obligations are measured by "
+            "the notice bundle over the components whose licence IS resolved."),
+    }
+
+
 def parse_diagnostic(text):
     """Split a gate refusal into its declared sections, and REFUSE if a section
     holds a different number of lines than its own header claims."""
@@ -342,13 +484,16 @@ def build(sections):
             "loses a finding is a suppression with a nicer name\n"
             % (total_in, total_out))
         raise SystemExit(1)
+    substantive = total_in - len(files)
+    owner_partition = partition(groups, substantive)
     return {
         "record_type": "licence-backlog-grouping",
         "schema_version": 1,
         "totals": {k: len(v) for k, v in sections.items()},
         "total_findings": total_in,
         "image_file_findings": len(files),
-        "substantive_findings": total_in - len(files),
+        "substantive_findings": substantive,
+        "owner_partition": owner_partition,
         "group_count": len(groups),
         "groups": groups,
     }
@@ -370,6 +515,10 @@ def main():
     sys.stderr.write("groups: %d over %d finding(s) (%d image-file, %d substantive)\n"
                      % (doc["group_count"], doc["total_findings"],
                         doc["image_file_findings"], doc["substantive_findings"]))
+    part = doc["owner_partition"]
+    sys.stderr.write("owner partition (%d substantive, reconciles):\n" % part["assigned"])
+    for cls in part["classes"]:
+        sys.stderr.write("  %-30s %5d\n" % (cls, part["by_class"][cls]))
 
 
 if __name__ == "__main__":
