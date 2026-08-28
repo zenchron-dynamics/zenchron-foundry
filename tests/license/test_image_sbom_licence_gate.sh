@@ -381,14 +381,51 @@ sys.exit(0 if json.load(open(sys.argv[1]))[\"public_exposure_authorized\"] is Fa
 # job verdict — the same two-stage shape the aggregator already uses, so a
 # refusal is still WRITTEN before it is acted on. consume() reads it exactly as
 # the workflow does.
-consume() { # consume <licence-record> [authorization-record]
-  gate schema AUTH_RECORD="${2:-$A}" LICENCE_RECORD="$1" || return 1
+#
+# THE COMPOSITION GREW A THIRD INPUT (#120). The validator step now also requires
+# a distribution-notice and source-obligation bundle: a licence PASS is not
+# sufficient on its own, because a candidate can satisfy the licence gate while
+# owing every licence text, upstream NOTICE and source obligation it ships under.
+#
+# This file proves the LICENCE half. So it hands the validator a notice bundle
+# that GENUINELY SATISFIES — built by the shipped producer from the same real
+# candidate identities, with tests/lib/make_notice_inputs.py stating exactly
+# which of its fields are real and which are fixture. That way every refusal
+# below is provably the licence half and not the notice half leaking in, and
+# every "eligible to continue" cell still means what it says.
+python3 "$ROOT/tests/lib/make_notice_inputs.py" \
+  --authorization "$A" --root "$ROOT" --out "$TMP/nin" >/dev/null 2>&1
+python3 "$ROOT/scripts/license/generate-notice-bundle.py" \
+  --inventory "$TMP/nin/inventory.json" --authorization "$A" \
+  --material "$TMP/nin/repository-material.yaml" \
+  --policy "$TMP/nin/license-policy.yaml" \
+  --licence-texts "$TMP/nin/licence-texts.yaml" \
+  --attestations "$TMP/nin/attestations.yaml" \
+  --source-obligations "$TMP/nin/source-obligations.yaml" \
+  --out-dir "$TMP/notice-pass" >/dev/null 2>&1
+NB="$TMP/notice-pass/notice-manifest.json"
+
+consume() { # consume <licence-record> [authorization-record] [notice-bundle]
+  gate schema AUTH_RECORD="${2:-$A}" LICENCE_RECORD="$1" \
+       NOTICE_BUNDLE="${3:-$NB}" || return 1
   [ "$(cat "$WORK/authorization/schema.rc" 2>/dev/null)" = 0 ]
 }
+ck "P9 the notice bundle handed to the validator genuinely SATISFIES" \
+   "python3 -c \"
+import json
+m=json.load(open('$NB'))
+assert m['verdict']=='PASS' and m['status']=='complete', (m['verdict'], m['status'])
+assert m['satisfies_authorization'] is True and m['draft'] is False
+assert m['candidate']['children_bound']==m['candidate']['children_expected']==$CHILDREN\""
 ck "P9 the CANONICAL authorization decision CONSUMES that verdict" \
    "consume '$LIC'"
 ck "P9 ...and says so, naming the verdict and the bound child count" \
    "says 'licence authorization CONSUMED' && says 'PASS' && says '$CHILDREN/$CHILDREN'"
+ck "P9 SABOTAGE: a licence PASS with NO notice bundle NO LONGER reaches eligibility" \
+   "! consume '$LIC' '$A' '$TMP/no-such-notice.json'
+    says 'AR-NOTICE-EVIDENCE-ABSENT' && says 'never a skip'"
+ck "P9 ...so the licence half alone is insufficient, which is the point of #120" \
+   "consume '$LIC'"
 ck "P9 ...and the SEALING step turns that recorded result into the job verdict" \
    "printf '0\n' > '$WORK/authorization/aggregate.rc'
     printf '0\n' > '$WORK/authorization/schema.rc'
