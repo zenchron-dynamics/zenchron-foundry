@@ -307,6 +307,31 @@ echo "       Not an engineering act. This gate accounts for INBOUND obligations"
 echo "       that attach today and establishes no right to distribute anything."
 
 echo
+# --- BASELINE REFRESH INTEGRITY (2026-08-28) --------------------------------
+# The list and its hash must move together. A half-applied refresh leaves the
+# tree passing a check that is no longer about the tree.
+_REC=docs/licensing/repository-material-baseline-refresh-2026-08-28.md
+ck "the refresh is recorded, with both hashes" \
+   "[ -f '$_REC' ] &&
+    grep -q '8ed5728b5df9f4b080659d8473990daa1cc418dbb51cd42aab76b5b558812b07' '$_REC' &&
+    grep -q '93b1721573c936d8f3e9947f2c1ab43f8f219c90134dac4c00b2fa452d6a7a84' '$_REC'"
+ck "...enumerating every addition, with zero removals" \
+   "grep -qE '\| additions \| 37 \|' '$_REC' && grep -qE '\| removals \| \*\*0\*\* \|' '$_REC'"
+ck "...stating that inclusion is NOT legal review" \
+   "grep -qi 'NOT equivalent to legal review' '$_REC'"
+ck "...and that reviewed_at_revision is deliberately unchanged" \
+   "grep -qi 'reviewed_at_revision' '$_REC' && grep -qi 'unchanged' '$_REC'"
+# The enumeration lists one path per line. Rather than parse the code fence
+# (whose backticks fight the shell), assert directly on the path lines: every
+# enumerated path must sit under the intended directory, and there must be 37.
+_enum_paths() { grep -E '^docs/audits/real-image-inventories-2026-08-28/' "$_REC"; }
+_enum_stray() { grep -E '^docs/' "$_REC" | grep -vE '^docs/audits/real-image-inventories-2026-08-28/'; }
+
+ck "every enumerated addition is under the intended audit directory" \
+   "[ -z \"\$(_enum_stray)\" ]"
+ck "NON-VACUOUS: the enumeration is not empty and matches the stated count" \
+   "[ \"\$(_enum_paths | wc -l | tr -d ' ')\" = 37 ]"
+
 echo "----"
 printf 'assertions: %d proven, %d pinned gaps\n' "$nck" "$ngap"
 [ "$fail" -eq 0 ] && echo "test_repository_material_gate: PASS" || echo "test_repository_material_gate: FAIL"
