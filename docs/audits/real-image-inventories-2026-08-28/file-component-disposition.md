@@ -308,15 +308,28 @@ dispatches nothing.
 | Linux (`bash 5.2`, `python:3.12-slim`) | the licence suites pass |
 | Linux, git-dependent suites | **INCONCLUSIVE, not passing** — see below |
 
-**The container cross-check for the git-dependent suites is INCONCLUSIVE.** The
-repository-material gate discovers the tracked file set with `git ls-files`, and
-in the container the checkout's git metadata is outside the bind mount, so git
-cannot run and the gate refuses `RM-TREE-UNREADABLE`. That refusal is the gate
-behaving correctly: it fails closed rather than reporting a clean verdict over a
-file set it could not establish. It is recorded here as inconclusive rather than
-as a pass, and **no workaround was added**, because every workaround available
-weakens exactly the tracked-tree verification the refusal is protecting.
-Required CI runs on a normal clone and is the authority.
+**The container cross-check for the git-dependent suites is INCONCLUSIVE, and is
+recorded as inconclusive rather than as a pass.** The repository-material gate
+establishes the tracked file set with `git ls-files`. Inside the container that
+call cannot succeed — `python:3.12-slim` carries no `git` binary, and where one
+is installed the checkout's git metadata still lies outside the bind mount — so
+the gate refuses:
+
+```text
+REFUSE [RM-TREE-UNREADABLE]: `git ls-files` failed in /w. The set of files to
+scan cannot be established, and scanning a guessed set would report clean about
+whatever it happened to miss.
+```
+
+That refusal is the gate behaving correctly: it fails closed rather than
+reporting a clean verdict over a file set it could not establish. **No
+workaround was added.** Every available workaround — installing git and marking
+the mount safe, or letting the gate fall back to a filesystem walk — weakens
+exactly the tracked-tree verification the refusal is protecting. Required CI
+runs on a normal clone and is the authority. The suites that do not depend on
+git (`license-inventory` and `assert-license-policy` self-tests,
+`test_licence_file_components.sh`, `test_license_gate.sh`) all pass on Linux
+bash 5.2.37.
 
 ## 10. What this change does NOT do
 
