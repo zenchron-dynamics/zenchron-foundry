@@ -1,0 +1,676 @@
+# =============================================================================
+# third-party/licence-texts/PROVENANCE.yaml
+#   Provenance for the canonical licence TEXTS carried in this directory.
+# -----------------------------------------------------------------------------
+# THESE ARE NOT ZENCHRON FOUNDRY'S LICENCE. The project's outbound licence is the
+# root LICENSE file, which declares itself a placeholder, and
+# policies/license-policy.yaml records `publication.decision: undetermined`
+# (#98). Nothing in this directory selects, replaces or implies outbound terms.
+#
+# WHAT THEY ARE. A redistributor of a component licensed under `X` owes the
+# recipient the text of `X`. The image cohort measured in
+# docs/audits/real-image-inventories-2026-08-28/ resolves 53 distinct licence
+# identifiers; the licence policy classifies 26. This directory carries the
+# canonical text for every identifier in either set, so that the obligation
+# "retain-license-text" is mechanically dischargeable for each of them rather
+# than asserted.
+#
+# CARRYING A TEXT DISCHARGES NOTHING ON ITS OWN. It makes the artifact exist.
+# Whether a given licence's obligations are SATISFIED by the shipped form is a
+# legal question, it is #98's, and no file in this directory answers it.
+#
+# WHY THE SPDX LIST AND NOT EACH PROJECT'S OWN COPY. The SPDX License List is
+# the authority that DEFINES the identifiers the SBOMs assert. A text fetched
+# from an arbitrary project repository would be that project's rendering of the
+# licence, which is what a per-component NOTICE is for. The identifier's text is
+# fetched from the identifier's authority, pinned to one immutable revision.
+#
+# Re-derive every hash below with:
+#   curl -sSf https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/<ID>.txt \
+#     | shasum -a 256
+# =============================================================================
+schema_version: 1
+record_type: carried-licence-texts
+upstream:
+  project: spdx/license-list-data
+  source_url: https://github.com/spdx/license-list-data
+  revision_tag: v3.28.0
+  revision_tag_object: 779ef2e5dff6d4af389c53de5e97116ab0bb52e8
+  revision_commit: c4a7237ec8f4654e867546f9f409749300f1bf4c
+  retrieved_at: '2026-08-28T10:16:19Z'
+  retrieval_method: >-
+    One HTTPS GET per identifier against raw.githubusercontent.com at the pinned
+    tag: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/<ID>.txt
+    Each response body was written to disk unmodified and hashed. No text was
+    reformatted, re-wrapped, truncated or templated.
+  list_publication_terms: >-
+    The SPDX License List itself is published by the Linux Foundation under
+    CC-BY-3.0. Attribution to SPDX is retained by this record, which names the
+    project, the pinned revision and the exact upstream path of every file. The
+    individual licence texts are the licences themselves and are reproduced
+    verbatim as those licences require.
+  scope_note: >-
+    The set is the union of (a) every identifier the licence policy classifies,
+    (b) every identifier the 20-child production cohort resolved, measured in
+    docs/audits/real-image-inventories-2026-08-28/licence/identifier-reconciliation.json,
+    and (c) PHP-3.01, which the cohort does NOT resolve because the binary
+    cataloguer emits no licence field for the PHP components - it is established
+    instead by policies/upstream-licence-attestations.yaml, and an attestation
+    without its text discharges nothing.
+files:
+  - spdx_id: 0BSD
+    path: third-party/licence-texts/0BSD.txt
+    upstream_path: text/0BSD.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/0BSD.txt
+    bytes: 643
+    sha256: e3f18c71e10d673590eb9856c1d79dd3b4b0d65404efb5e8584dbede7edd608b
+    verbatim: true
+    local_modifications: none
+    policy_state: allowed
+    policy_obligations: []
+    measured_occurrences_in_cohort: null
+  - spdx_id: Apache-2.0
+    path: third-party/licence-texts/Apache-2.0.txt
+    upstream_path: text/Apache-2.0.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/Apache-2.0.txt
+    bytes: 10280
+    sha256: 074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff
+    verbatim: true
+    local_modifications: none
+    policy_state: allowed
+    policy_obligations: [retain-copyright-notice, retain-license-text, state-changes, retain-notice-file]
+    measured_occurrences_in_cohort: null
+  - spdx_id: Artistic-2.0
+    path: third-party/licence-texts/Artistic-2.0.txt
+    upstream_path: text/Artistic-2.0.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/Artistic-2.0.txt
+    bytes: 8764
+    sha256: bae466ac8d7100c304fe76632ccc627203a3897d3f7166f3cce00fb9df8c2074
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 60
+  - spdx_id: BSD-1-Clause
+    path: third-party/licence-texts/BSD-1-Clause.txt
+    upstream_path: text/BSD-1-Clause.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/BSD-1-Clause.txt
+    bytes: 1086
+    sha256: 244e17b6f02493de568a8ddfd7f4349996a6c332c0585d304ceaf5394becea52
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 16
+  - spdx_id: BSD-2-Clause
+    path: third-party/licence-texts/BSD-2-Clause.txt
+    upstream_path: text/BSD-2-Clause.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/BSD-2-Clause.txt
+    bytes: 1267
+    sha256: f32fb3b417a194167cfad068223fc975ba96c5960513a10f66a3c28720aec1df
+    verbatim: true
+    local_modifications: none
+    policy_state: allowed
+    policy_obligations: [retain-copyright-notice, retain-license-text]
+    measured_occurrences_in_cohort: null
+  - spdx_id: BSD-3-Clause
+    path: third-party/licence-texts/BSD-3-Clause.txt
+    upstream_path: text/BSD-3-Clause.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/BSD-3-Clause.txt
+    bytes: 1460
+    sha256: 5a93d5831e1297ab10fe643e1a631e83be392896da14ee2951285a79012df69d
+    verbatim: true
+    local_modifications: none
+    policy_state: allowed
+    policy_obligations: [retain-copyright-notice, retain-license-text, no-endorsement]
+    measured_occurrences_in_cohort: null
+  - spdx_id: BSD-3-Clause-Clear
+    path: third-party/licence-texts/BSD-3-Clause-Clear.txt
+    upstream_path: text/BSD-3-Clause-Clear.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/BSD-3-Clause-Clear.txt
+    bytes: 1676
+    sha256: 4495ed59005765e600a16457dc52a2d39757dbfeae081e68b59fe7c177c78589
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 8
+  - spdx_id: BSD-4-Clause
+    path: third-party/licence-texts/BSD-4-Clause.txt
+    upstream_path: text/BSD-4-Clause.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/BSD-4-Clause.txt
+    bytes: 1618
+    sha256: c80d927f03db7212ba43a869a383e249c19b40859ff0d9e2e2f968e4fdcf005f
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 352
+  - spdx_id: BSD-4-Clause-UC
+    path: third-party/licence-texts/BSD-4-Clause-UC.txt
+    upstream_path: text/BSD-4-Clause-UC.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/BSD-4-Clause-UC.txt
+    bytes: 1771
+    sha256: c82a5eb55679a3fd483d992c2428e66ee4b9b05b5b78b4ac916692368955b526
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 236
+  - spdx_id: BSL-1.0
+    path: third-party/licence-texts/BSL-1.0.txt
+    upstream_path: text/BSL-1.0.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/BSL-1.0.txt
+    bytes: 1338
+    sha256: 84c6ef3ea9e3254a54d0acf5d3e0c61ae011b8fef7dd6940591cf060e6380a8f
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 68
+  - spdx_id: Beerware
+    path: third-party/licence-texts/Beerware.txt
+    upstream_path: text/Beerware.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/Beerware.txt
+    bytes: 266
+    sha256: 991d8a58e0b4be84a174a9bd333a8ca33807a0c1ce6d23a2e25a21f7ece482d0
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 220
+  - spdx_id: CC-BY-3.0
+    path: third-party/licence-texts/CC-BY-3.0.txt
+    upstream_path: text/CC-BY-3.0.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/CC-BY-3.0.txt
+    bytes: 19467
+    sha256: e6bc9e9c474700b708f568bac9e5a8a9bcb2b1dad53442f5ba449fcb848b8e76
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 36
+  - spdx_id: CC0-1.0
+    path: third-party/licence-texts/CC0-1.0.txt
+    upstream_path: text/CC0-1.0.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/CC0-1.0.txt
+    bytes: 7048
+    sha256: a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499
+    verbatim: true
+    local_modifications: none
+    policy_state: allowed
+    policy_obligations: []
+    measured_occurrences_in_cohort: null
+  - spdx_id: FSFAP
+    path: third-party/licence-texts/FSFAP.txt
+    upstream_path: text/FSFAP.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/FSFAP.txt
+    bytes: 225
+    sha256: 99cb91dacd5714a701749ec47239015726beec5fc86a5c94a4873778824b16d7
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 104
+  - spdx_id: FSFULLR
+    path: third-party/licence-texts/FSFULLR.txt
+    upstream_path: text/FSFULLR.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/FSFULLR.txt
+    bytes: 234
+    sha256: 6d425c2caac889c969c8c2ebb18b1e2326f0d8c7f82e43c0e6c9c957fe3c6cd0
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 236
+  - spdx_id: FTL
+    path: third-party/licence-texts/FTL.txt
+    upstream_path: text/FTL.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/FTL.txt
+    bytes: 5979
+    sha256: ced6622122ce451cb1ea0c3c3f507a640e2a44c075c04900ddd9fae8acb5369f
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 32
+  - spdx_id: GFDL-1.2-only
+    path: third-party/licence-texts/GFDL-1.2-only.txt
+    upstream_path: text/GFDL-1.2-only.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/GFDL-1.2-only.txt
+    bytes: 20272
+    sha256: 1118a91a3290bc8981f922dfcffc1a619592c007aa31b7a98cee694d933c86ce
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 232
+  - spdx_id: GFDL-1.2-or-later
+    path: third-party/licence-texts/GFDL-1.2-or-later.txt
+    upstream_path: text/GFDL-1.2-or-later.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/GFDL-1.2-or-later.txt
+    bytes: 20272
+    sha256: 1118a91a3290bc8981f922dfcffc1a619592c007aa31b7a98cee694d933c86ce
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 36
+  - spdx_id: GFDL-1.3-only
+    path: third-party/licence-texts/GFDL-1.3-only.txt
+    upstream_path: text/GFDL-1.3-only.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/GFDL-1.3-only.txt
+    bytes: 22791
+    sha256: d024962f1f4966c102b40d9fd9cc834a3f0b3c1397b41444b7cd7925640dc929
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 252
+  - spdx_id: GPL-1.0-only
+    path: third-party/licence-texts/GPL-1.0-only.txt
+    upstream_path: text/GPL-1.0-only.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/GPL-1.0-only.txt
+    bytes: 12235
+    sha256: da37ffd5fcdf0a7d76af862a4330ea1076e1443b51782b2f912148357b7acabe
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 308
+  - spdx_id: GPL-1.0-or-later
+    path: third-party/licence-texts/GPL-1.0-or-later.txt
+    upstream_path: text/GPL-1.0-or-later.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/GPL-1.0-or-later.txt
+    bytes: 12235
+    sha256: da37ffd5fcdf0a7d76af862a4330ea1076e1443b51782b2f912148357b7acabe
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 132
+  - spdx_id: GPL-2.0-only
+    path: third-party/licence-texts/GPL-2.0-only.txt
+    upstream_path: text/GPL-2.0-only.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/GPL-2.0-only.txt
+    bytes: 17337
+    sha256: aaf135472f81c5b4a0dca9367e5bb5e9750032b5bebe5442b36e4c0a47430df3
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 3246
+  - spdx_id: GPL-2.0-or-later
+    path: third-party/licence-texts/GPL-2.0-or-later.txt
+    upstream_path: text/GPL-2.0-or-later.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/GPL-2.0-or-later.txt
+    bytes: 17337
+    sha256: aaf135472f81c5b4a0dca9367e5bb5e9750032b5bebe5442b36e4c0a47430df3
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 2376
+  - spdx_id: GPL-3.0-only
+    path: third-party/licence-texts/GPL-3.0-only.txt
+    upstream_path: text/GPL-3.0-only.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/GPL-3.0-only.txt
+    bytes: 34674
+    sha256: fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 1694
+  - spdx_id: GPL-3.0-or-later
+    path: third-party/licence-texts/GPL-3.0-or-later.txt
+    upstream_path: text/GPL-3.0-or-later.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/GPL-3.0-or-later.txt
+    bytes: 34674
+    sha256: fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 1316
+  - spdx_id: HPND
+    path: third-party/licence-texts/HPND.txt
+    upstream_path: text/HPND.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/HPND.txt
+    bytes: 1187
+    sha256: 4d9ae4a36816338dfa153d1d6f92645c45f25eaa46908d3096922e2431fb571e
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 16
+  - spdx_id: HPND-sell-variant
+    path: third-party/licence-texts/HPND-sell-variant.txt
+    upstream_path: text/HPND-sell-variant.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/HPND-sell-variant.txt
+    bytes: 1102
+    sha256: 235abc578371bf9861e3d6eee0a9ad16228f9be18408e17fc569c6a98ba69d5f
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 16
+  - spdx_id: ISC
+    path: third-party/licence-texts/ISC.txt
+    upstream_path: text/ISC.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/ISC.txt
+    bytes: 823
+    sha256: f2ec607f67bb0dd3053b49835b02110d5cd0f8eb6da3aac4dc0b142a6b299be9
+    verbatim: true
+    local_modifications: none
+    policy_state: allowed
+    policy_obligations: [retain-copyright-notice, retain-license-text]
+    measured_occurrences_in_cohort: null
+  - spdx_id: Kazlib
+    path: third-party/licence-texts/Kazlib.txt
+    upstream_path: text/Kazlib.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/Kazlib.txt
+    bytes: 683
+    sha256: 31e4a00336d15d148a53bc173852f06b8b2063126fd09966106de11351fbadc2
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 180
+  - spdx_id: LGPL-2.0-only
+    path: third-party/licence-texts/LGPL-2.0-only.txt
+    upstream_path: text/LGPL-2.0-only.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/LGPL-2.0-only.txt
+    bytes: 24877
+    sha256: 86dc99d7e5060915ab1dfc1378b7dd351c62088bfa74067e8aa1868c6fdba7d8
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 864
+  - spdx_id: LGPL-2.0-or-later
+    path: third-party/licence-texts/LGPL-2.0-or-later.txt
+    upstream_path: text/LGPL-2.0-or-later.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/LGPL-2.0-or-later.txt
+    bytes: 24877
+    sha256: 86dc99d7e5060915ab1dfc1378b7dd351c62088bfa74067e8aa1868c6fdba7d8
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 680
+  - spdx_id: LGPL-2.1-only
+    path: third-party/licence-texts/LGPL-2.1-only.txt
+    upstream_path: text/LGPL-2.1-only.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/LGPL-2.1-only.txt
+    bytes: 26001
+    sha256: 5749785c8bdefafcb5d798270ed0a967036fe2ca63dcedade1627565dfef81d2
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 1152
+  - spdx_id: LGPL-2.1-or-later
+    path: third-party/licence-texts/LGPL-2.1-or-later.txt
+    upstream_path: text/LGPL-2.1-or-later.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/LGPL-2.1-or-later.txt
+    bytes: 26001
+    sha256: 5749785c8bdefafcb5d798270ed0a967036fe2ca63dcedade1627565dfef81d2
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 712
+  - spdx_id: LGPL-3.0-only
+    path: third-party/licence-texts/LGPL-3.0-only.txt
+    upstream_path: text/LGPL-3.0-only.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/LGPL-3.0-only.txt
+    bytes: 42098
+    sha256: 996af0513df21f7496288951c41428a03c174e9e4a9d63665c57d670f845ccb1
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 592
+  - spdx_id: LGPL-3.0-or-later
+    path: third-party/licence-texts/LGPL-3.0-or-later.txt
+    upstream_path: text/LGPL-3.0-or-later.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/LGPL-3.0-or-later.txt
+    bytes: 42098
+    sha256: 996af0513df21f7496288951c41428a03c174e9e4a9d63665c57d670f845ccb1
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 620
+  - spdx_id: Latex2e
+    path: third-party/licence-texts/Latex2e.txt
+    upstream_path: text/Latex2e.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/Latex2e.txt
+    bytes: 704
+    sha256: 5d68e4a9f72d6c1845be14efba0883926d093ab1a8e3fce765b0bcd7c98b77ef
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 216
+  - spdx_id: Libpng
+    path: third-party/licence-texts/Libpng.txt
+    upstream_path: text/Libpng.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/Libpng.txt
+    bytes: 4218
+    sha256: 7667a8c88c7a63690244988d626bcddd27ed895526e2c3ab1a9adb463a5fa287
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 32
+  - spdx_id: MIT
+    path: third-party/licence-texts/MIT.txt
+    upstream_path: text/MIT.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/MIT.txt
+    bytes: 1078
+    sha256: b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5
+    verbatim: true
+    local_modifications: none
+    policy_state: allowed
+    policy_obligations: [retain-copyright-notice, retain-license-text]
+    measured_occurrences_in_cohort: null
+  - spdx_id: MIT-CMU
+    path: third-party/licence-texts/MIT-CMU.txt
+    upstream_path: text/MIT-CMU.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/MIT-CMU.txt
+    bytes: 1150
+    sha256: 9454a04f14e2a889b3f08bd9973f39889378cb5bbb64008533c36ea685cda936
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 64
+  - spdx_id: MPL-1.1
+    path: third-party/licence-texts/MPL-1.1.txt
+    upstream_path: text/MPL-1.1.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/MPL-1.1.txt
+    bytes: 23669
+    sha256: 6214f8b1300bb9f37b16ebc146f8f61af0187e0025042ff95c8b3030744a8795
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 36
+  - spdx_id: MPL-2.0
+    path: third-party/licence-texts/MPL-2.0.txt
+    upstream_path: text/MPL-2.0.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/MPL-2.0.txt
+    bytes: 16727
+    sha256: 66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 44
+  - spdx_id: MS-PL
+    path: third-party/licence-texts/MS-PL.txt
+    upstream_path: text/MS-PL.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/MS-PL.txt
+    bytes: 2663
+    sha256: 7a162b1da10f1c22db4c68f07bec4a8355259f8d4aab5b00a2b2bbd423d833dd
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 36
+  - spdx_id: NTP
+    path: third-party/licence-texts/NTP.txt
+    upstream_path: text/NTP.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/NTP.txt
+    bytes: 714
+    sha256: 290eb479deee5ab45484cb98f7cd6c118603208a4f4a118e34f591b50fa20934
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 32
+  - spdx_id: OLDAP-2.8
+    path: third-party/licence-texts/OLDAP-2.8.txt
+    upstream_path: text/OLDAP-2.8.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/OLDAP-2.8.txt
+    bytes: 2195
+    sha256: bf30f8254b6698a79e867d0a7d641bbbd3460f7c2f16cab9c6816718815c2ded
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 64
+  - spdx_id: OpenSSL
+    path: third-party/licence-texts/OpenSSL.txt
+    upstream_path: text/OpenSSL.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/OpenSSL.txt
+    bytes: 5309
+    sha256: 57bf9f4cefe46ae1ef5b3ae83505f01ec8b2ac94a473e2c9e3fb1f80de1e23b8
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 64
+  - spdx_id: PHP-3.01
+    path: third-party/licence-texts/PHP-3.01.txt
+    upstream_path: text/PHP-3.01.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/PHP-3.01.txt
+    bytes: 2855
+    sha256: c288e228ae7ccd27a39a7d4011057c85769a85e5fa38e91e31cec1f5549b1e7e
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: null
+  - spdx_id: PostgreSQL
+    path: third-party/licence-texts/PostgreSQL.txt
+    upstream_path: text/PostgreSQL.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/PostgreSQL.txt
+    bytes: 1195
+    sha256: d443a7dc550da2be365b4e924bb8779101e1c318d15bb78e5cb6374cadd8b6c0
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 32
+  - spdx_id: RSA-MD
+    path: third-party/licence-texts/RSA-MD.txt
+    upstream_path: text/RSA-MD.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/RSA-MD.txt
+    bytes: 869
+    sha256: 91a375b6dee034a2269e061179262e1080354aa22f420fbf22a6aeb265cd060f
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 64
+  - spdx_id: SMAIL-GPL
+    path: third-party/licence-texts/SMAIL-GPL.txt
+    upstream_path: text/SMAIL-GPL.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/SMAIL-GPL.txt
+    bytes: 7386
+    sha256: 7519276ccf9a04d2edf3378202e5677b6061da0ad82a671a8dd6e56c04ef3d9a
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 36
+  - spdx_id: Sleepycat
+    path: third-party/licence-texts/Sleepycat.txt
+    upstream_path: text/Sleepycat.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/Sleepycat.txt
+    bytes: 4995
+    sha256: 74e179cd51dffda479cf3a339cf53c4dc46289fd72307f246af6c45de7b9cb5c
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 36
+  - spdx_id: TCL
+    path: third-party/licence-texts/TCL.txt
+    upstream_path: text/TCL.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/TCL.txt
+    bytes: 2251
+    sha256: 36fc2d8a56a2a014ded51e298a7e63635eb4ec62e8bedb99c82b892542ac5e7d
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 32
+  - spdx_id: Unlicense
+    path: third-party/licence-texts/Unlicense.txt
+    upstream_path: text/Unlicense.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/Unlicense.txt
+    bytes: 1211
+    sha256: 0bdebfeda07d45dada625ae1317c6f833186e798b171d0db640bcf32e92a8240
+    verbatim: true
+    local_modifications: none
+    policy_state: allowed
+    policy_obligations: []
+    measured_occurrences_in_cohort: null
+  - spdx_id: X11
+    path: third-party/licence-texts/X11.txt
+    upstream_path: text/X11.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/X11.txt
+    bytes: 1338
+    sha256: e1963c9958b93bc2578b34f8ae22cfe205e8c0e7d5be7235cfdbdefbf92a5423
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 552
+  - spdx_id: Zlib
+    path: third-party/licence-texts/Zlib.txt
+    upstream_path: text/Zlib.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/Zlib.txt
+    bytes: 838
+    sha256: bfb1112d49db5b1daecdfef24bd7e2f3ea0bafb33aa67aa0ab51e2bf8407c03d
+    verbatim: true
+    local_modifications: none
+    policy_state: allowed
+    policy_obligations: [retain-copyright-notice]
+    measured_occurrences_in_cohort: null
+  - spdx_id: curl
+    path: third-party/licence-texts/curl.txt
+    upstream_path: text/curl.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/curl.txt
+    bytes: 1043
+    sha256: 272d1239bdcef73bb98bac206168ca1040bd4a31296755fadfb7515bcea18df3
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 72
+  - spdx_id: libutil-David-Nugent
+    path: third-party/licence-texts/libutil-David-Nugent.txt
+    upstream_path: text/libutil-David-Nugent.txt
+    source_url: https://raw.githubusercontent.com/spdx/license-list-data/v3.28.0/text/libutil-David-Nugent.txt
+    bytes: 915
+    sha256: b389615248f34daef9db640576d666ef01cb81852226d74f070b73e5d86eb7de
+    verbatim: true
+    local_modifications: none
+    policy_state: legal-review-required
+    policy_obligations: []
+    measured_occurrences_in_cohort: 8

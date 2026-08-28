@@ -1,0 +1,304 @@
+# =============================================================================
+# policies/upstream-licence-attestations.yaml
+#   Licensing facts that are TRUE of an upstream artifact and INVISIBLE to a
+#   package SBOM. Issue #120. Schema: schemas/upstream-licence-attestation-v1.
+# -----------------------------------------------------------------------------
+# THE DEFECT THIS CLOSES, stated as the measurement that found it.
+#
+# policies/license-policy.yaml classifies `PHP-3.01` as legal-review-required.
+# Across the 20 accepted production children, `PHP-3.01` is measured ABSENT
+# (docs/audits/.../licence/identifier-reconciliation.json, `policy_listed_but_
+# absent`). PHP is in four of the ten image families. The policy row is right
+# and the scanner is blind: syft catalogues the PHP binary and its bundled
+# extensions as `pkg:generic` with NOASSERTION, so the identifier never reaches
+# the inventory and the policy row never fires. 46 findings, group
+# G-NOASSERT-PKG-GENERIC-PHP-BINARY-EXTENSION.
+#
+# The WRONG fix is to edit an SBOM so it says PHP-3.01. A measured document is
+# evidence precisely because nobody edited it. The right fix is a SECOND,
+# separately-classed evidence source that says where the fact came from.
+#
+# FOUR SOURCES, NEVER INTERCHANGEABLE.
+#
+#   scanner-observed    the SBOM asserted it. Strongest for what it can see.
+#   upstream-attested   THIS FILE. The upstream project states it at a pinned
+#                       revision; a human retrieved it and recorded the bytes.
+#   policy-asserted     policies/license-policy.yaml classifies the identifier.
+#   legally-approved    a rights holder decided. DOES NOT EXIST YET (#98).
+#
+# An attestation may FILL a component the scanner left with no assertion. It may
+# never OVERRIDE one. Where the scanner observed a licence and an attestation
+# names a different one, the notice producer REFUSES for review
+# (NB-ATTESTATION-CONFLICT) rather than picking a winner — a silent precedence
+# rule is how one evidence class ends up masquerading as another.
+#
+# NO WIDENING. Each attestation names EXACT (component name, component version)
+# pairs, the exact image families, image versions and platforms it reaches, and
+# the exact upstream revision it was read from. An attestation for php 8.3.32
+# says nothing about php 8.4.24, and the producer refuses if it is applied to
+# one (NB-ATTESTATION-SCOPE). This is asserted by sabotage in
+# tests/license/test_notice_bundle.sh.
+#
+# AN ATTESTATION IS NOT A LEGAL CONCLUSION. Establishing that PHP is under
+# PHP-3.01 moves those 46 findings from "we could not tell" to "we know, and the
+# policy says a lawyer must look at the naming clause". That is progress in
+# evidence completeness and NOTHING ELSE. The policy state is unchanged and this
+# file does not edit it.
+# =============================================================================
+schema: foundry.upstream-licence-attestation/v1
+version: 1
+tracked_issue: 120
+
+# Fail-closed defaults for every entry below. Stated once, enforced by the
+# producer, never overridable per entry.
+defaults:
+  evidence_class: upstream-licence-attestation
+  precedence: fills-only-where-the-scanner-asserted-nothing
+  on_conflict_with_scanner: refuse-for-review
+  widens_to_other_versions: false
+  widens_to_other_image_families: false
+  widens_to_other_platforms: false
+
+attestations:
+  - id: php-src-8.3.32
+    evidence_class: upstream-licence-attestation
+    asserts:
+      spdx_id: PHP-3.01
+      licence_text: third-party/licence-texts/PHP-3.01.txt
+    upstream:
+      project: php/php-src
+      source_url: https://github.com/php/php-src
+      revision_tag: php-8.3.32
+      revision_commit: 3e35b370570577e6277f8b46a0e73cdf616921fb
+      licence_path: LICENSE
+      licence_url: https://raw.githubusercontent.com/php/php-src/php-8.3.32/LICENSE
+      content_sha256: b42e4df5e50e6ecda1047d503d6d91d71032d09ed1027ba1ef29eed26f890c5a
+      retrieved_at: '2026-08-28T10:16:19Z'
+      retrieval_method: >-
+        HTTPS GET of the LICENSE blob at the pinned tag, then sha256 of the
+        response body. The file's own heading reads "The PHP License, version
+        3.01", which is SPDX PHP-3.01. Byte-identical across all four tags.
+    components:
+      - {name: bcmath, version: '8.3.32'}
+      - {name: gd, version: '8.3.32'}
+      - {name: intl, version: '8.3.32'}
+      - {name: opcache, version: '8.3.32'}
+      - {name: pcntl, version: '8.3.32'}
+      - {name: pdo_mysql, version: '8.3.32'}
+      - {name: pdo_pgsql, version: '8.3.32'}
+      - {name: pgsql, version: '8.3.32'}
+      - {name: php-cli, version: '8.3.32'}
+      - {name: php-fpm, version: '8.3.32'}
+      - {name: sockets, version: '8.3.32'}
+      - {name: sodium, version: '8.3.32'}
+    applies_to:
+      image_families: [php-cli, php-fpm, php-worker, php-frankenphp]
+      image_versions: ['8.3']
+      platforms: [linux/amd64, linux/arm64]
+    relationship: >-
+      The images build FROM the official php:8.3-*-bookworm base pinned by
+      digest (images/php-*/8.3/Dockerfile) and compile the bundled extensions
+      with docker-php-ext-install from that same tree. Every component named
+      above is therefore php-src at tag php-8.3.32: `php-cli` and `php-fpm` are
+      the interpreter binaries, and each extension is the directory ext/<name>
+      of that tree.
+    verification:
+      method: >-
+        For every extension named above, ext/<name>/config.m4 exists at tag
+        php-8.3.32 and ext/<name>/LICENSE does NOT — 10 of 10 at each of the four
+        tags. A bundled directory with no licence file of its own is covered by
+        the repository LICENSE; a directory WITH one would be attested from that
+        file instead and is not attested from this one.
+      checked_on: '2026-08-28'
+    limits: >-
+      Covers the php-src tree at that path and nothing else. It asserts NOTHING
+      about third-party code a bundled extension may itself vendor, about PECL
+      extensions built separately (zip, redis), or about the Debian packages the
+      base image ships. Those are their own components with their own evidence.
+    producer: lane-notice-source-obligations, manual retrieval, recorded above
+    legal_status: >-
+      NOT a legal conclusion. policies/license-policy.yaml keeps PHP-3.01 at
+      legal-review-required ("naming restrictions interact with a proprietary
+      LICENSE; counsel must confirm") and this file does not change that. The
+      attestation moves these components from unknown to known-and-unreviewed.
+  - id: php-src-8.3.33
+    evidence_class: upstream-licence-attestation
+    asserts:
+      spdx_id: PHP-3.01
+      licence_text: third-party/licence-texts/PHP-3.01.txt
+    upstream:
+      project: php/php-src
+      source_url: https://github.com/php/php-src
+      revision_tag: php-8.3.33
+      revision_commit: 4a55da8cb580ba56887c80a42291ebc676d6fb43
+      licence_path: LICENSE
+      licence_url: https://raw.githubusercontent.com/php/php-src/php-8.3.33/LICENSE
+      content_sha256: b42e4df5e50e6ecda1047d503d6d91d71032d09ed1027ba1ef29eed26f890c5a
+      retrieved_at: '2026-08-28T10:16:19Z'
+      retrieval_method: >-
+        HTTPS GET of the LICENSE blob at the pinned tag, then sha256 of the
+        response body. The file's own heading reads "The PHP License, version
+        3.01", which is SPDX PHP-3.01. Byte-identical across all four tags.
+    components:
+      - {name: bcmath, version: '8.3.33'}
+      - {name: gd, version: '8.3.33'}
+      - {name: intl, version: '8.3.33'}
+      - {name: opcache, version: '8.3.33'}
+      - {name: pcntl, version: '8.3.33'}
+      - {name: pdo_mysql, version: '8.3.33'}
+      - {name: pdo_pgsql, version: '8.3.33'}
+      - {name: pgsql, version: '8.3.33'}
+      - {name: php-cli, version: '8.3.33'}
+      - {name: sockets, version: '8.3.33'}
+      - {name: sodium, version: '8.3.33'}
+    applies_to:
+      image_families: [php-cli, php-fpm, php-worker, php-frankenphp]
+      image_versions: ['8.3']
+      platforms: [linux/amd64, linux/arm64]
+    relationship: >-
+      The images build FROM the official php:8.3-*-bookworm base pinned by
+      digest (images/php-*/8.3/Dockerfile) and compile the bundled extensions
+      with docker-php-ext-install from that same tree. Every component named
+      above is therefore php-src at tag php-8.3.33: `php-cli` and `php-fpm` are
+      the interpreter binaries, and each extension is the directory ext/<name>
+      of that tree.
+    verification:
+      method: >-
+        For every extension named above, ext/<name>/config.m4 exists at tag
+        php-8.3.33 and ext/<name>/LICENSE does NOT — 10 of 10 at each of the four
+        tags. A bundled directory with no licence file of its own is covered by
+        the repository LICENSE; a directory WITH one would be attested from that
+        file instead and is not attested from this one.
+      checked_on: '2026-08-28'
+    limits: >-
+      Covers the php-src tree at that path and nothing else. It asserts NOTHING
+      about third-party code a bundled extension may itself vendor, about PECL
+      extensions built separately (zip, redis), or about the Debian packages the
+      base image ships. Those are their own components with their own evidence.
+    producer: lane-notice-source-obligations, manual retrieval, recorded above
+    legal_status: >-
+      NOT a legal conclusion. policies/license-policy.yaml keeps PHP-3.01 at
+      legal-review-required ("naming restrictions interact with a proprietary
+      LICENSE; counsel must confirm") and this file does not change that. The
+      attestation moves these components from unknown to known-and-unreviewed.
+  - id: php-src-8.4.23
+    evidence_class: upstream-licence-attestation
+    asserts:
+      spdx_id: PHP-3.01
+      licence_text: third-party/licence-texts/PHP-3.01.txt
+    upstream:
+      project: php/php-src
+      source_url: https://github.com/php/php-src
+      revision_tag: php-8.4.23
+      revision_commit: 52cee85adfeeb6f017f2ac796ab7973353702c20
+      licence_path: LICENSE
+      licence_url: https://raw.githubusercontent.com/php/php-src/php-8.4.23/LICENSE
+      content_sha256: b42e4df5e50e6ecda1047d503d6d91d71032d09ed1027ba1ef29eed26f890c5a
+      retrieved_at: '2026-08-28T10:16:19Z'
+      retrieval_method: >-
+        HTTPS GET of the LICENSE blob at the pinned tag, then sha256 of the
+        response body. The file's own heading reads "The PHP License, version
+        3.01", which is SPDX PHP-3.01. Byte-identical across all four tags.
+    components:
+      - {name: bcmath, version: '8.4.23'}
+      - {name: gd, version: '8.4.23'}
+      - {name: intl, version: '8.4.23'}
+      - {name: opcache, version: '8.4.23'}
+      - {name: pcntl, version: '8.4.23'}
+      - {name: pdo_mysql, version: '8.4.23'}
+      - {name: pdo_pgsql, version: '8.4.23'}
+      - {name: pgsql, version: '8.4.23'}
+      - {name: php-cli, version: '8.4.23'}
+      - {name: php-fpm, version: '8.4.23'}
+      - {name: sockets, version: '8.4.23'}
+      - {name: sodium, version: '8.4.23'}
+    applies_to:
+      image_families: [php-cli, php-fpm, php-worker, php-frankenphp]
+      image_versions: ['8.4']
+      platforms: [linux/amd64, linux/arm64]
+    relationship: >-
+      The images build FROM the official php:8.4-*-bookworm base pinned by
+      digest (images/php-*/8.4/Dockerfile) and compile the bundled extensions
+      with docker-php-ext-install from that same tree. Every component named
+      above is therefore php-src at tag php-8.4.23: `php-cli` and `php-fpm` are
+      the interpreter binaries, and each extension is the directory ext/<name>
+      of that tree.
+    verification:
+      method: >-
+        For every extension named above, ext/<name>/config.m4 exists at tag
+        php-8.4.23 and ext/<name>/LICENSE does NOT — 10 of 10 at each of the four
+        tags. A bundled directory with no licence file of its own is covered by
+        the repository LICENSE; a directory WITH one would be attested from that
+        file instead and is not attested from this one.
+      checked_on: '2026-08-28'
+    limits: >-
+      Covers the php-src tree at that path and nothing else. It asserts NOTHING
+      about third-party code a bundled extension may itself vendor, about PECL
+      extensions built separately (zip, redis), or about the Debian packages the
+      base image ships. Those are their own components with their own evidence.
+    producer: lane-notice-source-obligations, manual retrieval, recorded above
+    legal_status: >-
+      NOT a legal conclusion. policies/license-policy.yaml keeps PHP-3.01 at
+      legal-review-required ("naming restrictions interact with a proprietary
+      LICENSE; counsel must confirm") and this file does not change that. The
+      attestation moves these components from unknown to known-and-unreviewed.
+  - id: php-src-8.4.24
+    evidence_class: upstream-licence-attestation
+    asserts:
+      spdx_id: PHP-3.01
+      licence_text: third-party/licence-texts/PHP-3.01.txt
+    upstream:
+      project: php/php-src
+      source_url: https://github.com/php/php-src
+      revision_tag: php-8.4.24
+      revision_commit: fb193d3df72d1ca3b5ef58ec9e9b6ef5bdf18bef
+      licence_path: LICENSE
+      licence_url: https://raw.githubusercontent.com/php/php-src/php-8.4.24/LICENSE
+      content_sha256: b42e4df5e50e6ecda1047d503d6d91d71032d09ed1027ba1ef29eed26f890c5a
+      retrieved_at: '2026-08-28T10:16:19Z'
+      retrieval_method: >-
+        HTTPS GET of the LICENSE blob at the pinned tag, then sha256 of the
+        response body. The file's own heading reads "The PHP License, version
+        3.01", which is SPDX PHP-3.01. Byte-identical across all four tags.
+    components:
+      - {name: bcmath, version: '8.4.24'}
+      - {name: gd, version: '8.4.24'}
+      - {name: intl, version: '8.4.24'}
+      - {name: opcache, version: '8.4.24'}
+      - {name: pcntl, version: '8.4.24'}
+      - {name: pdo_mysql, version: '8.4.24'}
+      - {name: pdo_pgsql, version: '8.4.24'}
+      - {name: pgsql, version: '8.4.24'}
+      - {name: php-cli, version: '8.4.24'}
+      - {name: sockets, version: '8.4.24'}
+      - {name: sodium, version: '8.4.24'}
+    applies_to:
+      image_families: [php-cli, php-fpm, php-worker, php-frankenphp]
+      image_versions: ['8.4']
+      platforms: [linux/amd64, linux/arm64]
+    relationship: >-
+      The images build FROM the official php:8.4-*-bookworm base pinned by
+      digest (images/php-*/8.4/Dockerfile) and compile the bundled extensions
+      with docker-php-ext-install from that same tree. Every component named
+      above is therefore php-src at tag php-8.4.24: `php-cli` and `php-fpm` are
+      the interpreter binaries, and each extension is the directory ext/<name>
+      of that tree.
+    verification:
+      method: >-
+        For every extension named above, ext/<name>/config.m4 exists at tag
+        php-8.4.24 and ext/<name>/LICENSE does NOT — 10 of 10 at each of the four
+        tags. A bundled directory with no licence file of its own is covered by
+        the repository LICENSE; a directory WITH one would be attested from that
+        file instead and is not attested from this one.
+      checked_on: '2026-08-28'
+    limits: >-
+      Covers the php-src tree at that path and nothing else. It asserts NOTHING
+      about third-party code a bundled extension may itself vendor, about PECL
+      extensions built separately (zip, redis), or about the Debian packages the
+      base image ships. Those are their own components with their own evidence.
+    producer: lane-notice-source-obligations, manual retrieval, recorded above
+    legal_status: >-
+      NOT a legal conclusion. policies/license-policy.yaml keeps PHP-3.01 at
+      legal-review-required ("naming restrictions interact with a proprietary
+      LICENSE; counsel must confirm") and this file does not change that. The
+      attestation moves these components from unknown to known-and-unreviewed.

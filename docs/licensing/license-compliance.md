@@ -46,6 +46,36 @@ verdict                            PASS, or REFUSE naming every finding
 notice candidate                   refuses to render over an unresolved inventory
 ```
 
+### The distribution-notice and source-obligation half
+
+The pipeline above answers "is every component's licence accounted for". #120
+also asks for third-party **notices** and for the corresponding **licence texts**
+and **source-offer obligations**, and a candidate can satisfy the first while
+owing every one of the second. That half is
+`scripts/license/generate-notice-bundle.py`, documented in full in
+[`notice-and-source-obligations.md`](notice-and-source-obligations.md):
+
+```text
+identity-bound image inventory + authorization record + repository material
+  + licence policy + carried licence texts + upstream attestations
+  + source-obligation facts
+        │
+        ▼  scripts/license/generate-notice-bundle.py --out-dir authorization/notice
+notice bundle                      manifest, human-readable notices, licence-text
+                                   references, source-obligation manifest,
+                                   unresolved-obligations report, SHA256SUMS
+        │
+        ▼  validate-authorization-record.sh --require-notice-bundle
+canonical authorization            a licence PASS is insufficient without a
+                                   COMPLETE bundle; publication authority refuses
+                                   independently of both
+```
+
+It is written under a release-evidence path and **never** as a root `NOTICE`: a
+root `NOTICE` beside a `LICENSE` that tells the reader to replace it before
+publication would be read as Foundry's own outbound terms, and those are
+undetermined.
+
 ### Why provenance is kept per assertion
 
 SPDX carries both `licenseDeclared` (what the package says about itself) and `licenseConcluded` (what the

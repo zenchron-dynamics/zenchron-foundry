@@ -55,6 +55,64 @@ The apparent 300-vs-320 disagreement between
 counts real packages, the finding total also counts the 20 image-root
 components. Both are right about different denominators and neither said which.
 
+## 1a. Who owns the 535 — one primary owner each, reconciled
+
+"Assign the backlog to #98" is the failure this partition exists to prevent. #98
+is a **legal** issue about project rights, contributor authority and outbound
+terms; handing it 535 parser, cataloguer and normalisation defects buries the
+four questions only a rights holder can answer under 516 that engineering owns.
+
+Every **substantive** finding is assigned to exactly one primary owner class by
+`scripts/license/group-licence-backlog.py`, which refuses if the classes do not
+reconcile to the substantive total or if any group matches no owner rule.
+
+| primary owner class | findings | groups |
+|---|---|---|
+| `evidence-producer-defect` | **298** | `G-NOASSERT-PKG-GOLANG-GO-MODULE` (248), `G-NOASSERT-PKG-GENERIC-PHP-BINARY-EXTENSION` (46), `G-NOASSERT-PKG-GENERIC-UNCLASSIFIED` (3), `G-NOASSERT-PKG-PEAR-PEAR-PECL` (1) |
+| `normalization-or-mapping-gap` | **218** | `G-CONFLICT-RC1` (163), `G-CONFLICT-RC2` (24), `G-CONFLICT-RC4` (5), `G-CONFLICT-RC3` (4), `G-NOASSERT-PKG-OCI-IMAGE-ROOT` (20), `G-NOASSERT-PKG-GENERIC-DISTRO-IDENTITY` (2) |
+| `notice-generation-gap` | 0 | — |
+| `missing-licence-artifact` | 0 | — |
+| `legal-interpretation` | **19** | `G-REVIEW-GPL-2-0-only` (13), `G-REVIEW-curl` (2), `G-REVIEW-LGPL-3-0-only` (2), `G-REVIEW-LGPL-2-1-only` (1), `G-REVIEW-GPL-3-0-only` (1) |
+| `project-rights-98` | **0** | — |
+| **total** | **535** | reconciles; 0 unowned, 0 double-counted |
+
+`G-FILE-NOASSERTION` (7,972) is **not** substantive and carries no owner class
+here: it is dispositioned by the four-way file-component accounting in
+`scripts/license/license-inventory.sh`, which is a different control, and
+counting it twice would reconcile to a number nobody can act on.
+
+### Why the two zero rows are reported rather than omitted
+
+`notice-generation-gap` and `missing-licence-artifact` receive **0** because the
+licence gate reports *unresolved licences*, not *missing notices*. A component
+whose licence is resolved produces no policy finding and can still owe a text, a
+NOTICE or a source offer. Those obligations are measured on the other side — by
+the notice bundle in `scripts/license/generate-notice-bundle.py`, over the
+components whose licence **is** resolved — and they are the substance of #120's
+remaining criterion. Reading "0" as "no notice work outstanding" would be
+exactly backwards.
+
+`project-rights-98` receives **0** because not one of the 535 is a question
+about who owns Foundry's copyright, who may license it outward, or whether it
+may be published. Those questions are real and they are #98's; they simply do
+not appear in this measurement.
+
+### The residual, recorded and not counted
+
+`owner_class_residual_after_primary_fix` records what a finding *becomes* once
+its primary owner acts — `G-CONFLICT-RC4` stops being a conflict and becomes an
+evidence gap; the 46 PHP binary/extension entries become a legal question once
+`PHP-3.01` is actually established for them. It is informational and is never
+added to a class total.
+
+### PHP-3.01 is the worked example of the first class, not the fifth
+
+`PHP-3.01` never reaches the inventory because the binary cataloguer emits no
+licence field, so the policy row never fires (§4b). That is an
+**evidence-completeness** defect, fixed by a provenance-bound upstream
+attestation, not by a lawyer. It *becomes* a legal question — and is recorded as
+the residual — only once the identifier is established.
+
 ## 2. The backlog
 
 Owners. This repository has **one maintainer**, Bogdan Olteanu / Zenchron

@@ -1315,12 +1315,67 @@ jobs:
           # ENFORCED one step below, by the validator that consumes it.
           echo "licence authorization: $verdict (bind=$BIND image-policy=$IMAGE_POLICY composed=$COMPOSED)"
 
+      # =====================================================================
+      # THE DISTRIBUTION-NOTICE AND SOURCE-OBLIGATION BUNDLE.
+      #
+      # A LICENCE VERDICT IS NOT A NOTICE. The gates above answer "is every
+      # component accounted for". #120 also asks for "third-party notices and
+      # ... corresponding license texts/source-offer obligations", and a
+      # candidate can satisfy the first while owing every one of the second:
+      # nothing above carries a licence TEXT, retains an upstream NOTICE, or
+      # knows that 162 components in this cohort carry a reciprocal obligation
+      # whose corresponding source nobody has arranged to deliver.
+      #
+      # The bundle is written under authorization/notice/ and NEVER as a root
+      # NOTICE file. A root NOTICE beside a LICENSE that declares itself a
+      # placeholder would read as Foundry's own outbound terms, which are
+      # undetermined (#98). This says what the CANDIDATE IMAGES carry.
+      #
+      # Its verdict is consumed one step below by
+      # validate-authorization-record.sh --require-notice-bundle, it is inside
+      # the same SHA256SUMS coverage, and the job's exit status is a function
+      # of it. A step whose output nothing reads is indistinguishable from a
+      # step that did not run.
+      # =====================================================================
+      - name: Gate — produce the distribution-notice and source-obligation bundle
+        id: notice
+        if: always()
+        env:
+          AUTH_RECORD: authorization/post-build-authorization.json
+          IMAGE_INVENTORY: authorization/licence/image-inventory.json
+          MATERIAL_INVENTORY: policies/repository-material.yaml
+          LICENCE_POLICY: policies/license-policy.yaml
+          LICENCE_TEXTS: third-party/licence-texts/PROVENANCE.yaml
+          ATTESTATIONS: policies/upstream-licence-attestations.yaml
+          SOURCE_OBLIGATIONS: policies/source-obligations.yaml
+          NOTICE_DIR: authorization/notice
+        run: |
+          # `set +e` is LOAD-BEARING, exactly as on the licence gates above: a
+          # REFUSED notice bundle is an expected outcome and the draft must be
+          # WRITTEN before the refusal is acted on. A refusal that produces
+          # nothing is a refusal nobody can read afterwards.
+          set -uo pipefail; set +e
+          mkdir -p "$NOTICE_DIR"
+          python3 scripts/license/generate-notice-bundle.py \
+            --inventory "$IMAGE_INVENTORY" \
+            --authorization "$AUTH_RECORD" \
+            --material "$MATERIAL_INVENTORY" \
+            --policy "$LICENCE_POLICY" \
+            --licence-texts "$LICENCE_TEXTS" \
+            --attestations "$ATTESTATIONS" \
+            --source-obligations "$SOURCE_OBLIGATIONS" \
+            --out-dir "$NOTICE_DIR"
+          rc=$?
+          echo "$rc" > authorization/notice.rc
+          exit "$rc"
+
       - name: Validate the authorization record, CONSUMING the licence verdict
         id: schema
         if: always()
         env:
           AUTH_RECORD: authorization/post-build-authorization.json
           LICENCE_RECORD: authorization/licence/licence-authorization.json
+          NOTICE_BUNDLE: authorization/notice/notice-manifest.json
         run: |
           set -uo pipefail; set +e
           # The schema is enforced HERE, in the producer, not only in tests and
@@ -1334,13 +1389,23 @@ jobs:
           # canonical record does not validate unless a composed licence
           # authorization is present, PASSING, and bound to this record's sha256
           # and source revision. An absent one REFUSES; it never skips.
+          #
+          # --require-notice-bundle is the same shape one control further out:
+          # a licence PASS is insufficient without a COMPLETE notice and
+          # source-obligation bundle, a notice PASS cannot override a refused
+          # licence verdict, and publication authority refuses INDEPENDENTLY of
+          # both. That last one is why this step refuses today and will keep
+          # refusing until an owner records a distribution decision in
+          # policies/license-policy.yaml (#98). It is the fail-closed behaviour,
+          # not a defect in it.
           bash scripts/release/validate-authorization-record.sh \
             "$AUTH_RECORD" \
-            --require-licence-authorization "$LICENCE_RECORD"
+            --require-licence-authorization "$LICENCE_RECORD" \
+            --require-notice-bundle "$NOTICE_BUNDLE"
           schema_rc=$?
           echo "$schema_rc" > authorization/schema.rc
           [ "$schema_rc" -eq 0 ] \
-            || echo "::error::the authorization record is not schema-valid, or its licence authorization is absent or refused"
+            || echo "::error::the authorization record is not schema-valid, or its licence authorization or notice bundle is absent, incomplete or refused"
           exit 0
 
       - name: Seal and gate the authorization evidence
@@ -1394,6 +1459,15 @@ jobs:
               echo "| licence authorization | \`$(jq -r .verdict "$l")\` (image $(jq -r .image_half.children_bound "$l")/$(jq -r .image_half.children_expected "$l") bound, repository $(jq -r .repository_half.composed "$l")) |"
             else
               echo "| licence authorization | \`NO RECORD\` |"
+            fi
+            # Reported from the BUNDLE, not from a step outcome: what a reader
+            # needs is the fact the validator consumed.
+            n=authorization/notice/notice-manifest.json
+            if [ -s "$n" ]; then
+              echo "| notice bundle (#120) | \`$(jq -r .verdict "$n")\` / \`$(jq -r .status "$n")\` ($(jq -r .finding_count "$n") finding(s)) |"
+              echo "| publication authority (#98) | \`$(jq -r .publication_authority_present "$n")\` |"
+            else
+              echo "| notice bundle (#120) | \`NO BUNDLE\` |"
             fi
             echo
             echo "Staged only to \`$(jq -r .staging_package "$f")\`. No production package, no public tag, no index, no signature."
