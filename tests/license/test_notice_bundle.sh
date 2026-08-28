@@ -80,6 +80,16 @@ cp -R "$ROOT/." "$WORK/"
 echo "== the producer and its inputs exist and are what they claim =============="
 
 ck "the producer exists and is executable" "[ -x '$PROD' ]"
+# A flag whose only possible outcome is exit 0 is an affordance somebody wires
+# into CI as "the gate ran". The producer has none, and the only mention of
+# the string is the comment explaining why — so the grep skips comments.
+ck "the producer has NO --self-test: a flag that can only exit 0 gates nothing" \
+   "! python3 '$PROD' --self-test >/dev/null 2>&1 \\
+    && ! grep -vE '^[[:space:]]*#' '$PROD' | grep -q -- '--self-test'"
+ck "...and running it with no arguments REFUSES rather than defaulting" \
+   "! python3 '$PROD' >'$TMP/noargs' 2>&1
+    grep -q 'NB-INPUT-ABSENT' '$TMP/noargs' \\
+    && grep -q 'run against nothing' '$TMP/noargs'"
 ck "its schema exists and is a valid JSON Schema" \
    "python3 -c \"
 import json, jsonschema

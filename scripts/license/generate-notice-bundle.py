@@ -79,7 +79,6 @@
 #   generate-notice-bundle.py --inventory F --authorization F --material F
 #                             --policy F --licence-texts F --attestations F
 #                             --source-obligations F --out-dir D
-#   generate-notice-bundle.py --self-test
 # =============================================================================
 import argparse
 import hashlib
@@ -922,17 +921,12 @@ def main():
     ap.add_argument("--attestations")
     ap.add_argument("--source-obligations", dest="source_obligations")
     ap.add_argument("--out-dir", dest="out_dir")
-    ap.add_argument("--self-test", action="store_true")
     args = ap.parse_args()
-    if args.self_test:
-        from importlib import import_module           # noqa: F401
-        sys.stderr.write(
-            "generate-notice-bundle: the behavioural suite is "
-            "tests/license/test_notice_bundle.sh; it exercises this producer "
-            "against real committed evidence and 20 sabotages. A --self-test "
-            "that re-implemented those fixtures here would be a second copy to "
-            "drift.\n")
-        return 0
+    # There is deliberately NO --self-test. A flag whose only possible outcome
+    # is exit 0 is an affordance somebody wires into CI as "the gate ran", which
+    # is the precise shape this repository keeps removing. The behavioural suite
+    # is tests/license/test_notice_bundle.sh, the required `repo structure` job
+    # runs it directly, and it can fail.
     missing = [k for k in ("inventory", "authorization", "material", "policy",
                            "licence_texts", "attestations", "source_obligations",
                            "out_dir") if not getattr(args, k)]
