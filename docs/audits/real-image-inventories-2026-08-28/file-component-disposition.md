@@ -195,13 +195,18 @@ reason: a disagreement about an obligation is not inheritable.
 
 ### Counterfactuals, measured
 
-| implementation | assertions failed (of 28) |
-|---|---|
-| the previous parser (file components counted as packages, SPDX `files[]` ignored) | **21** |
-| a naive "drop every `type: "file"` component" | **16**, including all four sabotages |
+The suite carries **34 assertions**, 10 of them sabotage assertions. Measured
+against the two implementations this change has to be distinguishable from:
+
+| implementation | assertions failed (of 34) | sabotage assertions failed (of 10) |
+|---|---|---|
+| the previous parser — file components counted as packages, SPDX `files[]` ignored | **20** | 7 |
+| a naive "drop every `type: "file"` component" | **16** | **8** |
 
 The suite therefore distinguishes the fix from both the old behaviour and the
-blind-spot behaviour, rather than merely passing.
+blind-spot behaviour, rather than merely passing. The two sabotage assertions
+that survive the naive implementation are the ones about the SPDX half and about
+the grouper, which that implementation does not reach.
 
 ## 6. Non-vacuity against the real producer
 
@@ -321,7 +326,8 @@ dispatches nothing.
 
 | check | result |
 |---|---|
-| `tests/license/test_licence_file_components.sh` | 28 assertions, 0 failures; 3× deterministic; clean under `bash -T` |
+| `tests/license/test_licence_file_components.sh` | 34 assertions, 0 failures; 3× deterministic; clean under `bash -T` |
+| `tests/license/test_image_sbom_licence_gate.sh` | 127 assertions, 0 failures, 1 pinned gap, PASS — unmodified by this change |
 | `tests/license/test_license_gate.sh` | PASS |
 | `tests/license/test_repository_material_gate.sh` | 64 proven, 4 pinned gaps, PASS |
 | `scripts/license/license-inventory.sh --self-test` | OK |
