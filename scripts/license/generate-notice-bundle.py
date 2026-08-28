@@ -307,6 +307,24 @@ def index_attestations(att, store, families, versions, platforms, f):
                   "attestation %s covers platforms %s and the candidate cohort "
                   "ships %s" % (aid, sorted(ap), sorted(platforms)))
             continue
+        # The declared image scope must actually REACH this cohort. Without
+        # this, an attestation written for the 8.5 experimental family would be
+        # applied to an 8.3/8.4 production cohort on the strength of its
+        # component list alone: the exact (name, version) match is necessary and
+        # it is not sufficient, because a component name says nothing about
+        # which images ship it.
+        if not (af & set(families)):
+            f.add("NB-ATTESTATION-SCOPE",
+                  "attestation %s declares image families %s and this candidate "
+                  "cohort ships %s. An attestation must not reach a family it "
+                  "does not cover" % (aid, sorted(af), sorted(families)))
+            continue
+        if not (av & set(versions)):
+            f.add("NB-ATTESTATION-SCOPE",
+                  "attestation %s declares image versions %s and this candidate "
+                  "cohort ships %s. An attestation for one version must not "
+                  "widen to another" % (aid, sorted(av), sorted(versions)))
+            continue
         if sid not in store:
             f.add("NB-ATTESTATION-TEXT-MISSING",
                   "attestation %s asserts %s and names the text %s, which is not "

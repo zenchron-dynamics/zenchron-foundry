@@ -489,6 +489,26 @@ yaml.safe_dump(d, open(sys.argv[2],'w'))
 PY
     ATT='$TMP/att-plat.yaml' produce '$TMP/s16'
     detail '$TMP/s16' NB-ATTESTATION-SCOPE 'linux/arm64'"
+ck "S16b SABOTAGE: an attestation cannot widen to another IMAGE FAMILY" \
+   "python3 - '$ROOT/policies/upstream-licence-attestations.yaml' '$TMP/att-fam.yaml' <<'PYFAM'
+import sys, yaml
+d=yaml.safe_load(open(sys.argv[1]))
+for a in d['attestations']:
+    a['applies_to']['image_families']=['php-8-5-experimental']
+yaml.safe_dump(d, open(sys.argv[2],'w'))
+PYFAM
+    ATT='$TMP/att-fam.yaml' produce '$TMP/s16b'
+    detail '$TMP/s16b' NB-ATTESTATION-SCOPE 'must not reach a family it does not cover'"
+ck "S16c SABOTAGE: an attestation cannot widen to another IMAGE VERSION" \
+   "python3 - '$ROOT/policies/upstream-licence-attestations.yaml' '$TMP/att-ver.yaml' <<'PYVER'
+import sys, yaml
+d=yaml.safe_load(open(sys.argv[1]))
+for a in d['attestations']:
+    a['applies_to']['image_versions']=['8.5']
+yaml.safe_dump(d, open(sys.argv[2],'w'))
+PYVER
+    ATT='$TMP/att-ver.yaml' produce '$TMP/s16c'
+    detail '$TMP/s16c' NB-ATTESTATION-SCOPE 'must not widen to another'"
 ck "S17 SABOTAGE: an attestation with NO scope at all is REFUSED" \
    "python3 - '$ROOT/policies/upstream-licence-attestations.yaml' '$TMP/att-noscope.yaml' <<'PY'
 import sys, yaml
