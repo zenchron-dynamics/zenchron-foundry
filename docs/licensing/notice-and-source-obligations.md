@@ -131,6 +131,93 @@ absent, empty or byte-drifted text.
 
 ---
 
+## 3a. The licence material inside the images (#120 action N1)
+
+Section 3 carries the canonical text of an **identifier** — `GPL-2.0` as SPDX
+publishes it. That is a different artifact from `busybox`'s own copyright
+statement, or from the Debian `copyright` file recording who holds copyright in
+*this* build of *this* package. `retain-copyright-notice` is an obligation about
+the second.
+
+`third-party/image-licence-materials/` carries **137 distinct files, 1.4 MB**,
+read out of the 20 accepted production images by immutable digest and stored
+content-addressed, so a file shared by many packages across eighteen children
+exists once and every consumer is bound to its hash.
+
+### Buildless, and verified three ways per child
+
+Registry HTTP API only: no image built, no Dockerfile run, no package manager
+run, no mutable tag read, no SBOM regenerated, no container runtime involved.
+Before a single byte is attributed to a child:
+
+* the **manifest bytes are re-hashed** and must equal the accepted digest — the
+  registry's own claim is not the check;
+* the **config blob's own `os`/`architecture`** must equal the platform the
+  accepted run recorded;
+* every **layer blob** must hash to the digest its manifest names.
+
+Layers are read with **overlayfs whiteout semantics** applied. Reporting a
+copyright file that a later layer deleted would be reporting a file that is not
+in the image.
+
+### `/usr/share/doc/<pkg>/copyright` is not universal coverage
+
+| ecosystem | what the image actually ships |
+|---|---|
+| Debian | one `copyright` per binary package — sometimes a symlink to a sibling's file, sometimes a symlinked *directory*, sometimes **chained** through two, frequently deferring to `/usr/share/common-licenses/<NAME>` |
+| Alpine | **nothing.** apk strips documentation; the database's `L:` field is a licence *identifier*, not a notice and not a text |
+| Go | modules compile into a binary; a runtime image has no vendored licence tree, so no path was ever expected |
+| PHP | the interpreter and `docker-php-ext-install` extensions leave nothing behind; PEAR ships under `/usr/local/lib/php/doc/` |
+
+### Every implicated component gets exactly one class
+
+| class | components | meaning |
+|---|---|---|
+| `extracted` | **191** | material present and captured, directly or through a symlink chain resolved inside that same image |
+| `ambiguous` | **1** | present but not self-sufficient |
+| `absent` | **22** | package-managed, and the ecosystem ships no such material; no path was expected |
+| `path-expected-unavailable` | **0** | the convention applies and the file is missing |
+| `non-package-managed` | **320** | no package manager in the image governs it |
+| `legal-review-required` | **1** | what is owed cannot be decided mechanically |
+
+```text
+implicated = extracted + ambiguous + absent + non-package-managed + legal-review-required
+535 = 191 + 1 + 22 + 320 + 1
+```
+
+The tool refuses if they do not reconcile. `absent` is the union of the two
+absence classes and both sub-counts are reported, because "this ecosystem ships
+nothing" and "the file that should be here is missing" are different findings
+with different owners.
+
+The two residual findings are real and are left refusing rather than papered
+over: **`gzip`** defers to `/usr/share/common-licenses/GFDL-3`, which Debian does
+not ship (the image carries `GFDL`, `GFDL-1.2`, `GFDL-1.3`) — an upstream defect
+in the package's own copyright file; and **`../@UNKNOWN`** is a nameless
+cataloguer artifact whose very existence as a distributed component cannot be
+decided from the image.
+
+### The mapping is checked, not trusted
+
+A recorded symlink chain must start at the package's own documentation path,
+each hop must link to the next, and the last hop must be the file being claimed.
+A package mapped to another package's copyright file refuses; so does a
+redirected symlink, a carried file whose bytes changed, material from a child the
+candidate does not stage, a partial 19-of-20 cohort and an accounting taken at
+another revision.
+
+### An attestation is not a file the image carries
+
+Where a component ships no copyright material, an upstream attestation is
+**recorded beside the gap and does not close it**
+(`NB-ATTESTATION-NOT-IN-IMAGE`). Letting it close the gap takes an explicit
+policy decision — `defaults.may_substitute_for_in_image_material` in
+`policies/upstream-licence-attestations.yaml`, **shipped `false`** — because what
+evidence class is acceptable is #98's call, not an engineering one. The suite
+proves both directions, so the control is real and its default is the closed one.
+
+---
+
 ## 4. Source obligations — facts, not conclusions
 
 `policies/source-obligations.yaml` records **162** components in the accepted
