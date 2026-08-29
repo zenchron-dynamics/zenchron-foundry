@@ -1348,6 +1348,14 @@ jobs:
           LICENCE_TEXTS: third-party/licence-texts/PROVENANCE.yaml
           ATTESTATIONS: policies/upstream-licence-attestations.yaml
           SOURCE_OBLIGATIONS: policies/source-obligations.yaml
+          # The licence and copyright material that is INSIDE the accepted
+          # images (#120 action N1), extracted buildlessly from their immutable
+          # digests. It is a committed audit record rather than a live
+          # extraction because this job must not reach a registry to decide a
+          # gate, and because the record is bound to the accepted revision:
+          # if the candidate is a different revision the producer refuses
+          # (NB-IMAGE-MATERIAL-UNBOUND) instead of quietly reusing it.
+          IMAGE_MATERIALS: docs/audits/image-licence-materials-2026-08-29/image-licence-accounting.json
           NOTICE_DIR: authorization/notice
         run: |
           # `set +e` is LOAD-BEARING, exactly as on the licence gates above: a
@@ -1364,6 +1372,7 @@ jobs:
             --licence-texts "$LICENCE_TEXTS" \
             --attestations "$ATTESTATIONS" \
             --source-obligations "$SOURCE_OBLIGATIONS" \
+            --image-materials "$IMAGE_MATERIALS" \
             --out-dir "$NOTICE_DIR"
           rc=$?
           echo "$rc" > authorization/notice.rc

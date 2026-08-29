@@ -399,9 +399,17 @@ for m in materials:
 # worse than carrying none — a recipient checking the hash would be the first to
 # find out.
 # =============================================================================
-store = inv.get("carried_licence_texts") or {}
+# A LIST, because there is more than one kind of carried text and they must not
+# be conflated: third-party/licence-texts/ carries the canonical text of an
+# IDENTIFIER (GPL-2.0 as SPDX publishes it), while
+# third-party/image-licence-materials/ carries what the shipped IMAGES actually
+# contain (Debian's per-package copyright files). Both are carried, neither
+# substitutes for the other, and each has its own provenance record.
+_store = inv.get("carried_licence_texts") or []
+if isinstance(_store, dict):
+    _store = [_store]
 store_paths = set()
-if store:
+for store in _store:
     sp = store.get("provenance") or ""
     sp_full = abspath(sp) if sp else ""
     if not sp or not os.path.isfile(sp_full):

@@ -73,14 +73,27 @@
 #                              version or platform it does not cover
 #   NB-ATTESTATION-TEXT-MISSING  an attestation whose asserted text is not carried
 #   NB-LEGAL-REVIEW-REQUIRED   an identifier the policy sends to counsel
+#   NB-IMAGE-MATERIAL-INPUT    the in-image accounting is absent or malformed
+#   NB-IMAGE-MATERIAL-UNBOUND  it describes another revision or cohort
+#   NB-IMAGE-MATERIAL-CHILD    it names a child this candidate does not stage
+#   NB-IMAGE-MATERIAL-ABSENT   a component ships no copyright material
+#   NB-IMAGE-MATERIAL-AMBIGUOUS  material present but not self-sufficient
+#   NB-IMAGE-MATERIAL-MAPPING  the recorded symlink chain does not actually
+#                              lead from that package to that file
+#   NB-IMAGE-MATERIAL-DRIFT    a carried file is absent or not its bytes
+#   NB-IMAGE-MATERIAL-LEGAL-REVIEW  what is owed cannot be decided mechanically
+#   NB-ATTESTATION-NOT-IN-IMAGE  an attestation was offered as a substitute
+#                              for material the image does not carry
 #   NB-PUBLICATION-AUTHORITY-MISSING  nobody has authorized distribution (#98)
 #
 # Usage:
 #   generate-notice-bundle.py --inventory F --authorization F --material F
 #                             --policy F --licence-texts F --attestations F
-#                             --source-obligations F --out-dir D
+#                             --source-obligations F --image-materials F
+#                             --out-dir D
 # =============================================================================
 import argparse
+import collections
 import hashlib
 import json
 import os
@@ -507,6 +520,186 @@ def check_files(inv, f):
 
 
 # -----------------------------------------------------------------------------
+# the material that is INSIDE the images (#120 action N1)
+# -----------------------------------------------------------------------------
+def expand_per_child(pc, index=None):
+    """The accounting stores identical per-child outcomes once against the list
+    of children that share them. A reader that assumed {child: outcome} would
+    see nothing at all, so the indirection is followed in one place."""
+    if not pc:
+        return {}
+    def name(c):
+        if isinstance(c, int):
+            return index[c] if index and 0 <= c < len(index) else "<child %d>" % c
+        return c
+    if "outcome" in pc:
+        return {name(c): pc["outcome"] for c in pc.get("children") or []}
+    out = {}
+    for g in pc.get("outcomes") or []:
+        for c in g.get("children") or []:
+            out[name(c)] = g["outcome"]
+    return out
+
+
+def check_image_materials(accdoc, root, binding, auth, attest_idx, allow_sub, f):
+    """The canonical SPDX text of GPL-2.0 is not busybox's copyright statement,
+    and `retain-copyright-notice` is an obligation about the second. This
+    consumes the in-image accounting and refuses on anything it could not
+    establish.
+
+    AN UPSTREAM ATTESTATION IS NOT AN IN-IMAGE FILE. Where the image ships no
+    copyright material, an attestation may be RECORDED beside the gap and may
+    never close it — unless the attestation policy explicitly says that evidence
+    class may substitute, which the shipped policy does not. Letting it close the
+    gap silently would be one evidence class masquerading as another, which is
+    the distinction the four-source model exists to keep."""
+    if accdoc.get("schema") != "foundry.image-licence-accounting/v1":
+        f.add("NB-IMAGE-MATERIAL-INPUT",
+              "the in-image accounting is not a "
+              "foundry.image-licence-accounting/v1 record (schema=%r)"
+              % accdoc.get("schema"))
+        return {}
+    if accdoc.get("source_revision") != binding.get("source_revision"):
+        f.add("NB-IMAGE-MATERIAL-UNBOUND",
+              "the in-image accounting was taken at source revision %s and this "
+              "candidate is %s. Material read out of another tree's images "
+              "describes another set of components"
+              % (accdoc.get("source_revision"), binding.get("source_revision")))
+    want_children = {str(c.get("child_key")) for c in auth.get("children") or []}
+    if accdoc.get("children_accounted") != len(want_children):
+        f.add("NB-IMAGE-MATERIAL-UNBOUND",
+              "the in-image accounting covers %s child(ren) and this candidate "
+              "stages %d. An accounting over a partial cohort reports complete "
+              "coverage of images it never opened"
+              % (accdoc.get("children_accounted"), len(want_children)))
+
+    counts = collections.Counter()
+    referenced = {}
+    # Reason texts are interned in the accounting record; a reader that took
+    # `reason` literally would report an empty diagnostic for 342 components.
+    texts = accdoc.get("reason_texts") or {}
+    cindex = accdoc.get("children_index") or []
+
+    def why_of(r):
+        return r.get("reason") or texts.get(r.get("reason_key"), "")
+    for r in sorted(accdoc.get("components") or [],
+                    key=lambda x: str(x.get("component"))):
+        cls = r.get("classification")
+        counts[cls] += 1
+        name = str(r.get("name") or "")
+        per = expand_per_child(r.get("per_child"), cindex)
+        for ck in sorted(per):
+            if ck not in want_children:
+                f.add("NB-IMAGE-MATERIAL-CHILD",
+                      "%s: the accounting carries material from child %r, which "
+                      "this candidate does not stage. Another image's file is "
+                      "not this image's evidence" % (r.get("component"), ck))
+        if cls == "extracted":
+            for ck in sorted(per):
+                d = per[ck]
+                chain = d.get("chain") or []
+                resolved = d.get("resolved_path")
+                # THE MAPPING ITSELF IS CHECKED. A chain that does not start at
+                # this package's own doc path, or whose hops do not link up, or
+                # whose last hop is not the file being claimed, is a package
+                # mapped to somebody else's copyright file.
+                if d.get("sha256") and not chain and d.get("indirect") is False:
+                    # The direct case: no indirection, so the file must be the
+                    # package's own convention path and nothing else.
+                    if resolved not in ("usr/share/doc/%s/copyright" % name,
+                                        "usr/share/doc/%s/copyright.gz" % name):
+                        f.add("NB-IMAGE-MATERIAL-MAPPING",
+                              "%s: the record claims no indirection and resolves "
+                              "to %r, which is not this package's own "
+                              "documentation path" % (r.get("component"), resolved))
+                if d.get("sha256") and chain:
+                    start = chain[0].get("path")
+                    if start not in ("usr/share/doc/%s" % name,
+                                     "usr/share/doc/%s/copyright" % name,
+                                     "usr/share/doc/%s/copyright.gz" % name):
+                        f.add("NB-IMAGE-MATERIAL-MAPPING",
+                              "%s: the recorded chain starts at %r, which is not "
+                              "this package's own documentation path"
+                              % (r.get("component"), start))
+                    for i in range(len(chain) - 1):
+                        tgt = chain[i].get("link_target_resolved")
+                        nxt = chain[i + 1].get("path")
+                        if tgt and nxt and not nxt.startswith(tgt):
+                            f.add("NB-IMAGE-MATERIAL-MAPPING",
+                                  "%s: hop %d points at %r and the next hop is "
+                                  "%r. A redirected symlink is a package mapped "
+                                  "to another package's file"
+                                  % (r.get("component"), i, tgt, nxt))
+                    if resolved and chain[-1].get("path") != resolved:
+                        f.add("NB-IMAGE-MATERIAL-MAPPING",
+                              "%s: the chain ends at %r and the record claims %r"
+                              % (r.get("component"), chain[-1].get("path"), resolved))
+                if d.get("sha256"):
+                    referenced.setdefault(d["sha256"], []).append(r.get("component"))
+        elif cls in ("absent", "path-expected-unavailable"):
+            att = attest_idx.get((name, str(r.get("version") or "")))
+            if att and not allow_sub:
+                f.add("NB-ATTESTATION-NOT-IN-IMAGE",
+                      "%s ships no copyright material and attestation %s asserts "
+                      "%s for it. An upstream attestation is a DIFFERENT evidence "
+                      "class from a file the image carries; it is recorded beside "
+                      "the gap and does not close it, because "
+                      "defaults.may_substitute_for_in_image_material is false"
+                      % (r.get("component"), att["attestation_id"], att["spdx_id"]))
+            elif att and allow_sub:
+                continue
+            f.add("NB-IMAGE-MATERIAL-ABSENT",
+                  "%s: %s" % (r.get("component"), why_of(r) or cls))
+        elif cls == "ambiguous":
+            why = why_of(r)
+            if not why:
+                outs = per.get("outcomes") or ([{"outcome": per.get("outcome")}]
+                                               if per.get("outcome") else [])
+                amb = [g["outcome"] for g in outs
+                       if (g.get("outcome") or {}).get("state") == "ambiguous"]
+                why = (amb or [{}])[0].get("reason", "")
+            f.add("NB-IMAGE-MATERIAL-AMBIGUOUS",
+                  "%s: %s" % (r.get("component"), why))
+        elif cls == "legal-review-required":
+            f.add("NB-IMAGE-MATERIAL-LEGAL-REVIEW",
+                  "%s: %s" % (r.get("component"), why_of(r)))
+
+    # --- the carried bytes must BE there and BE what was recorded ------------
+    carried = (accdoc.get("carried_texts") or {}).get("files") or []
+    by_hash = {c["sha256"]: c for c in carried}
+    for h in sorted(referenced):
+        c = by_hash.get(h)
+        if c is None:
+            f.add("NB-IMAGE-MATERIAL-DRIFT",
+                  "the accounting binds %s to material sha256 %s and the carried "
+                  "store does not hold it"
+                  % (", ".join(referenced[h][:3]), h[:16]))
+            continue
+        p = os.path.join(root, c["path"])
+        if not os.path.isfile(p) or os.path.getsize(p) == 0:
+            f.add("NB-IMAGE-MATERIAL-DRIFT",
+                  "%s is recorded as carried and is absent or empty" % c["path"])
+            continue
+        got = sha256_file(p)
+        if got != h:
+            f.add("NB-IMAGE-MATERIAL-DRIFT",
+                  "%s hashes to %s and the accounting binds %s. A copyright "
+                  "notice that is not the bytes that shipped is not the notice"
+                  % (c["path"], got[:16], h[:16]))
+    return {
+        "accounting": accdoc.get("record_type"),
+        "extraction_tool": accdoc.get("extraction_tool"),
+        "extraction_tool_sha256": accdoc.get("extraction_tool_sha256"),
+        "children_accounted": accdoc.get("children_accounted"),
+        "implicated_components": accdoc.get("implicated_components"),
+        "by_class": {k: counts[k] for k in sorted(counts)},
+        "carried_files": len(carried),
+        "distinct_material_hashes_bound": len(referenced),
+        "attestation_may_substitute_for_in_image_material": allow_sub,
+    }
+
+
+# -----------------------------------------------------------------------------
 # repository material — its texts and its upstream NOTICE files
 # -----------------------------------------------------------------------------
 def check_material(mat, root, f):
@@ -699,6 +892,7 @@ def produce(args):
         hard("NB-INPUT-MALFORMED",
              "%s is not a foundry.upstream-licence-attestation/v1 document"
              % args.attestations)
+    imgmat = load_json(args.image_materials, "the in-image licence accounting")
     so = load_yaml(args.source_obligations, "the source-obligation facts")
     if so.get("schema") != "foundry.source-obligations/v1":
         hard("NB-INPUT-MALFORMED",
@@ -730,6 +924,10 @@ def produce(args):
     dispositions, deferred_files = dispose(inv, attest_idx, store, policy_state,
                                            policy_default, f)
     files = check_files(inv, f)
+    allow_sub = bool((att.get("defaults") or {})
+                     .get("may_substitute_for_in_image_material"))
+    image_materials = check_image_materials(imgmat, root, binding, auth,
+                                            attest_idx, allow_sub, f)
     material = check_material(mat, root, f)
     notices = check_material_notice_hashes(root, f)
     source_rows = check_source_obligations(so, f)
@@ -859,6 +1057,7 @@ def produce(args):
             SRC_LEGAL: 0,
         },
         "image_files": files,
+        "in_image_materials": image_materials,
         "repository_material": material,
         "upstream_notices_retained": notices,
         "licence_texts": {"count": len(store),
@@ -879,6 +1078,7 @@ def produce(args):
             "licence_texts": os.path.relpath(os.path.abspath(args.licence_texts), root),
             "attestations": os.path.relpath(os.path.abspath(args.attestations), root),
             "source_obligations": os.path.relpath(os.path.abspath(args.source_obligations), root),
+            "image_materials": os.path.relpath(os.path.abspath(args.image_materials), root),
         },
         "dispositions": dispositions,
         "note": ("This bundle is scoped to the candidate images named above. It "
@@ -920,6 +1120,7 @@ def main():
     ap.add_argument("--licence-texts", dest="licence_texts")
     ap.add_argument("--attestations")
     ap.add_argument("--source-obligations", dest="source_obligations")
+    ap.add_argument("--image-materials", dest="image_materials")
     ap.add_argument("--out-dir", dest="out_dir")
     args = ap.parse_args()
     # There is deliberately NO --self-test. A flag whose only possible outcome
@@ -929,7 +1130,7 @@ def main():
     # runs it directly, and it can fail.
     missing = [k for k in ("inventory", "authorization", "material", "policy",
                            "licence_texts", "attestations", "source_obligations",
-                           "out_dir") if not getattr(args, k)]
+                           "image_materials", "out_dir") if not getattr(args, k)]
     if missing:
         hard("NB-INPUT-ABSENT",
              "every input is required and these were not given: %s. A producer "

@@ -402,6 +402,7 @@ python3 "$ROOT/scripts/license/generate-notice-bundle.py" \
   --licence-texts "$TMP/nin/licence-texts.yaml" \
   --attestations "$TMP/nin/attestations.yaml" \
   --source-obligations "$TMP/nin/source-obligations.yaml" \
+  --image-materials "$TMP/nin/image-licence-accounting.json" \
   --out-dir "$TMP/notice-pass" >/dev/null 2>&1
 NB="$TMP/notice-pass/notice-manifest.json"
 

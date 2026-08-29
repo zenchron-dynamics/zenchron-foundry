@@ -37,9 +37,11 @@
 #     suite that only ever saw a refusal would prove the producer can say no and
 #     nothing about whether it can ever say yes.
 #
-# TWENTY-SEVEN SABOTAGES, each asserting its INTENDED diagnostic rather than a
-# non-zero exit. They are numbered S1..S25 below (S16 has three variants: one
-# per axis an attestation could widen along).
+# 27 + 9 = 36 SABOTAGES, each asserting its INTENDED diagnostic rather
+# than a non-zero exit. S1..S25 cover the bundle and its consumer (S16 has three
+# variants, one per axis an attestation could widen along); the N1 group covers
+# the licence material extracted from inside the images. The count is asserted
+# against this file, so it cannot drift into a comment nobody updated.
 #
 # AMBIENT SAFETY. Every byte written lands under one mktemp -d.
 # =============================================================================
@@ -64,6 +66,7 @@ AUDIT=docs/audits/real-image-inventories-2026-08-28
 BINDING="$AUDIT/licence/rerun-image-binding.json"
 DIAG="$AUDIT/licence/image-licence-policy-diagnostic.log"
 REV=7061caafb3ea09bd5b2342a1daf022151b33f822
+ACCT=docs/audits/image-licence-materials-2026-08-29/image-licence-accounting.json
 
 TMP="$(mktemp -d)"
 # shellcheck disable=SC2064
@@ -178,6 +181,7 @@ produce() { # produce <out-dir> [ARG ...]
     --licence-texts "${LTX:-third-party/licence-texts/PROVENANCE.yaml}" \
     --attestations "${ATT:-policies/upstream-licence-attestations.yaml}" \
     --source-obligations "${SO:-policies/source-obligations.yaml}" \
+    --image-materials "${IM:-$ACCT}" \
     --out-dir "$out" "$@" >"$TMP/out" 2>&1
 }
 says() { grep -q -- "$1" "$TMP/out"; }
@@ -219,13 +223,14 @@ ck "...and the emulation disclosure survives into the notice path" \
 import json
 m=json.load(open('$REAL/notice-manifest.json'))
 assert sorted(m['candidate']['execution_modes'])==['native','qemu']\""
-ck "...refusing on SIX distinct causes, each with its own code" \
+ck "...refusing on NINE distinct causes, each with its own code" \
    "python3 -c \"
 import json
 m=json.load(open('$REAL/notice-manifest.json'))
 want={'NB-CONFLICT-UNRESOLVED','NB-DISPOSITION-MISSING','NB-FILE-UNRESOLVED',
       'NB-LEGAL-REVIEW-REQUIRED','NB-PUBLICATION-AUTHORITY-MISSING',
-      'NB-SOURCE-OBLIGATION-UNRESOLVED'}
+      'NB-SOURCE-OBLIGATION-UNRESOLVED','NB-IMAGE-MATERIAL-ABSENT',
+      'NB-IMAGE-MATERIAL-AMBIGUOUS','NB-IMAGE-MATERIAL-LEGAL-REVIEW'}
 assert set(m['finding_codes'])==want, sorted(m['finding_codes'])\""
 ck "...and the refusal is SUBSTANTIVE, not caused by missing evidence" \
    "python3 -c \"
@@ -441,6 +446,7 @@ wproduce() { # wproduce <out-dir>
     --licence-texts "$WORK/third-party/licence-texts/PROVENANCE.yaml" \
     --attestations "$WORK/policies/upstream-licence-attestations.yaml" \
     --source-obligations "$WORK/policies/source-obligations.yaml" \
+    --image-materials "$WORK/$ACCT" \
     --out-dir "$1" >"$TMP/out" 2>&1
 }
 ck "S11 SABOTAGE: a DELETED licence text is REFUSED, naming the identifier" \
@@ -586,6 +592,204 @@ for c in l:
     assert c['source_package'] and c['source_version'] and c['licence_texts_carried']\""
 
 echo
+echo "== N1: the licence material INSIDE the images ============================"
+
+# The canonical SPDX text of GPL-2.0 is not busybox's copyright statement, and
+# retain-copyright-notice is an obligation about the second. Everything below is
+# about the second.
+ck "N1 the accounting is bound to the accepted revision and the whole cohort" \
+   "python3 -c \"
+import json
+a=json.load(open('$ACCT'))
+assert a['schema']=='foundry.image-licence-accounting/v1', a['schema']
+assert a['source_revision']=='$REV', a['source_revision']
+assert a['children_accounted']==20, a['children_accounted']
+assert a['implicated_components']==535, a['implicated_components']\""
+ck "N1 every implicated component has exactly one class, and they reconcile" \
+   "python3 -c \"
+import json
+a=json.load(open('$ACCT'))
+b=a['by_class']
+assert sum(b.values())==535, b
+five=(b['extracted']+b['ambiguous']+b['absent']+b['path-expected-unavailable']
+      +b['non-package-managed']+b['legal-review-required'])
+assert five==535, five
+assert a['invariant_holds'] is True\""
+ck "N1 /usr/share/doc/<pkg>/copyright is NOT claimed as universal coverage" \
+   "python3 -c \"
+import json
+a=json.load(open('$ACCT'))
+import collections
+pm=collections.Counter(r.get('package_manager') for r in a['components'])
+assert pm.get('dpkg',0)>150, pm
+assert pm.get('apk',0)>=20, pm
+assert pm.get(None,0)>=300, pm\""
+ck "N1 Alpine is recorded as shipping NO per-package material, not as unchecked" \
+   "python3 -c \"
+import json
+a=json.load(open('$ACCT'))
+apk=[r for r in a['components'] if r.get('package_manager')=='apk']
+t=a['reason_texts']
+assert len(apk)==22, len(apk)
+for r in apk:
+    assert r['classification']=='absent', r['classification']
+    why=t[r['reason_key']]
+    assert 'apk strips documentation' in why, why
+    assert 'not a copyright notice' in why\""
+ck "N1 a shared copyright file is reached through a RECORDED symlink chain" \
+   "python3 -c \"
+import json
+a=json.load(open('$ACCT'))
+def outs(pc):
+    if not pc: return []
+    if 'outcome' in pc: return [pc['outcome']]
+    return [g['outcome'] for g in pc.get('outcomes') or []]
+ch=[r for r in a['components']
+    if any(len(o.get('chain') or [])>2 for o in outs(r.get('per_child')))]
+assert ch, 'no multi-hop chain recorded'
+r=ch[0]
+d=[o for o in outs(r['per_child']) if len(o.get('chain') or [])>2][0]
+assert d['chain'][0]['path'].startswith('usr/share/doc/'+r['name'])
+assert d['chain'][-1]['path']==d['resolved_path']
+assert d['indirect'] is True and d['sha256']\""
+ck "N1 the carried corpus is content-addressed and stored once per distinct file" \
+   "python3 -c \"
+import json
+a=json.load(open('$ACCT'))
+f=a['carried_texts']['files']
+assert len({x['sha256'] for x in f})==len(f)==137, len(f)
+shared=[x for x in f if len(x['children'])>1]
+assert shared, 'no file is shared across children'
+import os
+for x in f[:20]:
+    assert os.path.isfile(x['path']), x['path']\""
+ck "N1 the producer CONSUMES it and reports the classes in the manifest" \
+   "! produce '$TMP/n1'; python3 -c \"
+import json
+m=json.load(open('$TMP/n1/notice-manifest.json'))
+i=m['in_image_materials']
+assert i['children_accounted']==20 and i['implicated_components']==535, i
+assert i['carried_files']==137, i
+assert i['extraction_tool']=='scripts/license/extract-image-licence-materials.py'
+assert len(i['extraction_tool_sha256'])==64\""
+ck "N1 absent non-package-managed evidence stays VISIBLE in the bundle" \
+   "python3 -c \"
+import json
+m=json.load(open('$TMP/n1/notice-manifest.json'))
+b=m['in_image_materials']['by_class']
+assert b['non-package-managed']==320, b
+assert b['absent']==22 and b['ambiguous']==1, b\""
+ck "N1 SABOTAGE: a MISSING copyright file refuses" \
+   "python3 - '$ACCT' '$TMP/acct-missing.json' <<'PYA'
+import json, sys
+a=json.load(open(sys.argv[1]))
+for r in a['components']:
+    if r['classification']=='extracted':
+        r['classification']='path-expected-unavailable'
+        a['reason_texts']['RSAB']='sabotage: the expected copyright path is not in the image'
+        r['reason_key']='RSAB'
+        r.pop('per_child', None)
+        break
+json.dump(a, open(sys.argv[2],'w'))
+PYA
+    IM='$TMP/acct-missing.json' produce '$TMP/s26'
+    detail '$TMP/s26' NB-IMAGE-MATERIAL-ABSENT 'expected copyright path is not in the image'"
+ck "N1 SABOTAGE: CHANGED copyright bytes refuse" \
+   "python3 - '$ACCT' '$TMP/acct-drift.json' <<'PYB'
+import json, sys
+a=json.load(open(sys.argv[1]))
+for f in a['carried_texts']['files']:
+    f['sha256']='0'*64
+    break
+json.dump(a, open(sys.argv[2],'w'))
+PYB
+    IM='$TMP/acct-drift.json' produce '$TMP/s27'
+    detail '$TMP/s27' NB-IMAGE-MATERIAL-DRIFT 'store does not hold it'"
+ck "N1 SABOTAGE: a carried file whose BYTES were edited refuses on its hash" \
+   "cp -R '$ROOT/third-party/image-licence-materials' '$TMP/tp-im'
+    f=\"\$(python3 -c \"
+import json
+a=json.load(open('$ACCT'))
+print(a['carried_texts']['files'][0]['path'])\")\"
+    cp \"\$WORK/\$f\" '$TMP/orig-carried'
+    printf 'tampered\n' >> \"\$WORK/\$f\"
+    python3 \"\$WORK/$PROD\" --inventory '$TMP/replay-inventory.json' \
+      --authorization '$TMP/auth.json' --material \"\$WORK/policies/repository-material.yaml\" \
+      --policy \"\$WORK/policies/license-policy.yaml\" \
+      --licence-texts \"\$WORK/third-party/licence-texts/PROVENANCE.yaml\" \
+      --attestations \"\$WORK/policies/upstream-licence-attestations.yaml\" \
+      --source-obligations \"\$WORK/policies/source-obligations.yaml\" \
+      --image-materials \"\$WORK/$ACCT\" --out-dir '$TMP/s28' >'$TMP/out' 2>&1
+    cp '$TMP/orig-carried' \"\$WORK/\$f\"
+    detail '$TMP/s28' NB-IMAGE-MATERIAL-DRIFT 'not the bytes that shipped'"
+ck "N1 SABOTAGE: a WRONG PACKAGE MAPPING refuses" \
+   "python3 - '$ACCT' '$TMP/acct-map.json' <<'PYC'
+import json, sys
+a=json.load(open(sys.argv[1]))
+def outs(pc):
+    if not pc: return []
+    if 'outcome' in pc: return [pc['outcome']]
+    return [g['outcome'] for g in pc.get('outcomes') or []]
+for r in a['components']:
+    hit = [o for o in outs(r.get('per_child')) if o.get('chain')]
+    if r['classification'] == 'extracted' and hit:
+        for o in hit:
+            o['chain'][0]['path'] = 'usr/share/doc/somebody-else'
+        json.dump(a, open(sys.argv[2], 'w'))
+        raise SystemExit(0)
+raise SystemExit('no extracted component carries a chain to sabotage')
+PYC
+    IM='$TMP/acct-map.json' produce '$TMP/s29'
+    detail '$TMP/s29' NB-IMAGE-MATERIAL-MAPPING 'somebody-else'"
+ck "N1 SABOTAGE: a REDIRECTED symlink refuses" \
+   "python3 - '$ACCT' '$TMP/acct-sym.json' <<'PYD'
+import json, sys
+a=json.load(open(sys.argv[1]))
+def outs(pc):
+    if not pc: return []
+    if 'outcome' in pc: return [pc['outcome']]
+    return [g['outcome'] for g in pc.get('outcomes') or []]
+for r in a['components']:
+    for o in outs(r.get('per_child')):
+        if len(o.get('chain') or [])>2:
+            o['chain'][0]['link_target_resolved']='usr/share/doc/elsewhere'
+            json.dump(a, open(sys.argv[2],'w')); raise SystemExit(0)
+raise SystemExit('no multi-hop chain to redirect')
+PYD
+    IM='$TMP/acct-sym.json' produce '$TMP/s30'
+    detail '$TMP/s30' NB-IMAGE-MATERIAL-MAPPING 'redirected symlink'"
+ck "N1 SABOTAGE: material from a child this candidate does NOT stage refuses" \
+   "python3 - '$ACCT' '$TMP/acct-child.json' <<'PYE'
+import json, sys
+a=json.load(open(sys.argv[1]))
+a['children_index'].append('php-cli/9.9/linux/s390x')
+foreign=len(a['children_index'])-1
+for r in a['components']:
+    pc=r.get('per_child')
+    if pc and 'children' in pc:
+        pc['children'].append(foreign)
+        break
+json.dump(a, open(sys.argv[2],'w'))
+PYE
+    IM='$TMP/acct-child.json' produce '$TMP/s31'
+    detail '$TMP/s31' NB-IMAGE-MATERIAL-CHILD 'does not stage'"
+ck "N1 SABOTAGE: a PARTIAL 19-of-20 cohort refuses" \
+   "python3 - '$ACCT' '$TMP/acct-19.json' <<'PYF'
+import json, sys
+a=json.load(open(sys.argv[1])); a['children_accounted']=19
+json.dump(a, open(sys.argv[2],'w'))
+PYF
+    IM='$TMP/acct-19.json' produce '$TMP/s32'
+    detail '$TMP/s32' NB-IMAGE-MATERIAL-UNBOUND 'never opened'"
+ck "N1 SABOTAGE: an accounting from ANOTHER REVISION refuses" \
+   "python3 - '$ACCT' '$TMP/acct-rev.json' <<'PYG'
+import json, sys
+a=json.load(open(sys.argv[1])); a['source_revision']='0'*40
+json.dump(a, open(sys.argv[2],'w'))
+PYG
+    IM='$TMP/acct-rev.json' produce '$TMP/s33'
+    detail '$TMP/s33' NB-IMAGE-MATERIAL-UNBOUND 'another set of components'"
+echo
 echo "== the COMPOSITION TRUTH TABLE, through the REAL consumer ================="
 
 # The satisfiable set. Its builder's header states exactly which fields are real
@@ -594,16 +798,42 @@ echo "== the COMPOSITION TRUTH TABLE, through the REAL consumer ================
 # states). Without it the table would have four REFUSE rows and no PASS row,
 # which proves the producer can say no and nothing about whether it can say yes.
 mkin() { python3 "$MKIN" --authorization "$TMP/auth.json" --root "$ROOT" \
-           --out "$1" --publication "$2" --source-obligations "$3" >/dev/null 2>&1; }
-sat() { # sat <name> <publication> <source-obligations>
-  mkin "$TMP/in-$1" "$2" "$3"
+           --out "$1" --publication "$2" --source-obligations "$3" \
+           --image-materials "${4:-complete}" >/dev/null 2>&1; }
+sat() { # sat <name> <publication> <source-obligations> [image-materials]
+  mkin "$TMP/in-$1" "$2" "$3" "${4:-complete}"
   INV="$TMP/in-$1/inventory.json" MAT="$TMP/in-$1/repository-material.yaml" \
   POL="$TMP/in-$1/license-policy.yaml" LTX="$TMP/in-$1/licence-texts.yaml" \
-  ATT="$TMP/in-$1/attestations.yaml" SO="$TMP/in-$1/source-obligations.yaml" \
+  ATT="${ATTO:-$TMP/in-$1/attestations.yaml}" SO="$TMP/in-$1/source-obligations.yaml" \
+  IM="$TMP/in-$1/image-licence-accounting.json" \
   produce "$TMP/tt-$1"
 }
 consume() { bash "$VALID" "$TMP/auth.json" --require-notice-bundle "$1" \
               >"$TMP/out" 2>&1; }
+
+ck "N1 SABOTAGE: an upstream ATTESTATION cannot stand in for a missing in-image file" \
+   "sat att present satisfied attested-absent
+    detail '$TMP/tt-att' NB-ATTESTATION-NOT-IN-IMAGE 'DIFFERENT evidence class' \
+    && detail '$TMP/tt-att' NB-IMAGE-MATERIAL-ABSENT 'ships no copyright material'"
+ck "N1 ...and it takes an explicit POLICY decision to let it, which is not set" \
+   "python3 -c \"
+import yaml
+d=yaml.safe_load(open('policies/upstream-licence-attestations.yaml'))
+assert d['defaults']['may_substitute_for_in_image_material'] is False\""
+ck "N1 NON-VACUOUS: flipping that policy switch DOES clear the gap" \
+   "python3 - '$TMP/in-att/attestations.yaml' '$TMP/att-sub.yaml' <<'PYH'
+import sys, yaml
+d=yaml.safe_load(open(sys.argv[1]))
+d['defaults']['may_substitute_for_in_image_material']=True
+yaml.safe_dump(d, open(sys.argv[2],'w'))
+PYH
+    ATTO='$TMP/att-sub.yaml' sat att2 present satisfied attested-absent
+    python3 -c \"
+import json
+m=json.load(open('$TMP/tt-att2/notice-manifest.json'))
+assert m['in_image_materials']['attestation_may_substitute_for_in_image_material'] is True
+assert 'NB-ATTESTATION-NOT-IN-IMAGE' not in m['finding_codes'], m['finding_codes']
+assert 'NB-IMAGE-MATERIAL-ABSENT' not in m['finding_codes'], m['finding_codes']\""
 
 ck "TT notice PASS + publication PRESENT -> eligible for the next control" \
    "sat pass present satisfied && consume '$TMP/tt-pass/notice-manifest.json'
@@ -790,8 +1020,9 @@ ck "ci.yml's REQUIRED 'repo structure' job runs this exact file" \
 ck "the subsystem-coverage list names the producer, so losing its test goes red" \
    "grep -q 'scripts/license/generate-notice-bundle.py' tests/governance/test_subsystem_ci_coverage.sh"
 ck "the header's sabotage count is the number this file actually asserts" \
-   "[ \"\$(grep -c 'ck \"S[0-9]' '$0')\" = 27 ] \\
-    && grep -q 'TWENTY-SEVEN SABOTAGES' '$0'"
+   "s=\"\$(grep -c 'ck \"S[0-9]' '$0')\"; n=\"\$(grep -c 'ck \"N1 SABOTAGE' '$0')\"
+    [ \"\$s\" = 27 ] && [ \"\$n\" = 9 ] \\
+    && grep -q '# 27 + 9 = 36 SABOTAGES' '$0'"
 ck "run-all's discovery finds this file" \
    "find tests -name 'test_*.sh' | grep -qx 'tests/license/test_notice_bundle.sh'"
 

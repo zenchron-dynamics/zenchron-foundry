@@ -55,6 +55,14 @@ defaults:
   evidence_class: upstream-licence-attestation
   precedence: fills-only-where-the-scanner-asserted-nothing
   on_conflict_with_scanner: refuse-for-review
+  # AN ATTESTATION IS NOT A FILE THE IMAGE CARRIES. Where a shipped image ships
+  # no copyright material for a component, an upstream attestation may be
+  # RECORDED beside that gap and may not close it: retain-copyright-notice is an
+  # obligation about the artifact that shipped, and letting a statement about an
+  # upstream repository stand in for it would be one evidence class masquerading
+  # as another. Flipping this to true is a decision about what evidence is
+  # acceptable, which is not an engineering call — it is #98's.
+  may_substitute_for_in_image_material: false
   widens_to_other_versions: false
   widens_to_other_image_families: false
   widens_to_other_platforms: false

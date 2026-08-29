@@ -63,19 +63,19 @@ tracked_issue: 120
 # supply-chain guard. Do not "tidy" it back into policies/.
 baseline:
   path_list: docs/licensing/repository-material-baseline.txt
-  path_list_sha256: e9f488f263a5c6f35556e05517ddf7d36b22002bf9f3ce0ca227dc0d744c85ac
-  path_count: 851
+  path_list_sha256: d4b5e9c22d9a49a21e95b5a51e58d51ccaf33b9a5768f716a6691058c300c527
+  path_count: 996
   # WHERE THE LIST CAME FROM. Generating a path list is not reviewing it, so
   # this is a SEPARATE field from reviewed_at_revision, and the gate refuses if
   # the two are equal while any path is recorded unreviewed.
-  observed_at_revision: 033d51e0388b57659f3e5e634632dbc7e761e6e1
+  observed_at_revision: 723ce9bd6fd2471fc741e5bde3d2fe4390306355
   # WHAT WAS ACTUALLY REVIEWED. This describes the REVIEWED COHORT only. It is
   # deliberately NOT advanced by the lane-S, lane-V or lane-W refreshes: those
   # added paths to the list, and adding a path to a list is not reading it.
   reviewed_at_revision: ac1155716e7b244cca6dd3ecbaa89d467a71732c
   reviewed_by: lane-R-repository-material-review
   reviewed_on: '2026-08-27'
-  reviewed_count: 812
+  reviewed_count: 957
   unreviewed_count: 5
   generated_audit_count: 34
   cohort_note: >-
@@ -206,16 +206,31 @@ baseline:
 # and a licence text plainly is. Forcing them into either array would have made
 # one of those two sentences false.
 carried_licence_texts:
-  provenance: third-party/licence-texts/PROVENANCE.yaml
-  reason: >-
-    Canonical licence texts for every identifier the licence policy classifies
-    and every identifier the 20-child production cohort resolved, carried
-    verbatim from spdx/license-list-data v3.28.0 so that "retain-license-text"
-    is mechanically dischargeable rather than asserted. Carrying a text
-    discharges that obligation and nothing else; it selects no outbound licence
-    and answers no question in #98.
-  reviewed_by: lane-notice-source-obligations
-  reviewed_on: '2026-08-28'
+  - provenance: third-party/licence-texts/PROVENANCE.yaml
+    reason: >-
+      Canonical licence texts for every identifier the licence policy classifies
+      and every identifier the 20-child production cohort resolved, carried
+      verbatim from spdx/license-list-data v3.28.0 so that "retain-license-text"
+      is mechanically dischargeable rather than asserted. Carrying a text
+      discharges that obligation and nothing else; it selects no outbound licence
+      and answers no question in #98.
+    reviewed_by: lane-notice-source-obligations
+    reviewed_on: '2026-08-28'
+  # THE OTHER KIND, and it is not interchangeable with the first. The canonical
+  # text of GPL-2.0 is not busybox's copyright statement, and
+  # retain-copyright-notice is an obligation about the second.
+  - provenance: third-party/image-licence-materials/PROVENANCE.yaml
+    reason: >-
+      The licence and copyright material PHYSICALLY PRESENT in the 20 accepted
+      production images, extracted buildlessly from their immutable digests
+      (#120 action N1): Debian per-binary-package copyright files, the shared
+      /usr/share/common-licenses texts those files defer to, and the licence
+      files PEAR components ship. Content-addressed, so a file shared by many
+      packages and children is stored once and every consumer is bound to its
+      hash. Carrying it discharges retain-copyright-notice for those components
+      and nothing else.
+    reviewed_by: lane-n1-in-image-licence-materials
+    reviewed_on: '2026-08-29'
 
 # --- the material ------------------------------------------------------------
 materials:
