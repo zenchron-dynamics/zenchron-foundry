@@ -39,6 +39,9 @@ import sys
 
 import yaml
 
+ACCOUNTING = ("docs/audits/image-licence-materials-2026-08-29/"
+              "image-licence-accounting.json")
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -50,6 +53,9 @@ def main():
                     default="present")
     ap.add_argument("--source-obligations", dest="so",
                     choices=("satisfied", "unresolved"), default="satisfied")
+    ap.add_argument("--image-materials", dest="image_materials",
+                    choices=("complete", "absent", "attested-absent"),
+                    default="complete")
     a = ap.parse_args()
 
     os.makedirs(a.out, exist_ok=True)
@@ -139,6 +145,60 @@ def main():
     with open(os.path.join(a.out, "source-obligations.yaml"), "w") as fh:
         yaml.safe_dump(so, fh, sort_keys=True)
 
+    # --- the in-image material accounting ------------------------------------
+    # REAL: the candidate identities and the carried files, taken from the
+    # shipped accounting record. FIXTURE: every component is `extracted`, so the
+    # satisfied path is exercised. The real cohort has 22 absent, 1 ambiguous and
+    # 1 legal-review-required, and those refuse — which is the point of the other
+    # cells in the table.
+    real = json.load(open(os.path.join(a.root, ACCOUNTING)))
+    carried = (real.get("carried_texts") or {}).get("files") or []
+    first = carried[0] if carried else None
+    comps = []
+    for r in real["components"]:
+        if r["classification"] != "extracted" or not r.get("per_child"):
+            continue
+        comps.append(r)
+        if len(comps) >= 8:
+            break
+    if a.image_materials == "absent":
+        bad = dict(comps[0])
+        bad["classification"] = "path-expected-unavailable"
+        bad["reason"] = "fixture: the expected copyright path is not in the image"
+        bad.pop("reason_key", None)
+        bad.pop("per_child", None)
+        comps = [bad] + comps[1:]
+    if a.image_materials == "attested-absent":
+        bad = {"component": "php-cli@8.4.24", "name": "php-cli",
+               "version": "8.4.24", "finding": "no-assertion",
+               "classification": "absent",
+               "reason": ("fixture: this component ships no copyright material, "
+                          "and an upstream attestation exists for it")}
+        comps = [bad] + comps[1:]
+    accdoc = {
+        "schema": "foundry.image-licence-accounting/v1",
+        "record_type": "image-licence-accounting",
+        "fixture": "tests/lib/make_notice_inputs.py — NOT a measurement",
+        "extraction_tool": real.get("extraction_tool"),
+        "extraction_tool_sha256": real.get("extraction_tool_sha256"),
+        "source_revision": rec["source_revision"],
+        "children_accounted": len(children),
+        "children_index": real.get("children_index"),
+        "reason_texts": dict(real.get("reason_texts") or {}),
+        "implicated_components": len(comps),
+        "classes": real["classes"],
+        "by_class": {c: sum(1 for x in comps if x["classification"] == c)
+                     for c in real["classes"]},
+        "invariant_holds": True,
+        "carried_texts": {"count": len(carried),
+                          "bytes": (real["carried_texts"] or {}).get("bytes"),
+                          "directory": real["carried_texts"]["directory"],
+                          "files": carried},
+        "components": comps,
+    }
+    with open(os.path.join(a.out, "image-licence-accounting.json"), "w") as fh:
+        json.dump(accdoc, fh, indent=2, sort_keys=True)
+
     # --- shipped, unmodified -------------------------------------------------
     for rel, name in (("policies/repository-material.yaml", "repository-material.yaml"),
                       ("policies/upstream-licence-attestations.yaml", "attestations.yaml"),
@@ -146,8 +206,9 @@ def main():
         shutil.copyfile(os.path.join(a.root, rel), os.path.join(a.out, name))
 
     sys.stderr.write("notice inputs: %d children, publication=%s, "
-                     "source-obligations=%s -> %s\n"
-                     % (len(children), a.publication, a.so, a.out))
+                     "source-obligations=%s, image-materials=%s -> %s\n"
+                     % (len(children), a.publication, a.so, a.image_materials,
+                        a.out))
     return 0
 
 

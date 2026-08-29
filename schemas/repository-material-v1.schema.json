@@ -159,31 +159,36 @@
       }
     },
     "carried_licence_texts": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "The store of canonical licence TEXTS carried to DISCHARGE the obligations of components inside the images. Declared once, by naming its provenance record; the gate reads that record and refuses if a listed text is untracked, absent or not the bytes recorded. Not `materials` (nothing here incorporates the text of a licence) and not `dispositions` (a licence text plainly IS copied material).",
-      "required": [
-        "provenance",
-        "reason",
-        "reviewed_by",
-        "reviewed_on"
-      ],
-      "properties": {
-        "provenance": {
-          "type": "string",
-          "minLength": 1
-        },
-        "reason": {
-          "type": "string",
-          "minLength": 40
-        },
-        "reviewed_by": {
-          "type": "string",
-          "minLength": 1
-        },
-        "reviewed_on": {
-          "type": "string",
-          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      "type": "array",
+      "minItems": 1,
+      "description": "Stores of licence TEXT carried to DISCHARGE obligations. More than one, because they are different things and must not be conflated: the canonical text of an SPDX identifier is not the copyright file a Debian package actually shipped. Each names its own provenance record; the gate reads them and refuses if a listed text is untracked, absent or not the bytes recorded.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The store of canonical licence TEXTS carried to DISCHARGE the obligations of components inside the images. Declared once, by naming its provenance record; the gate reads that record and refuses if a listed text is untracked, absent or not the bytes recorded. Not `materials` (nothing here incorporates the text of a licence) and not `dispositions` (a licence text plainly IS copied material).",
+        "required": [
+          "provenance",
+          "reason",
+          "reviewed_by",
+          "reviewed_on"
+        ],
+        "properties": {
+          "provenance": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 40
+          },
+          "reviewed_by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewed_on": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          }
         }
       }
     }

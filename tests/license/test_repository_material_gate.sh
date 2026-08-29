@@ -482,9 +482,26 @@ ck "the notice refresh is recorded, with both hashes" \
    "[ -f '$_REC2' ] &&
     grep -q 'ad9ffdd7996ff31256a46a1589da483ed0a2c17a0b8b5a3e0747e8432f114717' '$_REC2' &&
     grep -q 'e9f488f263a5c6f35556e05517ddf7d36b22002bf9f3ce0ca227dc0d744c85ac' '$_REC2'"
-ck "...and the recorded new hash IS the shipped baseline's hash" \
-   "grep -q \"\$(shasum -a 256 '$BASE' | cut -d' ' -f1)\" '$_REC2' &&
-    grep -q \"\$(shasum -a 256 '$BASE' | cut -d' ' -f1)\" '$INV'"
+# The invariant is not "THIS record carries the current hash" — that goes stale
+# the next time the baseline moves, and a stale assertion teaches people to edit
+# the assertion. It is "SOME committed refresh record carries the hash the
+# inventory is pinned to", so every refresh must leave a record behind and a
+# half-applied one is still a red check.
+_cur_hash() { shasum -a 256 "$BASE" | cut -d' ' -f1; }
+ck "the shipped baseline's hash is recorded in SOME refresh record, and in the inventory" \
+   "h=\"\$(_cur_hash)\"
+    grep -q \"\$h\" '$INV' &&
+    grep -rlq \"\$h\" docs/licensing/repository-material-baseline-refresh-*.md"
+ck "NON-VACUOUS: a hash that is NOT the baseline's is in no refresh record" \
+   "! grep -rlq '0000000000000000000000000000000000000000000000000000000000000000' \
+        docs/licensing/repository-material-baseline-refresh-*.md"
+ck "every refresh record states that inclusion is not legal review" \
+   "n=0
+    for f in docs/licensing/repository-material-baseline-refresh-*.md; do
+      grep -qi 'NOT equivalent to legal review' \"\$f\" || exit 1
+      n=\$((n+1))
+    done
+    [ \"\$n\" -ge 3 ]"
 ck "...enumerating every addition, with zero removals" \
    "grep -qE '\| additions \| 66 \|' '$_REC2' && grep -qE '\| removals \| \*\*0\*\* \|' '$_REC2'"
 ck "...stating that inclusion is NOT legal review" \

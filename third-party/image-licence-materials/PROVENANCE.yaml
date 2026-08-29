@@ -1,0 +1,1362 @@
+# =============================================================================
+# third-party/image-licence-materials/PROVENANCE.yaml
+#   Licence and copyright material extracted from INSIDE the accepted production
+#   images. Issue #120, action N1.
+# -----------------------------------------------------------------------------
+# THESE ARE NOT ZENCHRON FOUNDRY'S LICENCE, and they are not the canonical SPDX
+# texts either. third-party/licence-texts/ carries the text of an IDENTIFIER —
+# GPL-2.0 as SPDX publishes it. This directory carries what the SHIPPED IMAGES
+# actually contain: Debian's per-binary-package `copyright` files, the shared
+# texts under /usr/share/common-licenses that those files defer to, and the
+# licence files PEAR components leave under /usr/local/lib/php/doc. They are the
+# artifacts `retain-copyright-notice` is an obligation about, and until N1 no
+# control in this repository had read a byte of one.
+#
+# PROVENANCE IS THE IMAGE, NOT AN UPSTREAM REPOSITORY. Every file below was read
+# out of a specific child of the accepted multi-architecture run, addressed by
+# its immutable manifest digest, with the manifest bytes re-hashed and the config
+# blob's own os/architecture checked against the platform that run recorded. No
+# image was built, no Dockerfile ran, no package manager ran, no mutable tag was
+# read and no SBOM was regenerated.
+#
+# CONTENT-ADDRESSED, STORED ONCE. Debian shares one copyright file between the
+# binary packages of a source package, and the same file appears in eighteen
+# children. It is stored ONCE under its sha256 and every consumer is bound to
+# that hash, so a shared file cannot drift for one consumer and not another. The
+# full component-to-hash binding, including every symlink chain that had to be
+# followed to reach a file, is in the accounting record named below.
+#
+# VERBATIM. Raw bytes as they shipped, never rewritten. Where Debian ships a
+# copyright file gzip-compressed, the compressed bytes are what is stored and
+# hashed, and the decompression is recorded as a separate DERIVED artifact with
+# its own checksum in the accounting record.
+#
+# WHAT IS DELIBERATELY NOT CARRIED. The installed-package databases
+# (var/lib/dpkg/status, lib/apk/db/installed) and the distro identity files are
+# evidence for the MAPPING, not material an obligation requires preserving, and
+# they are two thirds of the extracted bytes. Their sha256 values are recorded in
+# the extraction manifest so the mapping stays checkable by re-extraction.
+#
+# Re-derive this directory, buildlessly, from the immutable digests:
+#   python3 scripts/license/extract-image-licence-materials.py \
+#     --acceptance docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json \
+#     --repo zenchron-dynamics/foundry-staging --out-dir <scratch> --token-file <tok>
+#   python3 scripts/license/account-image-licence-materials.py \
+#     --materials <scratch>/image-licence-materials.json \
+#     --diagnostic docs/audits/real-image-inventories-2026-08-28/licence/image-licence-policy-diagnostic.log \
+#     --acceptance docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json \
+#     --objects <scratch>/objects --publish-dir third-party/image-licence-materials \
+#     --out <accounting.json>
+# =============================================================================
+schema_version: 1
+record_type: carried-licence-texts
+upstream:
+  project: zenchron-dynamics/foundry-staging (the accepted production images themselves)
+  source_url: https://ghcr.io/zenchron-dynamics/foundry-staging
+  revision_tag: 7061caafb3ea09bd5b2342a1daf022151b33f822
+  revision_commit: 7061caafb3ea09bd5b2342a1daf022151b33f822
+  retrieved_at: '2026-08-29T07:22:37Z'
+  retrieval_method: >-
+    Registry HTTP API. Each child's manifest was fetched by its immutable digest
+    and the digest RECOMPUTED from the bytes; the config blob's os/architecture
+    was checked against the platform the accepted run recorded; every layer blob
+    was verified against the digest the manifest names for it; layers were read
+    as tar streams in memory with overlayfs whiteout semantics applied, so a file
+    a later layer deleted is not reported as present.
+  list_publication_terms: >-
+    Each file carries its own upstream project's terms. Nothing here is
+    relicensed, and carrying a copyright notice discharges
+    retain-copyright-notice for that component and nothing else.
+  scope_note: >-
+    137 distinct files, 1456.8 KB, extracted from 20 children at source
+    revision 7061caafb3ea09bd5b2342a1daf022151b33f822. The component-to-hash binding and the full material
+    accounting are in docs/audits/image-licence-materials-2026-08-29/.
+extraction:
+  tool: scripts/license/extract-image-licence-materials.py
+  tool_sha256: 4856769accbe15bbebcea73f87adf9d0932f1cf3080ed92d9ac110f4c7ce9218
+  accounting_tool: scripts/license/account-image-licence-materials.py
+  accounting_record: docs/audits/image-licence-materials-2026-08-29/image-licence-accounting.json
+  extraction_manifest: docs/audits/image-licence-materials-2026-08-29/image-licence-materials.json
+files:
+  - path: third-party/image-licence-materials/objects/00/0035f89e5317f3cec389383e8727788521b0fde3e75cea881fa0e92e1d48cb57
+    sha256: 0035f89e5317f3cec389383e8727788521b0fde3e75cea881fa0e92e1d48cb57
+    bytes: 6068
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libunistring2/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/00/00fd7be5d907a6bcc409a80f2d565f508673db4761d54623691f89ae3aa20fc7
+    sha256: 00fd7be5d907a6bcc409a80f2d565f508673db4761d54623691f89ae3aa20fc7
+    bytes: 23960
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libbsd0/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/01/01eb328708a9454061dd13931b19135e1c2c6251a7e6a6d0efc4b9bc436109c7
+    sha256: 01eb328708a9454061dd13931b19135e1c2c6251a7e6a6d0efc4b9bc436109c7
+    bytes: 2027
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libwebp7/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/03/030511beb4d9d620ad09914c369c36ec0528dcf301d1923cc643c948ee7c6a38
+    sha256: 030511beb4d9d620ad09914c369c36ec0528dcf301d1923cc643c948ee7c6a38
+    bytes: 6626
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libpcre2-8-0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/06/06319d84c3e5ed096036f6a9310a030c7e84e50dff2b8a6792285c83ec0ada73
+    sha256: 06319d84c3e5ed096036f6a9310a030c7e84e50dff2b8a6792285c83ec0ada73
+    bytes: 9764
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/bash/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/0b/0b380a7fd5b2228f26e9585e56f14812efd3350f3df307507d2bc055dfd8de3e
+    sha256: 0b380a7fd5b2228f26e9585e56f14812efd3350f3df307507d2bc055dfd8de3e
+    bytes: 47102
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libx11-6/copyright
+      - /usr/share/doc/libx11-data/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/0c/0cbec745d85ea775450b2d54fac55277197f429e52d611f72852ed420450620e
+    sha256: 0cbec745d85ea775450b2d54fac55277197f429e52d611f72852ed420450620e
+    bytes: 1947
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libattr1/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/0d/0d527ac69414e77277395690f2533ff25ddfe09848b25ebdd0db41ea8b46a575
+    sha256: 0d527ac69414e77277395690f2533ff25ddfe09848b25ebdd0db41ea8b46a575
+    bytes: 1155
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/mailcap/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/0f/0f1cde79bd80a75f9029ae9a8c252b642223027ef36f6989c63a8230aae576a7
+    sha256: 0f1cde79bd80a75f9029ae9a8c252b642223027ef36f6989c63a8230aae576a7
+    bytes: 798
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/base-passwd/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/10/10d3576a7a0af8afb5601f358c06eb8c24b02192bb71ed4fb9a328a0979ec74b
+    sha256: 10d3576a7a0af8afb5601f358c06eb8c24b02192bb71ed4fb9a328a0979ec74b
+    bytes: 7898
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libsodium23/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/11/110535522396708cea37c72a802c5e7e81391139f5f7985631c93ef242b206a4
+    sha256: 110535522396708cea37c72a802c5e7e81391139f5f7985631c93ef242b206a4
+    bytes: 22955
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/GFDL-1.3
+    children: 18
+  - path: third-party/image-licence-materials/objects/11/118dd263a7b91c8f21c489f949bf13281dff9e766deea92b829dac4dce66601a
+    sha256: 118dd263a7b91c8f21c489f949bf13281dff9e766deea92b829dac4dce66601a
+    bytes: 1224
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libxau6/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/16/167d04422f2fdf76ab565878c23be8ba0c2ebb2c57a5dac0a5a59ccd27e747a5
+    sha256: 167d04422f2fdf76ab565878c23be8ba0c2ebb2c57a5dac0a5a59ccd27e747a5
+    bytes: 22591
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/mawk/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/1b/1bcbb50f8603fe8b86d330bfa460b772ea04fbd3c70e4499f0768b5340b9fd6e
+    sha256: 1bcbb50f8603fe8b86d330bfa460b772ea04fbd3c70e4499f0768b5340b9fd6e
+    bytes: 1265
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libxdmcp6/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/1c/1ca415a294c0e56958c4f795b3f1f69ea3479bca53d7811f5cdd020a258949db
+    sha256: 1ca415a294c0e56958c4f795b3f1f69ea3479bca53d7811f5cdd020a258949db
+    bytes: 15209
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/e2fsprogs/copyright
+      - /usr/share/doc/libcom-err2/copyright
+      - /usr/share/doc/libext2fs2/copyright
+      - /usr/share/doc/libss2/copyright
+      - /usr/share/doc/logsave/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/1c/1ca5dd5098fe2e1c0f0d05196f5b3da8b414a807702e6ca8b536eb5fd3059130
+    sha256: 1ca5dd5098fe2e1c0f0d05196f5b3da8b414a807702e6ca8b536eb5fd3059130
+    bytes: 2895
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/gzip/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/24/24a64e5bb83d0960d1835696a1e23c0896ad6055b0ca47c66ab0eb9a766324b1
+    sha256: 24a64e5bb83d0960d1835696a1e23c0896ad6055b0ca47c66ab0eb9a766324b1
+    bytes: 1354
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libbrotli1/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/24/24e86c5ca53d6bfd8e0c47988160daa62d10a74997fe11f651e1d9533c78bff6
+    sha256: 24e86c5ca53d6bfd8e0c47988160daa62d10a74997fe11f651e1d9533c78bff6
+    bytes: 5552
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/coreutils/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/24/24e8e3a9529204ead9422fa17cf3ddd75d292a8763b87fdb20591964f2e6ebe0
+    sha256: 24e8e3a9529204ead9422fa17cf3ddd75d292a8763b87fdb20591964f2e6ebe0
+    bytes: 3218
+    kind: generic-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/local/lib/php/doc/redis/LICENSE
+    children: 4
+  - path: third-party/image-licence-materials/objects/29/29347e2528ab31d20e8582b09aa89cd878d306c59a273541141c9aede1903cb8
+    sha256: 29347e2528ab31d20e8582b09aa89cd878d306c59a273541141c9aede1903cb8
+    bytes: 1805
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libjansson4/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/2a/2af485dd05ff2f402caedc35973eb8bf60a639c4877949d19ad2054c1002984c
+    sha256: 2af485dd05ff2f402caedc35973eb8bf60a639c4877949d19ad2054c1002984c
+    bytes: 4263
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/gettext-base/copyright
+    children: 2
+  - path: third-party/image-licence-materials/objects/30/30539a2df6a89d844f43c727505a3193a60515f8ec6cdede8cc515ed22941d1c
+    sha256: 30539a2df6a89d844f43c727505a3193a60515f8ec6cdede8cc515ed22941d1c
+    bytes: 23237
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/bsdutils/copyright
+      - /usr/share/doc/libblkid1/copyright
+      - /usr/share/doc/libmount1/copyright
+      - /usr/share/doc/libsmartcols1/copyright
+      - /usr/share/doc/libuuid1/copyright
+      - /usr/share/doc/mount/copyright
+      - /usr/share/doc/util-linux-extra/copyright
+      - /usr/share/doc/util-linux/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/30/3084176c33edf29f8d290b9dbf4b96bb389162ee75b948f82ba56edbd43ca265
+    sha256: 3084176c33edf29f8d290b9dbf4b96bb389162ee75b948f82ba56edbd43ca265
+    bytes: 13987
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libsvtav1enc1/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/35/3591a8e4de849d910c5ee9045388344ef151c23b10cf8c6b1950f89f1ba1569c
+    sha256: 3591a8e4de849d910c5ee9045388344ef151c23b10cf8c6b1950f89f1ba1569c
+    bytes: 4414
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libreadline8/copyright
+      - /usr/share/doc/readline-common/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/35/35e85e8e9bbb71492c5f5dddf39ed65b68775a02ad8d710c25d097b497f06c49
+    sha256: 35e85e8e9bbb71492c5f5dddf39ed65b68775a02ad8d710c25d097b497f06c49
+    bytes: 5389
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libzstd1/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/36/36b0559a58151c09b7a4363f06372df9275103708e1bcba1b2130a7148114425
+    sha256: 36b0559a58151c09b7a4363f06372df9275103708e1bcba1b2130a7148114425
+    bytes: 3586
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libzip4/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/38/3821184e23385bf2cdc01f56bd999b34036fc3aa03d5135d41680374eb81bf8a
+    sha256: 3821184e23385bf2cdc01f56bd999b34036fc3aa03d5135d41680374eb81bf8a
+    bytes: 38846
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libjpeg62-turbo/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/39/3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
+    sha256: 3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986
+    bytes: 35149
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/GPL-3
+    children: 18
+  - path: third-party/image-licence-materials/objects/40/401dcf98d8ef2b712ec6ab310dbf727fc2cdce290bfde5b6d0b609a927530217
+    sha256: 401dcf98d8ef2b712ec6ab310dbf727fc2cdce290bfde5b6d0b609a927530217
+    bytes: 13121
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libtirpc-common/copyright
+      - /usr/share/doc/libtirpc-dev/copyright
+      - /usr/share/doc/libtirpc3/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/40/40c7e1f2118531f038ca22999bd976901254e1bc5cd1b0f0211bdd064c599987
+    sha256: 40c7e1f2118531f038ca22999bd976901254e1bc5cd1b0f0211bdd064c599987
+    bytes: 25467
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libc-bin/copyright
+      - /usr/share/doc/libc-dev-bin/copyright
+      - /usr/share/doc/libc6/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/41/41702469f28e8ff406345e3d1dd0c741f11bdfca319264f67036efd6aaa79e4b
+    sha256: 41702469f28e8ff406345e3d1dd0c741f11bdfca319264f67036efd6aaa79e4b
+    bytes: 5348
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libidn2-0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/42/42d9b4d610396b1e8d1303dcb9487af3f5a2d2709623cf03a04cf76acdf6c5e3
+    sha256: 42d9b4d610396b1e8d1303dcb9487af3f5a2d2709623cf03a04cf76acdf6c5e3
+    bytes: 1807
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/grep/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/43/4302abcc1ea1b6cbe8d19c79b892acf78878030220210707c19006828866207c
+    sha256: 4302abcc1ea1b6cbe8d19c79b892acf78878030220210707c19006828866207c
+    bytes: 2726
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/librtmp1/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/43/4365ef6255ad553fce69dd4bc0e093472c5d0e41b8ea493a545cc926ce171aa6
+    sha256: 4365ef6255ad553fce69dd4bc0e093472c5d0e41b8ea493a545cc926ce171aa6
+    bytes: 8018
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libmd0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/49/49b5db19990a3e3cc1a9ed716aed231f6f3c1c217e58f62ae4dc2818c6d3e9cc
+    sha256: 49b5db19990a3e3cc1a9ed716aed231f6f3c1c217e58f62ae4dc2818c6d3e9cc
+    bytes: 2035
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libcap-ng0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/4d/4d0d1babb36c1bff69ef061f549c7cdac5ba92c48b775aa44343efc952b43b61
+    sha256: 4d0d1babb36c1bff69ef061f549c7cdac5ba92c48b775aa44343efc952b43b61
+    bytes: 10350
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/librav1e0/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/4d/4d8e46e56a583d98b160bda64c4c1b86f9c432627d55dbcece5e8a8cc7959164
+    sha256: 4d8e46e56a583d98b160bda64c4c1b86f9c432627d55dbcece5e8a8cc7959164
+    bytes: 1477
+    kind: generic-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/local/lib/php/doc/PEAR/LICENSE
+    children: 16
+  - path: third-party/image-licence-materials/objects/4f/4f72e2bccf0bcd839dd447ab6f359336f428caa1987a9afec2bc9ade5711658a
+    sha256: 4f72e2bccf0bcd839dd447ab6f359336f428caa1987a9afec2bc9ade5711658a
+    bytes: 1377
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/nginx/copyright
+    children: 2
+  - path: third-party/image-licence-materials/objects/4f/4f7cb9db6bf6542f5417e3d674c780d3a5fd12291a54d63054fb576ee0cfae80
+    sha256: 4f7cb9db6bf6542f5417e3d674c780d3a5fd12291a54d63054fb576ee0cfae80
+    bytes: 1781
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libxcb1/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/4f/4f7dc476592065fde1cf6d3416bdb3039896b9261fb82bf88b5c9108f2dd60b3
+    sha256: 4f7dc476592065fde1cf6d3416bdb3039896b9261fb82bf88b5c9108f2dd60b3
+    bytes: 7131
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libavif15/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/55/55b6dd1060bb758a1bd19a9b60f975dc223975c4941bb16dfd080e978ab90bcb
+    sha256: 55b6dd1060bb758a1bd19a9b60f975dc223975c4941bb16dfd080e978ab90bcb
+    bytes: 3367
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libyuv0/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/57/57163c71bd8a5289660892827dd0dfaa7fef47f89deedc9dc6711ced7d0a28d7
+    sha256: 57163c71bd8a5289660892827dd0dfaa7fef47f89deedc9dc6711ced7d0a28d7
+    bytes: 2764
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/debconf/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/57/572ad60ad184d8f52c6dc66d83a61a68f137db560b3452ce00588c9ecf128a65
+    sha256: 572ad60ad184d8f52c6dc66d83a61a68f137db560b3452ce00588c9ecf128a65
+    bytes: 3451
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libtasn1-6/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/5a/5a5e7ca0e9f3f9679977e3a3e9ede45ad92885a3297ea78e766979f9866c5a16
+    sha256: 5a5e7ca0e9f3f9679977e3a3e9ede45ad92885a3297ea78e766979f9866c5a16
+    bytes: 6010
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libcrypt-dev/copyright
+      - /usr/share/doc/libcrypt1/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/5b/5bbff5f646ce750ac0a347e7f91793279b7422a1119820b5f75d98879c201c68
+    sha256: 5bbff5f646ce750ac0a347e7f91793279b7422a1119820b5f75d98879c201c68
+    bytes: 2214
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libicu72/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/5d/5d588eb3b157d52112afea935c88a7ff9efddc1e2d95a42c25d3b96ad9055008
+    sha256: 5d588eb3b157d52112afea935c88a7ff9efddc1e2d95a42c25d3b96ad9055008
+    bytes: 1499
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/BSD
+    children: 18
+  - path: third-party/image-licence-materials/objects/5d/5ded7c53199b6a1d089b0b7e231d77e5c84081c7156b372b3f11ad9c1c2c5cc7
+    sha256: 5ded7c53199b6a1d089b0b7e231d77e5c84081c7156b372b3f11ad9c1c2c5cc7
+    bytes: 268
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/media-types/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/5e/5e77ddcac7fb682d696bc4b034dc2869e5a9011e8c2ed3c570ab8db0f4506931
+    sha256: 5e77ddcac7fb682d696bc4b034dc2869e5a9011e8c2ed3c570ab8db0f4506931
+    bytes: 32354
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libsasl2-2/copyright
+      - /usr/share/doc/libsasl2-modules-db/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/60/60ff44bf6ae8fdc03aa67f4ebbc6e4bba30ac96938e55bc84b1777387a58992c
+    sha256: 60ff44bf6ae8fdc03aa67f4ebbc6e4bba30ac96938e55bc84b1777387a58992c
+    bytes: 3879
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libxpm4/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/64/641806738b0c6a3d03168c2649e6b94205198bb66cd557e6bae3a20b71c9bb0b
+    sha256: 641806738b0c6a3d03168c2649e6b94205198bb66cd557e6bae3a20b71c9bb0b
+    bytes: 3131
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libselinux1/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/67/676c75e54ff7e3b9892940fbf1b31763cb6f2a6527a5607a3640ac59a2441fba
+    sha256: 676c75e54ff7e3b9892940fbf1b31763cb6f2a6527a5607a3640ac59a2441fba
+    bytes: 7501
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libpkgconf3/copyright
+      - /usr/share/doc/pkg-config/copyright
+      - /usr/share/doc/pkgconf-bin/copyright
+      - /usr/share/doc/pkgconf/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/68/681e386e44a19d7d0674b4320272c90e66b6610b741e7e6305f8219c42e85366
+    sha256: 681e386e44a19d7d0674b4320272c90e66b6610b741e7e6305f8219c42e85366
+    bytes: 25381
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/LGPL-2
+    children: 18
+  - path: third-party/image-licence-materials/objects/68/68bd3997355bc44ccb97ff5e2bb146360e762c7d9c721945a4fabf77d1349e4a
+    sha256: 68bd3997355bc44ccb97ff5e2bb146360e762c7d9c721945a4fabf77d1349e4a
+    bytes: 12976
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libpng16-16/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/6a/6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35
+    sha256: 6a7da622fe0637a334d2a8fc470852d2ffb77d9a2b2f930f854e32a41ad6ef35
+    bytes: 2543
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libssl3/copyright
+      - /usr/share/doc/openssl/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/6c/6c7011e93f643b112c4cc3622131e28a30477afad6c4f5efe466b13aa7f603cc
+    sha256: 6c7011e93f643b112c4cc3622131e28a30477afad6c4f5efe466b13aa7f603cc
+    bytes: 1596
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libaudit-common/copyright
+      - /usr/share/doc/libaudit1/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/6d/6da0653a365b80ab31478dbfe9e7c358e80d58b6d2b52b4e16b4dbb42d7d9f5c
+    sha256: 6da0653a365b80ab31478dbfe9e7c358e80d58b6d2b52b4e16b4dbb42d7d9f5c
+    bytes: 1429
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libseccomp2/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/70/70a7a0a06e6440777417f6875476cb712b03943010abed1c32297798c8cc8ed8
+    sha256: 70a7a0a06e6440777417f6875476cb712b03943010abed1c32297798c8cc8ed8
+    bytes: 25069
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libfreetype6/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/71/719320e425e8e6da53a55e0fcfa2f2ed9b1332cea16abd65321bd651b2a88568
+    sha256: 719320e425e8e6da53a55e0fcfa2f2ed9b1332cea16abd65321bd651b2a88568
+    bytes: 8618
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/sed/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/71/71f85db195892fcaf0e048fbba166270f736e5150d9c84cb98a346f13fcc2a52
+    sha256: 71f85db195892fcaf0e048fbba166270f736e5150d9c84cb98a346f13fcc2a52
+    bytes: 1437
+    kind: generic-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/local/lib/php/doc/redis/liblzf/LICENSE
+    children: 4
+  - path: third-party/image-licence-materials/objects/74/7442bdadcd44e818fddd786057db07639cc68225c389c7c240d3bb3984b05173
+    sha256: 7442bdadcd44e818fddd786057db07639cc68225c389c7c240d3bb3984b05173
+    bytes: 7943
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/dpkg/copyright
+      - /usr/share/doc/libdpkg-perl/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/75/7534601cc4fa513804d16490359f5831e7b6a1212da3bbf948bebdd4c8799783
+    sha256: 7534601cc4fa513804d16490359f5831e7b6a1212da3bbf948bebdd4c8799783
+    bytes: 3133
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/init-system-helpers/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/77/77dc6885b3057e16c7341ccc256bfbbc2047adb140b704278a2f36ede4c8a6a3
+    sha256: 77dc6885b3057e16c7341ccc256bfbbc2047adb140b704278a2f36ede4c8a6a3
+    bytes: 2491
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libonig5/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/78/78d2a34606a0302057ec499a3b3c07bcbc43ca334064ce4c80891a0f69c8f6c6
+    sha256: 78d2a34606a0302057ec499a3b3c07bcbc43ca334064ce4c80891a0f69c8f6c6
+    bytes: 3750
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libsepol2/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/78/78e9df8f8153c91c762ec970b82d224ac4d30f05aa7773e7e17e268141e53873
+    sha256: 78e9df8f8153c91c762ec970b82d224ac4d30f05aa7773e7e17e268141e53873
+    bytes: 1833
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libsqlite3-0/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/7d/7d366aef5ba325150246de1d7820c4c9926cd27ca61a69948492b26cd3b61601
+    sha256: 7d366aef5ba325150246de1d7820c4c9926cd27ca61a69948492b26cd3b61601
+    bytes: 4153
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libgmp10/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/7d/7d9c79b73fd956319a90cd210441498b225e00960352c4c6d447436481bb0eec
+    sha256: 7d9c79b73fd956319a90cd210441498b225e00960352c4c6d447436481bb0eec
+    bytes: 13646
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libnsl-dev/copyright
+      - /usr/share/doc/libnsl2/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/80/80763e4cca3963670637b98abff467ee09b83d1737d683ad5ccfb1e919bea94b
+    sha256: 80763e4cca3963670637b98abff467ee09b83d1737d683ad5ccfb1e919bea94b
+    bytes: 743
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libmpc3/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/81/8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643
+    sha256: 8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643
+    bytes: 18092
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/GPL-2
+    children: 18
+  - path: third-party/image-licence-materials/objects/82/824b5da9d19adbc33463cc298cbcb3f8dfeb8016c68845b0d1fa4a8bc6ba0816
+    sha256: 824b5da9d19adbc33463cc298cbcb3f8dfeb8016c68845b0d1fa4a8bc6ba0816
+    bytes: 9344
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/rpcsvc-proto/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/83/832ed535ff3c3d025a8d2348eb1b697b89addcf2eaadbc17650262040b9145e2
+    sha256: 832ed535ff3c3d025a8d2348eb1b697b89addcf2eaadbc17650262040b9145e2
+    bytes: 2228
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/bzip2/copyright
+      - /usr/share/doc/libbz2-1.0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/84/84dab06b5c1baf3a7a45c3cdc5f98fb121234e98fdd6266c3f773d54fcdc4f54
+    sha256: 84dab06b5c1baf3a7a45c3cdc5f98fb121234e98fdd6266c3f773d54fcdc4f54
+    bytes: 10555
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/gpgv/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/86/8654d7cc7cdae1f31bb67a3ce5bf35d512c0bdfffd071df757edc54153cc7930
+    sha256: 8654d7cc7cdae1f31bb67a3ce5bf35d512c0bdfffd071df757edc54153cc7930
+    bytes: 16112
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/diffutils/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/87/8760fd36efa1d7186f8769d4e76a3e678045b94d54465bf6f2db5eb871c7c27f
+    sha256: 8760fd36efa1d7186f8769d4e76a3e678045b94d54465bf6f2db5eb871c7c27f
+    bytes: 4903
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libgpg-error0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/8b/8b53da37d73289d9df7317b3a2dbe16491f1fa9fec8b77b86d69704b40ce2c26
+    sha256: 8b53da37d73289d9df7317b3a2dbe16491f1fa9fec8b77b86d69704b40ce2c26
+    bytes: 17177
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libdb5.3/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/8b/8bea8cf2f94cd8b37a0b8b3a2b974122b9194c1165e6ad508e366c74679e8817
+    sha256: 8bea8cf2f94cd8b37a0b8b3a2b974122b9194c1165e6ad508e366c74679e8817
+    bytes: 2701
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libgdbm-compat4/copyright
+      - /usr/share/doc/libgdbm6/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/8f/8fbcc77ed31f480a85654e9b6d1d25cbb95b62e9dc5159ae1565bca684c3e1dc
+    sha256: 8fbcc77ed31f480a85654e9b6d1d25cbb95b62e9dc5159ae1565bca684c3e1dc
+    bytes: 24782
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/findutils/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/93/936728f4181718f42951b881c1e8f1386bf6b2723c4fbc533c374d6f42c71816
+    sha256: 936728f4181718f42951b881c1e8f1386bf6b2723c4fbc533c374d6f42c71816
+    bytes: 63047
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libgssapi-krb5-2/copyright
+      - /usr/share/doc/libk5crypto3/copyright
+      - /usr/share/doc/libkrb5-3/copyright
+      - /usr/share/doc/libkrb5support0/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/94/94189fc5a9a7b7224d96e1a0cfdfe9be0df2018b04bf21d591627ab96b30cad1
+    sha256: 94189fc5a9a7b7224d96e1a0cfdfe9be0df2018b04bf21d591627ab96b30cad1
+    bytes: 1273
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/hostname/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/94/9482894dde0cdc3eea4abff3a9c54495d2a1ae4c6c87f4f647908ee0078b5b80
+    sha256: 9482894dde0cdc3eea4abff3a9c54495d2a1ae4c6c87f4f647908ee0078b5b80
+    bytes: 8048
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libargon2-1/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/95/9596b9028339d66c285422237728d6170e1e29d0b0d9adf0e9f1bda82e2391ce
+    sha256: 9596b9028339d66c285422237728d6170e1e29d0b0d9adf0e9f1bda82e2391ce
+    bytes: 9477
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libpam-modules-bin/copyright
+      - /usr/share/doc/libpam-modules/copyright
+      - /usr/share/doc/libpam-runtime/copyright
+      - /usr/share/doc/libpam0g/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/95/95db2f9da663f2bfe2aabe9c72fce9d6c9ae767b912f397d7823f50bd55a1a7d
+    sha256: 95db2f9da663f2bfe2aabe9c72fce9d6c9ae767b912f397d7823f50bd55a1a7d
+    bytes: 24896
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libgcrypt20/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/96/96c8c6ab85931f81120eb40d42f3c40c76ee328d024cfc7ae31acaa99971d54c
+    sha256: 96c8c6ab85931f81120eb40d42f3c40c76ee328d024cfc7ae31acaa99971d54c
+    bytes: 6668
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/file/copyright
+      - /usr/share/doc/libmagic-mgc/copyright
+      - /usr/share/doc/libmagic1/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/98/9836bfe2ef94505bbf29701e8c90799ab1a5fd966d26d60d019a822cdbf3d61a
+    sha256: 9836bfe2ef94505bbf29701e8c90799ab1a5fd966d26d60d019a822cdbf3d61a
+    bytes: 987
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/usr-is-merged/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/98/98978241c573785aa7c8504e399bb66cfb3c40c1f20507a0d3c7580bfbf9d8d4
+    sha256: 98978241c573785aa7c8504e399bb66cfb3c40c1f20507a0d3c7580bfbf9d8d4
+    bytes: 2099
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libssh2-1/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/99/99befb809ebab87d8e4bdd686788f50cc2eb01705d8744bd7e740f73f931e501
+    sha256: 99befb809ebab87d8e4bdd686788f50cc2eb01705d8744bd7e740f73f931e501
+    bytes: 1099
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libabsl20220623/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/9a/9a2dfb4a5abc7e84be2cc41f1089be665519c9409549296f6c19de57ab1d37c2
+    sha256: 9a2dfb4a5abc7e84be2cc41f1089be665519c9409549296f6c19de57ab1d37c2
+    bytes: 2048
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libacl1/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/9c/9ca2a5573a28634de8972806ef43634c8718d17eb58fb2d820c1f29f8c5a4267
+    sha256: 9ca2a5573a28634de8972806ef43634c8718d17eb58fb2d820c1f29f8c5a4267
+    bytes: 1377
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/tini/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/9c/9ccf26cfe845e0eb8bb58053e47366e7ab6b697ae010f7650978d4b71b7d1fc1
+    sha256: 9ccf26cfe845e0eb8bb58053e47366e7ab6b697ae010f7650978d4b71b7d1fc1
+    bytes: 7637
+    kind: generic-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/local/lib/php/doc/Structures_Graph/LICENSE
+    children: 16
+  - path: third-party/image-licence-materials/objects/9e/9e5b96d63773a5d177ba264254390f792be07e41748ebd94730981c6cac31cc6
+    sha256: 9e5b96d63773a5d177ba264254390f792be07e41748ebd94730981c6cac31cc6
+    bytes: 2927
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/zlib1g/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/a1/a123c93b07e781919ae996276ac02bb1c8b19dfde88176cd1240ab277c14a4ce
+    sha256: a123c93b07e781919ae996276ac02bb1c8b19dfde88176cd1240ab277c14a4ce
+    bytes: 2579
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libxxhash0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/a2/a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499
+    sha256: a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499
+    bytes: 7048
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/CC0-1.0
+    children: 18
+  - path: third-party/image-licence-materials/objects/a2/a2dc8fac0f496e1c58aff67018cf0c6b88336316afa5642f9335b71642e28aa8
+    sha256: a2dc8fac0f496e1c58aff67018cf0c6b88336316afa5642f9335b71642e28aa8
+    bytes: 15465
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/liblzma5/copyright
+      - /usr/share/doc/xz-utils/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/a3/a34ae32a5eba61e535835a8de7c398f47e420247d339bc400a3b9c618ba29a3d
+    sha256: a34ae32a5eba61e535835a8de7c398f47e420247d339bc400a3b9c618ba29a3d
+    bytes: 6535
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libnghttp2-14/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/a4/a4c3e5b19700dd3cc5961663d204bd7150f65f913314682aede5931548c436d5
+    sha256: a4c3e5b19700dd3cc5961663d204bd7150f65f913314682aede5931548c436d5
+    bytes: 7044
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/login/copyright
+      - /usr/share/doc/passwd/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/a7/a7c131b21e6e73b3b085a7d9f1637b68f5f92b832cc6f462e0c978fbe7841ccb
+    sha256: a7c131b21e6e73b3b085a7d9f1637b68f5f92b832cc6f462e0c978fbe7841ccb
+    bytes: 21749
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/curl/copyright
+      - /usr/share/doc/libcurl4/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/a7/a7d06854714a1ca99f6dbd1a1641dde5bcf28635be149f6554449618f8f427f3
+    sha256: a7d06854714a1ca99f6dbd1a1641dde5bcf28635be149f6554449618f8f427f3
+    bytes: 12776
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libsystemd0/copyright
+      - /usr/share/doc/libudev1/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/a8/a81bdd422c2c015deca84bf6ad249bf0d7d19885fc01d1894463291b0b7313e1
+    sha256: a81bdd422c2c015deca84bf6ad249bf0d7d19885fc01d1894463291b0b7313e1
+    bytes: 1795
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/binutils-common/copyright
+      - /usr/share/doc/libctf-nobfd0/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/ad/ad7cb339e58a88918a883d553ca236795191f027e158788a8b33f747ff502fb2
+    sha256: ad7cb339e58a88918a883d553ca236795191f027e158788a8b33f747ff502fb2
+    bytes: 4689
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/sysvinit-utils/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/af/afcc052a946b4117667527211b4ca303f07044f5585222f4c8f577e0764b2123
+    sha256: afcc052a946b4117667527211b4ca303f07044f5585222f4c8f577e0764b2123
+    bytes: 12934
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libpq5/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/b1/b143053a4862ab354831487b5f8bd31dc9ffdc589d15de9d9c764332a0209796
+    sha256: b143053a4862ab354831487b5f8bd31dc9ffdc589d15de9d9c764332a0209796
+    bytes: 12432
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/adduser/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/b3/b32aecaae84643700a33bc9ee83fa9b36938d35aa7b61b5042092eca77ddb732
+    sha256: b32aecaae84643700a33bc9ee83fa9b36938d35aa7b61b5042092eca77ddb732
+    bytes: 1243
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/debian-archive-keyring/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/b4/b4081907f0d9a4110736fa6540dc8ca9d7d60a20878b5d78f84916cc04907bdc
+    sha256: b4081907f0d9a4110736fa6540dc8ca9d7d60a20878b5d78f84916cc04907bdc
+    bytes: 62837
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libldap-2.5-0/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/b4/b4701305243d8d746f4acaafe15d94f946251b05691bd6917fef41dd15e9ee12
+    sha256: b4701305243d8d746f4acaafe15d94f946251b05691bd6917fef41dd15e9ee12
+    bytes: 7668
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/apt/copyright
+      - /usr/share/doc/libapt-pkg6.0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/b5/b52f3ca17b45473cb0da6ec46748949101fcf0dda1fd5d8b306e6c97fd41af4d
+    sha256: b52f3ca17b45473cb0da6ec46748949101fcf0dda1fd5d8b306e6c97fd41af4d
+    bytes: 109772
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libperl5.36/copyright
+      - /usr/share/doc/perl-base/copyright
+      - /usr/share/doc/perl-modules-5.36/copyright
+      - /usr/share/doc/perl/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/b7/b7fd9b73ea99602016a326e0b62e6646060d18febdd065ceca8bb482208c3d88
+    sha256: b7fd9b73ea99602016a326e0b62e6646060d18febdd065ceca8bb482208c3d88
+    bytes: 6111
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/Artistic
+    children: 18
+  - path: third-party/image-licence-materials/objects/bb/bb7e5c24b3e27bbba5671dd710d159a0066833bda4caa1d55d8027ffed539337
+    sha256: bb7e5c24b3e27bbba5671dd710d159a0066833bda4caa1d55d8027ffed539337
+    bytes: 51588
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libgnutls30/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/bb/bbafb0cf52d34465fc69f5ffd22d724224f6a2f28402c88b045c69d88af06aaf
+    sha256: bbafb0cf52d34465fc69f5ffd22d724224f6a2f28402c88b045c69d88af06aaf
+    bytes: 3310
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libpsl5/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/be/bea61e0c172868e07845cf50423f97f093a9a46de167dbbe333a38be610c8e00
+    sha256: bea61e0c172868e07845cf50423f97f093a9a46de167dbbe333a38be610c8e00
+    bytes: 3798
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/tar/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/c4/c434a44e656a89e72b5cee13bba6719011e0899bfc626ab9c08205010ab2dbbe
+    sha256: c434a44e656a89e72b5cee13bba6719011e0899bfc626ab9c08205010ab2dbbe
+    bytes: 953
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libmpfr6/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/c6/c62fe37d22203046611112bc10a9e03a39a7f73bec1b061e7c615326166d9ff5
+    sha256: c62fe37d22203046611112bc10a9e03a39a7f73bec1b061e7c615326166d9ff5
+    bytes: 2104
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libkeyutils1/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/ca/ca2ca597320220c00ef6dc0fe5d0d82025548d6d4ba80e85615eb691f9021f93
+    sha256: ca2ca597320220c00ef6dc0fe5d0d82025548d6d4ba80e85615eb691f9021f93
+    bytes: 24923
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libhogweed6/copyright
+      - /usr/share/doc/libnettle8/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/cb/cb61132bc0fc7b26ef5a82ee18b2fb644a1362f4f286ed980ff22e408471f59a
+    sha256: cb61132bc0fc7b26ef5a82ee18b2fb644a1362f4f286ed980ff22e408471f59a
+    bytes: 375
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/tzdata/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/cc/ccfe62f0f73541f1c76a6d33aed26290391685c43f914a5e24c6b1f72cddcdff
+    sha256: ccfe62f0f73541f1c76a6d33aed26290391685c43f914a5e24c6b1f72cddcdff
+    bytes: 164
+    kind: generic-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/ca-certificates/examples/ca-certificates-local/debian/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/cf/cf63099896d1c0f6529c41b8d95738e6fea342ffba609187d339c4f38ce36ecc
+    sha256: cf63099896d1c0f6529c41b8d95738e6fea342ffba609187d339c4f38ce36ecc
+    bytes: 5856
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libdebconfclient0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/cf/cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+    sha256: cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+    bytes: 11358
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/Apache-2.0
+    children: 18
+  - path: third-party/image-licence-materials/objects/d3/d3be0f43fe14da244f97c451bbae789c0acf868612598a69f5f22a289abeca40
+    sha256: d3be0f43fe14da244f97c451bbae789c0acf868612598a69f5f22a289abeca40
+    bytes: 3275
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/liblz4-1/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/d5/d5dd978a1dfbc87e2e0c0cbf47974c435394f31d6e2c454e104d6d07b6144978
+    sha256: d5dd978a1dfbc87e2e0c0cbf47974c435394f31d6e2c454e104d6d07b6144978
+    bytes: 9722
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libdav1d6/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/d7/d77d235e41d54594865151f4751e835c5a82322b0e87ace266567c3391a4b912
+    sha256: d77d235e41d54594865151f4751e835c5a82322b0e87ace266567c3391a4b912
+    bytes: 12632
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/GPL-1
+    children: 18
+  - path: third-party/image-licence-materials/objects/d8/d8e94ae5fdb5433fcae2961aeb1a8cf17174d6f4a0465d24bf37dd8a038bd439
+    sha256: d8e94ae5fdb5433fcae2961aeb1a8cf17174d6f4a0465d24bf37dd8a038bd439
+    bytes: 20432
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/GFDL-1.2
+    children: 18
+  - path: third-party/image-licence-materials/objects/d9/d98c53f281321baad38164aa9ae6e368a9253be6ec51bd26a759b5e72b326f4a
+    sha256: d98c53f281321baad38164aa9ae6e368a9253be6ec51bd26a759b5e72b326f4a
+    bytes: 3878
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/dash/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/da/da8191658b3452ce9caf31638ba61dab31a38c619fa39df119812e050f592fd3
+    sha256: da8191658b3452ce9caf31638ba61dab31a38c619fa39df119812e050f592fd3
+    bytes: 68194
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/gcc-12-base/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/dc/dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551
+    sha256: dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551
+    bytes: 26530
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/LGPL-2.1
+    children: 18
+  - path: third-party/image-licence-materials/objects/e0/e00e6a86c598f9e24ced0180a70a5f2f2e45e133d93adf2b17ce8a06ce4b1b51
+    sha256: e00e6a86c598f9e24ced0180a70a5f2f2e45e133d93adf2b17ce8a06ce4b1b51
+    bytes: 1830
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libsemanage-common/copyright
+      - /usr/share/doc/libsemanage2/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/e3/e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118
+    sha256: e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118
+    bytes: 7652
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/LGPL-3
+    children: 18
+  - path: third-party/image-licence-materials/objects/e6/e60a5642e12e340060e4e519a65b2eb0330be2917854841c644e36268f607d54
+    sha256: e60a5642e12e340060e4e519a65b2eb0330be2917854841c644e36268f607d54
+    bytes: 4631
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libcap2/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/e8/e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c
+    sha256: e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c
+    bytes: 18940
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/ca-certificates/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/ed/ed139379f7c874f0ee75f3ddcc2e01091dd828d84ee1a0bdff6a1c5673ee6e58
+    sha256: ed139379f7c874f0ee75f3ddcc2e01091dd828d84ee1a0bdff6a1c5673ee6e58
+    bytes: 8646
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libp11-kit0/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/ee/ee746b96cfa5be73c3ea3e4cfb1285e9b315d4c9267f99b2ee9c5d911d9fe3f4
+    sha256: ee746b96cfa5be73c3ea3e4cfb1285e9b315d4c9267f99b2ee9c5d911d9fe3f4
+    bytes: 3067
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libxml2/copyright
+    children: 16
+  - path: third-party/image-licence-materials/objects/ee/eee66c2417bfa30107700b89144f2ec15701e4b0b36b2c7fc5dd96937679cee0
+    sha256: eee66c2417bfa30107700b89144f2ec15701e4b0b36b2c7fc5dd96937679cee0
+    bytes: 12416
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libaom3/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/f0/f0974fb41778e23c94111ff90da0546de8971f8270c58877283d372e6bd7f17e
+    sha256: f0974fb41778e23c94111ff90da0546de8971f8270c58877283d372e6bd7f17e
+    bytes: 4670
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libtinfo6/copyright
+      - /usr/share/doc/ncurses-base/copyright
+      - /usr/share/doc/ncurses-bin/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/f5/f59fe0f4c6233d87249d96e147cae7330c97f1a99275c23dfb4b999f9fcf234a
+    sha256: f59fe0f4c6233d87249d96e147cae7330c97f1a99275c23dfb4b999f9fcf234a
+    bytes: 2658
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libgav1-1/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/f8/f83d2ecba1ea4d99957e81c50bebbd076a128194288a3ec22cc8ccdb77c43087
+    sha256: f83d2ecba1ea4d99957e81c50bebbd076a128194288a3ec22cc8ccdb77c43087
+    bytes: 10165
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libffi8/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/f8/f849fc26a7a99981611a3a370e83078deb617d12a45776d6c4cada4d338be469
+    sha256: f849fc26a7a99981611a3a370e83078deb617d12a45776d6c4cada4d338be469
+    bytes: 25755
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/MPL-1.1
+    children: 18
+  - path: third-party/image-licence-materials/objects/fa/fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85
+    sha256: fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85
+    bytes: 16726
+    kind: deb-common-licence
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/common-licenses/MPL-2.0
+    children: 18
+  - path: third-party/image-licence-materials/objects/fb/fb1ea085945df53c756939eecf5d9bf4072316538bc3b314a5408350b679a637
+    sha256: fb1ea085945df53c756939eecf5d9bf4072316538bc3b314a5408350b679a637
+    bytes: 7035
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/libisl23/copyright
+    children: 4
+  - path: third-party/image-licence-materials/objects/fd/fd2d797e208bcfb713510e47a89867191180943e1167d44c2acd8ff1b88e5c10
+    sha256: fd2d797e208bcfb713510e47a89867191180943e1167d44c2acd8ff1b88e5c10
+    bytes: 9055
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/debianutils/copyright
+    children: 18
+  - path: third-party/image-licence-materials/objects/fd/fd7e4aae7e7b05f217bcf2d02322825c360e66c52c4c2f1b28d784d6297a1c23
+    sha256: fd7e4aae7e7b05f217bcf2d02322825c360e66c52c4c2f1b28d784d6297a1c23
+    bytes: 1208
+    kind: deb-copyright
+    verbatim: true
+    local_modifications: none
+    in_image_paths:
+      - /usr/share/doc/base-files/copyright
+    children: 18
