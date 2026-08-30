@@ -63,19 +63,19 @@ tracked_issue: 120
 # supply-chain guard. Do not "tidy" it back into policies/.
 baseline:
   path_list: docs/licensing/repository-material-baseline.txt
-  path_list_sha256: 23c5d17c5fd81974c10c00f935fb9a258ac7ab4eefa0eb0e2904a241e05b398f
-  path_count: 1001
+  path_list_sha256: 744e45b8aa661e03e7ff94d85c4e1f2d5c9f63ddfe18d6b0712c055fe0976173
+  path_count: 1007
   # WHERE THE LIST CAME FROM. Generating a path list is not reviewing it, so
   # this is a SEPARATE field from reviewed_at_revision, and the gate refuses if
   # the two are equal while any path is recorded unreviewed.
-  observed_at_revision: 66966d964ae5b25894c2a44e40f76d97371e3301
+  observed_at_revision: a5e5094dd6e025573b0c9adf1d37023b0e93d5cb
   # WHAT WAS ACTUALLY REVIEWED. This describes the REVIEWED COHORT only. It is
   # deliberately NOT advanced by the lane-S, lane-V or lane-W refreshes: those
   # added paths to the list, and adding a path to a list is not reading it.
   reviewed_at_revision: ac1155716e7b244cca6dd3ecbaa89d467a71732c
   reviewed_by: lane-R-repository-material-review
   reviewed_on: '2026-08-27'
-  reviewed_count: 962
+  reviewed_count: 968
   unreviewed_count: 5
   generated_audit_count: 34
   cohort_note: >-

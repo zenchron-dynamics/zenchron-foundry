@@ -353,6 +353,7 @@ docs/cra/submission-checklist.md
 docs/decisions/adr-0001-upstream-only-binary-consumption.md
 docs/decisions/cve-2026-14456-openssl-risk-packet.md
 docs/decisions/cve-2026-53613-util-linux-risk-packet.md
+docs/decisions/evidence-retention-architecture.md
 docs/decisions/licence-legal-review-packet.md
 docs/decisions/php-8.5-experimental-cohort-decision-packet.md
 docs/decisions/product-identity-decision-packet.md
@@ -374,6 +375,7 @@ docs/licensing/notice-and-source-obligations.md
 docs/licensing/repository-material-baseline-refresh-2026-08-28-notices.md
 docs/licensing/repository-material-baseline-refresh-2026-08-28.md
 docs/licensing/repository-material-baseline-refresh-2026-08-29-n1.md
+docs/licensing/repository-material-baseline-refresh-2026-08-30-retention-arch.md
 docs/licensing/repository-material-baseline-refresh-2026-08-30-retention.md
 docs/licensing/repository-material-baseline.txt
 docs/licensing/repository-material.md
@@ -573,6 +575,7 @@ schemas/release-evidence-bundle-v1.schema.json
 schemas/release-manifest.schema.json
 schemas/repository-material-v1.schema.json
 schemas/rollback-manifest.schema.json
+schemas/storage-receipt-v1.schema.json
 schemas/vex-openvex-v1.schema.json
 scripts/admin/assert-pr-issue-disposition.sh
 scripts/admin/runner-group-patch.sh
@@ -667,6 +670,7 @@ scripts/release/runner-disk-floor.py
 scripts/release/validate-authorization-record.sh
 scripts/release/verify-oci-metadata.sh
 scripts/release/verify-release-seal.sh
+scripts/release/verify-storage-receipt.sh
 scripts/repro-guarantees.sh
 scripts/repro-lock.sh
 scripts/reproducibility-check.sh
@@ -731,6 +735,7 @@ tests/lib/make_authorization_fixture.py
 tests/lib/make_native_arm64_fixture.py
 tests/lib/make_notice_inputs.py
 tests/lib/make_replay_inventory.py
+tests/lib/make_storage_receipt.py
 tests/lib/test_dependabot_manifests.sh
 tests/lib/test_fixture_date_rot.sh
 tests/lib/test_foundations.sh
@@ -774,6 +779,7 @@ tests/release/test_release_seal.sh
 tests/release/test_seal_path.sh
 tests/release/test_stage_authorize_wiring.sh
 tests/release/test_staging_exporter.sh
+tests/release/test_storage_receipt.sh
 tests/release/test_upstream_ownership.sh
 tests/release/test_vex.sh
 tests/release/test_workflow_git_needs_checkout.sh

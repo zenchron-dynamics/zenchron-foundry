@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zenchron.dev/schemas/storage-receipt-v1.schema.json",
+  "title": "foundry.storage-receipt/v1",
+  "description": "PROOF that one evidence bundle reached durable storage under a stated retention guarantee, returned by the storage authority and consumed by the canonical authorization. It is deliberately PROVIDER-NEUTRAL: it names a provider but constrains none, because the provider decision is the owner's (#241) and a schema that presumed one would be that decision made by an engineer. A CLAIMED upload is not a receipt \u2014 every field below is something the authority observed after the write, not something Foundry asked for.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "record_type",
+    "schema_version",
+    "bundle",
+    "request",
+    "storage",
+    "readback"
+  ],
+  "properties": {
+    "schema": {
+      "const": "foundry.storage-receipt/v1"
+    },
+    "record_type": {
+      "const": "storage-receipt"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "bundle": {
+      "description": "WHAT Foundry handed over, identified so that a receipt for another candidate cannot be presented for this one.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_id",
+        "evidence_class",
+        "retention_class",
+        "source_revision",
+        "authorization_record_sha256",
+        "manifest_sha256",
+        "candidate",
+        "producers",
+        "schemas",
+        "files"
+      ],
+      "properties": {
+        "bundle_id": {
+          "type": "string",
+          "minLength": 8
+        },
+        "evidence_class": {
+          "enum": [
+            "upstream-base",
+            "foundry-child",
+            "staged-candidate",
+            "published-artifact"
+          ]
+        },
+        "retention_class": {
+          "enum": [
+            "upstream-base",
+            "foundry-child",
+            "staged-candidate",
+            "published-artifact"
+          ]
+        },
+        "source_revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "authorization_record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "candidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "children_expected",
+            "children"
+          ],
+          "properties": {
+            "children_expected": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "children": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "child_key",
+                  "platform",
+                  "manifest_digest"
+                ],
+                "properties": {
+                  "child_key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "platform": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "manifest_digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "producers": {
+          "description": "Who wrote the bytes, identified by their own content hash. A bundle whose producer cannot be named is a bundle whose contents cannot be reproduced or challenged.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "sha256"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "schemas": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "files": {
+          "description": "Every ORIGINAL byte handed over, by path and sha256. Not a summary: the readback below is verified against this list file by file.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "request": {
+      "description": "What Foundry REQUIRED, stated before the write so the receipt can be checked against it rather than against whatever came back.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_retain_until",
+        "required_lock_mode",
+        "required_versioning",
+        "required_min_retention_days"
+      ],
+      "properties": {
+        "required_retain_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "required_lock_mode": {
+          "enum": [
+            "compliance",
+            "governance"
+          ]
+        },
+        "required_versioning": {
+          "const": true
+        },
+        "required_min_retention_days": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "storage": {
+      "description": "What the AUTHORITY observed after the write. Provider and region are recorded, never constrained.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "region",
+        "container",
+        "object_key",
+        "version_id",
+        "retain_until",
+        "lock_mode",
+        "versioning",
+        "encryption",
+        "object_checksum",
+        "uploaded_at",
+        "audit_event_id"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 2
+        },
+        "region": {
+          "type": "string",
+          "minLength": 2
+        },
+        "container": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version_id": {
+          "type": "string",
+          "description": "Empty means the authority reported no version at all, which the verifier refuses as SR-AUTHORITY-UNAVAILABLE. Without versioning an overwrite is indistinguishable from the original, so a receipt with no version identity proves nothing about immutability."
+        },
+        "retain_until": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lock_mode": {
+          "enum": [
+            "compliance",
+            "governance",
+            "none"
+          ],
+          "description": "compliance = no principal, including the account root, can shorten or delete before retain_until. governance = a privileged principal CAN bypass. `governance` is a retention control and is NOT immutability; calling it immutable is the misstatement this enum exists to prevent."
+        },
+        "versioning": {
+          "enum": [
+            "enabled",
+            "suspended",
+            "disabled"
+          ]
+        },
+        "encryption": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "at_rest",
+            "algorithm"
+          ],
+          "properties": {
+            "at_rest": {
+              "type": "boolean"
+            },
+            "algorithm": {
+              "type": "string",
+              "minLength": 2
+            },
+            "key_management": {
+              "enum": [
+                "provider-managed",
+                "customer-managed",
+                "customer-supplied"
+              ]
+            },
+            "key_id": {
+              "type": "string"
+            },
+            "key_deletion_protection": {
+              "type": "boolean"
+            }
+          }
+        },
+        "object_checksum": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm",
+            "value"
+          ],
+          "properties": {
+            "algorithm": {
+              "const": "SHA256"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "uploaded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "audit_event_id": {
+          "type": "string",
+          "description": "Empty means the write was never recorded by an audit trail, which the verifier refuses as SR-AUTHORITY-UNAVAILABLE."
+        }
+      }
+    },
+    "readback": {
+      "description": "The write was READ BACK and verified. An upload that was never read back is a claim; this is the observation that turns it into evidence.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "performed",
+        "at",
+        "files_expected",
+        "files_verified",
+        "checksum_match",
+        "manifest_sha256"
+      ],
+      "properties": {
+        "performed": {
+          "type": "boolean",
+          "description": "false is a VALID receipt shape and an INVALID receipt: the verifier refuses it as SR-READBACK-ABSENT, because an upload that was never read back is a claim about durability rather than a measurement of it. Constraining it to true here would make that refusal unreachable and replace a named diagnostic with a schema error."
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "files_expected": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "files_verified": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checksum_match": {
+          "type": "boolean"
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "network_isolated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
