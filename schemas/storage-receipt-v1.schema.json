@@ -363,13 +363,16 @@
           "format": "date-time"
         },
         "required_lock_mode": {
+          "description": "What the class's retention model requires. `none` is the CORRECT value for repository-artifact and supported-release-lifetime: a GitHub artifact and a release asset offer no lock, and a receipt that requested one would record a demand this repository knows cannot be met. This enum carried only compliance|governance until 2026-08-30, which made a truthful receipt for the mechanism actually in use inexpressible.",
           "enum": [
             "compliance",
-            "governance"
+            "governance",
+            "none"
           ]
         },
         "required_versioning": {
-          "const": true
+          "description": "Whether the class's model requires object versioning. Was `const: true` \u2014 an unconditional demand inherited from the withdrawn seven-year rule. Only regulated-worm requires it.",
+          "type": "boolean"
         },
         "required_min_retention_days": {
           "type": "integer",

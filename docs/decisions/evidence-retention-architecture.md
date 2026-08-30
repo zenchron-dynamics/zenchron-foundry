@@ -375,6 +375,13 @@ authorization (phase E).
 The provider, account, region, key-custody and `zenchron-infrastructure`
 questions are **moot under option B** — none of that is used.
 
+**Done since this packet was written.** The staged path — the only one that
+runs today — is wired: PR #245 added `scripts/release/emit-storage-receipt.sh`
+and three steps to the `authorize` job that observe the artifact authority's own
+report, read the evidence back and verify a receipt for it, failing the job on
+refusal. `tests/release/test_staged_storage_path.sh` executes that step's own
+body rather than grepping for its name.
+
 What remains:
 
 1. **Whether re-running a historical scan is ever necessary.** If it is, the

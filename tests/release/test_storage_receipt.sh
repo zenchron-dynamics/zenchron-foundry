@@ -36,10 +36,15 @@
 # Both halves are asserted. Requiring compliance mode everywhere was the old
 # defect; letting a WORM class be claimed without an authority would be a new one.
 #
-# PHASE D IS DELIBERATELY NOT DONE. The workflow does not yet pass
-# --require-storage-receipt, and this file PINS that as a gap rather than
-# pretending the control is wired. When somebody wires it, the gap assertion
-# fails and says to promote the line.
+# WHAT THIS FILE IS NOT. It is the CONTRACT, proven against fixtures. The
+# ACTIVE integration — the acceptance workflow observing what the artifact
+# authority stored, reading the evidence back and verifying a receipt for it —
+# lives in tests/release/test_staged_storage_path.sh, which executes the
+# workflow step's own body rather than grepping for its name.
+#
+# ONE GAP REMAINS PINNED, and it is not a repository defect: no workflow
+# produces a PUBLISHED-artifact receipt, because nothing is published. That
+# activates with a publication decision under #98, not with work here.
 # =============================================================================
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -525,15 +530,34 @@ ck "the verifier REFUSES rather than passing when they are absent" \
    "grep -q 'PyYAML and jsonschema are required' '$VERIFY'"
 
 echo
-echo "== PHASE D IS NOT DONE, and is pinned rather than implied ================="
+echo "== THE STAGED PATH IS WIRED; THE PUBLISHED PATH CANNOT BE ================"
 
-gap "the acceptance workflow does NOT yet require a storage receipt (#241 phase D)" \
-   "! grep -q -- '--require-storage-receipt' .github/workflows/stage-and-authorize.yml"
-gap "...so authorization can still complete with no durable evidence at all" \
-   "! grep -q 'verify-storage-receipt' .github/workflows/stage-and-authorize.yml"
-echo "       WHAT WOULD CLOSE THEM: phases B-D of #241 — provisioning, a canary"
-echo "       upload with a real lock and readback, then workflow integration."
-echo "       Each is separately authorized; none is done here."
+# Promoted from a pinned gap on 2026-08-30. The acceptance workflow now observes
+# what the artifact authority stored, reads the evidence back and verifies a
+# receipt for it, and a refusal fails the job. The body of that step is executed
+# — not grepped — by tests/release/test_staged_storage_path.sh.
+ck "the acceptance workflow VERIFIES a storage receipt for the staged evidence" \
+   "grep -q 'verify-storage-receipt.sh' .github/workflows/stage-and-authorize.yml \
+    && grep -q 'emit-storage-receipt.sh' .github/workflows/stage-and-authorize.yml"
+ck "...and the active-path suite that executes that step body exists and is required" \
+   "[ -f tests/release/test_staged_storage_path.sh ] \
+    && grep -q 'tests/release/test_staged_storage_path.sh' .github/workflows/ci.yml"
+
+# What remains is NOT a repository defect and is not fixable here. There is no
+# published artifact to write a receipt about, because nothing is published: the
+# publication decision is `undetermined` and no workflow creates a release. The
+# contract for that path is specified and proven against fixtures above (L1-L6);
+# only the real upload, readback and monitoring are deferred, and they activate
+# with the publication decision rather than with any work in this repository.
+gap "NO workflow produces a published-artifact receipt, because nothing is published" \
+   "! grep -rq 'published-artifact' .github/workflows/ \
+    && [ \"\$(python3 -c \"
+import yaml
+print(yaml.safe_load(open('policies/license-policy.yaml'))['publication']['decision'])\")\" \
+       = undetermined ]"
+echo "       WHAT WOULD CLOSE IT: a publication decision under #98. Until one"
+echo "       exists there is no release asset to observe, read back or monitor,"
+echo "       and a fixture standing in for one would prove nothing."
 
 ck "the REQUIRED CI path executes this file" \
    "grep -q 'tests/release/test_storage_receipt.sh' .github/workflows/ci.yml"
