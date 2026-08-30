@@ -37,11 +37,12 @@
 #     suite that only ever saw a refusal would prove the producer can say no and
 #     nothing about whether it can ever say yes.
 #
-# 27 + 9 = 36 SABOTAGES, each asserting its INTENDED diagnostic rather
-# than a non-zero exit. S1..S25 cover the bundle and its consumer (S16 has three
-# variants, one per axis an attestation could widen along); the N1 group covers
-# the licence material extracted from inside the images. The count is asserted
-# against this file, so it cannot drift into a comment nobody updated.
+# 27 + 9 + 2 = 38 SABOTAGES, each asserting its INTENDED diagnostic
+# rather than a non-zero exit. S1..S25 cover the bundle and its consumer (S16 has
+# three variants, one per axis an attestation could widen along); the N1 group
+# covers the licence material extracted from inside the images; the R group
+# covers the component-to-finding reconciliation. The count is asserted against
+# this file, so it cannot drift into a comment nobody updated.
 #
 # AMBIENT SAFETY. Every byte written lands under one mktemp -d.
 # =============================================================================
@@ -790,6 +791,79 @@ PYG
     IM='$TMP/acct-rev.json' produce '$TMP/s33'
     detail '$TMP/s33' NB-IMAGE-MATERIAL-UNBOUND 'another set of components'"
 echo
+echo "== the RECONCILIATION: 535 implicated components -> 723 findings ==========="
+
+ck "R every finding names exactly one obligation class" \
+   "python3 -c \"
+import json
+u=json.load(open('$REAL/unresolved-obligations.json'))
+for x in u['findings']:
+    assert x['obligation_class'], x
+assert len({x['obligation_class'] for x in u['findings']})>=5\""
+ck "R the mapping is TOTAL in both directions, and asserted by the producer" \
+   "python3 -c \"
+import json
+r=json.load(open('$REAL/reconciliation.json'))
+assert r['implicated_components']==535, r['implicated_components']
+assert r['findings_total']==723, r['findings_total']
+assert r['findings_orphaned']==0, r['findings_orphaned']
+assert (r['findings_component_scoped']+r['findings_project_scoped']
+        +r['findings_orphaned'])==r['findings_total'], r
+assert len(r['components'])==535, len(r['components'])
+assert sum(r['by_obligation_class'].values())==723, r['by_obligation_class']\""
+ck "R every implicated component names its findings or an explicit zero disposition" \
+   "python3 -c \"
+import json
+r=json.load(open('$REAL/reconciliation.json'))
+for c in r['components']:
+    if c['finding_count']:
+        assert len(c['findings'])==c['finding_count'], c
+    else:
+        assert c['zero_finding_disposition'], c
+assert (r['components_with_findings']+r['components_with_zero_findings'])==535\""
+ck "R only PROJECT-SCOPED refusals name no component, and they say which" \
+   "python3 -c \"
+import json
+r=json.load(open('$REAL/reconciliation.json'))
+codes={x['code'] for x in r['project_scoped_findings']}
+assert codes=={'NB-FILE-UNRESOLVED','NB-PUBLICATION-AUTHORITY-MISSING'}, codes
+assert r['findings_project_scoped']==2, r['findings_project_scoped']\""
+ck "R the class totals are the code totals, split by obligation not by code" \
+   "python3 -c \"
+import json, collections
+u=json.load(open('$REAL/unresolved-obligations.json'))
+r=json.load(open('$REAL/reconciliation.json'))
+c=collections.Counter(x['obligation_class'] for x in u['findings'])
+assert dict(c)==r['by_obligation_class'], (dict(c), r['by_obligation_class'])
+assert c['licence-determination']==470 and c['corresponding-source']==162
+assert c['licence-review']==65 and c['copyright-notice']==24\""
+ck "R SABOTAGE: a finding naming a component outside the implicated set REFUSES" \
+   "python3 - '$ACCT' '$TMP/acct-drop.json' <<'PYR'
+import json, sys
+a=json.load(open(sys.argv[1]))
+# remove one component from the implicated set while its findings still exist
+a['components']=[r for r in a['components'] if r['component']!='busybox@1.37.0-r30']
+json.dump(a, open(sys.argv[2],'w'))
+PYR
+    IM='$TMP/acct-drop.json' produce '$TMP/s35'
+    detail '$TMP/s35' NB-RECONCILIATION-ORPHAN 'outside the accounting'"
+ck "R SABOTAGE: a component listed twice REFUSES rather than reconciling" \
+   "python3 - '$ACCT' '$TMP/acct-dup.json' <<'PYS'
+import json, sys
+a=json.load(open(sys.argv[1]))
+a['components'].append(dict(a['components'][0]))
+json.dump(a, open(sys.argv[2],'w'))
+PYS
+    IM='$TMP/acct-dup.json' produce '$TMP/s36'
+    detail '$TMP/s36' NB-RECONCILIATION-UNBALANCED 'listed twice'"
+ck "R the reconciliation is an EMITTED artifact, checksummed with the rest" \
+   "python3 -c \"
+import json
+m=json.load(open('$REAL/notice-manifest.json'))
+assert 'reconciliation.json' in m['artifacts'], sorted(m['artifacts'])
+assert m['reconciliation']['findings_total']==723\""
+
+echo
 echo "== the COMPOSITION TRUTH TABLE, through the REAL consumer ================="
 
 # The satisfiable set. Its builder's header states exactly which fields are real
@@ -1021,8 +1095,9 @@ ck "the subsystem-coverage list names the producer, so losing its test goes red"
    "grep -q 'scripts/license/generate-notice-bundle.py' tests/governance/test_subsystem_ci_coverage.sh"
 ck "the header's sabotage count is the number this file actually asserts" \
    "s=\"\$(grep -c 'ck \"S[0-9]' '$0')\"; n=\"\$(grep -c 'ck \"N1 SABOTAGE' '$0')\"
-    [ \"\$s\" = 27 ] && [ \"\$n\" = 9 ] \\
-    && grep -q '# 27 + 9 = 36 SABOTAGES' '$0'"
+    r=\"\$(grep -c 'ck \"R SABOTAGE' '$0')\"
+    [ \"\$s\" = 27 ] && [ \"\$n\" = 9 ] && [ \"\$r\" = 2 ] \\
+    && grep -q '# 27 + 9 + 2 = 38 SABOTAGES' '$0'"
 ck "run-all's discovery finds this file" \
    "find tests -name 'test_*.sh' | grep -qx 'tests/license/test_notice_bundle.sh'"
 

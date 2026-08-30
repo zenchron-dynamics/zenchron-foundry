@@ -93,6 +93,10 @@ docs/audits/caddy-openssl-2026-08-27/evidence/trivy-candidate-linux-amd64.json
 docs/audits/caddy-openssl-2026-08-27/evidence/trivy-candidate-linux-arm64.json
 docs/audits/caddy-openssl-2026-08-27/evidence/trivy-control-linux-amd64.json
 docs/audits/caddy-openssl-2026-08-27/evidence/trivy-control-linux-arm64.json
+docs/audits/evidence-retention-2026-08-30/README.md
+docs/audits/evidence-retention-2026-08-30/SHA256SUMS
+docs/audits/evidence-retention-2026-08-30/artifact-retention-probe.json
+docs/audits/evidence-retention-2026-08-30/notice-reconciliation.json
 docs/audits/experimental-php-8.5-linux-amd64/README.md
 docs/audits/experimental-php-8.5-linux-amd64/SHA256SUMS
 docs/audits/experimental-php-8.5-linux-amd64/frozen-scan-basis.json
@@ -370,6 +374,7 @@ docs/licensing/notice-and-source-obligations.md
 docs/licensing/repository-material-baseline-refresh-2026-08-28-notices.md
 docs/licensing/repository-material-baseline-refresh-2026-08-28.md
 docs/licensing/repository-material-baseline-refresh-2026-08-29-n1.md
+docs/licensing/repository-material-baseline-refresh-2026-08-30-retention.md
 docs/licensing/repository-material-baseline.txt
 docs/licensing/repository-material.md
 docs/local-validation.md

@@ -1,0 +1,5755 @@
+{
+ "by_obligation_class": {
+  "copyright-notice": 24,
+  "corresponding-source": 162,
+  "file-component-disposition": 1,
+  "licence-determination": 470,
+  "licence-review": 65,
+  "publication-authority": 1
+ },
+ "components": [
+  {
+   "component": "../@UNKNOWN",
+   "finding_count": 2,
+   "findings": [
+    0,
+    536
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "Structures_Graph@1.2.0",
+   "finding_count": 1,
+   "findings": [
+    3
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "alpine@3.23.5",
+   "finding_count": 1,
+   "findings": [
+    6
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "bcmath@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    16
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "bcmath@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    17
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "bcmath@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    18
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "bcmath@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    19
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "caddy@v0.0.0-20260601193502-e2eee6a7fce3",
+   "finding_count": 1,
+   "findings": [
+    31
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "cel.dev/expr@v0.25.1",
+   "finding_count": 1,
+   "findings": [
+    32
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "cel.dev/expr@v0.25.2",
+   "finding_count": 1,
+   "findings": [
+    33
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "cloud.google.com/go/auth/oauth2adapt@v0.2.8",
+   "finding_count": 1,
+   "findings": [
+    35
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "cloud.google.com/go/auth@v0.20.0",
+   "finding_count": 1,
+   "findings": [
+    34
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "cloud.google.com/go/compute/metadata@v0.9.0",
+   "finding_count": 1,
+   "findings": [
+    36
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "dario.cat/mergo@v1.0.2",
+   "finding_count": 1,
+   "findings": [
+    41
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "debian@12",
+   "finding_count": 1,
+   "findings": [
+    43
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "filippo.io/bigmod@v0.1.0",
+   "finding_count": 1,
+   "findings": [
+    51
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "filippo.io/edwards25519@v1.2.0",
+   "finding_count": 1,
+   "findings": [
+    52
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "gd@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    55
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "gd@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    56
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "gd@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    57
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "gd@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    58
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:0dd4b80108f81fcf4dca4c6c98924b7fef913a186c9f92231579d442cd2b9858",
+   "finding_count": 1,
+   "findings": [
+    60
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:124887dda8667be5a26711c675af7b466fd98c4a4a63d2fb93fb06053cb75d23",
+   "finding_count": 1,
+   "findings": [
+    61
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:2a0775971ea58491207e6287ce8897133e22bab2b36053bf515d2e55fbfe01d2",
+   "finding_count": 1,
+   "findings": [
+    62
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:2daeb138033eb251a9a83fc4f0eb01a76aacebb6aab3c11d6ca1c08036225603",
+   "finding_count": 1,
+   "findings": [
+    63
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:33aaa754c4c60eebce844411e5eb334cee53d07045ba564a04058081d5ea39db",
+   "finding_count": 1,
+   "findings": [
+    64
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd8",
+   "finding_count": 1,
+   "findings": [
+    65
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:5188a56952b0d5c610255bd5945aef14ab39d168b116738109a2048516d9b934",
+   "finding_count": 1,
+   "findings": [
+    66
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:54992c07f9dc27e5bff59bd413f19f2416014537f3dc9f782d5a90833dd6edcb",
+   "finding_count": 1,
+   "findings": [
+    67
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:5e0f95bdd570c181e21d0d6ef837d27de9658f92aecab40c2d4dc548a3ca24dd",
+   "finding_count": 1,
+   "findings": [
+    68
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:6e885b182b8082fa8a76bcc4d465094caa3725be5acf3216b3dc88e590222a76",
+   "finding_count": 1,
+   "findings": [
+    69
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:7627fae4d7b144c94e95e4863deb9a99195bbfb46d840673e75b4b328c1b0d64",
+   "finding_count": 1,
+   "findings": [
+    70
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:8eab0f293935f717f07a33906aa4ea060acfcf75f21395219d5208adfda0ff6b",
+   "finding_count": 1,
+   "findings": [
+    71
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:9a598e747d4710492a0be60dfff422cc08db5d193e0980cdf235e53736584988",
+   "finding_count": 1,
+   "findings": [
+    72
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:abbb0bec12d80d26878811b1a487dd5c1962103a94d043fd313fa7b99639159f",
+   "finding_count": 1,
+   "findings": [
+    73
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:ae52345c2851b896f981f67f451f18cb14b409a9c0f71df2546be78561e54ec8",
+   "finding_count": 1,
+   "findings": [
+    74
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:bea8ee4d6033b56ad3bd8621284e4d1298ca5b477469423ad02934bade02cf0b",
+   "finding_count": 1,
+   "findings": [
+    75
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:bf8e662ddcfc986b9a859217adf7e826e3f1d186914f8bf3a36cf9c5eee82828",
+   "finding_count": 1,
+   "findings": [
+    76
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:ca9acdf0adc5179d80d712cedc141d810bf719e8db692c4c527557ba50b89d46",
+   "finding_count": 1,
+   "findings": [
+    77
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:d35023c581faa639999878e3e48c8a187ed66611cac80bda5a97bdcc738037ba",
+   "finding_count": 1,
+   "findings": [
+    78
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ghcr.io/zenchron-dynamics/foundry-staging@sha256:f42f06b143c7ff154e0c055076864871b9962ca6a7eec540eab6454e7b65f43b",
+   "finding_count": 1,
+   "findings": [
+    79
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/BurntSushi/toml@v1.6.0",
+   "finding_count": 1,
+   "findings": [
+    80
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/DeRuina/timberjack@v1.4.2",
+   "finding_count": 1,
+   "findings": [
+    81
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/DeRuina/timberjack@v1.4.5",
+   "finding_count": 1,
+   "findings": [
+    82
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/KimMachineGun/automemlimit@v0.7.5",
+   "finding_count": 1,
+   "findings": [
+    83
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/Masterminds/goutils@v1.1.1",
+   "finding_count": 1,
+   "findings": [
+    84
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/Masterminds/semver/v3@v3.4.0",
+   "finding_count": 1,
+   "findings": [
+    85
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/Masterminds/semver/v3@v3.5.0",
+   "finding_count": 1,
+   "findings": [
+    86
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/Masterminds/sprig/v3@v3.3.0",
+   "finding_count": 1,
+   "findings": [
+    87
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/MauriceGit/skiplist@v0.0.0-20211105230623-77f5c8d3e145",
+   "finding_count": 1,
+   "findings": [
+    88
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/MicahParks/jwkset@v0.11.0",
+   "finding_count": 1,
+   "findings": [
+    89
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/MicahParks/keyfunc/v3@v3.8.0",
+   "finding_count": 1,
+   "findings": [
+    90
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/RoaringBitmap/roaring/v2@v2.24.0",
+   "finding_count": 1,
+   "findings": [
+    91
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/alecthomas/chroma/v2@v2.24.1",
+   "finding_count": 1,
+   "findings": [
+    92
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/alecthomas/chroma/v2@v2.26.1",
+   "finding_count": 1,
+   "findings": [
+    93
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/antlr4-go/antlr/v4@v4.13.1",
+   "finding_count": 1,
+   "findings": [
+    94
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/aryann/difflib@v0.0.0-20210328193216-ff5ff6dc229b",
+   "finding_count": 1,
+   "findings": [
+    95
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/beorn7/perks@v1.0.1",
+   "finding_count": 1,
+   "findings": [
+    96
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/bits-and-blooms/bitset@v1.24.6",
+   "finding_count": 1,
+   "findings": [
+    97
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/caddyserver/caddy/v2@v2.11.4",
+   "finding_count": 1,
+   "findings": [
+    98
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/caddyserver/certmagic@v0.25.3",
+   "finding_count": 1,
+   "findings": [
+    99
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/caddyserver/certmagic@v0.25.4",
+   "finding_count": 1,
+   "findings": [
+    100
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/caddyserver/zerossl@v0.1.5",
+   "finding_count": 1,
+   "findings": [
+    101
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/ccoveille/go-safecast/v2@v2.0.0",
+   "finding_count": 1,
+   "findings": [
+    102
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/ccoveille/go-safecast/v2@v2.0.1",
+   "finding_count": 1,
+   "findings": [
+    103
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/cenkalti/backoff/v5@v5.0.3",
+   "finding_count": 1,
+   "findings": [
+    104
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/cespare/xxhash/v2@v2.3.0",
+   "finding_count": 1,
+   "findings": [
+    105
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/chzyer/readline@v1.5.1",
+   "finding_count": 1,
+   "findings": [
+    106
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/cloudflare/circl@v1.6.3",
+   "finding_count": 1,
+   "findings": [
+    107
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/coreos/go-oidc/v3@v3.17.0",
+   "finding_count": 1,
+   "findings": [
+    108
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/coreos/go-oidc/v3@v3.18.0",
+   "finding_count": 1,
+   "findings": [
+    109
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/cpuguy83/go-md2man/v2@v2.0.7",
+   "finding_count": 1,
+   "findings": [
+    110
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/davecgh/go-spew@v1.1.2-0.20180830191138-d8f796af33cc",
+   "finding_count": 1,
+   "findings": [
+    111
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dlclark/regexp2/v2@v2.1.1",
+   "finding_count": 1,
+   "findings": [
+    113
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dlclark/regexp2@v1.12.0",
+   "finding_count": 1,
+   "findings": [
+    112
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dunglas/caddy-cbrotli@v1.0.1",
+   "finding_count": 1,
+   "findings": [
+    114
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dunglas/frankenphp/caddy@v0.0.0-20260806145936-a765b086f5cc",
+   "finding_count": 1,
+   "findings": [
+    115
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dunglas/httpsfv@v1.1.0",
+   "finding_count": 1,
+   "findings": [
+    116
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dunglas/mercure/caddy@v0.24.2",
+   "finding_count": 1,
+   "findings": [
+    118
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dunglas/mercure@v0.24.2",
+   "finding_count": 1,
+   "findings": [
+    117
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dunglas/skipfilter@v1.0.0",
+   "finding_count": 1,
+   "findings": [
+    119
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dunglas/vulcain/caddy@v1.4.2",
+   "finding_count": 1,
+   "findings": [
+    121
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dunglas/vulcain@v1.4.2",
+   "finding_count": 1,
+   "findings": [
+    120
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/dustin/go-humanize@v1.0.1",
+   "finding_count": 1,
+   "findings": [
+    122
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/e-dant/watcher@v0.0.0-20260223030516-06f84a1314be",
+   "finding_count": 1,
+   "findings": [
+    123
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/felixge/httpsnoop@v1.0.4",
+   "finding_count": 1,
+   "findings": [
+    124
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/felixge/httpsnoop@v1.1.0",
+   "finding_count": 1,
+   "findings": [
+    125
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/fxamacker/cbor/v2@v2.9.0",
+   "finding_count": 1,
+   "findings": [
+    126
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/fxamacker/cbor/v2@v2.9.2",
+   "finding_count": 1,
+   "findings": [
+    127
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/getkin/kin-openapi@v0.140.0",
+   "finding_count": 1,
+   "findings": [
+    128
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/go-chi/chi/v5@v5.2.5",
+   "finding_count": 1,
+   "findings": [
+    129
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/go-chi/chi/v5@v5.3.0",
+   "finding_count": 1,
+   "findings": [
+    130
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/go-jose/go-jose/v3@v3.0.5",
+   "finding_count": 1,
+   "findings": [
+    131
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/go-jose/go-jose/v4@v4.1.4",
+   "finding_count": 1,
+   "findings": [
+    132
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/go-logr/logr@v1.4.3",
+   "finding_count": 1,
+   "findings": [
+    133
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/go-logr/logr@v1.4.4",
+   "finding_count": 1,
+   "findings": [
+    134
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/go-logr/stdr@v1.2.2",
+   "finding_count": 1,
+   "findings": [
+    135
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/go-openapi/jsonpointer@v0.23.1",
+   "finding_count": 1,
+   "findings": [
+    136
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/go-openapi/swag/jsonname@v0.26.0",
+   "finding_count": 1,
+   "findings": [
+    137
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/gofrs/uuid/v5@v5.5.1",
+   "finding_count": 1,
+   "findings": [
+    139
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/gofrs/uuid@v4.4.0+incompatible",
+   "finding_count": 1,
+   "findings": [
+    138
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/golang-jwt/jwt/v5@v5.3.1",
+   "finding_count": 1,
+   "findings": [
+    140
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/google/brotli/go/cbrotli@v1.1.0",
+   "finding_count": 1,
+   "findings": [
+    141
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/google/cel-go@v0.28.1",
+   "finding_count": 1,
+   "findings": [
+    142
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/google/certificate-transparency-go@v1.1.8-0.20240110162603-74a5dd331745",
+   "finding_count": 1,
+   "findings": [
+    143
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/google/certificate-transparency-go@v1.3.3",
+   "finding_count": 1,
+   "findings": [
+    144
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/google/go-tpm@v0.9.8",
+   "finding_count": 1,
+   "findings": [
+    145
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/google/go-tspi@v0.3.0",
+   "finding_count": 1,
+   "findings": [
+    146
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/google/s2a-go@v0.1.9",
+   "finding_count": 1,
+   "findings": [
+    147
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/google/uuid@v1.6.0",
+   "finding_count": 1,
+   "findings": [
+    148
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/googleapis/enterprise-certificate-proxy@v0.3.15",
+   "finding_count": 1,
+   "findings": [
+    149
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/googleapis/enterprise-certificate-proxy@v0.3.16",
+   "finding_count": 1,
+   "findings": [
+    150
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/googleapis/gax-go/v2@v2.22.0",
+   "finding_count": 1,
+   "findings": [
+    151
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/gorilla/handlers@v1.5.2",
+   "finding_count": 1,
+   "findings": [
+    152
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/gorilla/mux@v1.8.1",
+   "finding_count": 1,
+   "findings": [
+    153
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/grpc-ecosystem/grpc-gateway/v2@v2.28.0",
+   "finding_count": 1,
+   "findings": [
+    154
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/grpc-ecosystem/grpc-gateway/v2@v2.29.0",
+   "finding_count": 1,
+   "findings": [
+    155
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/huandu/xstrings@v1.5.0",
+   "finding_count": 1,
+   "findings": [
+    156
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/klauspost/compress@v1.18.6",
+   "finding_count": 1,
+   "findings": [
+    157
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/klauspost/compress@v1.19.1",
+   "finding_count": 1,
+   "findings": [
+    158
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/klauspost/cpuid/v2@v2.3.0",
+   "finding_count": 1,
+   "findings": [
+    159
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/libdns/libdns@v1.1.1",
+   "finding_count": 1,
+   "findings": [
+    160
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/manifoldco/promptui@v0.9.0",
+   "finding_count": 1,
+   "findings": [
+    161
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mattn/go-colorable@v0.1.14",
+   "finding_count": 1,
+   "findings": [
+    162
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mattn/go-colorable@v0.1.15",
+   "finding_count": 1,
+   "findings": [
+    163
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mattn/go-isatty@v0.0.20",
+   "finding_count": 1,
+   "findings": [
+    164
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mattn/go-isatty@v0.0.22",
+   "finding_count": 1,
+   "findings": [
+    165
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/maypok86/otter/v2@v2.3.0",
+   "finding_count": 1,
+   "findings": [
+    166
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mgutz/ansi@v0.0.0-20200706080929-d51e80ef957d",
+   "finding_count": 1,
+   "findings": [
+    167
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mholt/acmez/v3@v3.1.6",
+   "finding_count": 1,
+   "findings": [
+    168
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/miekg/dns@v1.1.72",
+   "finding_count": 1,
+   "findings": [
+    169
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mitchellh/copystructure@v1.2.0",
+   "finding_count": 1,
+   "findings": [
+    170
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mitchellh/go-ps@v1.0.0",
+   "finding_count": 1,
+   "findings": [
+    171
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mitchellh/reflectwalk@v1.0.2",
+   "finding_count": 1,
+   "findings": [
+    172
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/mschoch/smat@v0.2.0",
+   "finding_count": 1,
+   "findings": [
+    173
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/munnerz/goautoneg@v0.0.0-20191010083416-a7dc8b61c822",
+   "finding_count": 1,
+   "findings": [
+    174
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/oasdiff/yaml3@v0.0.13",
+   "finding_count": 1,
+   "findings": [
+    176
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/oasdiff/yaml@v0.1.0",
+   "finding_count": 1,
+   "findings": [
+    175
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/pbnjay/memory@v0.0.0-20210728143218-7b4eea64cf58",
+   "finding_count": 1,
+   "findings": [
+    177
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/pires/go-proxyproto@v0.12.0",
+   "finding_count": 1,
+   "findings": [
+    178
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/pkg/errors@v0.9.1",
+   "finding_count": 1,
+   "findings": [
+    179
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/pmezard/go-difflib@v1.0.1-0.20181226105442-5d4384ee4fb2",
+   "finding_count": 1,
+   "findings": [
+    180
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/prometheus/client_golang@v1.23.2",
+   "finding_count": 1,
+   "findings": [
+    181
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/prometheus/client_golang@v1.24.1",
+   "finding_count": 1,
+   "findings": [
+    182
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/prometheus/client_model@v0.6.2",
+   "finding_count": 1,
+   "findings": [
+    183
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/prometheus/common@v0.67.5",
+   "finding_count": 1,
+   "findings": [
+    184
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/prometheus/common@v0.70.1",
+   "finding_count": 1,
+   "findings": [
+    185
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/prometheus/otlptranslator@v1.0.0",
+   "finding_count": 1,
+   "findings": [
+    186
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/prometheus/procfs@v0.20.1",
+   "finding_count": 1,
+   "findings": [
+    187
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/prometheus/procfs@v0.21.1",
+   "finding_count": 1,
+   "findings": [
+    188
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/quic-go/qpack@v0.6.0",
+   "finding_count": 1,
+   "findings": [
+    189
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/quic-go/quic-go@v0.59.1",
+   "finding_count": 1,
+   "findings": [
+    190
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/rs/cors@v1.11.1",
+   "finding_count": 1,
+   "findings": [
+    191
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/rs/xid@v1.6.0",
+   "finding_count": 1,
+   "findings": [
+    192
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/russross/blackfriday/v2@v2.1.0",
+   "finding_count": 1,
+   "findings": [
+    193
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/santhosh-tekuri/jsonschema/v6@v6.0.2",
+   "finding_count": 1,
+   "findings": [
+    194
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/shopspring/decimal@v1.4.0",
+   "finding_count": 1,
+   "findings": [
+    195
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/shurcooL/sanitized_anchor_name@v1.0.0",
+   "finding_count": 1,
+   "findings": [
+    196
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/sirupsen/logrus@v1.9.4",
+   "finding_count": 1,
+   "findings": [
+    197
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/slackhq/nebula@v1.10.3",
+   "finding_count": 1,
+   "findings": [
+    198
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/certificates@v0.30.2",
+   "finding_count": 1,
+   "findings": [
+    199
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/cli-utils@v0.12.2",
+   "finding_count": 1,
+   "findings": [
+    200
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/go-attestation@v0.4.4-0.20241119153605-2306d5b464ca",
+   "finding_count": 1,
+   "findings": [
+    201
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/go-attestation@v0.4.9",
+   "finding_count": 1,
+   "findings": [
+    202
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/linkedca@v0.25.0",
+   "finding_count": 1,
+   "findings": [
+    203
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/nosql@v0.8.0",
+   "finding_count": 1,
+   "findings": [
+    204
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/pkcs7@v0.2.1",
+   "finding_count": 1,
+   "findings": [
+    205
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/scep@v0.0.0-20250318231241-a25cabb69492",
+   "finding_count": 1,
+   "findings": [
+    206
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/scep@v0.0.0-20260331191114-261f960a40d1",
+   "finding_count": 1,
+   "findings": [
+    207
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/smallstep/truststore@v0.13.0",
+   "finding_count": 1,
+   "findings": [
+    208
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/spf13/cast@v1.10.0",
+   "finding_count": 1,
+   "findings": [
+    209
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/spf13/cast@v1.7.0",
+   "finding_count": 1,
+   "findings": [
+    210
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/spf13/cobra@v1.10.2",
+   "finding_count": 1,
+   "findings": [
+    211
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/spf13/pflag@v1.0.10",
+   "finding_count": 1,
+   "findings": [
+    212
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/stretchr/testify@v1.11.1",
+   "finding_count": 1,
+   "findings": [
+    213
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/tailscale/tscert@v0.0.0-20251216020129-aea342f6d747",
+   "finding_count": 1,
+   "findings": [
+    214
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/tidwall/gjson@v1.19.0",
+   "finding_count": 1,
+   "findings": [
+    215
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/tidwall/match@v1.2.0",
+   "finding_count": 1,
+   "findings": [
+    216
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/tidwall/pretty@v1.2.1",
+   "finding_count": 1,
+   "findings": [
+    217
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/tidwall/sjson@v1.2.5",
+   "finding_count": 1,
+   "findings": [
+    218
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/unrolled/secure@v1.17.0",
+   "finding_count": 1,
+   "findings": [
+    219
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/urfave/cli@v1.22.17",
+   "finding_count": 1,
+   "findings": [
+    220
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/x448/float16@v0.8.4",
+   "finding_count": 1,
+   "findings": [
+    221
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/yosida95/uritemplate/v3@v3.0.2",
+   "finding_count": 1,
+   "findings": [
+    222
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/yuin/goldmark-highlighting/v2@v2.0.0-20230729083705-37449abec8cc",
+   "finding_count": 1,
+   "findings": [
+    224
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/yuin/goldmark@v1.8.2",
+   "finding_count": 1,
+   "findings": [
+    223
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "github.com/zeebo/blake3@v0.2.4",
+   "finding_count": 1,
+   "findings": [
+    225
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.etcd.io/bbolt@v1.4.3",
+   "finding_count": 1,
+   "findings": [
+    226
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.etcd.io/bbolt@v1.5.0",
+   "finding_count": 1,
+   "findings": [
+    227
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/auto/sdk@v1.2.1",
+   "finding_count": 1,
+   "findings": [
+    228
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/bridges/prometheus@v0.68.0",
+   "finding_count": 1,
+   "findings": [
+    229
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/bridges/prometheus@v0.69.0",
+   "finding_count": 1,
+   "findings": [
+    230
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/exporters/autoexport@v0.68.0",
+   "finding_count": 1,
+   "findings": [
+    231
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/exporters/autoexport@v0.69.0",
+   "finding_count": 1,
+   "findings": [
+    232
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.68.0",
+   "finding_count": 1,
+   "findings": [
+    233
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.69.0",
+   "finding_count": 1,
+   "findings": [
+    234
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/autoprop@v0.68.0",
+   "finding_count": 1,
+   "findings": [
+    235
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/autoprop@v0.69.0",
+   "finding_count": 1,
+   "findings": [
+    236
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/aws@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    237
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/aws@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    238
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/b3@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    239
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/b3@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    240
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/jaeger@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    241
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/jaeger@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    242
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/ot@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    243
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/contrib/propagators/ot@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    244
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc@v0.19.0",
+   "finding_count": 1,
+   "findings": [
+    247
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc@v0.20.0",
+   "finding_count": 1,
+   "findings": [
+    248
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp@v0.19.0",
+   "finding_count": 1,
+   "findings": [
+    249
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp@v0.20.0",
+   "finding_count": 1,
+   "findings": [
+    250
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    251
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    252
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    253
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    254
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    257
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    258
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    259
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    260
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlptrace@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    255
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/otlp/otlptrace@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    256
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/prometheus@v0.65.0",
+   "finding_count": 1,
+   "findings": [
+    261
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/prometheus@v0.66.0",
+   "finding_count": 1,
+   "findings": [
+    262
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/stdout/stdoutlog@v0.19.0",
+   "finding_count": 1,
+   "findings": [
+    263
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/stdout/stdoutlog@v0.20.0",
+   "finding_count": 1,
+   "findings": [
+    264
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/stdout/stdoutmetric@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    265
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/stdout/stdoutmetric@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    266
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/stdout/stdouttrace@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    267
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/exporters/stdout/stdouttrace@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    268
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/log@v0.19.0",
+   "finding_count": 1,
+   "findings": [
+    269
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/log@v0.20.0",
+   "finding_count": 1,
+   "findings": [
+    270
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/metric@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    271
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/metric@v1.45.0",
+   "finding_count": 1,
+   "findings": [
+    272
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/sdk/log@v0.19.0",
+   "finding_count": 1,
+   "findings": [
+    275
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/sdk/log@v0.20.0",
+   "finding_count": 1,
+   "findings": [
+    276
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/sdk/metric@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    277
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/sdk/metric@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    278
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/sdk@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    273
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/sdk@v1.44.0",
+   "finding_count": 1,
+   "findings": [
+    274
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/trace@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    279
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel/trace@v1.45.0",
+   "finding_count": 1,
+   "findings": [
+    280
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel@v1.43.0",
+   "finding_count": 1,
+   "findings": [
+    245
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/otel@v1.45.0",
+   "finding_count": 1,
+   "findings": [
+    246
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.opentelemetry.io/proto/otlp@v1.10.0",
+   "finding_count": 1,
+   "findings": [
+    281
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.step.sm/crypto@v0.81.0",
+   "finding_count": 1,
+   "findings": [
+    282
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.step.sm/crypto@v0.81.1",
+   "finding_count": 1,
+   "findings": [
+    283
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.uber.org/automaxprocs@v1.6.0",
+   "finding_count": 1,
+   "findings": [
+    284
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.uber.org/multierr@v1.11.0",
+   "finding_count": 1,
+   "findings": [
+    285
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.uber.org/zap/exp@v0.3.0",
+   "finding_count": 1,
+   "findings": [
+    287
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.uber.org/zap@v1.28.0",
+   "finding_count": 1,
+   "findings": [
+    286
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.yaml.in/yaml/v2@v2.4.4",
+   "finding_count": 1,
+   "findings": [
+    288
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.yaml.in/yaml/v3@v3.0.4",
+   "finding_count": 1,
+   "findings": [
+    289
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "go.yaml.in/yaml/v3@v3.0.5",
+   "finding_count": 1,
+   "findings": [
+    290
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/crypto/x509roots/fallback@v0.0.0-20260213171211-a408498e5541",
+   "finding_count": 1,
+   "findings": [
+    293
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/crypto/x509roots/fallback@v0.0.0-20260602072539-e2ffffe738fb",
+   "finding_count": 1,
+   "findings": [
+    294
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/crypto@v0.52.0",
+   "finding_count": 1,
+   "findings": [
+    291
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/crypto@v0.54.0",
+   "finding_count": 1,
+   "findings": [
+    292
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/exp@v0.0.0-20251023183803-a4bb9ffd2546",
+   "finding_count": 1,
+   "findings": [
+    295
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/exp@v0.0.0-20260529124908-c761662dc8c9",
+   "finding_count": 1,
+   "findings": [
+    296
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/net@v0.55.0",
+   "finding_count": 1,
+   "findings": [
+    297
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/net@v0.57.0",
+   "finding_count": 1,
+   "findings": [
+    298
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/oauth2@v0.36.0",
+   "finding_count": 1,
+   "findings": [
+    299
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/sync@v0.20.0",
+   "finding_count": 1,
+   "findings": [
+    300
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/sync@v0.22.0",
+   "finding_count": 1,
+   "findings": [
+    301
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/sys@v0.45.0",
+   "finding_count": 1,
+   "findings": [
+    302
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/sys@v0.47.0",
+   "finding_count": 1,
+   "findings": [
+    303
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/term@v0.43.0",
+   "finding_count": 1,
+   "findings": [
+    304
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/term@v0.45.0",
+   "finding_count": 1,
+   "findings": [
+    305
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/text@v0.37.0",
+   "finding_count": 1,
+   "findings": [
+    306
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/text@v0.40.0",
+   "finding_count": 1,
+   "findings": [
+    307
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "golang.org/x/time@v0.15.0",
+   "finding_count": 1,
+   "findings": [
+    308
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "google.golang.org/api@v0.277.0",
+   "finding_count": 1,
+   "findings": [
+    309
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "google.golang.org/api@v0.283.0",
+   "finding_count": 1,
+   "findings": [
+    310
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "google.golang.org/genproto/googleapis/api@v0.0.0-20260406210006-6f92a3bedf2d",
+   "finding_count": 1,
+   "findings": [
+    311
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "google.golang.org/genproto/googleapis/api@v0.0.0-20260526163538-3dc84a4a5aaa",
+   "finding_count": 1,
+   "findings": [
+    312
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "google.golang.org/genproto/googleapis/rpc@v0.0.0-20260427160629-7cedc36a6bc4",
+   "finding_count": 1,
+   "findings": [
+    313
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "google.golang.org/genproto/googleapis/rpc@v0.0.0-20260526163538-3dc84a4a5aaa",
+   "finding_count": 1,
+   "findings": [
+    314
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "google.golang.org/grpc@v1.81.0",
+   "finding_count": 1,
+   "findings": [
+    315
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "google.golang.org/grpc@v1.81.1",
+   "finding_count": 1,
+   "findings": [
+    316
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "google.golang.org/protobuf@v1.36.11",
+   "finding_count": 1,
+   "findings": [
+    317
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "gopkg.in/yaml.v3@v3.0.1",
+   "finding_count": 1,
+   "findings": [
+    318
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "intl@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    324
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "intl@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    325
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "intl@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    326
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "intl@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    327
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "opcache@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    474
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "opcache@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    475
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "opcache@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    476
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "opcache@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    477
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pcntl@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    480
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pcntl@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    481
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pcntl@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    482
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pcntl@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    483
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pdo_mysql@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    484
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pdo_mysql@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    485
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pdo_mysql@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    486
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pdo_mysql@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    487
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pdo_pgsql@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    488
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pdo_pgsql@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    489
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pdo_pgsql@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    490
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pdo_pgsql@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    491
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pgsql@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    495
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pgsql@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    496
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pgsql@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    497
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "pgsql@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    498
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "php-cli@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    499
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "php-cli@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    500
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "php-cli@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    501
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "php-cli@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    502
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "php-fpm@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    503
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "php-fpm@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    504
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "sockets@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    514
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "sockets@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    515
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "sockets@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    516
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "sockets@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    517
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "sodium@8.3.32",
+   "finding_count": 1,
+   "findings": [
+    518
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "sodium@8.3.33",
+   "finding_count": 1,
+   "findings": [
+    519
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "sodium@8.4.23",
+   "finding_count": 1,
+   "findings": [
+    520
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "sodium@8.4.24",
+   "finding_count": 1,
+   "findings": [
+    521
+   ],
+   "obligation_classes": [
+    "licence-review"
+   ]
+  },
+  {
+   "component": "zip@1.22.3",
+   "finding_count": 1,
+   "findings": [
+    532
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "zip@1.22.8",
+   "finding_count": 1,
+   "findings": [
+    533
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "Archive_Tar@1.6.0",
+   "finding_count": 1,
+   "findings": [
+    1
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "PEAR@1.10.18",
+   "finding_count": 1,
+   "findings": [
+    2
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "XML_Util@1.4.5",
+   "finding_count": 1,
+   "findings": [
+    4
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "adduser@3.134",
+   "finding_count": 2,
+   "findings": [
+    5,
+    560
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "apt@2.6.1",
+   "finding_count": 2,
+   "findings": [
+    10,
+    564
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "base-files@12.4+deb12u13",
+   "finding_count": 1,
+   "findings": [
+    11
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "base-files@12.4+deb12u15",
+   "finding_count": 1,
+   "findings": [
+    12
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "base-passwd@3.6.1",
+   "finding_count": 2,
+   "findings": [
+    13,
+    565
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "bash@5.2.15-2+b10",
+   "finding_count": 2,
+   "findings": [
+    14,
+    566
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "bash@5.2.15-2+b13",
+   "finding_count": 2,
+   "findings": [
+    15,
+    567
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "binutils-aarch64-linux-gnu@2.40-2",
+   "finding_count": 1,
+   "findings": [
+    20
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "binutils-common@2.40-2",
+   "finding_count": 1,
+   "findings": [
+    21
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "binutils-x86-64-linux-gnu@2.40-2",
+   "finding_count": 1,
+   "findings": [
+    22
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "bsdutils@1:2.38.1-5+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    23,
+    568
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "bzip2@1.0.8-5+b1",
+   "finding_count": 2,
+   "findings": [
+    26,
+    571
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ca-certificates-bundle@20260611-r0",
+   "finding_count": 3,
+   "findings": [
+    30,
+    542,
+    575
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ca-certificates@20230311+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    27,
+    572
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ca-certificates@20250419~deb12u1",
+   "finding_count": 2,
+   "findings": [
+    28,
+    573
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ca-certificates@20260611-r0",
+   "finding_count": 3,
+   "findings": [
+    29,
+    543,
+    574
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "coreutils@9.1-1",
+   "finding_count": 2,
+   "findings": [
+    37,
+    576
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "cpp-12@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    38,
+    577
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "curl@7.88.1-10+deb12u15",
+   "finding_count": 2,
+   "findings": [
+    39,
+    578
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "dash@0.5.12-2",
+   "finding_count": 2,
+   "findings": [
+    42,
+    579
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "debian-archive-keyring@2023.3+deb12u2",
+   "finding_count": 1,
+   "findings": [
+    44
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "debianutils@5.7-0.5~deb12u1",
+   "finding_count": 2,
+   "findings": [
+    45,
+    580
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "diffutils@1:3.8-4",
+   "finding_count": 2,
+   "findings": [
+    46,
+    581
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "dpkg@1.21.22",
+   "finding_count": 2,
+   "findings": [
+    47,
+    582
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "dpkg@1.21.23",
+   "finding_count": 2,
+   "findings": [
+    48,
+    583
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "e2fsprogs@1.47.0-2+b2",
+   "finding_count": 2,
+   "findings": [
+    49,
+    584
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "file@1:5.44-3",
+   "finding_count": 1,
+   "findings": [
+    50
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "findutils@4.9.0-4",
+   "finding_count": 2,
+   "findings": [
+    53,
+    585
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "gcc-12-base@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    54,
+    586
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "gettext-base@0.21-12",
+   "finding_count": 1,
+   "findings": [
+    59
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "gpgv@2.2.40-1.1+deb12u2",
+   "finding_count": 2,
+   "findings": [
+    319,
+    587
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "grep@3.8-5",
+   "finding_count": 2,
+   "findings": [
+    320,
+    588
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "gzip@1.12-1",
+   "finding_count": 3,
+   "findings": [
+    321,
+    545,
+    589
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "init-system-helpers@1.65.2+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    323,
+    591
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libacl1@2.3.1-3",
+   "finding_count": 2,
+   "findings": [
+    328,
+    592
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libaom3@3.6.0-1+deb12u2",
+   "finding_count": 1,
+   "findings": [
+    329
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libapt-pkg6.0@2.6.1",
+   "finding_count": 2,
+   "findings": [
+    331,
+    594
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libargon2-1@0~20171227-0.3+deb12u1",
+   "finding_count": 1,
+   "findings": [
+    332
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libasan8@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    333,
+    595
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libatomic1@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    334,
+    596
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libattr1@1:2.5.1-4",
+   "finding_count": 2,
+   "findings": [
+    335,
+    597
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libaudit-common@1:3.0.9-1",
+   "finding_count": 2,
+   "findings": [
+    336,
+    598
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libaudit1@1:3.0.9-1",
+   "finding_count": 2,
+   "findings": [
+    337,
+    599
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libavif15@0.11.1-1+deb12u1",
+   "finding_count": 1,
+   "findings": [
+    338
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libbinutils@2.40-2",
+   "finding_count": 1,
+   "findings": [
+    339
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libblkid1@2.38.1-5+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    340,
+    600
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libbsd0@0.11.7-2",
+   "finding_count": 1,
+   "findings": [
+    341
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libbz2-1.0@1.0.8-5+b1",
+   "finding_count": 2,
+   "findings": [
+    342,
+    601
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libc-bin@2.36-9+deb12u13",
+   "finding_count": 2,
+   "findings": [
+    343,
+    602
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libc-bin@2.36-9+deb12u14",
+   "finding_count": 2,
+   "findings": [
+    344,
+    603
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libc-dev-bin@2.36-9+deb12u14",
+   "finding_count": 2,
+   "findings": [
+    345,
+    604
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libc6@2.36-9+deb12u13",
+   "finding_count": 2,
+   "findings": [
+    346,
+    605
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libc6@2.36-9+deb12u14",
+   "finding_count": 2,
+   "findings": [
+    347,
+    606
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcap-getcap@2.78-r0",
+   "finding_count": 3,
+   "findings": [
+    349,
+    547,
+    608
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcap-ng0@0.8.3-1+b3",
+   "finding_count": 2,
+   "findings": [
+    350,
+    609
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcap-setcap@2.78-r0",
+   "finding_count": 3,
+   "findings": [
+    351,
+    548,
+    610
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcap-utils@2.78-r0",
+   "finding_count": 3,
+   "findings": [
+    352,
+    549,
+    611
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcap2@1:2.66-4+deb12u3+b1",
+   "finding_count": 2,
+   "findings": [
+    353,
+    612
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcap2@2.78-r0",
+   "finding_count": 3,
+   "findings": [
+    354,
+    550,
+    613
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcap@2.78-r0",
+   "finding_count": 3,
+   "findings": [
+    348,
+    551,
+    607
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcc1-0@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    355,
+    614
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcom-err2@1.47.0-2+b2",
+   "finding_count": 2,
+   "findings": [
+    356,
+    615
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcrypt-dev@1:4.4.33-2",
+   "finding_count": 1,
+   "findings": [
+    357
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcrypt1@1:4.4.33-2",
+   "finding_count": 1,
+   "findings": [
+    358
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libctf-nobfd0@2.40-2",
+   "finding_count": 1,
+   "findings": [
+    359
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libctf0@2.40-2",
+   "finding_count": 1,
+   "findings": [
+    360
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libcurl4@7.88.1-10+deb12u15",
+   "finding_count": 2,
+   "findings": [
+    362,
+    616
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libdav1d6@1.0.0-2+deb12u1",
+   "finding_count": 1,
+   "findings": [
+    363
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libdb5.3@5.3.28+dfsg2-1",
+   "finding_count": 2,
+   "findings": [
+    364,
+    617
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libdebconfclient0@0.270",
+   "finding_count": 2,
+   "findings": [
+    365,
+    618
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libdpkg-perl@1.21.23",
+   "finding_count": 2,
+   "findings": [
+    366,
+    619
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libext2fs2@1.47.0-2+b2",
+   "finding_count": 2,
+   "findings": [
+    367,
+    620
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libffi8@3.4.4-1",
+   "finding_count": 2,
+   "findings": [
+    368,
+    621
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libfreetype6@2.12.1+dfsg-5+deb12u4",
+   "finding_count": 2,
+   "findings": [
+    369,
+    622
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgav1-1@0.18.0-1+b1",
+   "finding_count": 1,
+   "findings": [
+    370
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgcc-12-dev@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    371,
+    623
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgcc-s1@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    372,
+    624
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgcrypt20@1.10.1-3",
+   "finding_count": 2,
+   "findings": [
+    373,
+    625
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgcrypt20@1.10.1-3+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    374,
+    626
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgdbm-compat4@1.23-3",
+   "finding_count": 2,
+   "findings": [
+    375,
+    627
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgdbm6@1.23-3",
+   "finding_count": 2,
+   "findings": [
+    376,
+    628
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgmp10@2:6.2.1+dfsg1-1.1",
+   "finding_count": 2,
+   "findings": [
+    377,
+    629
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgnutls30@3.7.9-2+deb12u7",
+   "finding_count": 2,
+   "findings": [
+    378,
+    630
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgomp1@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    379,
+    631
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgpg-error0@1.46-1",
+   "finding_count": 2,
+   "findings": [
+    380,
+    632
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libgprofng0@2.40-2",
+   "finding_count": 1,
+   "findings": [
+    381
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libhogweed6@3.8.1-2",
+   "finding_count": 2,
+   "findings": [
+    383,
+    634
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libhwasan0@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    384,
+    635
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libicu72@72.1-3+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    385,
+    636
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libidn2-0@2.3.3-1+b1",
+   "finding_count": 2,
+   "findings": [
+    387,
+    638
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libidn2@2.3.8-r0",
+   "finding_count": 3,
+   "findings": [
+    386,
+    553,
+    637
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libisl23@0.25-1.1",
+   "finding_count": 2,
+   "findings": [
+    388,
+    639
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libitm1@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    389,
+    640
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libjansson4@2.14-2",
+   "finding_count": 1,
+   "findings": [
+    390
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libjpeg62-turbo@1:2.1.5-2",
+   "finding_count": 1,
+   "findings": [
+    391
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libkeyutils1@1.6.3-2",
+   "finding_count": 2,
+   "findings": [
+    393,
+    642
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libldap-2.5-0@2.5.13+dfsg-5",
+   "finding_count": 2,
+   "findings": [
+    396,
+    645
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "liblsan0@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    397,
+    646
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "liblz4-1@1.9.4-1",
+   "finding_count": 2,
+   "findings": [
+    398,
+    647
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "liblzma5@5.4.1-1",
+   "finding_count": 2,
+   "findings": [
+    399,
+    648
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "liblzma5@5.4.1-1+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    400,
+    649
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libmagic-mgc@1:5.44-3",
+   "finding_count": 1,
+   "findings": [
+    401
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libmagic1@1:5.44-3",
+   "finding_count": 1,
+   "findings": [
+    402
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libmd0@1.0.4-2",
+   "finding_count": 1,
+   "findings": [
+    403
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libmount1@2.38.1-5+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    404,
+    650
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libnettle8@3.8.1-2",
+   "finding_count": 2,
+   "findings": [
+    407,
+    653
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libnghttp2-14@1.52.0-1+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    408,
+    654
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libnsl-dev@1.3.0-2",
+   "finding_count": 2,
+   "findings": [
+    409,
+    655
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libnsl2@1.3.0-2",
+   "finding_count": 2,
+   "findings": [
+    410,
+    656
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libonig5@6.9.8-1",
+   "finding_count": 2,
+   "findings": [
+    411,
+    657
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libp11-kit0@0.24.1-2",
+   "finding_count": 2,
+   "findings": [
+    412,
+    658
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libpam-modules-bin@1.5.2-6+deb12u2",
+   "finding_count": 2,
+   "findings": [
+    414,
+    660
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libpam-modules@1.5.2-6+deb12u2",
+   "finding_count": 2,
+   "findings": [
+    413,
+    659
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libpam-runtime@1.5.2-6+deb12u2",
+   "finding_count": 2,
+   "findings": [
+    415,
+    661
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libpam0g@1.5.2-6+deb12u2",
+   "finding_count": 2,
+   "findings": [
+    416,
+    662
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libpcre2-8-0@10.42-1",
+   "finding_count": 1,
+   "findings": [
+    417
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libperl5.36@5.36.0-7+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    418,
+    663
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libpkgconf3@1.8.1-1",
+   "finding_count": 2,
+   "findings": [
+    419,
+    664
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libpng16-16@1.6.39-2+deb12u5",
+   "finding_count": 2,
+   "findings": [
+    420,
+    665
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libpq5@15.19-0+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    421,
+    666
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libpsl5@0.21.2-1",
+   "finding_count": 1,
+   "findings": [
+    422
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libquadmath0@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    423,
+    667
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "librav1e0@0.5.1-6",
+   "finding_count": 1,
+   "findings": [
+    424
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libreadline8@8.2-1.3",
+   "finding_count": 2,
+   "findings": [
+    425,
+    668
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "librtmp1@2.4+20151223.gitfa8646d.1-2+b2",
+   "finding_count": 2,
+   "findings": [
+    426,
+    669
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsasl2-2@2.1.28+dfsg-10",
+   "finding_count": 2,
+   "findings": [
+    427,
+    670
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsasl2-modules-db@2.1.28+dfsg-10",
+   "finding_count": 2,
+   "findings": [
+    428,
+    671
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libselinux1@3.4-1+b6",
+   "finding_count": 2,
+   "findings": [
+    430,
+    673
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsemanage-common@3.4-1",
+   "finding_count": 1,
+   "findings": [
+    431
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsemanage2@3.4-1+b5",
+   "finding_count": 1,
+   "findings": [
+    432
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsepol2@3.4-2.1",
+   "finding_count": 2,
+   "findings": [
+    433,
+    674
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsmartcols1@2.38.1-5+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    434,
+    675
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsodium23@1.0.18-1+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    435,
+    676
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsqlite3-0@3.40.1-2+deb12u2",
+   "finding_count": 2,
+   "findings": [
+    436,
+    677
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libss2@1.47.0-2+b2",
+   "finding_count": 2,
+   "findings": [
+    437,
+    678
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libssh2-1@1.10.0-3+b1",
+   "finding_count": 1,
+   "findings": [
+    438
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libssl3@3.0.20-1~deb12u2",
+   "finding_count": 2,
+   "findings": [
+    439,
+    679
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libstdc++6@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    440,
+    680
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsvtav1enc1@1.4.1+dfsg-1",
+   "finding_count": 2,
+   "findings": [
+    441,
+    681
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libsystemd0@252.39-1~deb12u2",
+   "finding_count": 2,
+   "findings": [
+    442,
+    682
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libtasn1-6@4.19.0-2+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    443,
+    683
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libtinfo6@6.4-4",
+   "finding_count": 1,
+   "findings": [
+    444
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libtirpc-common@1.3.3+ds-1",
+   "finding_count": 2,
+   "findings": [
+    445,
+    684
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libtirpc-dev@1.3.3+ds-1",
+   "finding_count": 2,
+   "findings": [
+    446,
+    685
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libtirpc3@1.3.3+ds-1",
+   "finding_count": 2,
+   "findings": [
+    447,
+    686
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libtsan2@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    448,
+    687
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libubsan1@12.2.0-14+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    449,
+    688
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libudev1@252.39-1~deb12u2",
+   "finding_count": 2,
+   "findings": [
+    450,
+    689
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libunistring2@1.0-2",
+   "finding_count": 2,
+   "findings": [
+    452,
+    691
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libunistring@1.4.1-r0",
+   "finding_count": 3,
+   "findings": [
+    451,
+    554,
+    690
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libuuid1@2.38.1-5+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    453,
+    692
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libx11-6@2:1.8.4-2+deb12u2",
+   "finding_count": 1,
+   "findings": [
+    454
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libx11-data@2:1.8.4-2+deb12u2",
+   "finding_count": 1,
+   "findings": [
+    455
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libxau6@1:1.0.9-1",
+   "finding_count": 1,
+   "findings": [
+    456
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libxcb1@1.15-1",
+   "finding_count": 1,
+   "findings": [
+    457
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libxdmcp6@1:1.1.2-3",
+   "finding_count": 1,
+   "findings": [
+    458
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libxml2@2.9.14+dfsg-1.3~deb12u6",
+   "finding_count": 1,
+   "findings": [
+    459
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libxxhash0@0.8.1-1",
+   "finding_count": 2,
+   "findings": [
+    460,
+    693
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libyuv0@0.0~git20230123.b2528b0-1",
+   "finding_count": 1,
+   "findings": [
+    461
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "libzstd1@1.5.4+dfsg2-5",
+   "finding_count": 2,
+   "findings": [
+    463,
+    695
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "login@1:4.13+dfsg1-1+deb12u2",
+   "finding_count": 2,
+   "findings": [
+    464,
+    696
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "logsave@1.47.0-2+b2",
+   "finding_count": 2,
+   "findings": [
+    465,
+    697
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "mailcap@2.1.54-r0",
+   "finding_count": 2,
+   "findings": [
+    466,
+    555
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "mailcap@3.70+nmu1",
+   "finding_count": 1,
+   "findings": [
+    467
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "mawk@1.3.4.20200120-3.1",
+   "finding_count": 2,
+   "findings": [
+    468,
+    698
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "media-types@10.0.0",
+   "finding_count": 1,
+   "findings": [
+    469
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "mount@2.38.1-5+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    470,
+    699
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "musl-utils@1.2.5-r23",
+   "finding_count": 3,
+   "findings": [
+    471,
+    556,
+    700
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ncurses-base@6.4-4",
+   "finding_count": 1,
+   "findings": [
+    472
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "ncurses-bin@6.4-4",
+   "finding_count": 1,
+   "findings": [
+    473
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "openssl@3.0.20-1~deb12u2",
+   "finding_count": 2,
+   "findings": [
+    478,
+    701
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "passwd@1:4.13+dfsg1-1+deb12u2",
+   "finding_count": 2,
+   "findings": [
+    479,
+    702
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "perl-base@5.36.0-7+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    493,
+    704
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "perl-modules-5.36@5.36.0-7+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    494,
+    705
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "perl@5.36.0-7+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    492,
+    703
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "pkg-config@1.8.1-1",
+   "finding_count": 2,
+   "findings": [
+    505,
+    706
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "pkgconf-bin@1.8.1-1",
+   "finding_count": 2,
+   "findings": [
+    507,
+    708
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "pkgconf@1.8.1-1",
+   "finding_count": 2,
+   "findings": [
+    506,
+    707
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "readline-common@8.2-1.3",
+   "finding_count": 2,
+   "findings": [
+    508,
+    709
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "redis@6.3.0",
+   "finding_count": 1,
+   "findings": [
+    509
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "rpcsvc-proto@1.4.3-1",
+   "finding_count": 2,
+   "findings": [
+    510,
+    710
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "sed@4.9-1",
+   "finding_count": 2,
+   "findings": [
+    512,
+    712
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "sed@4.9-1+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    513,
+    713
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "sysvinit-utils@3.06-4",
+   "finding_count": 2,
+   "findings": [
+    523,
+    715
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "tar@1.34+dfsg-1.2+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    524,
+    716
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "tini@0.19.0-1+b3",
+   "finding_count": 1,
+   "findings": [
+    525
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "tzdata@2025b-0+deb12u2",
+   "finding_count": 1,
+   "findings": [
+    526
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "tzdata@2026b-0+deb12u1",
+   "finding_count": 1,
+   "findings": [
+    527
+   ],
+   "obligation_classes": [
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "usr-is-merged@37~deb12u1",
+   "finding_count": 2,
+   "findings": [
+    528,
+    717
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "util-linux-extra@2.38.1-5+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    530,
+    719
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "util-linux@2.38.1-5+deb12u3",
+   "finding_count": 2,
+   "findings": [
+    529,
+    718
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "xz-utils@5.4.1-1+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    531,
+    720
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "zstd-libs@1.5.7-r2",
+   "finding_count": 3,
+   "findings": [
+    534,
+    559,
+    721
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-determination"
+   ]
+  },
+  {
+   "component": "alpine-baselayout-data@3.7.2-r0",
+   "finding_count": 3,
+   "findings": [
+    8,
+    537,
+    562
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "alpine-baselayout@3.7.2-r0",
+   "finding_count": 3,
+   "findings": [
+    7,
+    538,
+    561
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "apk-tools@3.0.6-r0",
+   "finding_count": 3,
+   "findings": [
+    9,
+    539,
+    563
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "busybox-binsh@1.37.0-r30",
+   "finding_count": 3,
+   "findings": [
+    25,
+    540,
+    570
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "busybox@1.37.0-r30",
+   "finding_count": 3,
+   "findings": [
+    24,
+    541,
+    569
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "curl@8.19.0-r0",
+   "finding_count": 2,
+   "findings": [
+    40,
+    544
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "hostname@3.23+nmu1",
+   "finding_count": 2,
+   "findings": [
+    322,
+    590
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libapk@3.0.6-r0",
+   "finding_count": 3,
+   "findings": [
+    330,
+    546,
+    593
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libcurl@8.19.0-r0",
+   "finding_count": 2,
+   "findings": [
+    361,
+    552
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libgssapi-krb5-2@1.20.1-2+deb12u5",
+   "finding_count": 2,
+   "findings": [
+    382,
+    633
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libk5crypto3@1.20.1-2+deb12u5",
+   "finding_count": 2,
+   "findings": [
+    392,
+    641
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libkrb5-3@1.20.1-2+deb12u5",
+   "finding_count": 2,
+   "findings": [
+    394,
+    643
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libkrb5support0@1.20.1-2+deb12u5",
+   "finding_count": 2,
+   "findings": [
+    395,
+    644
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libmpc3@1.3.1-1",
+   "finding_count": 2,
+   "findings": [
+    405,
+    651
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libmpfr6@4.2.0-1",
+   "finding_count": 2,
+   "findings": [
+    406,
+    652
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libseccomp2@2.5.4-1+deb12u1",
+   "finding_count": 2,
+   "findings": [
+    429,
+    672
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "libzip4@1.7.3-1+b1",
+   "finding_count": 2,
+   "findings": [
+    462,
+    694
+   ],
+   "obligation_classes": [
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "scanelf@1.3.8-r2",
+   "finding_count": 3,
+   "findings": [
+    511,
+    557,
+    711
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-review"
+   ]
+  },
+  {
+   "component": "ssl_client@1.37.0-r30",
+   "finding_count": 3,
+   "findings": [
+    522,
+    558,
+    714
+   ],
+   "obligation_classes": [
+    "copyright-notice",
+    "corresponding-source",
+    "licence-review"
+   ]
+  }
+ ],
+ "components_with_findings": 535,
+ "components_with_zero_findings": 0,
+ "findings_component_scoped": 721,
+ "findings_orphaned": 0,
+ "findings_project_scoped": 2,
+ "findings_total": 723,
+ "implicated_components": 535,
+ "invariant": "every finding names exactly one obligation class, and either exactly one implicated component or an explicit project scope; every implicated component names all of its findings or an explicit zero-finding disposition",
+ "model": "foundry.notice-reconciliation/v1",
+ "project_scoped_findings": [
+  {
+   "code": "NB-FILE-UNRESOLVED",
+   "index": 535,
+   "obligation_class": "file-component-disposition"
+  },
+  {
+   "code": "NB-PUBLICATION-AUTHORITY-MISSING",
+   "index": 722,
+   "obligation_class": "publication-authority"
+  }
+ ]
+}
