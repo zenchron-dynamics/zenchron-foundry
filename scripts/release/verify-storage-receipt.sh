@@ -250,11 +250,14 @@ retain_until = parse_dt(st.get("retain_until"), "storage.retain_until")
 required_until = parse_dt(req.get("required_retain_until"), "request.required_retain_until")
 
 # CALENDAR DAYS, not a timedelta. GitHub stamps an artifact's `expires_at` from
-# when the upload STARTED and its `created_at` from when the upload FINISHED, so
-# a genuine 90-day artifact reports 89 days and 23-something hours and a
-# timedelta's `.days` truncates that to 89. The first real observation this
-# verifier ever saw refused for that reason and nothing was wrong with it.
-# Comparing dates is not a relaxation: an artifact actually granted 89 days
+# the RUN's start and its `created_at` from when that artifact was uploaded, so
+# the gap between them is however long the workflow had been running. Measured
+# on run 33325426226: created 17:56:56Z, expires 17:30:09Z ninety days later —
+# 26 minutes short of a whole number of days, which a timedelta's `.days`
+# truncates to 89. The first real observation this verifier ever saw refused a
+# 90-day artifact for that reason and nothing was wrong with it.
+#
+# Comparing dates is NOT a relaxation. An artifact actually granted 89 days
 # still measures 89 here, which is what the 89-day sabotage proves.
 actual_days = (retain_until.date() - uploaded.date()).days
 
