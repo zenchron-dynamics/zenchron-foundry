@@ -25,6 +25,7 @@ SUBSYSTEMS="
 scripts/license/assert-license-policy.sh
 scripts/license/assert-repository-material.sh
 scripts/license/generate-notice-bundle.py
+scripts/release/verify-storage-receipt.sh
 scripts/cra/assert-cra-controls.sh
 scripts/continuity-verify.sh
 scripts/repro-guarantees.sh

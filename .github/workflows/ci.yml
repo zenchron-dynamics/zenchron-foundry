@@ -208,6 +208,19 @@ jobs:
       - name: Gate — distribution notices and source obligations (#120)
         run: bash tests/license/test_notice_bundle.sh
 
+      # THE STORAGE-RECEIPT CONTRACT, exercised before any storage exists.
+      #
+      # #241 found that evidence retention is 90 days against a policy demanding
+      # 2555 and immutable storage, that nothing gates authorization on
+      # retention, and that nothing detects expiry. Phase A is the consumer half:
+      # a provider-neutral receipt schema and a verifier that refuses a receipt
+      # whose retention is short, whose lock is governance rather than
+      # compliance, whose versioning is off, whose readback did not happen, or
+      # which belongs to another candidate. It runs here so the first REAL
+      # receipt is verified by code somebody has already watched fail.
+      - name: Gate — evidence storage receipt contract (#241 phase A)
+        run: bash tests/release/test_storage_receipt.sh
+
       - name: Gate — CRA control set
         run: bash scripts/cra/assert-cra-controls.sh
 
