@@ -27,6 +27,9 @@ MUTATIONS = (
     "expiry-before-support", "required-not-met",
     # lifecycle model cases (2026-08-30 correction)
     "no-release-binding", "release-short", "already-expired", "bad-model",
+    # published-bundle independence (2026-08-30)
+    "published-no-evidence", "published-verdict-not-carried",
+    "published-auth-not-carried", "published-references-transient",
 )
 
 
@@ -41,6 +44,8 @@ def main():
                     choices=("none", "governance", "compliance"))
     ap.add_argument("--versioning", default="not-applicable",
                     choices=("enabled", "suspended", "disabled", "not-applicable"))
+    ap.add_argument("--published-evidence", action="store_true",
+                    help="compose the published-artifact evidence INTO the bundle")
     ap.add_argument("--supported-until", default=None,
                     help="set to make this a supported-release-lifetime receipt")
     ap.add_argument("--uploaded-at", default="2026-08-20T17:10:00Z")
@@ -119,6 +124,36 @@ def main():
         },
     }
 
+    if a.published_evidence:
+        # The published bundle CARRIES its evidence: every sha256 named below is
+        # also a file in the bundle, which is what makes "carried" checkable.
+        verdicts = [{"child_key": c["child_key"], "sha256": "%064x" % (0x5CA4 + i)}
+                    for i, c in enumerate(children[:3])]
+        authsha = "%064x" % 0xA07
+        for v in verdicts:
+            files.append({"path": "content/scan/%s.trivy.json" % v["child_key"].replace("/", "-"),
+                          "sha256": v["sha256"], "bytes": 228458})
+        files.append({"path": "content/authorization/post-build-authorization.json",
+                      "sha256": authsha, "bytes": 44946})
+        rec_pe = {
+            "image_digests": [c["manifest_digest"] for c in children],
+            "scan_verdicts": verdicts,
+            "authorization_record_sha256": authsha,
+            "scanner": {"image": "anchore/syft",
+                        "digest": "sha256:" + "f9" * 32},
+            "vulnerability_database": {
+                "identity": "v2+updated:2026-08-20T13:14:11Z+next:2026-08-21T13:14:11Z",
+                "observed_at": "2026-08-20T13:14:11Z"},
+            "source_revision": auth.get("source_revision"),
+            "policy_identity": {"licence_policy_sha256": "%064x" % 0x11,
+                                "retention_policy_sha256": "%064x" % 0x12},
+            "ledger_identity": {"vulnerability_exceptions_sha256": "%064x" % 0x13},
+        }
+        rec["bundle"]["published_evidence"] = rec_pe
+        rec["bundle"]["files"] = files
+        rec["readback"]["files_expected"] = len(files)
+        rec["readback"]["files_verified"] = len(files)
+
     if a.supported_until:
         su = datetime.datetime.fromisoformat(a.supported_until.replace("Z", "+00:00"))
         rec["bundle"]["release"] = {
@@ -128,7 +163,20 @@ def main():
         }
 
     m = a.mutate
-    if m == "no-release-binding":
+    pe = rec["bundle"].get("published_evidence")
+    if m == "published-no-evidence":
+        rec["bundle"].pop("published_evidence", None)
+    elif m == "published-verdict-not-carried" and pe:
+        # named, but its bytes are not in files[] — a reference wearing the word
+        pe["scan_verdicts"][0]["sha256"] = "%064x" % 0xDEAD
+    elif m == "published-auth-not-carried" and pe:
+        pe["authorization_record_sha256"] = "%064x" % 0xBEEF
+    elif m == "published-references-transient" and pe:
+        pe["transient_references"] = [
+            {"name": "child-caddy-prod-linux-amd64-32395890071-1",
+             "kind": "github-actions-artifact",
+             "expires_at": "2026-11-18T17:07:58Z"}]
+    elif m == "no-release-binding":
         rec["bundle"].pop("release", None)
     elif m == "release-short":
         # retained past the class floor in days, but short of support end + buffer

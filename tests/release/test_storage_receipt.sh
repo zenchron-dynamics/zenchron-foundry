@@ -177,7 +177,10 @@ ck "S2 SABOTAGE: exactly 90 days is accepted (the floor is inclusive)" \
 echo
 echo "== PUBLISHED: retention binds to the release lifecycle plus its buffers ==="
 
-PUB="--retention-class published-artifact --supported-until 2028-12-31T00:00:00Z"
+# Every published fixture composes its evidence in, because a published receipt
+# that does not is refused — see L1. The flag is part of what "published" means
+# here, not an option.
+PUB="--retention-class published-artifact --supported-until 2028-12-31T00:00:00Z --published-evidence"
 ck "a published receipt retained past support end + 270 days VERIFIES" \
    "mk pub $PUB --retention-days 1200
     run '$TMP/pub.json' '$TMP/auth.json' --today 2026-09-01 \
@@ -192,10 +195,193 @@ ck "S4 SABOTAGE: a published receipt with NO release identity is REFUSED" \
    "mk pubnorel --retention-class published-artifact --retention-days 1200
     ! run '$TMP/pubnorel.json' '$TMP/auth.json' --today 2026-09-01 \
     && says 'SR-RELEASE-BINDING-ABSENT' && says 'lifecycle it does not identify'"
-ck "S5 DETECTION: evidence whose retention has already lapsed is REFUSED" \
-   "mk gone --mutate already-expired
+# The class matters. Lapse is a REFUSAL for a distributed release and an
+# ACCEPTED OUTCOME for an undistributed staged candidate — see L5 below. The
+# fixture puts the support end far in the past so the floor is already met and
+# the lapse, not the floor, is what the verifier is reacting to.
+ck "S5 DETECTION: a PUBLISHED receipt whose retention has already lapsed is REFUSED" \
+   "mk gone --retention-class published-artifact --published-evidence \
+       --supported-until 2020-01-01T00:00:00Z --retention-days 5
     ! run '$TMP/gone.json' '$TMP/auth.json' --today 2026-09-01 \
     && says 'SR-EVIDENCE-EXPIRED' && says 'may no longer exist'"
+
+echo
+echo "== LIFECYCLE BOUNDARY: proven with fixtures, not assumed ================="
+# The 90-day classes and the published class meet at exactly one place: the
+# moment evidence stops being a private staging artifact and starts being the
+# reason a distributed release was accepted. Six proofs, because "the boundary
+# holds" is otherwise a sentence in a policy file that nothing executes.
+
+ck "L1 a published bundle must CARRY its evidence, and carrying is CHECKED" \
+   "mk L1 $PUB --retention-days 1200 --published-evidence
+    run '$TMP/L1.json' '$TMP/auth.json' --today 2026-09-01 \
+    && python3 -c \"
+import json
+b = json.load(open('$TMP/L1.json'))['bundle']
+pe = b['published_evidence']
+have = {f['sha256'] for f in b['files']}
+assert pe['authorization_record_sha256'] in have
+assert have.issuperset(v['sha256'] for v in pe['scan_verdicts'])
+for k in ('image_digests','scanner','vulnerability_database','source_revision',
+          'policy_identity','ledger_identity'):
+    assert pe.get(k), k\""
+ck "L1 SABOTAGE: a published bundle with NO composed evidence is REFUSED" \
+   "mk L1a $PUB --retention-days 1200 --published-evidence \
+       --mutate published-no-evidence
+    ! run '$TMP/L1a.json' '$TMP/auth.json' --today 2026-09-01 \
+    && says 'SR-PUBLISHED-INCOMPLETE'"
+ck "L1 SABOTAGE: NAMING a scan verdict it does not carry is REFUSED" \
+   "mk L1b $PUB --retention-days 1200 --published-evidence \
+       --mutate published-verdict-not-carried
+    ! run '$TMP/L1b.json' '$TMP/auth.json' --today 2026-09-01 \
+    && says 'SR-PUBLISHED-INCOMPLETE' && says 'Naming evidence is not carrying it'"
+ck "L1 SABOTAGE: naming an authorization record it does not carry is REFUSED" \
+   "mk L1c $PUB --retention-days 1200 --published-evidence \
+       --mutate published-auth-not-carried
+    ! run '$TMP/L1c.json' '$TMP/auth.json' --today 2026-09-01 \
+    && says 'SR-PUBLISHED-INCOMPLETE'"
+
+# support end + deprecation notice + withdrawal notice, from the POLICY's own
+# numbers rather than a constant retyped here.
+FLOORD="$(python3 -c "
+import datetime, yaml
+d = yaml.safe_load(open('$POLICY'))
+c = [x for x in d['classes'] if x['evidence_class'] == 'published-artifact'][0]
+end = datetime.date(2028, 12, 31)
+floor = end + datetime.timedelta(days=c['buffer_deprecation_days']
+                                 + c['buffer_withdrawal_days'])
+print((floor - datetime.date(2026, 8, 20)).days)")"
+ck "L2 the floor is support end + 180 + 90, and the policy's buffers say so" \
+   "python3 -c \"
+import yaml
+d = yaml.safe_load(open('$POLICY'))
+c = [x for x in d['classes'] if x['evidence_class'] == 'published-artifact'][0]
+assert c['buffer_deprecation_days'] == 180 and c['buffer_withdrawal_days'] == 90
+assert c['retention_days'] == 270 == 180 + 90\" \
+    && [ '$FLOORD' = 1134 ]"
+ck "L2 retention that reaches exactly that day is ACCEPTED" \
+   "mk L2 $PUB --retention-days '$FLOORD' --published-evidence
+    run '$TMP/L2.json' '$TMP/auth.json' --today 2026-09-01 && says '2029-09-27'"
+ck "L2 SABOTAGE: one day short of it is REFUSED" \
+   "mk L2a $PUB --retention-days \$(( FLOORD - 1 )) --published-evidence
+    ! run '$TMP/L2a.json' '$TMP/auth.json' --today 2026-09-01 \
+    && says 'SR-RETENTION-SHORT' && says 'notice buffer'"
+
+ck "L3 the published bundle still VERIFIES long after the 90-day copies lapse" \
+   "run '$TMP/L1.json' '$TMP/auth.json' --today 2027-06-01 \
+    && says 'storage receipt VERIFIED' && says 'class published-artifact'"
+ck "L3 ...on the same day a 90-day staged copy of the same run has lapsed" \
+   "mk L3 --retention-days 90
+    run '$TMP/L3.json' '$TMP/auth.json' --today 2027-06-01 && says 'lapsed on'"
+ck "L3 ...and the published bundle's completeness never depended on that copy" \
+   "python3 -c \"
+import json
+b = json.load(open('$TMP/L1.json'))['bundle']
+r = json.load(open('$TMP/L1.json'))['readback']
+assert not b['published_evidence'].get('transient_references')
+assert r['files_expected'] == r['files_verified'] == len(b['files'])\""
+
+ck "L4 SABOTAGE: a published bundle POINTING at an expiring artifact is REFUSED" \
+   "mk L4 $PUB --retention-days 1200 --published-evidence \
+       --mutate published-references-transient
+    ! run '$TMP/L4.json' '$TMP/auth.json' --today 2026-09-01 \
+    && says 'SR-PUBLISHED-REFERENCES-TRANSIENT' \
+    && says 'shortest-lived thing it depends on'"
+
+ck "L5 an unpublished staged candidate MAY lapse, and that is not a violation" \
+   "run '$TMP/L3.json' '$TMP/auth.json' --today 2027-06-01 \
+    && says 'may_expire: true' && says 'no release retention is violated' \
+    && ! says 'SR-EVIDENCE-EXPIRED'"
+ck "L5 ...and the policy grants that only to the unpublished classes" \
+   "python3 -c \"
+import yaml
+d = yaml.safe_load(open('$POLICY'))
+for c in d['classes']:
+    assert bool(c.get('may_expire')) == (c['lifecycle'] == 'unpublished'), c\""
+
+# L6. Every proof above ran against a FIXTURE. This repository publishes nothing
+# today and this PR does not change that — the boundary is being built before the
+# thing it bounds, on purpose, so the first real published bundle is verified by
+# code somebody already watched refuse.
+ck "L6 publication authority is still undetermined — nothing is published" \
+   "python3 -c \"
+import yaml
+assert yaml.safe_load(open('policies/license-policy.yaml'))['publication']['decision'] \
+    == 'undetermined'\""
+ck "L6 no workflow creates a release or a tag" \
+   "! grep -rqE 'gh release create|action-gh-release|actions/create-release' .github/workflows/"
+ck "L6 no workflow names the published-artifact class at all" \
+   "! grep -rq 'published-artifact' .github/workflows/"
+ck "L6 the published path is exercised ONLY by fixtures built in this test" \
+   "grep -q 'FIXTURE-provider-not-selected' '$TMP/L1.json'"
+
+echo
+echo "== THE SCAN VERDICT IS RETAINED; THE SCAN IS NOT REPRODUCIBLE ============="
+# The database bytes (~110 MB per run) are NOT required. What is required is the
+# small set of things that make the recorded verdict checkable — and a written
+# statement of exactly what that does and does not prove, so nobody upgrades
+# "we know which database it was" into "we can run it again".
+
+ck "V1 the database BYTES are not required, and the policy says why not" \
+   "python3 -c \"
+import yaml
+v = yaml.safe_load(open('$POLICY'))['vulnerability_database']
+assert v['preserve_verdict']['required'] is True
+assert v['preserve_rerun_capability']['required'] is False
+assert 'NOT REQUIRED' in v['preserve_rerun_capability']['decision_status']\""
+ck "V2 the limitation is recorded VERBATIM, not paraphrased" \
+   "python3 -c \"
+import yaml
+v = yaml.safe_load(open('$POLICY'))['vulnerability_database']
+assert ' '.join(v['limitation_statement'].split()) == (
+    'The retained evidence proves the verdict recorded at decision time. '
+    'Database identity alone does not preserve the deleted database snapshot '
+    'and therefore does not support an exact historical rerun.'), \
+    v['limitation_statement']\""
+ck "V3 the policy forbids calling the scan reproducible once the bytes expire" \
+   "python3 -c \"
+import yaml
+v = yaml.safe_load(open('$POLICY'))['vulnerability_database']
+assert 'Do not describe the scan as reproducible' in v['prohibited_claim']\""
+ck "V4 ...and no policy section claims it anyway: the scan is IRREPRODUCIBLE" \
+   "python3 -c \"
+import yaml
+d = yaml.safe_load(open('$POLICY'))
+req = d['irreproducible_evidence']['required']
+assert 'scan_verdicts' in req and 'vulnerability_database_identity' in req
+assert 'scan_verdicts' not in d['reproducible_evidence']['not_retained']\""
+ck "V5 seven items are bound in place of the bytes" \
+   "python3 -c \"
+import yaml
+v = yaml.safe_load(open('$POLICY'))['vulnerability_database']
+assert len(v['bind_instead_of_bytes']) == 7, v['bind_instead_of_bytes']\""
+ck "V6 ...and the SCHEMA requires every one of them of a published bundle" \
+   "python3 -c \"
+import json
+s = json.load(open('$SCHEMA'))
+def find(o):
+    if isinstance(o, dict):
+        if 'published_evidence' in o.get('properties', {}):
+            return o['properties']['published_evidence']
+        for v in o.values():
+            r = find(v)
+            if r:
+                return r
+    return None
+pe = find(s)
+need = {'image_digests','scan_verdicts','authorization_record_sha256','scanner',
+        'vulnerability_database','source_revision','policy_identity',
+        'ledger_identity'}
+assert need.issubset(set(pe['required'])), sorted(need - set(pe['required']))
+vd = pe['properties']['vulnerability_database']
+assert set(vd['required']) == {'identity','observed_at'}, vd['required']\""
+ck "V7 the not-yet-authorized shape is written down: dedup by database digest" \
+   "python3 -c \"
+import yaml
+v = yaml.safe_load(open('$POLICY'))['vulnerability_database']
+t = v['if_bytes_are_later_authorized']
+assert 'Deduplicate snapshots by database digest' in t
+assert 'per child' in t and 'per run' in t\""
 
 echo
 echo "== REGULATED WORM: opt-in, and never assignable in silence ================"

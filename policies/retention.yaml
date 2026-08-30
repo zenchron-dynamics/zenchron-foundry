@@ -212,6 +212,38 @@ vulnerability_database:
       A maintainer decision recording why re-execution is needed, who needs it
       and for how long. Until that exists, the database bytes are not retained
       and the current `retention-days: 1` on the trivy-db artifact stands.
+  # The exact sentence this repository must be able to show, unedited, whenever
+  # somebody asks what a retained scan verdict is worth.
+  limitation_statement: >-
+    The retained evidence proves the verdict recorded at decision time. Database
+    identity alone does not preserve the deleted database snapshot and therefore
+    does not support an exact historical rerun.
+  # Say "the verdict is retained". Never say "the scan is reproducible".
+  prohibited_claim: >-
+    Do not describe the scan as reproducible after the database bytes expire. A
+    rerun against a LATER database answers a different question — what is known
+    now — and presenting it as the historical result would substitute today's
+    knowledge for the record of what was decided.
+  # What a published bundle must BIND, in place of the bytes. Seven items, all
+  # of them small, all of them checked by verify-storage-receipt.sh against
+  # schemas/storage-receipt-v1.schema.json (`bundle.published_evidence`), which
+  # additionally requires that items 2 and 3 appear in `bundle.files` — naming
+  # evidence is not carrying it.
+  bind_instead_of_bytes:
+    - accepted image digests — the exact manifests the verdict is about
+    - scan verdicts as decided — findings, governed items, acceptances
+    - the authorization record those verdicts fed
+    - scanner identity — image reference AND digest, not a version string
+    - vulnerability-database identity AND the time it was observed
+    - source revision — the tree the images and the decision came from
+    - decision inputs by digest — licence policy, retention policy and the
+      vulnerability-exception ledger as they stood
+  # NOT authorized, and written down so a future implementer does not reach for
+  # the obvious wrong shape.
+  if_bytes_are_later_authorized: >-
+    Deduplicate snapshots by database digest rather than storing one duplicate
+    per child or per run. Twenty children of one run share one snapshot; storing
+    it twenty times buys nothing and multiplies the cost by twenty.
   identity_is_not_retrievability: >-
     The authorization record stores the database identity
     (`trivy_db_snapshot.identity`, e.g. "v2+updated:...+next:..."). AN IDENTITY

@@ -57,7 +57,11 @@
 #   SR-RETENTION-SHORT       retain_until is sooner than the policy requires
 #   SR-RETENTION-MODEL       the class names a model this verifier cannot enforce
 #   SR-RELEASE-BINDING-ABSENT  a supported-release class with no release identity
-#   SR-EVIDENCE-EXPIRED      the retention has already lapsed
+#   SR-PUBLISHED-INCOMPLETE  a published bundle is missing required evidence, or
+#                            names it without carrying its bytes
+#   SR-PUBLISHED-REFERENCES-TRANSIENT  a published bundle points at something
+#                            that expires before the bundle must
+#   SR-EVIDENCE-EXPIRED      retention lapsed on a class that may NOT expire
 #   SR-REGULATED-UNAUTHORIZED  a WORM class with no named external obligation
 #   SR-LOCK-MODE-WEAK        the lock is weaker than the class requires
 #   SR-VERSIONING-ABSENT     without versioning an overwrite is invisible
@@ -280,14 +284,27 @@ elif actual_days < need_days:
               b["retention_class"], need_days))
 
 # --- DETECTION: evidence that has already lapsed ---------------------------
-# The published mechanism has no expiry timer and no immutability, so the failure
-# mode is silent absence rather than a clean expiry. A receipt whose retention has
-# already passed is describing evidence nobody can rely on being there.
+# The published mechanism has no expiry timer and no immutability, so its failure
+# mode is silent absence rather than clean expiry, and a lapsed published receipt
+# describes something nobody can rely on being there.
+#
+# An UNPUBLISHED class is different and the difference is the whole lifecycle
+# argument: a staged candidate is private and undistributed, its policy says
+# `may_expire: true`, and its expiry is an accepted outcome rather than a
+# release-retention violation. Refusing it here would re-import the deleted
+# requirement through the back door.
+may_expire = bool(cls.get("may_expire"))
 if retain_until < today:
-    refuse("SR-EVIDENCE-EXPIRED",
-           "the retention for this evidence lapsed on %s and today is %s. A "
-           "receipt for evidence past its retention is a record of something that "
-           "may no longer exist" % (retain_until.date(), today.date()))
+    if not may_expire:
+        refuse("SR-EVIDENCE-EXPIRED",
+               "the retention for class %r lapsed on %s and today is %s. A "
+               "receipt for evidence past its retention is a record of something "
+               "that may no longer exist"
+               % (b["retention_class"], retain_until.date(), today.date()))
+    sys.stderr.write(
+        "NOTE: class %r lapsed on %s and its policy permits expiry "
+        "(may_expire: true). Nothing was distributed, so no release retention is "
+        "violated.\n" % (b["retention_class"], retain_until.date()))
 if retain_until < required_until:
     refuse("SR-RETENTION-SHORT",
            "the authority returned retain_until %s and Foundry required %s. What "
@@ -303,6 +320,44 @@ if support_s:
                "%s. Evidence that dies inside the support window cannot answer a "
                "question asked during it"
                % (retain_until.date(), support_until.date()))
+
+# --- A PUBLISHED BUNDLE CARRIES ITS EVIDENCE, IT DOES NOT POINT AT IT --------
+# A bundle is only as durable as the shortest-lived thing it depends on. If the
+# published record merely referenced the 90-day transport artifacts, it would be
+# incomplete long before the support commitment it justifies ends — and it would
+# LOOK complete on the day it was written, which is the failure mode worth
+# refusing.
+if cls.get("lifecycle") == "published-supported":
+    pe = b.get("published_evidence")
+    if not pe:
+        refuse("SR-PUBLISHED-INCOMPLETE",
+               "class %r is retained for a release's supported lifetime and the "
+               "bundle carries no published_evidence block. Evidence that is not "
+               "in the bundle is evidence the bundle does not have"
+               % b["retention_class"])
+    have = {f["sha256"] for f in b["files"]}
+    for v in pe.get("scan_verdicts") or []:
+        if v["sha256"] not in have:
+            refuse("SR-PUBLISHED-INCOMPLETE",
+                   "the scan verdict for %s is named as sha256 %s and no file in "
+                   "this bundle has those bytes. Naming evidence is not carrying "
+                   "it" % (v["child_key"], v["sha256"][:16]))
+    if pe["authorization_record_sha256"] not in have:
+        refuse("SR-PUBLISHED-INCOMPLETE",
+               "the authorization record is named as sha256 %s and no file in "
+               "this bundle has those bytes"
+               % pe["authorization_record_sha256"][:16])
+    transient = pe.get("transient_references") or []
+    if transient:
+        worst = min(parse_dt(t["expires_at"], "transient_references.expires_at")
+                    for t in transient)
+        refuse("SR-PUBLISHED-REFERENCES-TRANSIENT",
+               "this published bundle points at %d transient artifact(s) instead "
+               "of carrying them — %s — the earliest expiring on %s, while the "
+               "bundle must stay complete until %s. A bundle is only as durable "
+               "as the shortest-lived thing it depends on"
+               % (len(transient), ", ".join(t["name"] for t in transient[:3]),
+                  worst.date(), retain_until.date()))
 
 # --- COMPLIANCE MODE IS NOT GOVERNANCE MODE ---------------------------------
 mode = st.get("lock_mode")
