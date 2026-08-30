@@ -1,0 +1,300 @@
+{
+  "bundle": {
+    "authorization_record_sha256": "d592904c189e21efcd2d228406ead57dbe75e8132d72fced4a9fd45a2a15fcd3",
+    "bundle_id": "staged-candidate-7061caafb3ea",
+    "candidate": {
+      "children": [
+        {
+          "child_key": "caddy/prod/linux/amd64",
+          "manifest_digest": "sha256:384c166402dad573ea2b616ef0af6e40d9b15bd9371193ca6244f0241fccacd8",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "caddy/prod/linux/arm64",
+          "manifest_digest": "sha256:0dd4b80108f81fcf4dca4c6c98924b7fef913a186c9f92231579d442cd2b9858",
+          "platform": "linux/arm64"
+        },
+        {
+          "child_key": "nginx/prod/linux/amd64",
+          "manifest_digest": "sha256:bf8e662ddcfc986b9a859217adf7e826e3f1d186914f8bf3a36cf9c5eee82828",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "nginx/prod/linux/arm64",
+          "manifest_digest": "sha256:2a0775971ea58491207e6287ce8897133e22bab2b36053bf515d2e55fbfe01d2",
+          "platform": "linux/arm64"
+        },
+        {
+          "child_key": "php-cli/8.3/linux/amd64",
+          "manifest_digest": "sha256:9a598e747d4710492a0be60dfff422cc08db5d193e0980cdf235e53736584988",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "php-cli/8.3/linux/arm64",
+          "manifest_digest": "sha256:5e0f95bdd570c181e21d0d6ef837d27de9658f92aecab40c2d4dc548a3ca24dd",
+          "platform": "linux/arm64"
+        },
+        {
+          "child_key": "php-cli/8.4/linux/amd64",
+          "manifest_digest": "sha256:124887dda8667be5a26711c675af7b466fd98c4a4a63d2fb93fb06053cb75d23",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "php-cli/8.4/linux/arm64",
+          "manifest_digest": "sha256:6e885b182b8082fa8a76bcc4d465094caa3725be5acf3216b3dc88e590222a76",
+          "platform": "linux/arm64"
+        },
+        {
+          "child_key": "php-fpm/8.3/linux/amd64",
+          "manifest_digest": "sha256:ca9acdf0adc5179d80d712cedc141d810bf719e8db692c4c527557ba50b89d46",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "php-fpm/8.3/linux/arm64",
+          "manifest_digest": "sha256:bea8ee4d6033b56ad3bd8621284e4d1298ca5b477469423ad02934bade02cf0b",
+          "platform": "linux/arm64"
+        },
+        {
+          "child_key": "php-fpm/8.4/linux/amd64",
+          "manifest_digest": "sha256:8eab0f293935f717f07a33906aa4ea060acfcf75f21395219d5208adfda0ff6b",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "php-fpm/8.4/linux/arm64",
+          "manifest_digest": "sha256:ae52345c2851b896f981f67f451f18cb14b409a9c0f71df2546be78561e54ec8",
+          "platform": "linux/arm64"
+        },
+        {
+          "child_key": "php-frankenphp/8.3/linux/amd64",
+          "manifest_digest": "sha256:54992c07f9dc27e5bff59bd413f19f2416014537f3dc9f782d5a90833dd6edcb",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "php-frankenphp/8.3/linux/arm64",
+          "manifest_digest": "sha256:f42f06b143c7ff154e0c055076864871b9962ca6a7eec540eab6454e7b65f43b",
+          "platform": "linux/arm64"
+        },
+        {
+          "child_key": "php-frankenphp/8.4/linux/amd64",
+          "manifest_digest": "sha256:abbb0bec12d80d26878811b1a487dd5c1962103a94d043fd313fa7b99639159f",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "php-frankenphp/8.4/linux/arm64",
+          "manifest_digest": "sha256:2daeb138033eb251a9a83fc4f0eb01a76aacebb6aab3c11d6ca1c08036225603",
+          "platform": "linux/arm64"
+        },
+        {
+          "child_key": "php-worker/8.3/linux/amd64",
+          "manifest_digest": "sha256:d35023c581faa639999878e3e48c8a187ed66611cac80bda5a97bdcc738037ba",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "php-worker/8.3/linux/arm64",
+          "manifest_digest": "sha256:5188a56952b0d5c610255bd5945aef14ab39d168b116738109a2048516d9b934",
+          "platform": "linux/arm64"
+        },
+        {
+          "child_key": "php-worker/8.4/linux/amd64",
+          "manifest_digest": "sha256:7627fae4d7b144c94e95e4863deb9a99195bbfb46d840673e75b4b328c1b0d64",
+          "platform": "linux/amd64"
+        },
+        {
+          "child_key": "php-worker/8.4/linux/arm64",
+          "manifest_digest": "sha256:33aaa754c4c60eebce844411e5eb334cee53d07045ba564a04058081d5ea39db",
+          "platform": "linux/arm64"
+        }
+      ],
+      "children_expected": 20
+    },
+    "evidence_class": "staged-candidate",
+    "files": [
+      {
+        "bytes": 39980,
+        "path": "manifest.json",
+        "sha256": "f68e03193d6d1198875dbd5a8e842ca8fc2e93c85e12606734d04fe284a0201f"
+      },
+      {
+        "bytes": 97695,
+        "path": "content/acceptance/acceptance-evidence.json",
+        "sha256": "641aae805d3883da4133f794236c4fc937029e027540b24bb6628e0ca531982f"
+      },
+      {
+        "bytes": 2424,
+        "path": "content/authorization/authorization-summary.json",
+        "sha256": "89405985848f03a974262d77600bf633f158e73ba7297cc2b764571994be1721"
+      },
+      {
+        "bytes": 27947,
+        "path": "content/authorization/post-build-authorization.json",
+        "sha256": "d592904c189e21efcd2d228406ead57dbe75e8132d72fced4a9fd45a2a15fcd3"
+      },
+      {
+        "bytes": 3468,
+        "path": "content/children/caddy-prod-linux-amd64.json",
+        "sha256": "e2df3b2e959d8c32527b7201ef198dd7205ee38bbd9a43c143914de4a5163636"
+      },
+      {
+        "bytes": 3467,
+        "path": "content/children/caddy-prod-linux-arm64.json",
+        "sha256": "687674bf1cf19b8eec89503c42a0be22e54aa2ba6f5beba9969563ac65bcfb0e"
+      },
+      {
+        "bytes": 4084,
+        "path": "content/children/nginx-prod-linux-amd64.json",
+        "sha256": "4567ace9863ab48f0cb498e7ca6b7fc03217fbfe694112aca6a012699e03f858"
+      },
+      {
+        "bytes": 4088,
+        "path": "content/children/nginx-prod-linux-arm64.json",
+        "sha256": "835bb70345bbe47244a3a7e50c6cec4e7faebbc37ee6b8ec4bb2b32730e3c24e"
+      },
+      {
+        "bytes": 4989,
+        "path": "content/children/php-cli-8.3-linux-amd64.json",
+        "sha256": "ddaa2b2be20b60d14f234f46a6c6eeac4adcbb8317520188660c14d3cd40e5a0"
+      },
+      {
+        "bytes": 4992,
+        "path": "content/children/php-cli-8.3-linux-arm64.json",
+        "sha256": "e31f8a773f393e1831b135248a1b9e8a482f9d5c6077362e3927b221bfc602e7"
+      },
+      {
+        "bytes": 4989,
+        "path": "content/children/php-cli-8.4-linux-amd64.json",
+        "sha256": "444bbefce319330f43b64e80bc7bb7ca94a0389e7712a84bc2f3e1a490dda11e"
+      },
+      {
+        "bytes": 4992,
+        "path": "content/children/php-cli-8.4-linux-arm64.json",
+        "sha256": "193c44ff5c84acc52c5a44e00ecaca08f09f0055bcb1355a6a07bc8c9ebc9240"
+      },
+      {
+        "bytes": 4989,
+        "path": "content/children/php-fpm-8.3-linux-amd64.json",
+        "sha256": "2fcebcf98a2d88dff978e37ba7bf7c8393c954e85867dc2211d91ee3b027da7d"
+      },
+      {
+        "bytes": 4991,
+        "path": "content/children/php-fpm-8.3-linux-arm64.json",
+        "sha256": "ffbedb173b408592f099ae22ff9366d7946a2ec8281a22ca17bd090bcf2fc302"
+      },
+      {
+        "bytes": 4989,
+        "path": "content/children/php-fpm-8.4-linux-amd64.json",
+        "sha256": "3770483d306f232228e0738bf3bb099e96ab565a1a5b9635679369bf887783c6"
+      },
+      {
+        "bytes": 4992,
+        "path": "content/children/php-fpm-8.4-linux-arm64.json",
+        "sha256": "6c44bd3a19ea2ee7a7a67ea2d4b06e4dc8890f3c8f30d8918d695e5d06e57db7"
+      },
+      {
+        "bytes": 6560,
+        "path": "content/children/php-frankenphp-8.3-linux-amd64.json",
+        "sha256": "ffea16fea8aef8a45bb4c65ce1ebc14856d6e83ab8bf7a55be0703f2997e9da9"
+      },
+      {
+        "bytes": 6563,
+        "path": "content/children/php-frankenphp-8.3-linux-arm64.json",
+        "sha256": "809ff34c592dd20779c0fa894e322d8a62f9a6decdb8f4f42286ce2cf584eb5b"
+      },
+      {
+        "bytes": 6560,
+        "path": "content/children/php-frankenphp-8.4-linux-amd64.json",
+        "sha256": "22317d2ca8e35184aaa97b0447988aa5be1fa08919c7f09f6816bcbbf1ccf46b"
+      },
+      {
+        "bytes": 6563,
+        "path": "content/children/php-frankenphp-8.4-linux-arm64.json",
+        "sha256": "9b3aded5e541da62360501ae0e5b1e73d2d6d58291d3f793d5f248b47c0fe425"
+      },
+      {
+        "bytes": 5003,
+        "path": "content/children/php-worker-8.3-linux-amd64.json",
+        "sha256": "2c1abf4781aa9f7695a3bfc1bee820460c7a5a355061c948e131aef17be3668e"
+      },
+      {
+        "bytes": 5006,
+        "path": "content/children/php-worker-8.3-linux-arm64.json",
+        "sha256": "4c52e3c7de7267b264aeffe3c52140382ec9658a10efa0da26a3eb1f33d3d641"
+      },
+      {
+        "bytes": 5003,
+        "path": "content/children/php-worker-8.4-linux-amd64.json",
+        "sha256": "e36bbb39b840e490b001e2463e04d47d2acf1d0afea2483a6daaaa68b2f270d9"
+      },
+      {
+        "bytes": 5006,
+        "path": "content/children/php-worker-8.4-linux-arm64.json",
+        "sha256": "80b126da0c2df9944d11d799ea90f81cad7f59de118aaad354f5ce574d1c9ff1"
+      },
+      {
+        "bytes": 1244,
+        "path": "content/policy/policy-digests.json",
+        "sha256": "f9ac03583b46032df0017d0b6670a9567cf3b9b8720fde713a0a1cf2e7445ea0"
+      },
+      {
+        "bytes": 827,
+        "path": "content/provenance/provenance.json",
+        "sha256": "f2ac217a03991d439c1bf3e90f21d1386c6ad12bccd13fbbd30da8c9f32577dd"
+      },
+      {
+        "bytes": 1477,
+        "path": "content/retention/retention.json",
+        "sha256": "6095e87ed9cef55700106dcb6db2517cbc8b1bcf7800b7464254062713c47962"
+      },
+      {
+        "bytes": 552368,
+        "path": "content/vex/openvex.json",
+        "sha256": "ae1de61196d772201d307ff2b07366a6bd73e1dc1921d92077bfbc07b67c2d23"
+      }
+    ],
+    "manifest_sha256": "eefdad220e474e04c8c6655b5ddcfdf78575e6260e661a0346b3e989d2f073b2",
+    "producers": [
+      {
+        "name": "scripts/release/emit-storage-receipt.sh",
+        "sha256": "afee2e70e83006d317f1d0ccff6bd0a7fcc3be0867b87c7bd0141731f67f865e"
+      }
+    ],
+    "retention_class": "staged-candidate",
+    "schemas": [
+      "foundry.post-build-authorization/v1"
+    ],
+    "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+  },
+  "readback": {
+    "at": "2026-08-30T18:54:19Z",
+    "checksum_match": true,
+    "files_expected": 28,
+    "files_verified": 28,
+    "manifest_sha256": "eefdad220e474e04c8c6655b5ddcfdf78575e6260e661a0346b3e989d2f073b2",
+    "network_isolated": false,
+    "performed": true
+  },
+  "record_type": "storage-receipt",
+  "request": {
+    "required_lock_mode": "none",
+    "required_min_retention_days": 90,
+    "required_retain_until": "2026-11-28T18:54:17Z",
+    "required_versioning": false
+  },
+  "schema": "foundry.storage-receipt/v1",
+  "schema_version": 1,
+  "storage": {
+    "audit_event_id": "MDg6QXJ0aWZhY3Q5NzM3MTgxNTI5",
+    "container": "zenchron-dynamics/zenchron-foundry",
+    "lock_mode": "none",
+    "object_checksum": {
+      "algorithm": "SHA256",
+      "value": "eefdad220e474e04c8c6655b5ddcfdf78575e6260e661a0346b3e989d2f073b2"
+    },
+    "object_key": "evidence-drill-bundle-33329370235-1",
+    "provider": "github-actions-artifact",
+    "region": "not-applicable",
+    "retain_until": "2026-11-28T18:54:06Z",
+    "uploaded_at": "2026-08-30T18:54:17Z",
+    "version_id": "9737181529",
+    "versioning": "not-applicable"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "at": "2026-08-30T18:54:36Z",
+  "bundle_id": "staged-candidate-7061caafb3ea-32395890071",
+  "commit": "84419f239a873c799ab3455990d5c55d256b2924",
+  "evidence_class": "staged-candidate",
+  "files_restored": 30,
+  "manifest_sha256": "f68e03193d6d1198875dbd5a8e842ca8fc2e93c85e12606734d04fe284a0201f",
+  "not_production_evidence": "This is a TRANSPORT AND RESTORATION drill. The bundle is built from a fixture authorization record and is NOT production evidence, NOT an accepted candidate and NOT a release.",
+  "receipt_sha256": "8167f52fe815d0ce471f01198e7900e14fd49fb9460b1d5c1dc30a4e1b06de83",
+  "restore_consumer": {
+    "exit": 0,
+    "name": "scripts/release/restore-evidence.sh",
+    "sha256": "fd929d9a66bfe8fcef38a5212096d2286ab7703dc62df069eb905f1784c2201b"
+  },
+  "result": "pass",
+  "run_id": "33329370235",
+  "schema": "foundry.evidence-restore-drill/v1",
+  "source_revision": "7061caafb3ea09bd5b2342a1daf022151b33f822"
+}

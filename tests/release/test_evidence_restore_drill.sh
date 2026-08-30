@@ -318,6 +318,48 @@ ck "the drill uses no external storage and names no provider" \
    "! grep -qiE '\\b(aws|s3|gcs|azure|bucket|backblaze|wasabi|minio)\\b' '$DRILL'"
 
 echo
+echo "== the committed readback record is real, and stays real ================="
+# #241 asks for a COMMITTED readback record, because the artifacts it describes
+# expire in 90 days and the fact that the round trip was observed should not
+# expire with them. It is a snapshot of one real run, not a substitute for the
+# drill: the drill runs on every pull request.
+
+REC=docs/audits/evidence-restore-drill-2026-08-30
+ck "the readback record exists and its own checksums verify" \
+   "[ -d '$REC' ] && ( cd '$REC' && shasum -a 256 -c SHA256SUMS >/dev/null 2>&1 )"
+RV="$(python3 -c "import json;print(json.load(open('docs/audits/evidence-restore-drill-2026-08-30/verdict.json'))['run_id'])")"
+RC="$(python3 -c "import json;print(json.load(open('docs/audits/evidence-restore-drill-2026-08-30/verdict.json'))['commit'])")"
+ck "its verdict is a real one, and the production consumer ACCEPTS it" \
+   "bash '$DRILL' consume --verdict '$REC/verdict.json' --run-id '$RV' --commit '$RC' >/dev/null 2>&1"
+ck "...and the same consumer REFUSES it for any other run" \
+   "! bash '$DRILL' consume --verdict '$REC/verdict.json' --run-id 1 --commit '$RC' >/dev/null 2>&1"
+ck "...and it says pass, names its restore consumer, and is not production evidence" \
+   "python3 -c \"
+import json
+v = json.load(open('$REC/verdict.json'))
+assert v['result'] == 'pass' and v['files_restored'] == 30, v
+assert v['restore_consumer']['name'] == 'scripts/release/restore-evidence.sh'
+assert v['restore_consumer']['exit'] == 0
+assert 'NOT production evidence' in v['not_production_evidence']
+assert v['evidence_class'] == 'staged-candidate'\""
+ck "the recorded receipt still verifies against the record shipped beside it" \
+   "python3 -c \"
+import json
+r = json.load(open('$REC/storage-receipt.json'))
+st = r['storage']
+assert st['provider'] == 'github-actions-artifact'
+assert st['lock_mode'] == 'none' and st['versioning'] == 'not-applicable'
+assert st['object_checksum']['value'] == r['bundle']['manifest_sha256']
+assert r['readback']['network_isolated'] is False
+import datetime
+u = datetime.datetime.fromisoformat(st['uploaded_at'].replace('Z','+00:00'))
+e = datetime.datetime.fromisoformat(st['retain_until'].replace('Z','+00:00'))
+assert (e.date() - u.date()).days == 90, (u, e)\""
+ck "the record states what it is NOT, where a reader will see it" \
+   "grep -q 'NOT production evidence' '$REC/README.md' \
+    && grep -q 'no network, no GitHub and no registry' '$REC/README.md'"
+
+echo
 echo "== the gate is REQUIRED, not optional ===================================="
 
 ck "the subsystem-coverage list names the drill" \
