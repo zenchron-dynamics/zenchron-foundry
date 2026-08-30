@@ -261,6 +261,18 @@ is a *request*; the receipt records what was *granted*, and
 is a GitHub Actions artifact: no lock, no versioning, no immutability, and the
 receipt says so rather than flattering it.
 
+**And that the bytes can be used, not merely fetched.** Two `ci.yml` jobs on two
+runners run a restore drill on every pull request: `evidence-drill-produce`
+builds a bundle with the production producer and uploads it;
+`evidence-drill-restore` starts on an empty runner, downloads it, **deletes the
+downloaded working copy**, archives it, restores by bundle id from the archive
+alone, re-verifies offline and compares every byte against an index taken before
+the upload. `repo structure` — a required check — consumes the resulting verdict
+and refuses when it is absent, unbound to this run and commit, or records no run
+of the restore consumer. The drill's bundle is built from a fixture
+authorization record: it proves transport and restoration, and it is not
+production evidence.
+
 There is no equivalent for `published-artifact` because nothing is published.
 That contract is specified and fixture-tested; it activates with a publication
 decision under #98.

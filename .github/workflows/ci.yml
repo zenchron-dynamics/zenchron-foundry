@@ -42,9 +42,166 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # #241 — THE RESTORE DRILL, in two jobs on two runners.
+  #
+  # The point is the boundary between them. A producer and a consumer sharing a
+  # directory proves nothing about whether evidence survives being uploaded and
+  # fetched back, which is the only durability this repository actually has. So
+  # `evidence-drill-produce` writes a bundle and uploads it, and
+  # `evidence-drill-restore` starts from an empty runner, downloads it, deletes
+  # the downloaded working copy, restores from the archive alone and compares
+  # every byte with what was handed over.
+  #
+  # It is CHEAP AND BUILDLESS: no image build, no pull, no scan, no acceptance
+  # dispatch, no release, no external storage, no credential beyond the
+  # read-only workflow token. The input is a committed acceptance record and a
+  # FIXTURE authorization record. The bundle it moves is NOT production evidence
+  # and every verdict it writes repeats that sentence.
+  #
+  # `repo structure` — a REQUIRED check — consumes the verdict, so a drill that
+  # fails, or that never produced a verdict, fails a required check rather than
+  # going unnoticed. That is why `structure` needs these jobs and runs with
+  # `if: always()`: a skipped job reports as success to branch protection, so a
+  # gate that depended on skipping would be a gate that cannot fail.
+  # ---------------------------------------------------------------------------
+  evidence-drill-produce:
+    name: evidence restore drill (produce)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read          # the artifacts API, to observe what was stored
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Build the drill bundle and index every uploaded byte
+        id: drill-produce
+        env:
+          DRILL_EVIDENCE: docs/audits/acceptance-multiarch-2026-08-20/acceptance-evidence.json
+          DRILL_OUT: drill/upload
+        run: |
+          set -uo pipefail
+          bash scripts/ci/evidence-restore-drill.sh produce \
+            --evidence "$DRILL_EVIDENCE" --out "$DRILL_OUT" || exit 1
+
+      - name: Upload the drill bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: evidence-drill-bundle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: drill/upload
+          # policies/retention.yaml, class `staged-candidate`: 90 days, may
+          # expire. The drill uses the real period so the thing being exercised
+          # is the real contract.
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Observe what the artifact authority actually stored
+        id: drill-observe
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ARTIFACT_NAME: evidence-drill-bundle-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -uo pipefail
+          mkdir -p drill
+          gh api --paginate "repos/${REPO}/actions/runs/${RUN_ID}/artifacts" \
+            > drill/artifacts.json 2> drill/artifacts.err || true
+          jq --arg n "$ARTIFACT_NAME" \
+            '[.artifacts[]? | select(.name == $n)] | first // {}' \
+            drill/artifacts.json > drill/observation.json 2>/dev/null \
+            || echo '{}' > drill/observation.json
+          cat drill/observation.json
+
+      - name: Read the uploaded bundle back
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: evidence-drill-bundle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: drill/readback
+
+      # Emitted from the copy that came BACK, and verified BEFORE it is uploaded.
+      # A receipt nobody checked is a claim, and a receipt about bytes nobody
+      # fetched is a claim about a claim.
+      - name: Emit and verify the storage receipt
+        id: drill-receipt
+        env:
+          DRILL_RECORD: drill/upload/record.json
+          DRILL_READBACK: drill/readback/bundle
+          DRILL_OBSERVATION: drill/observation.json
+          DRILL_RECEIPT: drill/receipt/storage-receipt.json
+          DRILL_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          bash scripts/ci/evidence-restore-drill.sh receipt \
+            --record "$DRILL_RECORD" --readback-dir "$DRILL_READBACK" \
+            --observation "$DRILL_OBSERVATION" --out "$DRILL_RECEIPT" \
+            --repository "$DRILL_REPOSITORY" || exit 1
+
+      - name: Upload the drill receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: evidence-drill-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: drill/receipt
+          retention-days: 90
+          if-no-files-found: error
+
+  evidence-drill-restore:
+    name: evidence restore drill (restore)
+    needs: [evidence-drill-produce]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # A FRESH RUNNER. Nothing from the producing job is on this filesystem
+      # except what is downloaded below.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Download the drill bundle
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: evidence-drill-bundle-${{ github.run_id }}-${{ github.run_attempt }}
+          path: restored/bundle-artifact
+      - name: Download the drill receipt
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: evidence-drill-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: restored/receipt-artifact
+
+      - name: Restore from the archive alone and compare every byte
+        id: drill-restore
+        env:
+          DRILL_BUNDLE_ARTIFACT: restored/bundle-artifact
+          DRILL_RECEIPT_ARTIFACT: restored/receipt-artifact
+          DRILL_WORK: restored/work
+          DRILL_VERDICT: restored/verdict/verdict.json
+          DRILL_RUN_ID: ${{ github.run_id }}
+          DRILL_COMMIT: ${{ github.sha }}
+        run: |
+          set -uo pipefail
+          bash scripts/ci/evidence-restore-drill.sh restore \
+            --bundle-artifact "$DRILL_BUNDLE_ARTIFACT" \
+            --receipt-artifact "$DRILL_RECEIPT_ARTIFACT" \
+            --work "$DRILL_WORK" --verdict "$DRILL_VERDICT" \
+            --run-id "$DRILL_RUN_ID" --commit "$DRILL_COMMIT" || exit 1
+
+      - name: Upload the drill verdict
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: evidence-drill-verdict-${{ github.run_id }}-${{ github.run_attempt }}
+          path: restored/verdict
+          retention-days: 90
+          if-no-files-found: error
+
   structure:
     name: repo structure
+    # `always()` so a failed drill produces a FAILED required check rather than
+    # a skipped one. GitHub reports a skipped job as success to branch
+    # protection; a gate that relied on skipping could not fail.
+    if: always()
+    needs: [evidence-drill-restore]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read          # to download the drill verdict
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         # FULL HISTORY, and it is load-bearing rather than convenient.
@@ -280,6 +437,32 @@ jobs:
       # passes every negative test and is worthless.
       - name: Evaluate the admission policies against real fixtures
         run: bash scripts/test-admission-policy.sh
+
+      # ----------------------------------------------------------------------
+      # #241 — CONSUME the restore drill's verdict. The drill runs in two other
+      # jobs; this is where a REQUIRED check reads their answer. `continue-on-
+      # error` on the download so that an ABSENT verdict is refused by our own
+      # named diagnostic instead of by the action, and so a drill that never
+      # finished cannot pass as "nothing to check".
+      # ----------------------------------------------------------------------
+      - name: Fetch the restore-drill verdict
+        continue-on-error: true
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: evidence-drill-verdict-${{ github.run_id }}-${{ github.run_attempt }}
+          path: drill-verdict
+
+      - name: Consume the restore-drill verdict
+        id: drill-consume
+        env:
+          DRILL_VERDICT: drill-verdict/verdict.json
+          DRILL_RUN_ID: ${{ github.run_id }}
+          DRILL_COMMIT: ${{ github.sha }}
+        run: |
+          set -uo pipefail
+          bash scripts/ci/evidence-restore-drill.sh consume \
+            --verdict "$DRILL_VERDICT" --run-id "$DRILL_RUN_ID" \
+            --commit "$DRILL_COMMIT" || exit 1
 
   lint:
     name: lint (shell / yaml / md / dockerfile)
