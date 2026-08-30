@@ -1,0 +1,31 @@
+{
+    "artifacts": [
+        {
+            "created_at": "2026-08-30T18:54:37Z",
+            "digest": "sha256:a9bfd16041728997c147e7093385e806aa5b2e22f855439c0f54d5f91ed6bd99",
+            "expired": false,
+            "expires_at": "2026-11-28T18:54:06Z",
+            "id": 9737185426,
+            "name": "evidence-drill-verdict-33329370235-1",
+            "size_in_bytes": 699
+        },
+        {
+            "created_at": "2026-08-30T18:54:20Z",
+            "digest": "sha256:2e3de4880458aff212ac1bb6083e52e130812551418f1bcfbac4c4e2b51be36e",
+            "expired": false,
+            "expires_at": "2026-11-28T18:54:06Z",
+            "id": 9737182151,
+            "name": "evidence-drill-receipt-33329370235-1",
+            "size_in_bytes": 6668
+        },
+        {
+            "created_at": "2026-08-30T18:54:17Z",
+            "digest": "sha256:a2f36ee54c8f54a72d6531cd3693c4634b1a04afdb44980fac72afb662b7c947",
+            "expired": false,
+            "expires_at": "2026-11-28T18:54:06Z",
+            "id": 9737181529,
+            "name": "evidence-drill-bundle-33329370235-1",
+            "size_in_bytes": 83959
+        }
+    ]
+}

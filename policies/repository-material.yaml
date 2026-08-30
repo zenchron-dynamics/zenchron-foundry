@@ -63,21 +63,21 @@ tracked_issue: 120
 # supply-chain guard. Do not "tidy" it back into policies/.
 baseline:
   path_list: docs/licensing/repository-material-baseline.txt
-  path_list_sha256: 2135786b941b606d0185669cdf020e3c2c038d657ec24a0022f87b65417944e6
-  path_count: 1013
+  path_list_sha256: d9750f329242245f432cb1bddbfb6341b5f6c0eb4bf209e3ea3a818943b0ecde
+  path_count: 1019
   # WHERE THE LIST CAME FROM. Generating a path list is not reviewing it, so
   # this is a SEPARATE field from reviewed_at_revision, and the gate refuses if
   # the two are equal while any path is recorded unreviewed.
-  observed_at_revision: 5638ebece4beb095aa05efe254028750298554dc
+  observed_at_revision: 84419f239a873c799ab3455990d5c55d256b2924
   # WHAT WAS ACTUALLY REVIEWED. This describes the REVIEWED COHORT only. It is
   # deliberately NOT advanced by the lane-S, lane-V or lane-W refreshes: those
   # added paths to the list, and adding a path to a list is not reading it.
   reviewed_at_revision: ac1155716e7b244cca6dd3ecbaa89d467a71732c
   reviewed_by: lane-R-repository-material-review
   reviewed_on: '2026-08-27'
-  reviewed_count: 974
+  reviewed_count: 976
   unreviewed_count: 5
-  generated_audit_count: 34
+  generated_audit_count: 38
   cohort_note: >-
     Three cohorts, validated by scripts/license/assert-repository-material.sh
     (RM-BASELINE-COHORT-INVALID): they must be disjoint, every listed path must
@@ -99,6 +99,10 @@ baseline:
     - docs/audits/real-image-inventories-2026-08-28/rerun-against-fixed-consumer.md
     - docs/licensing/repository-material-baseline-refresh-2026-08-28.md
   generated_audit_paths:
+    - docs/audits/evidence-restore-drill-2026-08-30/SHA256SUMS
+    - docs/audits/evidence-restore-drill-2026-08-30/artifact-observations.json
+    - docs/audits/evidence-restore-drill-2026-08-30/storage-receipt.json
+    - docs/audits/evidence-restore-drill-2026-08-30/verdict.json
     - docs/audits/real-image-inventories-2026-08-28/SHA256SUMS
     - docs/audits/real-image-inventories-2026-08-28/licence/composed-authorization-validation.log
     - docs/audits/real-image-inventories-2026-08-28/licence/identifier-reconciliation.json
