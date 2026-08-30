@@ -163,7 +163,7 @@ is nothing to restore.
 **Reopening #120 is not appropriate.** #120 is about licence policy, inventory,
 notices and gating, and all of it is merged and consumed. Durable evidence
 retention is a different control with a different owner, and it is filed as its
-own bounded issue.
+own bounded issue: **#241**.
 
 ## 9. Files
 
