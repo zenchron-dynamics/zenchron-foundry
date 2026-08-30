@@ -9,7 +9,10 @@
 > the fixed consumer without regenerating anything: **the binding gate now
 > passes, 20/20 children bound**, and the composed repository half passes. The
 > composed verdict is still REFUSED, but on measured licence content rather than
-> on plumbing. Sections 1 through 3 and 7 below are unaffected and still current.
+> on plumbing. Sections 1 through 3 below are unaffected and still current.
+> **Section 7 is NOT**: its expiry claim was measured false on 2026-08-30 and
+> carries a correction in place — see `docs/audits/evidence-retention-2026-08-30/`
+> and issue #241.
 
 This is the run record for a *buildless* attempt to produce real image package
 inventories for every child of the accepted multi-architecture run
