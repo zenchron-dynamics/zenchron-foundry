@@ -377,6 +377,7 @@ docs/licensing/repository-material-baseline-refresh-2026-08-28.md
 docs/licensing/repository-material-baseline-refresh-2026-08-29-n1.md
 docs/licensing/repository-material-baseline-refresh-2026-08-30-retention-arch.md
 docs/licensing/repository-material-baseline-refresh-2026-08-30-retention.md
+docs/licensing/repository-material-baseline-refresh-2026-08-30-staged-path.md
 docs/licensing/repository-material-baseline.txt
 docs/licensing/repository-material.md
 docs/local-validation.md
@@ -660,6 +661,7 @@ scripts/release/assert-evidence-class.sh
 scripts/release/assert-native-arch-evidence.sh
 scripts/release/authorize-staged-candidates.sh
 scripts/release/build-acceptance-matrix.sh
+scripts/release/emit-storage-receipt.sh
 scripts/release/evidence-checksum.sh
 scripts/release/generate-evidence-bundle.sh
 scripts/release/generate-vex.sh
@@ -778,6 +780,7 @@ tests/release/test_release_binding.sh
 tests/release/test_release_seal.sh
 tests/release/test_seal_path.sh
 tests/release/test_stage_authorize_wiring.sh
+tests/release/test_staged_storage_path.sh
 tests/release/test_staging_exporter.sh
 tests/release/test_storage_receipt.sh
 tests/release/test_upstream_ownership.sh

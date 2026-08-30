@@ -221,6 +221,15 @@ jobs:
       - name: Gate — evidence storage receipt contract (#241 phase A)
         run: bash tests/release/test_storage_receipt.sh
 
+      # Phase A above is the CONTRACT, proven against fixtures. This is the
+      # ACTIVE PATH: it parses stage-and-authorize.yml, executes the receipt
+      # step's own body, and refuses an 89-day artifact, a missing or malformed
+      # authority observation, evidence that came back changed or incomplete,
+      # and a receipt nobody consumed. A GitHub Actions artifact is the only
+      # mechanism in scope — no bucket, no lock, no publication.
+      - name: Gate — staged evidence storage path (#241 phase D)
+        run: bash tests/release/test_staged_storage_path.sh
+
       - name: Gate — CRA control set
         run: bash scripts/cra/assert-cra-controls.sh
 

@@ -250,6 +250,21 @@ remain restorable and re-verifiable, and where.
 | `published-artifact` | published + supported | support end + 180 d + 90 d | no |
 | *(regulated)* | — | only on a named external obligation | opt-in |
 
+**What enforces this on the path that runs today.** The `authorize` job of
+`stage-and-authorize.yml` observes what the artifact authority actually stored —
+`id`, `node_id`, `created_at`, `expires_at`, read back from the artifacts API —
+reads the uploaded evidence back, re-verifies every file against the manifest
+sealed into it, and verifies a `foundry.storage-receipt/v1` record built from
+those two things. A refusal fails the job. `retention-days: 90` in the workflow
+is a *request*; the receipt records what was *granted*, and
+`verify-storage-receipt.sh` compares that against the table above. The mechanism
+is a GitHub Actions artifact: no lock, no versioning, no immutability, and the
+receipt says so rather than flattering it.
+
+There is no equivalent for `published-artifact` because nothing is published.
+That contract is specified and fixture-tested; it activates with a publication
+decision under #98.
+
 Retention follows the lifecycle of the thing the evidence is about. A staged
 candidate is private and undistributed, so its evidence may expire; a supported
 release has recipients, so its *irreproducible* decision evidence — scan

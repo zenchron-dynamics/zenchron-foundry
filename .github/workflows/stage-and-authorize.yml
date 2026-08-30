@@ -954,6 +954,9 @@ jobs:
           # another — 20 planned children, at most 10 distinct records.
           name: child-${{ steps.id.outputs.slug }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: evidence/out/
+          # policies/retention.yaml, class `foundry-child`: 90 days,
+          # `may_expire: true`. Transport retention for undistributed evidence.
+          retention-days: 90
           if-no-files-found: error
 
   # -------------------------------------------------------------------------
@@ -1442,6 +1445,90 @@ jobs:
         with:
           name: post-build-authorization-${{ github.run_id }}-${{ github.run_attempt }}
           path: authorization/
+          # policies/retention.yaml, class `staged-candidate`, model
+          # `repository-artifact`: 90 days, `may_expire: true`. Stated here
+          # rather than inherited from the repository default, so the period is
+          # visible in the file that does the uploading. This is TRANSPORT
+          # retention for undistributed evidence. It is not durable storage, it
+          # is not immutable, and it is allowed to expire.
+          retention-days: 90
+          if-no-files-found: error
+
+      # ---------------------------------------------------------------------
+      # #241 PHASE D, ACTIVE STAGED PATH ONLY.
+      #
+      # The three steps below close the gap between "we uploaded evidence" and
+      # "we know what happened to it". They cover the mechanism that is ACTUALLY
+      # IN USE — a GitHub Actions artifact — and nothing else. No external
+      # storage, no object lock, no WORM, no release asset and no publication is
+      # involved, claimed or implied.
+      #
+      # The point of the observe step is that a `retention-days:` above is a
+      # REQUEST. An organisation policy can cap it lower and the workflow would
+      # never notice. So the receipt records the expiry the ARTIFACT AUTHORITY
+      # reported, and the verifier compares that against policy. A number we
+      # asked for is not a number we got.
+      # ---------------------------------------------------------------------
+      - name: Observe what the artifact authority actually stored
+        id: evidence-storage-observe
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ARTIFACT_NAME: post-build-authorization-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -uo pipefail
+          mkdir -p storage
+          # Written even when the query fails, so the next step refuses with a
+          # named diagnostic instead of tripping over a missing file.
+          gh api --paginate "repos/${REPO}/actions/runs/${RUN_ID}/artifacts" \
+            > storage/artifacts.json 2> storage/artifacts.err || true
+          jq --arg n "$ARTIFACT_NAME" \
+            '[.artifacts[]? | select(.name == $n)] | first // {}' \
+            storage/artifacts.json > storage/observation.json 2>/dev/null \
+            || echo '{}' > storage/observation.json
+          echo "observation:"; cat storage/observation.json
+
+      - name: Read the uploaded evidence back
+        id: evidence-storage-readback
+        if: always()
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          name: post-build-authorization-${{ github.run_id }}-${{ github.run_attempt }}
+          path: storage/readback
+
+      # CONSUMED, not merely produced. The receipt is verified here, in the job
+      # that made it, and a refusal fails this job. An emitted-but-unread receipt
+      # would be the same fail-open shape as an unread scan report.
+      - name: Verify the storage receipt for the staged evidence
+        id: evidence-storage-receipt
+        if: always()
+        env:
+          RECEIPT_RECORD: authorization/post-build-authorization.json
+          RECEIPT_OBSERVATION: storage/observation.json
+          RECEIPT_READBACK: storage/readback
+          RECEIPT_OUT: storage/storage-receipt.json
+          RECEIPT_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          bash scripts/release/emit-storage-receipt.sh \
+            --authorization "$RECEIPT_RECORD" \
+            --observation "$RECEIPT_OBSERVATION" \
+            --readback-dir "$RECEIPT_READBACK" \
+            --evidence-class staged-candidate \
+            --repository "$RECEIPT_REPOSITORY" \
+            --out "$RECEIPT_OUT" || exit 1
+          bash scripts/release/verify-storage-receipt.sh "$RECEIPT_OUT" \
+            --authorization "$RECEIPT_RECORD" || exit 1
+
+      - name: Upload the storage receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: storage-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: storage/storage-receipt.json
+          retention-days: 90
           if-no-files-found: error
 
       - name: Summary
