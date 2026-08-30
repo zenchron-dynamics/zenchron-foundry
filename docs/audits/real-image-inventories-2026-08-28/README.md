@@ -9,7 +9,10 @@
 > the fixed consumer without regenerating anything: **the binding gate now
 > passes, 20/20 children bound**, and the composed repository half passes. The
 > composed verdict is still REFUSED, but on measured licence content rather than
-> on plumbing. Sections 1 through 3 and 7 below are unaffected and still current.
+> on plumbing. Sections 1 through 3 below are unaffected and still current.
+> **Section 7 is NOT**: its expiry claim was measured false on 2026-08-30 and
+> carries a correction in place — see `docs/audits/evidence-retention-2026-08-30/`
+> and issue #241.
 
 This is the run record for a *buildless* attempt to produce real image package
 inventories for every child of the accepted multi-architecture run
@@ -218,6 +221,16 @@ verdict over a partial matrix reports clean for the images it happened to see
 ```
 
 ## 7. The authorization record is deliberately not committed
+
+> **CORRECTED 2026-08-30 — the expiry claim below is FALSE.** A read-only probe
+> of the GitHub API found the accepted run's artifacts **live**, not expired: the
+> repository setting is **90 days**, not 30, and
+> `post-build-authorization-32395890071-1` is retained until **2026-11-18**. It
+> was downloaded intact during that audit. The reconstruction described below is
+> a faithful one, but the reason given for needing it was never checked. See
+> `docs/audits/evidence-retention-2026-08-30/` and issue #241. The paragraph is
+> left standing rather than edited away, because a record that quietly corrects
+> itself teaches nobody what went wrong.
 
 The accepted run's own `post-build-authorization.json` was a 30-day workflow
 artifact and has expired. It was reconstructed for this run by the **shipped**

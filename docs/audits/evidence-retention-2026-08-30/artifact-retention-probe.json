@@ -1,0 +1,328 @@
+{
+ "accepted_run": {
+  "conclusion": "success",
+  "created_at": "2026-08-20T17:07:57Z",
+  "head_sha": "7061caafb3ea09bd5b2342a1daf022151b33f822",
+  "id": 32395890071,
+  "run_attempt": 1,
+  "workflow": "stage-and-authorize"
+ },
+ "artifacts": {
+  "count": 42,
+  "entries": [
+   {
+    "created_at": "2026-08-20T17:56:34Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-caddy-prod-linux-amd64-32395890071-1",
+    "size_in_bytes": 36856
+   },
+   {
+    "created_at": "2026-08-21T00:32:51Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-caddy-prod-linux-arm64-32395890071-1",
+    "size_in_bytes": 36947
+   },
+   {
+    "created_at": "2026-08-20T17:54:39Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-nginx-prod-linux-amd64-32395890071-1",
+    "size_in_bytes": 65547
+   },
+   {
+    "created_at": "2026-08-21T00:30:53Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-nginx-prod-linux-arm64-32395890071-1",
+    "size_in_bytes": 65539
+   },
+   {
+    "created_at": "2026-08-20T17:13:46Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-cli-8.3-linux-amd64-32395890071-1",
+    "size_in_bytes": 77846
+   },
+   {
+    "created_at": "2026-08-20T18:50:50Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-cli-8.3-linux-arm64-32395890071-1",
+    "size_in_bytes": 77842
+   },
+   {
+    "created_at": "2026-08-20T17:19:17Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-cli-8.4-linux-amd64-32395890071-1",
+    "size_in_bytes": 77856
+   },
+   {
+    "created_at": "2026-08-20T19:40:55Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-cli-8.4-linux-arm64-32395890071-1",
+    "size_in_bytes": 77848
+   },
+   {
+    "created_at": "2026-08-20T17:24:31Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-fpm-8.3-linux-amd64-32395890071-1",
+    "size_in_bytes": 79208
+   },
+   {
+    "created_at": "2026-08-20T20:32:40Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-fpm-8.3-linux-arm64-32395890071-1",
+    "size_in_bytes": 79258
+   },
+   {
+    "created_at": "2026-08-20T17:29:31Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-fpm-8.4-linux-amd64-32395890071-1",
+    "size_in_bytes": 79212
+   },
+   {
+    "created_at": "2026-08-20T21:20:06Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-fpm-8.4-linux-arm64-32395890071-1",
+    "size_in_bytes": 79244
+   },
+   {
+    "created_at": "2026-08-20T17:46:35Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-frankenphp-8.3-linux-amd64-32395890071-1",
+    "size_in_bytes": 135067
+   },
+   {
+    "created_at": "2026-08-20T23:44:26Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-frankenphp-8.3-linux-arm64-32395890071-1",
+    "size_in_bytes": 135338
+   },
+   {
+    "created_at": "2026-08-20T17:51:56Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-frankenphp-8.4-linux-amd64-32395890071-1",
+    "size_in_bytes": 135045
+   },
+   {
+    "created_at": "2026-08-21T00:27:15Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-frankenphp-8.4-linux-arm64-32395890071-1",
+    "size_in_bytes": 135327
+   },
+   {
+    "created_at": "2026-08-20T17:35:38Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-worker-8.3-linux-amd64-32395890071-1",
+    "size_in_bytes": 78743
+   },
+   {
+    "created_at": "2026-08-20T22:13:24Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-worker-8.3-linux-arm64-32395890071-1",
+    "size_in_bytes": 78731
+   },
+   {
+    "created_at": "2026-08-20T17:40:38Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-worker-8.4-linux-amd64-32395890071-1",
+    "size_in_bytes": 78731
+   },
+   {
+    "created_at": "2026-08-20T23:03:38Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "child-php-worker-8.4-linux-arm64-32395890071-1",
+    "size_in_bytes": 78725
+   },
+   {
+    "created_at": "2026-08-21T00:33:17Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "post-build-authorization-32395890071-1",
+    "size_in_bytes": 1730870
+   },
+   {
+    "created_at": "2026-08-20T17:08:58Z",
+    "expired": true,
+    "expires_at": "2026-08-21T17:08:51Z",
+    "name": "trivy-db-32395890071-1",
+    "size_in_bytes": 110249731
+   },
+   {
+    "created_at": "2026-08-20T17:24:34Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~3C57MA.dockerbuild",
+    "size_in_bytes": 122311
+   },
+   {
+    "created_at": "2026-08-20T17:56:36Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~6AD2HY.dockerbuild",
+    "size_in_bytes": 47130
+   },
+   {
+    "created_at": "2026-08-20T21:20:09Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~AYYXHS.dockerbuild",
+    "size_in_bytes": 133178
+   },
+   {
+    "created_at": "2026-08-20T20:32:43Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~BFY4OW.dockerbuild",
+    "size_in_bytes": 128330
+   },
+   {
+    "created_at": "2026-08-20T17:19:20Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~ERU6YY.dockerbuild",
+    "size_in_bytes": 119326
+   },
+   {
+    "created_at": "2026-08-20T17:40:42Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~F7WAPP.dockerbuild",
+    "size_in_bytes": 124415
+   },
+   {
+    "created_at": "2026-08-21T00:32:53Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~HM02OI.dockerbuild",
+    "size_in_bytes": 48001
+   },
+   {
+    "created_at": "2026-08-20T17:35:41Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~L60Y8X.dockerbuild",
+    "size_in_bytes": 119927
+   },
+   {
+    "created_at": "2026-08-20T19:40:58Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~L71BT6.dockerbuild",
+    "size_in_bytes": 129048
+   },
+   {
+    "created_at": "2026-08-20T17:51:59Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~LFI2BJ.dockerbuild",
+    "size_in_bytes": 133275
+   },
+   {
+    "created_at": "2026-08-21T00:27:18Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~PQZMAK.dockerbuild",
+    "size_in_bytes": 139878
+   },
+   {
+    "created_at": "2026-08-20T22:13:27Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~QBAZU6.dockerbuild",
+    "size_in_bytes": 127894
+   },
+   {
+    "created_at": "2026-08-20T17:54:42Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~QLU1WI.dockerbuild",
+    "size_in_bytes": 68864
+   },
+   {
+    "created_at": "2026-08-20T17:46:39Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~WKF2I3.dockerbuild",
+    "size_in_bytes": 130790
+   },
+   {
+    "created_at": "2026-08-20T18:50:54Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~X6KUFT.dockerbuild",
+    "size_in_bytes": 123180
+   },
+   {
+    "created_at": "2026-08-20T23:03:41Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~XAJN6P.dockerbuild",
+    "size_in_bytes": 130958
+   },
+   {
+    "created_at": "2026-08-21T00:30:56Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~XFNSFG.dockerbuild",
+    "size_in_bytes": 67012
+   },
+   {
+    "created_at": "2026-08-20T23:44:29Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~YTVC87.dockerbuild",
+    "size_in_bytes": 137786
+   },
+   {
+    "created_at": "2026-08-20T17:13:50Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~Z3XUOA.dockerbuild",
+    "size_in_bytes": 116471
+   },
+   {
+    "created_at": "2026-08-20T17:29:35Z",
+    "expired": false,
+    "expires_at": "2026-11-18T17:07:58Z",
+    "name": "zenchron-dynamics~zenchron-foundry~ZQR2NJ.dockerbuild",
+    "size_in_bytes": 124387
+   }
+  ],
+  "expired": 1,
+  "live": 41,
+  "total_bytes": 115941672
+ },
+ "configured_retention": {
+  "note": "per-step retention-days is unset on the evidence uploads, so they inherit the repository setting",
+  "organization": {
+   "days": 90,
+   "maximum_allowed_days": 400
+  },
+  "repository": {
+   "days": 90,
+   "maximum_allowed_days": 90
+  }
+ },
+ "method": "read-only GitHub REST API; nothing was created, deleted or re-run",
+ "probed_at": "2026-08-30T05:55:44Z",
+ "record_type": "evidence-retention-probe",
+ "repository": "zenchron-dynamics/zenchron-foundry",
+ "schema_version": 1
+}

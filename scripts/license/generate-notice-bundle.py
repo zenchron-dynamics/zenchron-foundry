@@ -115,16 +115,55 @@ STATUS_LEGAL = "legal-review-required"
 STATUS_NOPUB = "publication-authority-missing"
 
 
+# EVERY FINDING NAMES ITS OBLIGATION CLASS. A reconciliation that had to recover
+# this by parsing the diagnostic prose would be a second derivation of the same
+# fact, and the first thing to drift the next time a message is reworded.
+OBLIGATION_CLASS = {
+    "NB-DISPOSITION-MISSING": "licence-determination",
+    "NB-CONFLICT-UNRESOLVED": "licence-determination",
+    "NB-ATTESTATION-CONFLICT": "licence-determination",
+    "NB-LEGAL-REVIEW-REQUIRED": "licence-review",
+    "NB-IMAGE-MATERIAL-ABSENT": "copyright-notice",
+    "NB-IMAGE-MATERIAL-AMBIGUOUS": "copyright-notice",
+    "NB-IMAGE-MATERIAL-LEGAL-REVIEW": "copyright-notice",
+    "NB-ATTESTATION-NOT-IN-IMAGE": "copyright-notice",
+    "NB-SOURCE-OBLIGATION-UNRESOLVED": "corresponding-source",
+    "NB-LICENCE-TEXT-MISSING": "licence-text",
+    "NB-LICENCE-TEXT-HASH": "licence-text",
+    "NB-ATTESTATION-TEXT-MISSING": "licence-text",
+    "NB-NOTICE-MISSING": "upstream-notice",
+    "NB-NOTICE-HASH": "upstream-notice",
+    "NB-FILE-UNRESOLVED": "file-component-disposition",
+    "NB-FILE-INDEPENDENT-UNTREATED": "file-component-disposition",
+    "NB-ATTRIBUTION-UNSUPPORTED": "file-component-disposition",
+    "NB-PUBLICATION-AUTHORITY-MISSING": "publication-authority",
+}
+# Everything else is a defect in the EVIDENCE rather than an obligation about a
+# component: the inputs did not arrive, or they describe another candidate.
+EVIDENCE_INTEGRITY = "evidence-integrity"
+
+
 class Findings(object):
-    """Every refusal, with its code, in one place. Order is insertion order and
-    insertion order is deterministic because every loop below is over a sorted
-    collection."""
+    """Every refusal, with its code, its obligation class and — where the
+    refusal is about one component — that component. Order is insertion order
+    and insertion order is deterministic because every loop below is over a
+    sorted collection.
+
+    `component` is None on purpose for the project-scoped refusals: publication
+    authority is not about a package, and the file-component classes are about a
+    population of 7,972 paths rather than one of the 535. Recording None is what
+    lets the reconciliation assert that every OTHER finding names exactly one."""
 
     def __init__(self):
         self.items = []
 
-    def add(self, code, detail):
-        self.items.append({"code": code, "detail": detail})
+    def add(self, code, detail, component=None):
+        self.items.append({
+            "code": code,
+            "obligation_class": OBLIGATION_CLASS.get(code, EVIDENCE_INTEGRITY),
+            "component": component,
+            "detail": detail,
+        })
 
     def codes(self):
         return sorted({f["code"] for f in self.items})
@@ -394,7 +433,8 @@ def dispose(inv, attest_idx, store, policy_state, policy_default, f):
             f.add("NB-CONFLICT-UNRESOLVED",
                   "%s@%s: sources disagree about the licence (%s). A notice "
                   "rendered over a disagreement publishes an attribution nobody "
-                  "verified" % (name, ver, ", ".join(lics)))
+                  "verified" % (name, ver, ", ".join(lics)),
+                  component="%s@%s" % (name, ver))
             out.append({"name": name, "version": ver, "component_type":
                         "file" if is_file else "package", "source": None,
                         "licences": lics, "state": "conflict"})
@@ -408,7 +448,8 @@ def dispose(inv, attest_idx, store, policy_state, policy_default, f):
                       "OVERRIDE an observation, and a disagreement is a review "
                       "item, not a precedence rule"
                       % (name, ver, ", ".join(lics), att["attestation_id"],
-                         att["spdx_id"]))
+                         att["spdx_id"]),
+                      component="%s@%s" % (name, ver))
                 out.append({"name": name, "version": ver, "component_type":
                             "file" if is_file else "package", "source": None,
                             "licences": lics, "state": "attestation-conflict"})
@@ -424,7 +465,7 @@ def dispose(inv, attest_idx, store, policy_state, policy_default, f):
                   "asserted nothing, no upstream attestation covers it, and a "
                   "policy row cannot classify an identifier that does not exist. "
                   "A distributed component with no disposition cannot be given a "
-                  "notice" % (name, ver))
+                  "notice" % (name, ver), component="%s@%s" % (name, ver))
             out.append({"name": name, "version": ver, "component_type":
                         "file" if is_file else "package", "source": None,
                         "licences": [], "state": "no-disposition"})
@@ -440,16 +481,19 @@ def dispose(inv, attest_idx, store, policy_state, policy_default, f):
                 f.add("NB-LICENCE-TEXT-MISSING",
                       "%s@%s is licensed %s and no canonical text for %s is "
                       "carried. A redistributor owes the recipient the text of "
-                      "the licence it ships under" % (name, ver, i, i))
+                      "the licence it ships under" % (name, ver, i, i),
+                      component="%s@%s" % (name, ver))
         if "denied" in states:
             f.add("NB-LEGAL-REVIEW-REQUIRED",
-                  "%s@%s: %s is DENIED by policy" % (name, ver, ", ".join(ids)))
+                  "%s@%s: %s is DENIED by policy" % (name, ver, ", ".join(ids)),
+                  component="%s@%s" % (name, ver))
         if "legal-review-required" in states:
             f.add("NB-LEGAL-REVIEW-REQUIRED",
                   "%s@%s: %s needs legal review and has not had it. "
                   "legal-review-required is not a soft state — a component "
                   "sitting there is exactly as unshippable as a denied one"
-                  % (name, ver, ", ".join(ids)))
+                  % (name, ver, ", ".join(ids)),
+                  component="%s@%s" % (name, ver))
         d = {"name": name, "version": ver,
              "component_type": "file" if is_file else "package",
              "source": src, "licences": ids, "policy_states": states,
@@ -645,11 +689,13 @@ def check_image_materials(accdoc, root, binding, auth, attest_idx, allow_sub, f)
                       "class from a file the image carries; it is recorded beside "
                       "the gap and does not close it, because "
                       "defaults.may_substitute_for_in_image_material is false"
-                      % (r.get("component"), att["attestation_id"], att["spdx_id"]))
+                      % (r.get("component"), att["attestation_id"], att["spdx_id"]),
+                      component=r.get("component"))
             elif att and allow_sub:
                 continue
             f.add("NB-IMAGE-MATERIAL-ABSENT",
-                  "%s: %s" % (r.get("component"), why_of(r) or cls))
+                  "%s: %s" % (r.get("component"), why_of(r) or cls),
+                  component=r.get("component"))
         elif cls == "ambiguous":
             why = why_of(r)
             if not why:
@@ -659,10 +705,12 @@ def check_image_materials(accdoc, root, binding, auth, attest_idx, allow_sub, f)
                        if (g.get("outcome") or {}).get("state") == "ambiguous"]
                 why = (amb or [{}])[0].get("reason", "")
             f.add("NB-IMAGE-MATERIAL-AMBIGUOUS",
-                  "%s: %s" % (r.get("component"), why))
+                  "%s: %s" % (r.get("component"), why),
+                  component=r.get("component"))
         elif cls == "legal-review-required":
             f.add("NB-IMAGE-MATERIAL-LEGAL-REVIEW",
-                  "%s: %s" % (r.get("component"), why_of(r)))
+                  "%s: %s" % (r.get("component"), why_of(r)),
+                  component=r.get("component"))
 
     # --- the carried bytes must BE there and BE what was recorded ------------
     carried = (accdoc.get("carried_texts") or {}).get("files") or []
@@ -796,9 +844,101 @@ def check_source_obligations(so, f):
                   "rights holder can make (#98)"
                   % (c.get("binary"), c.get("binary_version"), c.get("source"),
                      c.get("source_version"),
-                     ", ".join(sorted(c.get("reciprocal") or [])), state))
+                     ", ".join(sorted(c.get("reciprocal") or [])), state),
+                  component="%s@%s" % (c.get("binary"), c.get("binary_version")))
         rows.append(row)
     return rows
+
+
+# -----------------------------------------------------------------------------
+# the reconciliation: implicated components -> findings, both directions
+# -----------------------------------------------------------------------------
+def reconcile(findings, accdoc, f):
+    """535 implicated components -> 723 findings, and the mapping is total in
+    BOTH directions or this refuses.
+
+    Two properties, and neither is worth anything without the other. A findings
+    list where some entry names no component hides a refusal nobody can act on;
+    a component list where some entry names no findings AND no explicit
+    zero-finding disposition hides a component nobody looked at. "0 findings"
+    and "not examined" are different sentences and this is where they are kept
+    apart."""
+    implicated = [str(r.get("component")) for r in accdoc.get("components") or []]
+    if len(set(implicated)) != len(implicated):
+        f.add("NB-RECONCILIATION-UNBALANCED",
+              "the in-image accounting names %d components and %d distinct ones; "
+              "a component listed twice reconciles to a number nobody can act on"
+              % (len(implicated), len(set(implicated))))
+    known = set(implicated)
+
+    by_component, unscoped, orphan = {}, [], []
+    for i, item in enumerate(findings):
+        c = item.get("component")
+        if c is None:
+            unscoped.append(i)
+            continue
+        if c not in known:
+            orphan.append((i, c))
+            continue
+        by_component.setdefault(c, []).append(i)
+
+    for i, c in orphan:
+        f.add("NB-RECONCILIATION-ORPHAN",
+              "finding %d (%s) names component %r, which is not in the implicated "
+              "set. A finding about a component nobody counted is a finding "
+              "outside the accounting"
+              % (i, findings[i]["code"], c))
+
+    rows = []
+    for c in implicated:
+        idx = by_component.get(c, [])
+        row = {"component": c, "finding_count": len(idx), "findings": idx,
+               "obligation_classes": sorted({findings[j]["obligation_class"]
+                                             for j in idx})}
+        if not idx:
+            # EXPLICIT, not implied by absence. A component with nothing owing is
+            # a disposition somebody can read; a component missing from the list
+            # is a component nobody examined, and the two must not look alike.
+            row["zero_finding_disposition"] = (
+                "examined by the notice producer over this candidate's evidence "
+                "and no obligation is outstanding for it")
+        rows.append(row)
+
+    classes = {}
+    for item in findings:
+        classes[item["obligation_class"]] = classes.get(item["obligation_class"], 0) + 1
+
+    scoped = sum(r["finding_count"] for r in rows)
+    if scoped + len(unscoped) + len(orphan) != len(findings):
+        f.add("NB-RECONCILIATION-UNBALANCED",
+              "%d finding(s) went in; %d reconciled to a component, %d are "
+              "project-scoped and %d are orphaned"
+              % (len(findings), scoped, len(unscoped), len(orphan)))
+    if len(rows) != len(implicated):
+        f.add("NB-RECONCILIATION-UNBALANCED",
+              "%d implicated component(s) and %d reconciliation rows"
+              % (len(implicated), len(rows)))
+
+    return {
+        "model": "foundry.notice-reconciliation/v1",
+        "implicated_components": len(implicated),
+        "findings_total": len(findings),
+        "findings_component_scoped": scoped,
+        "findings_project_scoped": len(unscoped),
+        "findings_orphaned": len(orphan),
+        "components_with_findings": sum(1 for r in rows if r["finding_count"]),
+        "components_with_zero_findings": sum(1 for r in rows if not r["finding_count"]),
+        "by_obligation_class": {k: classes[k] for k in sorted(classes)},
+        "project_scoped_findings": [
+            {"index": i, "code": findings[i]["code"],
+             "obligation_class": findings[i]["obligation_class"]}
+            for i in unscoped],
+        "invariant": ("every finding names exactly one obligation class, and "
+                      "either exactly one implicated component or an explicit "
+                      "project scope; every implicated component names all of "
+                      "its findings or an explicit zero-finding disposition"),
+        "components": rows,
+    }
 
 
 # -----------------------------------------------------------------------------
@@ -955,6 +1095,8 @@ def produce(args):
     # images may be distributed. Folding authority into the verdict would make
     # AR-PUBLICATION-AUTHORITY-MISSING unreachable: every bundle would already be
     # a draft for another reason and the independent refusal would never fire.
+    recon = reconcile(f.items, imgmat, f)
+
     codes = f.codes()
     engineering_codes = [c for c in codes
                          if c not in ("NB-LEGAL-REVIEW-REQUIRED",
@@ -972,6 +1114,9 @@ def produce(args):
 
     out = os.path.abspath(args.out_dir)
     os.makedirs(out, exist_ok=True)
+
+    with open(os.path.join(out, "reconciliation.json"), "w") as fh:
+        fh.write(json.dumps(recon, indent=1, sort_keys=True) + "\n")
 
     unresolved = {
         "schema": "foundry.notice-unresolved-obligations/v1",
@@ -1021,6 +1166,7 @@ def produce(args):
     for nm in sorted(("unresolved-obligations.json",
                       "source-obligation-manifest.json",
                       "licence-text-references.json",
+                      "reconciliation.json",
                       "THIRD-PARTY-NOTICES.txt")):
         artifacts[nm] = sha256_file(os.path.join(out, nm))
 
@@ -1058,6 +1204,7 @@ def produce(args):
         },
         "image_files": files,
         "in_image_materials": image_materials,
+        "reconciliation": {k: v for k, v in recon.items() if k != "components"},
         "repository_material": material,
         "upstream_notices_retained": notices,
         "licence_texts": {"count": len(store),
