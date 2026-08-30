@@ -219,6 +219,16 @@ verdict over a partial matrix reports clean for the images it happened to see
 
 ## 7. The authorization record is deliberately not committed
 
+> **CORRECTED 2026-08-30 — the expiry claim below is FALSE.** A read-only probe
+> of the GitHub API found the accepted run's artifacts **live**, not expired: the
+> repository setting is **90 days**, not 30, and
+> `post-build-authorization-32395890071-1` is retained until **2026-11-18**. It
+> was downloaded intact during that audit. The reconstruction described below is
+> a faithful one, but the reason given for needing it was never checked. See
+> `docs/audits/evidence-retention-2026-08-30/` and issue #241. The paragraph is
+> left standing rather than edited away, because a record that quietly corrects
+> itself teaches nobody what went wrong.
+
 The accepted run's own `post-build-authorization.json` was a 30-day workflow
 artifact and has expired. It was reconstructed for this run by the **shipped**
 fixture builder, `tests/lib/make_authorization_fixture.py`, so that no second
