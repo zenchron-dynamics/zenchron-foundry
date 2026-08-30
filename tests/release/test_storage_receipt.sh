@@ -178,6 +178,25 @@ ck "S1 SABOTAGE: under the repository period is still REFUSED" \
     && says 'SR-RETENTION-SHORT' && says '89 day'"
 ck "S2 SABOTAGE: exactly 90 days is accepted (the floor is inclusive)" \
    "mk s90 --retention-days 90; run '$TMP/s90.json' '$TMP/auth.json' --today 2026-09-01"
+# Found by the restore drill's FIRST real observation, not by reasoning. GitHub
+# stamps `expires_at` from when the upload started and `created_at` from when it
+# finished, so a genuine 90-day artifact arrives as 89 days and 23-something
+# hours. A timedelta truncated that to 89 and refused evidence nothing was wrong
+# with. The fix compares calendar dates; S1 above proves it did not become a
+# relaxation, because a real 89-day artifact still refuses.
+ck "S2 ...including one whose upload finished SECONDS after the expiry stamp" \
+   "mk skew --retention-days 90
+    python3 - '$TMP/skew.json' <<'PY'
+import datetime, json, sys
+d = json.load(open(sys.argv[1]))
+up = datetime.datetime.fromisoformat(
+    d['storage']['uploaded_at'].replace('Z', '+00:00'))
+d['storage']['retain_until'] = (up + datetime.timedelta(days=90, seconds=-4)) \
+    .isoformat().replace('+00:00', 'Z')
+json.dump(d, open(sys.argv[1], 'w'))
+PY
+    run '$TMP/skew.json' '$TMP/auth.json' --today 2026-09-01 \
+    && says 'retained 90 day'"
 
 echo
 echo "== PUBLISHED: retention binds to the release lifecycle plus its buffers ==="
