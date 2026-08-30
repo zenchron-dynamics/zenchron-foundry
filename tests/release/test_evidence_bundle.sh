@@ -104,18 +104,37 @@ ck "retention is stated for every declared class — no class without a promise"
 enum=set(json.load(open(\"$SCHEMA\"))[\"properties\"][\"evidence_class\"][\"enum\"])
 r=set(c[\"evidence_class\"] for c in yaml.safe_load(open(\"$RETENTION\"))[\"classes\"])
 sys.exit(0 if enum<=r else 1)'"
-ck "the durable classes require immutable storage" \
+# CORRECTED 2026-08-30. This asserted that staged-candidate and
+# published-artifact REQUIRE immutable storage. That requirement was never
+# authorized (commit 6413eb51 / PR #207, zero reviews) and had no legal,
+# contractual or customer basis; the maintainer replaced it with a lifecycle
+# model. The assertion now holds the CORRECTED invariant, which is stronger in
+# the direction that matters: WORM is opt-in and cannot be assigned silently.
+ck "no shipped class requires immutable storage, and WORM is opt-in only" \
    "python3 -c 'import yaml,sys
-cs={c[\"evidence_class\"]:c for c in yaml.safe_load(open(\"$RETENTION\"))[\"classes\"]}
-sys.exit(0 if all(cs[k][\"immutable_storage_required\"] for k in (\"staged-candidate\",\"published-artifact\")) else 1)'"
+d=yaml.safe_load(open(\"$RETENTION\"))
+m=d[\"retention_models\"]
+ok=all(c[\"immutable_storage_required\"] is False for c in d[\"classes\"])
+ok=ok and all(m[c[\"retention_model\"]][\"worm_required\"] is False for c in d[\"classes\"])
+ok=ok and d[\"regulated_retention\"][\"default\"] is False
+ok=ok and d[\"regulated_retention\"][\"applies_to_classes\"]==[]
+sys.exit(0 if ok else 1)'"
 ck "deletion is never automatic" \
    "python3 -c 'import yaml,sys;sys.exit(0 if yaml.safe_load(open(\"$RETENTION\"))[\"deletion\"][\"automatic\"] is False else 1)'"
 ck "verification is declared to need no network and no GitHub" \
    "python3 -c 'import yaml,sys
 v=yaml.safe_load(open(\"$RETENTION\"))[\"verification\"]
 sys.exit(0 if v[\"offline\"] and not v[\"network_required\"] and not v[\"github_required\"] else 1)'"
-ck "at least two independent durable locations are required" \
-   "[ \"\$(python3 -c 'import yaml;print(yaml.safe_load(open(\"$RETENTION\"))[\"storage\"][\"minimum_independent_locations\"])')\" -ge 2 ]"
+# CORRECTED 2026-08-30. `minimum_independent_locations: 2` was unconditional and
+# came from the same unratified set as the seven-year rule. It is now a property
+# of the retention MODEL: only regulated-worm needs a second location, and no
+# shipped class uses that model.
+ck "a second independent location is required ONLY by the regulated-worm model" \
+   "python3 -c 'import yaml,sys
+m=yaml.safe_load(open(\"$RETENTION\"))[\"retention_models\"]
+sys.exit(0 if m[\"regulated-worm\"][\"minimum_independent_locations\"]>=2
+         and m[\"repository-artifact\"][\"minimum_independent_locations\"]==1
+         and m[\"supported-release-lifetime\"][\"minimum_independent_locations\"]==1 else 1)'"
 
 # --- the legacy class declaration is CONSUMED, not guessed -------------------
 # policies/evidence-classes.yaml pins the accepted record's class to its bytes.
@@ -254,8 +273,16 @@ ck "R9 a retain_until is recorded and is in the future" \
    "python3 -c 'import datetime,json,sys
 m=json.load(open(\"$TMP/restored/manifest.json\"))
 sys.exit(0 if datetime.date.fromisoformat(m[\"retention\"][\"retain_until\"])>datetime.date(2026,8,25) else 1)'"
-ck "R10 staged-candidate retention outlives GitHub's 90-day artifact ceiling" \
-   "[ \"\$(python3 -c 'import json;print(json.load(open(\"$TMP/restored/manifest.json\"))[\"retention\"][\"retention_days\"])')\" -gt 90 ]"
+# CORRECTED 2026-08-30. This asserted that staged-candidate retention must
+# OUTLIVE GitHub's 90-day ceiling. It encoded the unapproved seven-year rule:
+# a staged candidate is private and undistributed, its evidence may expire, and
+# the repository period is the mechanism actually available. The assertion now
+# holds the corrected invariant.
+ck "R10 staged-candidate retention is the repository period, and may expire" \
+   "[ \"\$(python3 -c 'import json;print(json.load(open(\"$TMP/restored/manifest.json\"))[\"retention\"][\"retention_days\"])')\" = 90 ] \
+    && python3 -c 'import yaml,sys
+c={x[\"evidence_class\"]:x for x in yaml.safe_load(open(\"$RETENTION\"))[\"classes\"]}[\"staged-candidate\"]
+sys.exit(0 if c[\"may_expire\"] is True and c[\"lifecycle\"]==\"unpublished\" else 1)'"
 
 # --- retention sabotage ------------------------------------------------------
 cp -r "$TMP/restored" "$TMP/stray"

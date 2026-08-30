@@ -25,6 +25,11 @@ MUTATIONS = (
     "wrong-candidate", "wrong-digest", "wrong-platform", "wrong-revision",
     "unbound", "authority-unavailable", "encryption-off", "unknown-class",
     "expiry-before-support", "required-not-met",
+    # lifecycle model cases (2026-08-30 correction)
+    "no-release-binding", "release-short", "already-expired", "bad-model",
+    # published-bundle independence (2026-08-30)
+    "published-no-evidence", "published-verdict-not-carried",
+    "published-auth-not-carried", "published-references-transient",
 )
 
 
@@ -33,7 +38,16 @@ def main():
     ap.add_argument("--authorization", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--mutate", choices=MUTATIONS, default="none")
-    ap.add_argument("--retention-days", type=int, default=2555)
+    ap.add_argument("--retention-days", type=int, default=90)
+    ap.add_argument("--retention-class", default="staged-candidate")
+    ap.add_argument("--lock-mode", default="none",
+                    choices=("none", "governance", "compliance"))
+    ap.add_argument("--versioning", default="not-applicable",
+                    choices=("enabled", "suspended", "disabled", "not-applicable"))
+    ap.add_argument("--published-evidence", action="store_true",
+                    help="compose the published-artifact evidence INTO the bundle")
+    ap.add_argument("--supported-until", default=None,
+                    help="set to make this a supported-release-lifetime receipt")
     ap.add_argument("--uploaded-at", default="2026-08-20T17:10:00Z")
     a = ap.parse_args()
 
@@ -59,8 +73,8 @@ def main():
         "schema_version": 1,
         "bundle": {
             "bundle_id": "staged-candidate-%s" % auth.get("source_revision", "0" * 40)[:12],
-            "evidence_class": "staged-candidate",
-            "retention_class": "staged-candidate",
+            "evidence_class": a.retention_class,
+            "retention_class": a.retention_class,
             "source_revision": auth.get("source_revision"),
             "authorization_record_sha256": auth_sha,
             "manifest_sha256": manifest_sha,
@@ -78,9 +92,10 @@ def main():
         },
         "request": {
             "required_retain_until": retain.isoformat().replace("+00:00", "Z"),
-            "required_lock_mode": "compliance",
+            "required_lock_mode": "compliance" if a.lock_mode == "compliance"
+                                  else "governance",
             "required_versioning": True,
-            "required_min_retention_days": 2555,
+            "required_min_retention_days": a.retention_days,
         },
         "storage": {
             "provider": "FIXTURE-provider-not-selected",
@@ -89,8 +104,8 @@ def main():
             "object_key": "staged-candidate/%s/bundle.tar" % auth.get("source_revision"),
             "version_id": "FIXTUREVERSIONID0001",
             "retain_until": retain.isoformat().replace("+00:00", "Z"),
-            "lock_mode": "compliance",
-            "versioning": "enabled",
+            "lock_mode": a.lock_mode,
+            "versioning": a.versioning,
             "encryption": {"at_rest": True, "algorithm": "AES256",
                            "key_management": "customer-managed",
                            "key_deletion_protection": True},
@@ -109,8 +124,73 @@ def main():
         },
     }
 
+    if a.published_evidence:
+        # The published bundle CARRIES its evidence: every sha256 named below is
+        # also a file in the bundle, which is what makes "carried" checkable.
+        verdicts = [{"child_key": c["child_key"], "sha256": "%064x" % (0x5CA4 + i)}
+                    for i, c in enumerate(children[:3])]
+        authsha = "%064x" % 0xA07
+        for v in verdicts:
+            files.append({"path": "content/scan/%s.trivy.json" % v["child_key"].replace("/", "-"),
+                          "sha256": v["sha256"], "bytes": 228458})
+        files.append({"path": "content/authorization/post-build-authorization.json",
+                      "sha256": authsha, "bytes": 44946})
+        rec_pe = {
+            "image_digests": [c["manifest_digest"] for c in children],
+            "scan_verdicts": verdicts,
+            "authorization_record_sha256": authsha,
+            "scanner": {"image": "anchore/syft",
+                        "digest": "sha256:" + "f9" * 32},
+            "vulnerability_database": {
+                "identity": "v2+updated:2026-08-20T13:14:11Z+next:2026-08-21T13:14:11Z",
+                "observed_at": "2026-08-20T13:14:11Z"},
+            "source_revision": auth.get("source_revision"),
+            "policy_identity": {"licence_policy_sha256": "%064x" % 0x11,
+                                "retention_policy_sha256": "%064x" % 0x12},
+            "ledger_identity": {"vulnerability_exceptions_sha256": "%064x" % 0x13},
+        }
+        rec["bundle"]["published_evidence"] = rec_pe
+        rec["bundle"]["files"] = files
+        rec["readback"]["files_expected"] = len(files)
+        rec["readback"]["files_verified"] = len(files)
+
+    if a.supported_until:
+        su = datetime.datetime.fromisoformat(a.supported_until.replace("Z", "+00:00"))
+        rec["bundle"]["release"] = {
+            "release": "v2026.07.24",
+            "supported_until": su.isoformat().replace("+00:00", "Z"),
+            "support_state": "active",
+        }
+
     m = a.mutate
-    if m == "retention-short":
+    pe = rec["bundle"].get("published_evidence")
+    if m == "published-no-evidence":
+        rec["bundle"].pop("published_evidence", None)
+    elif m == "published-verdict-not-carried" and pe:
+        # named, but its bytes are not in files[] — a reference wearing the word
+        pe["scan_verdicts"][0]["sha256"] = "%064x" % 0xDEAD
+    elif m == "published-auth-not-carried" and pe:
+        pe["authorization_record_sha256"] = "%064x" % 0xBEEF
+    elif m == "published-references-transient" and pe:
+        pe["transient_references"] = [
+            {"name": "child-caddy-prod-linux-amd64-32395890071-1",
+             "kind": "github-actions-artifact",
+             "expires_at": "2026-11-18T17:07:58Z"}]
+    elif m == "no-release-binding":
+        rec["bundle"].pop("release", None)
+    elif m == "release-short":
+        # retained past the class floor in days, but short of support end + buffer
+        rec["storage"]["retain_until"] = (up + datetime.timedelta(days=300)) \
+            .isoformat().replace("+00:00", "Z")
+    elif m == "already-expired":
+        past = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        rec["storage"]["uploaded_at"] = (past - datetime.timedelta(days=400)) \
+            .isoformat().replace("+00:00", "Z")
+        rec["storage"]["retain_until"] = past.isoformat().replace("+00:00", "Z")
+        rec["request"]["required_retain_until"] = past.isoformat().replace("+00:00", "Z")
+    elif m == "bad-model":
+        pass  # exercised by pointing at a policy whose class names an unknown model
+    elif m == "retention-short":
         short = up + datetime.timedelta(days=90)
         rec["storage"]["retain_until"] = short.isoformat().replace("+00:00", "Z")
     elif m == "required-not-met":

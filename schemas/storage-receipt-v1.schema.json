@@ -172,6 +172,178 @@
               }
             }
           }
+        },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Present for a class retained for a release's supported lifetime. Its absence is refused as SR-RELEASE-BINDING-ABSENT, because evidence cannot track a lifecycle it does not identify.",
+          "required": [
+            "release",
+            "supported_until"
+          ],
+          "properties": {
+            "release": {
+              "type": "string",
+              "minLength": 1
+            },
+            "supported_until": {
+              "type": "string",
+              "format": "date-time",
+              "description": "The support end for the LINE this release belongs to. The retain-until floor is this plus the deprecation and withdrawal notice buffers, so it is per-release and not a constant."
+            },
+            "support_state": {
+              "type": "string"
+            }
+          }
+        },
+        "published_evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The evidence a PUBLISHED release's retention is about. It must be COPIED, PROMOTED OR COMPOSED INTO this bundle \u2014 not pointed at. A published bundle that merely references a 90-day transport artifact inherits that artifact's lifetime, so the bundle would be incomplete long before the support commitment it justifies ends. `scan_verdicts` and `authorization_record_sha256` must appear in `bundle.files`, which is what makes 'carried' checkable rather than asserted. The image digests are references BY DESIGN: the registry is the durable identity and the bytes are regenerable from it.",
+          "required": [
+            "image_digests",
+            "scan_verdicts",
+            "authorization_record_sha256",
+            "scanner",
+            "vulnerability_database",
+            "source_revision",
+            "policy_identity",
+            "ledger_identity"
+          ],
+          "properties": {
+            "image_digests": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            },
+            "scan_verdicts": {
+              "type": "array",
+              "minItems": 1,
+              "description": "One per child, carried as bytes. Each sha256 must appear in bundle.files.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "child_key",
+                  "sha256"
+                ],
+                "properties": {
+                  "child_key": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              }
+            },
+            "authorization_record_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "scanner": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "image",
+                "digest"
+              ],
+              "properties": {
+                "image": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "digest": {
+                  "type": "string",
+                  "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+              }
+            },
+            "vulnerability_database": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "identity",
+                "observed_at"
+              ],
+              "description": "Identity and observation time only. The BYTES are deliberately not retained; see policies/retention.yaml vulnerability_database.",
+              "properties": {
+                "identity": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "observed_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            },
+            "source_revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "policy_identity": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": [
+                "licence_policy_sha256",
+                "retention_policy_sha256"
+              ],
+              "properties": {
+                "licence_policy_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "retention_policy_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            "ledger_identity": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": [
+                "vulnerability_exceptions_sha256"
+              ],
+              "properties": {
+                "vulnerability_exceptions_sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            "transient_references": {
+              "type": "array",
+              "description": "Any evidence this bundle POINTS AT rather than carries, together with when that thing expires. A non-empty list on a published class is refused: a bundle is only as durable as the shortest thing it depends on.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "expires_at"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "kind": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -206,7 +378,7 @@
       }
     },
     "storage": {
-      "description": "What the AUTHORITY observed after the write. Provider and region are recorded, never constrained.",
+      "description": "What the AUTHORITY observed after the write. Provider and region are recorded, never constrained. The WORM-specific properties \u2014 compliance lock mode, enabled versioning, encryption at rest \u2014 are MANDATORY ONLY for a class whose retention model is regulated-worm. Requiring them of ordinary evidence would refuse the mechanisms actually in use (a GitHub artifact and a release asset offer none of them), which is how a policy ends up describing a system nobody runs.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -214,14 +386,11 @@
         "region",
         "container",
         "object_key",
-        "version_id",
         "retain_until",
-        "lock_mode",
-        "versioning",
-        "encryption",
-        "object_checksum",
         "uploaded_at",
-        "audit_event_id"
+        "object_checksum",
+        "audit_event_id",
+        "version_id"
       ],
       "properties": {
         "provider": {
@@ -254,14 +423,16 @@
             "governance",
             "none"
           ],
-          "description": "compliance = no principal, including the account root, can shorten or delete before retain_until. governance = a privileged principal CAN bypass. `governance` is a retention control and is NOT immutability; calling it immutable is the misstatement this enum exists to prevent."
+          "description": "compliance = no principal, including the account root, can shorten or delete before retain_until. governance = a privileged principal CAN bypass. none = no lock, which is CORRECT and expected for repository-artifact and supported-release-lifetime classes. `governance` is a retention control and is NOT immutability; calling it immutable is the misstatement this enum exists to prevent."
         },
         "versioning": {
           "enum": [
             "enabled",
             "suspended",
-            "disabled"
-          ]
+            "disabled",
+            "not-applicable"
+          ],
+          "description": "not-applicable is legitimate for a mechanism that has no versioning, such as a GitHub release asset. The verifier requires `enabled` only for a regulated-worm class."
         },
         "encryption": {
           "type": "object",

@@ -1,110 +1,322 @@
-schema_version: 1
+schema_version: 2
 
 # =============================================================================
 # policies/retention.yaml — how long each class of release evidence must remain
 # verifiable, and where.
 # -----------------------------------------------------------------------------
-# THE DEFECT THIS EXISTS FOR (#128).
+# CORRECTION, 2026-08-30. Schema v1 of this file required 2,555 days (seven
+# years) of IMMUTABLE storage for `staged-candidate` and `published-artifact`.
+# That requirement was never authorized and had no identified legal,
+# contractual, customer or regulatory basis.
 #
-# scan-images.yml uploads scan and consolidated-result artifacts with 30-day
-# retention. A conformity assessment, a customer audit or an incident
-# reconstruction happens months or years later. On day 31 the release decision
-# for a shipped artifact becomes unreconstructible: the digests survive in the
-# registry, but WHY they were accepted — which scanner, which frozen database,
-# which exception records, which smoke results — does not.
+#   origin        commit 6413eb51, PR #207, merged 15 minutes after opening with
+#                 zero reviews and zero comments; the file was never touched again
+#   stated basis  "Seven years matches the longest realistic enterprise contract
+#                 and conformity retention obligation" — an estimate citing no
+#                 instrument
+#   driving issue #128 asked to "define retention periods by artifact class and
+#                 legal/customer need". The NEED WAS NEVER ESTABLISHED. A number
+#                 was chosen anyway, and later audit comments quoted it back as
+#                 though it were a requirement
+#   escalation    "compliance mode / no privileged bypass" was added later still,
+#                 in commit d693566, by an agent, without owner authorization
 #
-# "Keep the artifacts longer" is not the fix. GitHub's maximum artifact
-# retention is 90 days on this plan and artifact retention is not immutable
-# storage: a run can be deleted, a repository can be transferred. The fix is a
-# SELF-CONTAINED bundle that verifies with no network and no GitHub at all, and
-# a retention class that states, per evidence class, how long that bundle must
-# remain restorable and re-verifiable.
+# The full provenance is in docs/decisions/evidence-retention-architecture.md.
+# The maintainer selected the lifecycle model below on 2026-08-30.
 #
-# Retention classes are keyed to the artifact/evidence classes declared in
-# policies/evidence-classes.yaml. They are NOT invented here — this file states
-# durations and storage requirements for classes that already exist.
+# WHY THE OLD MODEL WAS ALSO INVERTED, which is the substantive reason to change
+# it and not merely a governance one:
+#
+#   * 85% of the volume it protected — 86.8 MB of SBOM bytes per accepted run —
+#     is REPRODUCIBLE. Given the immutable image digest and the pinned scanner
+#     identity, the bill of materials can be regenerated and checked against the
+#     recorded per-document sha256. Seven years of WORM storage for a cache of
+#     something recomputable buys nothing.
+#   * The one artifact that is genuinely IRREPRODUCIBLE — the vulnerability
+#     database snapshot the scan verdicts depend on — was retained for ONE DAY.
+#
+# So the old policy demanded the most expensive possible storage for the cheapest
+# possible evidence, and almost none for the evidence that cannot be recovered.
+#
+# THE MODEL: retention follows the LIFECYCLE of the thing the evidence is about.
+# Evidence for something that was never distributed may expire. Evidence for a
+# supported release lives as long as the support commitment plus its notice
+# periods. Longer-than-that WORM retention is available and is never the default.
 # =============================================================================
 
-# The evidence classes this policy assigns retention to. Every name here MUST be
-# a class declared in policies/evidence-classes.yaml. A name that is not a
-# declared class is a retention rule for something nobody can produce, and
-# scripts/release/restore-evidence.sh refuses it.
-classes:
-  - evidence_class: upstream-base
-    retention_days: 400
-    rationale: >-
-      An upstream-base observation establishes who owned a finding at the time a
-      child was built. It is needed to answer "was there a patched base
-      available on the day we shipped" for at least one annual review cycle.
+# --- lifecycle models --------------------------------------------------------
+# Each class names exactly one. Adding a model here without teaching
+# scripts/release/verify-storage-receipt.sh to enforce it is a retention rule
+# nothing checks.
+retention_models:
+  repository-artifact:
+    meaning: >-
+      Kept in the repository's own artifact store for the period that store
+      offers. Evidence in this model MAY EXPIRE, and that is an accepted outcome
+      rather than a defect, because nothing it describes was distributed to
+      anyone.
+    worm_required: false
     immutable_storage_required: false
+    minimum_independent_locations: 1
+  supported-release-lifetime:
+    meaning: >-
+      Kept for as long as the release it describes is supported, plus the notice
+      periods the support policy already promises. The retain-until date is
+      computed from the release's own support end, NOT from the date the bundle
+      was written.
+    worm_required: false
+    immutable_storage_required: false
+    minimum_independent_locations: 1
+  regulated-worm:
+    meaning: >-
+      Write-once storage for a stated period, available ONLY where a named
+      external obligation demands it. Never a default and never selected by an
+      engineer: see `regulated_retention` below.
+    worm_required: true
+    immutable_storage_required: true
+    minimum_independent_locations: 2
+
+classes:
+  # --- unpublished ----------------------------------------------------------
+  # Nothing in these three classes has been distributed. GitHub Actions artifacts
+  # are the transport and the cache, they are the only mechanism actually
+  # available, and 90 days is the repository's configured and maximum period.
+  #
+  # The previous 400-day figure for the two classes below was an unratified
+  # assumption of the same kind as the 2,555-day one, and it was also
+  # unachievable: no mechanism in use offers 400 days. Stating a period the
+  # repository cannot deliver is a policy that is wrong on the day it is written.
+  - evidence_class: upstream-base
+    lifecycle: unpublished
+    retention_model: repository-artifact
+    retention_days: 90
+    may_expire: true
+    immutable_storage_required: false
+    rationale: >-
+      An upstream-base observation establishes who owned a finding when a child
+      was built. It describes nothing that shipped, and it is reproducible from
+      the base image digest for as long as that digest resolves.
 
   - evidence_class: foundry-child
-    retention_days: 400
-    rationale: >-
-      A built child that was never staged did not ship. Retained for one annual
-      cycle so a build-time regression can be traced, then expirable.
+    lifecycle: unpublished
+    retention_model: repository-artifact
+    retention_days: 90
+    may_expire: true
     immutable_storage_required: false
+    rationale: >-
+      A built child that was never staged did not ship.
 
   - evidence_class: staged-candidate
-    retention_days: 2555
+    lifecycle: unpublished
+    retention_model: repository-artifact
+    retention_days: 90
+    may_expire: true
+    immutable_storage_required: false
     rationale: >-
-      The staged candidate record IS the release decision: the scanner and
-      frozen-database identity, the per-child smoke/metadata/scan/reconciliation
-      verdicts, the package inventories and the authorization record. Seven
-      years matches the longest realistic enterprise contract and conformity
-      retention obligation, and it must outlive every GitHub artifact by orders
-      of magnitude.
-    immutable_storage_required: true
+      A staged candidate is private and undistributed by construction. Its
+      evidence may expire: there is no recipient with a claim on it, and the
+      candidate's own image digests remain the durable identity for as long as
+      the registry holds them. If a candidate is later published, its evidence is
+      carried forward under `published-artifact` at that point — publication is
+      what creates the retention obligation, not staging.
 
+  # --- published and supported ----------------------------------------------
   - evidence_class: published-artifact
-    retention_days: 2555
+    lifecycle: published-supported
+    retention_model: supported-release-lifetime
+    # A FLOOR, not the rule. The authoritative retain-until is
+    #   release.supported_until + buffer_deprecation_days + buffer_withdrawal_days
+    # and is computed per release, because two releases of different lines have
+    # different support ends.
+    retention_days: 270
+    buffer_deprecation_days: 180   # policies/support-policy.yaml deprecation_notice_days
+    buffer_withdrawal_days: 90     # policies/support-policy.yaml withdrawal_notice_days
+    immutable_storage_required: false
+    storage:
+      mechanism: github-release-assets-and-git
+      # STATED PLAINLY because the opposite is easy to assume: release assets are
+      # NOT permanent and NOT immutable. They do not expire on a timer the way a
+      # workflow artifact does, which is a different and weaker property. A
+      # release, an asset or the repository can be deleted by anyone with
+      # sufficient permission, and nothing about the mechanism prevents it. That
+      # is why `monitoring` below is a requirement of this class and not an
+      # optional extra.
+      durability_claim: >-
+        no expiry timer; NOT permanence and NOT immutability. Deletable by a
+        sufficiently privileged principal at any time, without notice.
     rationale: >-
-      What was actually shipped, and to whom it was represented. Retained for
-      the same seven years as the decision that produced it — a decision without
-      its outcome, or an outcome without its decision, reconstructs nothing.
-    immutable_storage_required: true
+      A supported release has recipients who may ask why it was accepted, for as
+      long as it is supported and through the notice periods that follow. The
+      evidence retained is the IRREPRODUCIBLE part of that decision — see
+      `irreproducible_evidence` — which is a few megabytes per release, not the
+      hundred megabytes the reproducible bill of materials would add.
 
-# --- storage ----------------------------------------------------------------
-# Two independent durable locations, because one location with a delete button
-# is one delete button away from no evidence at all. The archive layout below is
-# what scripts/release/restore-evidence.sh writes and reads; it is deliberately
-# plain directories and files so that restoring it needs nothing but a
-# filesystem and sha256sum.
+# --- what is retained, and what is deliberately not --------------------------
+irreproducible_evidence:
+  # These cannot be recomputed from an image digest, because they depend on
+  # point-in-time external state or on a human judgement. These are what
+  # `published-artifact` retention is FOR.
+  required:
+    - scan_verdicts                  # the findings as decided, per child
+    - authorization_record           # the decision itself
+    - execution_metadata             # runner, execution mode, timings, run identity
+    - ledger_and_policy_identity     # which exception ledger and policy version applied
+    - scanner_identity               # producer pinned by digest
+    - vulnerability_database_identity
+  approximate_size_per_release: ~5 MB
+  note: >-
+    Human decisions — exception approvals, the ledger state at acceptance — are
+    already in git, which is durable and tamper-evident through signed commits.
+    They are named here so a reader knows they are covered, not so they are
+    copied a second time.
+
+reproducible_evidence:
+  # DO NOT retain these bytes merely because they are large and look important.
+  not_retained:
+    - sbom_documents                 # 86.8 MB per accepted run
+    - package_inventories
+    - in_image_filesystem_material
+  retain_instead:
+    - immutable_image_digest
+    - pinned_producer_identity       # e.g. anchore/syft@sha256:...
+    - per_document_sha256
+  regeneration: >-
+    Given the digest and the pinned producer, the artifact is regenerated and
+    checked against the recorded sha256. Proven buildlessly against all 20
+    accepted children in docs/audits/image-licence-materials-2026-08-29/.
+  honest_limit: >-
+    Regeneration depends on the registry still holding the image, and produces a
+    CONTENT-equivalent document rather than a byte-identical one: SPDX carries a
+    document namespace UUID and a creation timestamp. Where byte-identity is
+    required for a specific external obligation, that is a `regulated-worm` case
+    and needs the record below.
+
+# --- the vulnerability database, treated separately --------------------------
+# Two different things are routinely conflated here, and conflating them is how
+# the previous policy ended up protecting the wrong artifact.
+vulnerability_database:
+  preserve_verdict:
+    required: true
+    meaning: >-
+      The findings AS DECIDED at acceptance — what was found, what was governed,
+      what was accepted and by whom. This is part of `irreproducible_evidence`
+      and is retained for supported releases.
+  preserve_rerun_capability:
+    required: false
+    meaning: >-
+      The ability to re-execute the historical scan against the database as it
+      stood. This needs the database BYTES, which are ~110 MB per run.
+    decision_status: NOT REQUIRED — no maintainer decision establishes that
+      rerun capability is necessary.
+    to_require_it: >-
+      A maintainer decision recording why re-execution is needed, who needs it
+      and for how long. Until that exists, the database bytes are not retained
+      and the current `retention-days: 1` on the trivy-db artifact stands.
+  # The exact sentence this repository must be able to show, unedited, whenever
+  # somebody asks what a retained scan verdict is worth.
+  limitation_statement: >-
+    The retained evidence proves the verdict recorded at decision time. Database
+    identity alone does not preserve the deleted database snapshot and therefore
+    does not support an exact historical rerun.
+  # Say "the verdict is retained". Never say "the scan is reproducible".
+  prohibited_claim: >-
+    Do not describe the scan as reproducible after the database bytes expire. A
+    rerun against a LATER database answers a different question — what is known
+    now — and presenting it as the historical result would substitute today's
+    knowledge for the record of what was decided.
+  # What a published bundle must BIND, in place of the bytes. Seven items, all
+  # of them small, all of them checked by verify-storage-receipt.sh against
+  # schemas/storage-receipt-v1.schema.json (`bundle.published_evidence`), which
+  # additionally requires that items 2 and 3 appear in `bundle.files` — naming
+  # evidence is not carrying it.
+  bind_instead_of_bytes:
+    - accepted image digests — the exact manifests the verdict is about
+    - scan verdicts as decided — findings, governed items, acceptances
+    - the authorization record those verdicts fed
+    - scanner identity — image reference AND digest, not a version string
+    - vulnerability-database identity AND the time it was observed
+    - source revision — the tree the images and the decision came from
+    - decision inputs by digest — licence policy, retention policy and the
+      vulnerability-exception ledger as they stood
+  # NOT authorized, and written down so a future implementer does not reach for
+  # the obvious wrong shape.
+  if_bytes_are_later_authorized: >-
+    Deduplicate snapshots by database digest rather than storing one duplicate
+    per child or per run. Twenty children of one run share one snapshot; storing
+    it twenty times buys nothing and multiplies the cost by twenty.
+  identity_is_not_retrievability: >-
+    The authorization record stores the database identity
+    (`trivy_db_snapshot.identity`, e.g. "v2+updated:...+next:..."). AN IDENTITY
+    DOES NOT MAKE A DELETED SNAPSHOT RETRIEVABLE. It lets a reader say which
+    snapshot was used and detect a substitution; it does not let anyone fetch
+    that snapshot back. Whether the upstream publisher still serves it is outside
+    Foundry's control and must not be assumed.
+
+# --- regulated retention: opt-in, never default ------------------------------
+regulated_retention:
+  default: false
+  applies_to_classes: []          # EMPTY BY DESIGN
+  # A class may only use retention_model `regulated-worm` if it carries a
+  # complete `external_obligation` block. verify-storage-receipt.sh REFUSES a
+  # WORM class whose authority is missing or incomplete, so regulated retention
+  # cannot be assigned silently — which is exactly how the seven-year rule
+  # arrived in the first place.
+  required_fields_on_the_class:
+    - external_obligation.name           # the named statute, contract or customer requirement
+    - external_obligation.duration       # what IT requires, not what we guessed
+    - external_obligation.jurisdiction_or_contract
+    - external_obligation.approved_by    # a person, not a role
+    - external_obligation.approved_on
+  compliance_mode_is_not_default: >-
+    Compliance-mode object lock prevents deletion by every principal including
+    the account root, for the whole period, irreversibly. It is appropriate only
+    where a named obligation demands it. Governance mode, or no lock at all, is
+    the correct default and this policy says so rather than leaving it implied.
+
+# --- storage -----------------------------------------------------------------
 storage:
-  minimum_independent_locations: 2
+  # Was `minimum_independent_locations: 2` unconditionally. That came from the
+  # same unratified set and is now a property of the retention MODEL, so only
+  # regulated-worm requires a second location.
   locations:
-    - name: repository-audit-tree
-      kind: git
-      path: docs/audits/
-      immutability: >-
-        protected branch, signed commits, no force-push; history is the
-        immutability control
+    - name: repository-artifact-store
+      kind: github-actions-artifact
+      used_by: [upstream-base, foundry-child, staged-candidate]
+      durability: expires on the repository's configured period; transport and cache only
+    - name: release-assets-and-git
+      kind: github-release-assets
+      used_by: [published-artifact]
+      durability: >-
+        no expiry timer, but deletable by a privileged principal. NOT permanent,
+        NOT immutable.
     - name: offline-archive
       kind: filesystem
-      path: <archive-root>/
-      immutability: >-
-        write-once directory tree, mode 0555 on every bundle directory and 0444
-        on every file after archival; the checksum index detects any change that
-        a filesystem permission did not prevent
+      used_by: []
+      durability: write-once tree; used only by a regulated-worm class, of which there are none
 
-  # The on-disk layout. ONE shape, so a restore never has to guess.
-  #   <archive-root>/
-  #     INDEX.sha256                          checksum index over every bundle
-  #     <evidence_class>/<source_revision>/<bundle_id>/
-  #         manifest.json
-  #         content/...
-  #         SHA256SUMS
-  #         BUNDLE.sha256
   archive_layout:
     index_file: INDEX.sha256
     path_template: "<evidence_class>/<source_revision>/<bundle_id>"
     file_mode: "0444"
     dir_mode: "0555"
 
-# --- deletion ---------------------------------------------------------------
-# Deletion is an ACT, not an expiry. A bundle whose retention has elapsed is
-# eligible for deletion; nothing deletes it automatically, because an automatic
-# deleter is an automatic evidence destroyer if the clock or the class is wrong.
+# --- detection ---------------------------------------------------------------
+# Required because the published-artifact mechanism has no expiry timer and no
+# immutability: the failure mode is silent deletion, not expiry, and nothing
+# announces it.
+monitoring:
+  required_for: [published-artifact]
+  detect:
+    - missing_required_evidence      # a required artifact is not where the record says
+    - prematurely_deleted_evidence   # present at acceptance, absent later
+    - retention_shorter_than_policy  # a receipt whose retain-until is under the floor
+  enforced_by: scripts/release/verify-storage-receipt.sh
+  note: >-
+    The verifier detects all three at authorization time. A scheduled sweep that
+    checks already-published releases between authorizations is a separate change
+    and does not exist yet.
+
+# --- deletion ----------------------------------------------------------------
 deletion:
   automatic: false
   requires: >-
@@ -114,8 +326,6 @@ deletion:
   legal_hold_overrides_expiry: true
 
 # --- verification ------------------------------------------------------------
-# The property that makes retention meaningful. Restated here so a reader of
-# this file alone knows what "retained" is supposed to buy them.
 verification:
   offline: true
   network_required: false
