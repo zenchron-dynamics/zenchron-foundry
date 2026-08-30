@@ -172,6 +172,29 @@
               }
             }
           }
+        },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Present for a class retained for a release's supported lifetime. Its absence is refused as SR-RELEASE-BINDING-ABSENT, because evidence cannot track a lifecycle it does not identify.",
+          "required": [
+            "release",
+            "supported_until"
+          ],
+          "properties": {
+            "release": {
+              "type": "string",
+              "minLength": 1
+            },
+            "supported_until": {
+              "type": "string",
+              "format": "date-time",
+              "description": "The support end for the LINE this release belongs to. The retain-until floor is this plus the deprecation and withdrawal notice buffers, so it is per-release and not a constant."
+            },
+            "support_state": {
+              "type": "string"
+            }
+          }
         }
       }
     },
@@ -206,7 +229,7 @@
       }
     },
     "storage": {
-      "description": "What the AUTHORITY observed after the write. Provider and region are recorded, never constrained.",
+      "description": "What the AUTHORITY observed after the write. Provider and region are recorded, never constrained. The WORM-specific properties \u2014 compliance lock mode, enabled versioning, encryption at rest \u2014 are MANDATORY ONLY for a class whose retention model is regulated-worm. Requiring them of ordinary evidence would refuse the mechanisms actually in use (a GitHub artifact and a release asset offer none of them), which is how a policy ends up describing a system nobody runs.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -214,14 +237,11 @@
         "region",
         "container",
         "object_key",
-        "version_id",
         "retain_until",
-        "lock_mode",
-        "versioning",
-        "encryption",
-        "object_checksum",
         "uploaded_at",
-        "audit_event_id"
+        "object_checksum",
+        "audit_event_id",
+        "version_id"
       ],
       "properties": {
         "provider": {
@@ -254,14 +274,16 @@
             "governance",
             "none"
           ],
-          "description": "compliance = no principal, including the account root, can shorten or delete before retain_until. governance = a privileged principal CAN bypass. `governance` is a retention control and is NOT immutability; calling it immutable is the misstatement this enum exists to prevent."
+          "description": "compliance = no principal, including the account root, can shorten or delete before retain_until. governance = a privileged principal CAN bypass. none = no lock, which is CORRECT and expected for repository-artifact and supported-release-lifetime classes. `governance` is a retention control and is NOT immutability; calling it immutable is the misstatement this enum exists to prevent."
         },
         "versioning": {
           "enum": [
             "enabled",
             "suspended",
-            "disabled"
-          ]
+            "disabled",
+            "not-applicable"
+          ],
+          "description": "not-applicable is legitimate for a mechanism that has no versioning, such as a GitHub release asset. The verifier requires `enabled` only for a regulated-worm class."
         },
         "encryption": {
           "type": "object",

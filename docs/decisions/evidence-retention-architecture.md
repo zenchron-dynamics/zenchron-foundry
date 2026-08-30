@@ -1,6 +1,41 @@
 # Evidence retention architecture — decision packet (#241)
 
-**Status: DECISION REQUIRED. Nothing here provisions anything.** No bucket, no
+> ## CORRECTED 2026-08-30 — the premise of this packet was unapproved
+>
+> This packet was written on the assumption that `policies/retention.yaml`'s
+> **2,555-day immutable** requirement was a requirement. A provenance audit found
+> it was not:
+>
+> * it entered in commit **`6413eb51`**, **PR #207**, merged **15 minutes** after
+>   opening with **zero reviews and zero comments**, and the file was never
+>   touched again;
+> * its stated basis — *"Seven years matches the longest realistic enterprise
+>   contract and conformity retention obligation"* — is an estimate citing **no
+>   law, contract, customer or standard**;
+> * the driving issue **#128** asked to define retention "by artifact class and
+>   **legal/customer need**". The need was never established; a number was chosen
+>   anyway, and later audit comments quoted it back as though it were a
+>   requirement;
+> * **"compliance mode / no privileged bypass" was introduced later still, in
+>   commit `d693566` — by an agent, in this very document, without owner
+>   authorization.** `git log -S 'privileged bypass'` returns that commit and no
+>   other.
+>
+> It was also **inverted**: 85 % of the volume it protected (86.8 MB of SBOM
+> bytes per run) is reproducible from the immutable image digest and the pinned
+> scanner, while the one genuinely irreproducible artifact — the vulnerability
+> database the verdicts depend on — was retained for **one day**.
+>
+> **The maintainer selected option B (supported-release-lifetime) on 2026-08-30.**
+> The AWS/Object-Lock recommendation in §3 below is **withdrawn**; the operative
+> policy is §3a. §2's comparison is retained unedited because it remains the
+> analysis a future regulated case would start from, and because deleting the
+> reasoning would remove the record of how the error was made.
+>
+> **No AWS account, bucket, IAM policy, Object Lock configuration or
+> `zenchron-infrastructure` work is authorized, and none exists.**
+
+**Status: DECIDED — option B. Nothing here provisions anything.** No bucket, no
 account, no credential, no IAM policy, no Object Lock configuration, no upload,
 no workflow integration, no acceptance dispatch. This packet compares options,
 recommends one, defines the contract, and stops at the point where an owner has
@@ -132,27 +167,43 @@ Push the bundle as an OCI artifact (ORAS) beside the images.
 
 ---
 
-## 3. Recommended architecture
+## 3. Recommended architecture — **WITHDRAWN**
 
-| layer | role |
-|---|---|
-| GitHub Actions artifact | **temporary transport and cache only.** Never the authority, never cited as retention |
-| durable authority | object storage with **versioning + Object Lock**, per option A (or B with verified compliance semantics) |
-| staging / non-accepted evidence | short retention, or governance-mode lock — it did not ship |
-| accepted candidate evidence | **2,555-day compliance-mode lock** |
-| index | manifest keyed by candidate and source revision |
-| contents | **original producer bytes**, unrewritten |
-| integrity | a **separate content-addressed checksum index**, so an index and its objects cannot drift together |
-| verification | restore / readback, offline |
-| monitoring | deletion and expiry alerting ahead of unrecoverability |
-| infrastructure | defined and owned in **`zenchron-infrastructure`** |
-| Foundry | **emits and consumes the evidence contract** and owns neither the bucket nor the credentials |
+The table that stood here recommended object storage with a 2,555-day
+compliance-mode lock, a second independent location, and a new
+`zenchron-infrastructure` repository. It rested entirely on the unapproved
+premise above. **It is withdrawn and must not be implemented.**
 
-> **`zenchron-infrastructure` does not exist.** It is not in the
-> `zenchron-dynamics` organisation as of 2026-08-30. Creating it is an owner
-> action and a prerequisite for phase B; this packet does not create it.
+## 3a. Operative policy — supported-release lifetime (chosen 2026-08-30)
 
----
+| lifecycle | class | retention | storage | WORM |
+|---|---|---|---|---|
+| **unpublished** | `upstream-base`, `foundry-child`, `staged-candidate` | **90 days** — the repository's available period. **May expire**, because nothing was distributed | GitHub Actions artifacts, transport and cache only | **no** |
+| **published + supported** | `published-artifact` | the release's **support end + 180 d deprecation + 90 d withdrawal** — computed per release, not a constant | release assets and git, when publication is eventually authorized | **no** |
+| **regulated** | *(none exist)* | only on a **named** obligation with duration, jurisdiction/contract, approver and date | write-once | yes, **opt-in only** |
+
+**Release assets are not permanent and not immutable.** They have no expiry
+timer, which is a different and weaker property: a release, an asset or the
+repository can be deleted by a sufficiently privileged principal at any time.
+The policy says so in those words, and that is why detection of missing or
+prematurely deleted evidence is a requirement of the published class.
+
+**Reproducible evidence is not retained.** SBOM bytes, package inventories and
+in-image material are regenerated from the immutable digest and the pinned
+producer, and checked against the recorded per-document sha256. What is retained
+instead is the digest, the producer identity and the checksums — kilobytes rather
+than 86.8 MB. The honest limit is recorded with it: regeneration needs the
+registry to still hold the image, and yields a content-equivalent rather than
+byte-identical SPDX document.
+
+**The vulnerability database is treated separately.** Preserving the *verdict* is
+required and is part of the retained set. Preserving the ability to *re-run* the
+historical scan needs ~110 MB of database bytes per run and is **not required**,
+because no maintainer decision establishes that re-run capability is necessary.
+The policy records that the stored database *identity* lets a reader say which
+snapshot was used and detect a substitution — **it does not make a deleted
+snapshot retrievable**, and whether the upstream publisher still serves it is
+outside Foundry's control.
 
 ## 4. The cross-repository contract
 
@@ -288,19 +339,19 @@ what keeps the volume bounded.
 
 ## 7. Migration and historical truth
 
-- The **historical missing bytes cannot be recreated as originals.** A re-scan
+* The **historical missing bytes cannot be recreated as originals.** A re-scan
   today produces *new* documents from the same images, not the documents that
   were made in August, and SPDX carries a namespace UUID and a creation
   timestamp, so byte-identity is not even theoretically available.
-- The surviving **hashes and binding records remain useful** — they identify what
+* The surviving **hashes and binding records remain useful** — they identify what
   was measured and would detect a substitution — but they are **not a substitute
   for the bytes** and must never be described as one.
-- **The first fully retained acceptance becomes the new durable-evidence
+* **The first fully retained acceptance becomes the new durable-evidence
   baseline.** Before it, there is no durable evidence; after it, there is.
-- The **earlier acceptance keeps its documented limitation**, including the
+* The **earlier acceptance keeps its documented limitation**, including the
   correction annotations already merged into
   `docs/audits/real-image-inventories-2026-08-28/README.md`.
-- **History is not rewritten to imply durable retention existed.** No record is
+* **History is not rewritten to imply durable retention existed.** No record is
   backdated, no bundle is manufactured for a past run, and no audit document is
   edited to remove the gap.
 
@@ -309,34 +360,31 @@ authorization (phase E).
 
 ---
 
-## 8. Implementation sequence
+## 8. Implementation sequence — **B–E withdrawn**
 
 | phase | scope | status |
 |---|---|---|
-| **A** | Foundry storage-receipt schema and fail-closed tests | **done in this packet** — schema, verifier, 43 assertions, 23 sabotages, 2 pinned gaps |
-| **B** | `zenchron-infrastructure` provisioning and IAM | **not started; requires the repository to exist and an owner decision** |
-| **C** | canary upload, lock, readback and simulated failure tests | not started |
-| **D** | workflow integration — `--require-storage-receipt` on the authorize path | **not started, and pinned as a gap** in `tests/release/test_storage_receipt.sh` |
-| **E** | one separately authorized acceptance establishing the first durable baseline | not started |
+| **A** | receipt schema and fail-closed tests | **done**, and re-pointed at the lifecycle model on 2026-08-30 |
+| **B** | `zenchron-infrastructure` provisioning and IAM | **withdrawn** — not authorized, not needed by option B |
+| **C** | canary upload, lock, readback | **withdrawn** |
+| **D** | workflow integration | **deferred** — belongs with the publication decision (#98), since the published class only becomes live when something is published |
+| **E** | acceptance establishing a durable baseline | **withdrawn** |
 
-Phases B–E are **not implemented in this packet** and must not be started under
-it.
+## 9. Decisions that remain
 
----
+The provider, account, region, key-custody and `zenchron-infrastructure`
+questions are **moot under option B** — none of that is used.
 
-## 9. Decisions only the owner can make
+What remains:
 
-1. **Provider** — option A, or option B with written confirmation of
-   compliance-mode semantics and no support-side bypass.
-2. **Account and region**, and whether a second location is required now or later.
-3. **Create `zenchron-infrastructure`** — it does not exist today.
-4. **Key custody** — provider-managed keys, or customer-managed with the
-   key-loss risk in §5 accepted and mitigated.
-5. **Compliance mode is irreversible for the objects it covers.** Nothing written
-   under a 2,555-day compliance lock can be deleted for seven years, including by
-   the account owner, including if the account is meant to be closed. This is the
-   property being bought and it is the one to be sure about.
-6. **Audit-log scope** — data-event logging is opt-in and billed.
-7. **Accepted-run cadence** to size the model in §6.
-8. **Whether staging evidence is retained at all**, and under which class.
-9. **Authorization of phases B–E**, separately from this packet.
+1. **Whether re-running a historical scan is ever necessary.** If it is, the
+   ~110 MB vulnerability-database snapshot must be retained per run and the
+   `trivy-db` artifact's `retention-days: 1` must change. Until that decision
+   exists, the verdict is preserved and the re-run capability is not.
+2. **When publication is authorized (#98)**, wiring the published-artifact class
+   into the release path — evidence stored with the release, plus a sweep that
+   detects an asset deleted between authorizations. The verifier already detects
+   missing, short-retention and lapsed evidence at authorization time.
+3. **If a named external obligation ever appears**, adding a `regulated-worm`
+   class with its `external_obligation` record. The verifier refuses such a class
+   without one, so it cannot be assigned silently the way the seven-year rule was.

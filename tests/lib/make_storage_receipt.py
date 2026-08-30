@@ -25,6 +25,8 @@ MUTATIONS = (
     "wrong-candidate", "wrong-digest", "wrong-platform", "wrong-revision",
     "unbound", "authority-unavailable", "encryption-off", "unknown-class",
     "expiry-before-support", "required-not-met",
+    # lifecycle model cases (2026-08-30 correction)
+    "no-release-binding", "release-short", "already-expired", "bad-model",
 )
 
 
@@ -33,7 +35,14 @@ def main():
     ap.add_argument("--authorization", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--mutate", choices=MUTATIONS, default="none")
-    ap.add_argument("--retention-days", type=int, default=2555)
+    ap.add_argument("--retention-days", type=int, default=90)
+    ap.add_argument("--retention-class", default="staged-candidate")
+    ap.add_argument("--lock-mode", default="none",
+                    choices=("none", "governance", "compliance"))
+    ap.add_argument("--versioning", default="not-applicable",
+                    choices=("enabled", "suspended", "disabled", "not-applicable"))
+    ap.add_argument("--supported-until", default=None,
+                    help="set to make this a supported-release-lifetime receipt")
     ap.add_argument("--uploaded-at", default="2026-08-20T17:10:00Z")
     a = ap.parse_args()
 
@@ -59,8 +68,8 @@ def main():
         "schema_version": 1,
         "bundle": {
             "bundle_id": "staged-candidate-%s" % auth.get("source_revision", "0" * 40)[:12],
-            "evidence_class": "staged-candidate",
-            "retention_class": "staged-candidate",
+            "evidence_class": a.retention_class,
+            "retention_class": a.retention_class,
             "source_revision": auth.get("source_revision"),
             "authorization_record_sha256": auth_sha,
             "manifest_sha256": manifest_sha,
@@ -78,9 +87,10 @@ def main():
         },
         "request": {
             "required_retain_until": retain.isoformat().replace("+00:00", "Z"),
-            "required_lock_mode": "compliance",
+            "required_lock_mode": "compliance" if a.lock_mode == "compliance"
+                                  else "governance",
             "required_versioning": True,
-            "required_min_retention_days": 2555,
+            "required_min_retention_days": a.retention_days,
         },
         "storage": {
             "provider": "FIXTURE-provider-not-selected",
@@ -89,8 +99,8 @@ def main():
             "object_key": "staged-candidate/%s/bundle.tar" % auth.get("source_revision"),
             "version_id": "FIXTUREVERSIONID0001",
             "retain_until": retain.isoformat().replace("+00:00", "Z"),
-            "lock_mode": "compliance",
-            "versioning": "enabled",
+            "lock_mode": a.lock_mode,
+            "versioning": a.versioning,
             "encryption": {"at_rest": True, "algorithm": "AES256",
                            "key_management": "customer-managed",
                            "key_deletion_protection": True},
@@ -109,8 +119,30 @@ def main():
         },
     }
 
+    if a.supported_until:
+        su = datetime.datetime.fromisoformat(a.supported_until.replace("Z", "+00:00"))
+        rec["bundle"]["release"] = {
+            "release": "v2026.07.24",
+            "supported_until": su.isoformat().replace("+00:00", "Z"),
+            "support_state": "active",
+        }
+
     m = a.mutate
-    if m == "retention-short":
+    if m == "no-release-binding":
+        rec["bundle"].pop("release", None)
+    elif m == "release-short":
+        # retained past the class floor in days, but short of support end + buffer
+        rec["storage"]["retain_until"] = (up + datetime.timedelta(days=300)) \
+            .isoformat().replace("+00:00", "Z")
+    elif m == "already-expired":
+        past = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        rec["storage"]["uploaded_at"] = (past - datetime.timedelta(days=400)) \
+            .isoformat().replace("+00:00", "Z")
+        rec["storage"]["retain_until"] = past.isoformat().replace("+00:00", "Z")
+        rec["request"]["required_retain_until"] = past.isoformat().replace("+00:00", "Z")
+    elif m == "bad-model":
+        pass  # exercised by pointing at a policy whose class names an unknown model
+    elif m == "retention-short":
         short = up + datetime.timedelta(days=90)
         rec["storage"]["retain_until"] = short.isoformat().replace("+00:00", "Z")
     elif m == "required-not-met":

@@ -233,14 +233,38 @@ mutable seal is not a seal.
 `policies/retention.yaml` states, per evidence class, how long a bundle must
 remain restorable and re-verifiable, and where.
 
-| class | retention | immutable storage |
-|---|---|---|
-| `upstream-base` | 400 days | no |
-| `foundry-child` | 400 days | no |
-| `staged-candidate` | 2555 days (7 years) | yes |
-| `published-artifact` | 2555 days (7 years) | yes |
+> **Corrected 2026-08-30.** This table previously showed 2,555 days and
+> immutable storage for the two lower rows. That requirement was never
+> authorized — commit `6413eb51`, PR #207, merged in 15 minutes with no review,
+> citing no law, contract, customer or standard — and it was inverted: it
+> protected the *reproducible* SBOM bytes for seven years while the
+> *irreproducible* vulnerability database was kept for one day. The maintainer
+> replaced it with the lifecycle model below on 2026-08-30. Provenance:
+> `docs/decisions/evidence-retention-architecture.md`.
 
-Two independent durable locations are required; the archive layout is plain
+| class | lifecycle | retention | WORM |
+|---|---|---|---|
+| `upstream-base` | unpublished | 90 days, may expire | no |
+| `foundry-child` | unpublished | 90 days, may expire | no |
+| `staged-candidate` | unpublished | 90 days, may expire | no |
+| `published-artifact` | published + supported | support end + 180 d + 90 d | no |
+| *(regulated)* | — | only on a named external obligation | opt-in |
+
+Retention follows the lifecycle of the thing the evidence is about. A staged
+candidate is private and undistributed, so its evidence may expire; a supported
+release has recipients, so its *irreproducible* decision evidence — scan
+verdicts, authorization record, execution metadata, ledger and policy identity,
+scanner and vulnerability-database identity — lives as long as the support
+commitment and its notice periods.
+
+Reproducible evidence is **not** retained: SBOM bytes are regenerated from the
+immutable image digest and the pinned producer and checked against the recorded
+sha256. Release assets have no expiry timer but are **not permanent and not
+immutable** — a privileged principal can delete them — which is why detection of
+missing or prematurely deleted evidence is required for the published class.
+
+A second independent location is required only by the regulated-worm model, of
+which no class uses; the archive layout is plain
 directories and files so restoring needs nothing but a filesystem and
 `sha256sum`. Archived trees are set `0555` / `0444`, but permissions are a
 guardrail — the control is `INDEX.sha256`, which catches a change that root, a

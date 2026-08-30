@@ -13,15 +13,38 @@
 # the owner's (#241) and nothing here presumes one — `provider` and `region` are
 # recorded and never constrained.
 #
-# THE REQUIRED PERIOD COMES FROM policies/retention.yaml, not from a number
-# written here. A retention floor hardcoded in a verifier is a second copy of
-# the policy, and the first thing to disagree with it.
+# THE REQUIRED PERIOD AND THE REQUIRED STORAGE PROPERTIES COME FROM
+# policies/retention.yaml, not from numbers written here. A floor hardcoded in a
+# verifier is a second copy of the policy and the first thing to disagree with
+# it — which is how a seven-year requirement nobody approved survived for a week.
 #
-# COMPLIANCE MODE IS NOT GOVERNANCE MODE. Under governance mode a privileged
-# principal can shorten or delete the object before its retain-until date. That
-# is a retention control and it is NOT immutability. Where the policy requires
-# immutable storage, a governance-mode receipt REFUSES — and the diagnostic says
-# why, because "we have object lock on" is exactly the sentence that hides this.
+# RETENTION FOLLOWS LIFECYCLE. Three models, and the class picks one:
+#
+#   repository-artifact          unpublished. The repository's own artifact
+#                                period. Evidence MAY EXPIRE. No lock required,
+#                                no versioning required, no encryption claim
+#                                required — a GitHub artifact offers none of them
+#                                and demanding them would refuse the only
+#                                mechanism actually in use.
+#   supported-release-lifetime   published. retain-until is computed from the
+#                                RELEASE's own support end plus the notice
+#                                buffers, never from the date the bundle was
+#                                written, because two releases of different lines
+#                                have different support ends.
+#   regulated-worm               compliance-mode lock, versioning, encryption —
+#                                and ONLY where the class records a named
+#                                external obligation with a duration, a
+#                                jurisdiction or contract, an approver and a
+#                                date. A WORM class with no authority REFUSES.
+#                                That refusal exists because the previous
+#                                seven-year rule was assigned silently.
+#
+# COMPLIANCE MODE IS NOT THE DEFAULT AND IS NOT REQUIRED OF ORDINARY EVIDENCE.
+# Where a class DOES require it, governance mode still refuses: under governance
+# a privileged principal can shorten or delete before the retain-until date, so
+# it is a retention control and not immutability. Both halves matter — requiring
+# it everywhere was the old defect; allowing it to be claimed loosely would be a
+# new one.
 #
 # EVERY REFUSAL CARRIES ITS OWN CODE. "It failed" is not a diagnostic.
 #
@@ -32,6 +55,10 @@
 #   SR-REVISION-MISMATCH     it is a receipt for a different source tree
 #   SR-CANDIDATE-MISMATCH    its child set, digests or platforms are not these
 #   SR-RETENTION-SHORT       retain_until is sooner than the policy requires
+#   SR-RETENTION-MODEL       the class names a model this verifier cannot enforce
+#   SR-RELEASE-BINDING-ABSENT  a supported-release class with no release identity
+#   SR-EVIDENCE-EXPIRED      the retention has already lapsed
+#   SR-REGULATED-UNAUTHORIZED  a WORM class with no named external obligation
 #   SR-LOCK-MODE-WEAK        the lock is weaker than the class requires
 #   SR-VERSIONING-ABSENT     without versioning an overwrite is invisible
 #   SR-CHECKSUM-MISMATCH     the stored object is not the bytes handed over
@@ -181,8 +208,36 @@ if cls is None:
            "retention_class %r is not a class declared in %s. A retention rule "
            "for a class nobody declares is a rule about nothing"
            % (b.get("retention_class"), os.path.basename(pol_p)))
+models = pol.get("retention_models") or {}
+model_name = cls.get("retention_model")
+model = models.get(model_name)
+if model is None:
+    refuse("SR-RETENTION-MODEL",
+           "class %r names retention model %r, which %s does not declare. A "
+           "retention rule whose model nothing defines is a rule nothing enforces"
+           % (b.get("retention_class"), model_name, os.path.basename(pol_p)))
+
 need_days = int(cls.get("retention_days") or 0)
-need_immutable = bool(cls.get("immutable_storage_required"))
+need_worm = bool(model.get("worm_required"))
+need_immutable = bool(model.get("immutable_storage_required")) or \
+    bool(cls.get("immutable_storage_required"))
+
+# --- regulated retention cannot be assigned silently ------------------------
+# The seven-year rule arrived with no named obligation and no approver, and
+# survived because nothing checked. This is that check.
+if need_worm:
+    ob = cls.get("external_obligation") or {}
+    missing = [k for k in ("name", "duration", "jurisdiction_or_contract",
+                           "approved_by", "approved_on") if not ob.get(k)]
+    if missing:
+        refuse("SR-REGULATED-UNAUTHORIZED",
+               "class %r uses retention model %r, which is write-once storage, "
+               "and its external_obligation is missing %s. WORM retention is "
+               "available only where a NAMED obligation demands it, with a "
+               "duration, a jurisdiction or contract, a named approver and a "
+               "date. A regulated class nobody authorised is exactly the defect "
+               "this repository has already paid for once"
+               % (b.get("retention_class"), model_name, ", ".join(missing)))
 
 today = (datetime.datetime.fromisoformat(today_s).replace(tzinfo=datetime.timezone.utc)
          if today_s else datetime.datetime.now(datetime.timezone.utc))
@@ -191,13 +246,48 @@ retain_until = parse_dt(st.get("retain_until"), "storage.retain_until")
 required_until = parse_dt(req.get("required_retain_until"), "request.required_retain_until")
 
 actual_days = (retain_until - uploaded).days
-if actual_days < need_days:
+
+if model_name == "supported-release-lifetime":
+    # The floor is the RELEASE's support end plus the notice buffers the support
+    # policy already promises — not `uploaded + retention_days`, which would give
+    # every release the same lifetime regardless of what it is.
+    rel = b.get("release") or {}
+    if not rel.get("supported_until"):
+        refuse("SR-RELEASE-BINDING-ABSENT",
+               "class %r is retained for the supported lifetime of a release and "
+               "the receipt names no release support end. Evidence cannot track a "
+               "lifecycle it does not identify"
+               % b.get("retention_class"))
+    supported_until = parse_dt(rel.get("supported_until"), "bundle.release.supported_until")
+    buffer_days = int(cls.get("buffer_deprecation_days") or 0) + \
+        int(cls.get("buffer_withdrawal_days") or 0)
+    floor = supported_until + datetime.timedelta(days=buffer_days)
+    if retain_until < floor:
+        refuse("SR-RETENTION-SHORT",
+               "release %s is supported to %s and class %r adds a %d-day notice "
+               "buffer, so the evidence must be retained to %s. The receipt says "
+               "%s. Evidence that dies before the support commitment it justifies "
+               "cannot answer a question asked during it"
+               % (rel.get("release", "<unnamed>"), supported_until.date(),
+                  b["retention_class"], buffer_days, floor.date(),
+                  retain_until.date()))
+elif actual_days < need_days:
     refuse("SR-RETENTION-SHORT",
            "the object is retained for %d day(s) (%s to %s) and class %r requires "
            "%d. Authorization cannot complete when the evidence expires before "
-           "the governance period it is meant to cover"
+           "the period policy assigns it"
            % (actual_days, uploaded.date(), retain_until.date(),
               b["retention_class"], need_days))
+
+# --- DETECTION: evidence that has already lapsed ---------------------------
+# The published mechanism has no expiry timer and no immutability, so the failure
+# mode is silent absence rather than a clean expiry. A receipt whose retention has
+# already passed is describing evidence nobody can rely on being there.
+if retain_until < today:
+    refuse("SR-EVIDENCE-EXPIRED",
+           "the retention for this evidence lapsed on %s and today is %s. A "
+           "receipt for evidence past its retention is a record of something that "
+           "may no longer exist" % (retain_until.date(), today.date()))
 if retain_until < required_until:
     refuse("SR-RETENTION-SHORT",
            "the authority returned retain_until %s and Foundry required %s. What "
@@ -216,10 +306,11 @@ if support_s:
 
 # --- COMPLIANCE MODE IS NOT GOVERNANCE MODE ---------------------------------
 mode = st.get("lock_mode")
-if mode == "none":
+if need_worm and mode == "none":
     refuse("SR-LOCK-MODE-WEAK",
-           "the object carries no lock at all. A retain-until date with no lock "
-           "behind it is a label")
+           "class %r requires write-once storage and the object carries no lock "
+           "at all. A retain-until date with no lock behind it is a label"
+           % b["retention_class"])
 if need_immutable and mode != "compliance":
     refuse("SR-LOCK-MODE-WEAK",
            "class %r requires immutable storage and the object is in %r mode. "
@@ -229,19 +320,27 @@ if need_immutable and mode != "compliance":
            "control; it is not immutability, and this refusal exists so the two "
            "are not reported as the same thing"
            % (b["retention_class"], mode, retain_until.date()))
-if req.get("required_lock_mode") == "compliance" and mode != "compliance":
+if need_worm and req.get("required_lock_mode") == "compliance" \
+        and mode != "compliance":
     refuse("SR-LOCK-MODE-WEAK",
            "compliance mode was required and %r was returned" % mode)
 
-if st.get("versioning") != "enabled":
-    refuse("SR-VERSIONING-ABSENT",
-           "object versioning is %r. Without it an overwrite is indistinguishable "
-           "from the original object, and object lock has nothing to pin"
-           % st.get("versioning"))
-
-enc = st.get("encryption") or {}
-if not enc.get("at_rest"):
-    refuse("SR-ENCRYPTION-ABSENT", "the object is not encrypted at rest")
+# Versioning and an encryption claim are properties of WORM storage. A GitHub
+# artifact and a release asset offer neither, and demanding them of ordinary
+# evidence would refuse the only mechanism actually in use — which is how a
+# policy ends up describing a system nobody runs.
+if need_worm:
+    if st.get("versioning") != "enabled":
+        refuse("SR-VERSIONING-ABSENT",
+               "class %r requires write-once storage and object versioning is %r. "
+               "Without it an overwrite is indistinguishable from the original "
+               "object, and object lock has nothing to pin"
+               % (b["retention_class"], st.get("versioning")))
+    enc = st.get("encryption") or {}
+    if not enc.get("at_rest"):
+        refuse("SR-ENCRYPTION-ABSENT",
+               "class %r requires write-once storage and the object is not "
+               "encrypted at rest" % b["retention_class"])
 
 # --- the bytes that arrived are the bytes handed over -----------------------
 if st["object_checksum"]["value"] != b["manifest_sha256"]:
@@ -272,8 +371,9 @@ if rb.get("manifest_sha256") != b["manifest_sha256"]:
            "the readback manifest hashes to %s and the bundle manifest to %s"
            % (str(rb.get("manifest_sha256"))[:16], b["manifest_sha256"][:16]))
 
-print("storage receipt VERIFIED: %s %s/%s version %s, %s mode, retained %d day(s) "
-      "to %s, %d file(s) read back"
-      % (st["provider"], st["container"], st["object_key"], str(st["version_id"])[:12],
-         mode, actual_days, retain_until.date(), rb["files_verified"]))
+print("storage receipt VERIFIED: class %s, model %s, %s %s/%s, lock=%s, "
+      "retained %d day(s) to %s, %d file(s) read back"
+      % (b["retention_class"], model_name, st["provider"], st["container"],
+         st["object_key"], mode, actual_days, retain_until.date(),
+         rb["files_verified"]))
 PY
