@@ -184,12 +184,15 @@ uploaded = datetime.datetime.fromisoformat(obs["created_at"].replace("Z", "+00:0
 required_until = uploaded + datetime.timedelta(days=days)
 
 rev = auth.get("source_revision") or ""
-# GitHub returns a `digest` for newer artifacts and nothing for older ones. When
-# it does, that is the authority's value and it wins. When it does not, the
-# checksum recorded is the manifest that covers every file above, verified
-# against the bytes that came back — a measurement, not a restatement.
-digest = str(obs.get("digest") or "")
-obj_sum = digest.split(":")[-1] if len(digest.split(":")[-1]) == 64 else manifest_sha
+# `storage.object_checksum` is DEFINED as the checksum of the bundle: the
+# verifier compares it against `bundle.manifest_sha256` and refuses
+# SR-CHECKSUM-MISMATCH otherwise. GitHub does return its own `digest` for newer
+# artifacts, but that is the hash of the ZIP IT BUILT, over a repacked directory
+# — a different object, not a second opinion about this one. Preferring it made
+# the drill's first real run refuse a bundle nothing was wrong with. What is
+# recorded here is the manifest hash computed from the bytes that came BACK,
+# which is a measurement and is the thing the field means.
+obj_sum = manifest_sha
 
 rec = {
     "schema": "foundry.storage-receipt/v1",

@@ -261,6 +261,29 @@ q = json.load(open('$TMP/receipt.json'))['request']
 assert q['required_lock_mode'] == 'none', q
 assert q['required_versioning'] is False, q
 assert q['required_min_retention_days'] == 90, q\""
+# The drill's first real run refused a bundle nothing was wrong with, because
+# GitHub returns a `digest` for the ZIP IT BUILT and the producer preferred it
+# over the manifest hash. `object_checksum` is defined as the bundle's checksum;
+# the zip is a different object, not a second opinion about this one.
+ck "a provider digest does NOT displace the manifest hash in object_checksum" \
+   "python3 - '$TMP/obs-digest.json' <<'PY'
+import datetime, json, sys
+up = datetime.datetime(2026, 8, 20, 17, 10, tzinfo=datetime.timezone.utc)
+json.dump({'id': 4237781234, 'node_id': 'MDg6QXJ0aWZhY3Q0MjM3NzgxMjM0',
+           'name': 'post-build-authorization-32395890071-1',
+           'size_in_bytes': 448122, 'expired': False,
+           'digest': 'sha256:' + 'ab' * 32,
+           'created_at': up.isoformat().replace('+00:00', 'Z'),
+           'expires_at': (up + datetime.timedelta(days=90))
+                         .isoformat().replace('+00:00', 'Z')},
+          open(sys.argv[1], 'w'))
+PY
+    step '$TMP/obs-digest.json' '$TMP/readback' '$TMP/record.json' \
+    && python3 -c \"
+import json
+r = json.load(open('$TMP/receipt.json'))
+assert r['storage']['object_checksum']['value'] == r['bundle']['manifest_sha256']
+assert r['storage']['object_checksum']['value'] != 'ab' * 32\""
 ck "the readback is NOT described as offline — it came back over the network" \
    "python3 -c \"
 import json

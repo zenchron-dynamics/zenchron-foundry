@@ -27,6 +27,7 @@ scripts/license/assert-repository-material.sh
 scripts/license/generate-notice-bundle.py
 scripts/release/verify-storage-receipt.sh
 scripts/release/emit-storage-receipt.sh
+scripts/ci/evidence-restore-drill.sh
 scripts/cra/assert-cra-controls.sh
 scripts/continuity-verify.sh
 scripts/repro-guarantees.sh

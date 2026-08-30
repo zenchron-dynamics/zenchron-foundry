@@ -143,7 +143,13 @@ EOF
   # Every job in trusted-validation.yml is non-gating BY NAME: none of them is a
   # release-required check any more. The release-required results are the commit
   # statuses that workflow publishes, which are required and are verified above.
-  local non_gating='^(trusted dispatch |authorize trusted validation$|publish release statuses$)'
+  # The two restore-drill jobs are aggregated the same way the trusted matrix
+  # legs are: `repo structure` — which IS required — `needs` the restore job,
+  # runs with `if: always()` so it cannot be skipped past, and refuses unless it
+  # can download and consume that job's verdict. Requiring the legs by name as
+  # well would add no guarantee and would need a control-plane change to the
+  # live ruleset that this repository is not making here.
+  local non_gating='^(trusted dispatch |authorize trusted validation$|publish release statuses$|evidence restore drill )'
   while IFS= read -r n; do
     [ -n "$n" ] || continue
     if grep -qE "$non_gating" <<<"$n"; then continue; fi

@@ -375,6 +375,7 @@ docs/licensing/notice-and-source-obligations.md
 docs/licensing/repository-material-baseline-refresh-2026-08-28-notices.md
 docs/licensing/repository-material-baseline-refresh-2026-08-28.md
 docs/licensing/repository-material-baseline-refresh-2026-08-29-n1.md
+docs/licensing/repository-material-baseline-refresh-2026-08-30-restore-drill.md
 docs/licensing/repository-material-baseline-refresh-2026-08-30-retention-arch.md
 docs/licensing/repository-material-baseline-refresh-2026-08-30-retention.md
 docs/licensing/repository-material-baseline-refresh-2026-08-30-staged-path.md
@@ -608,6 +609,7 @@ scripts/ci/capability-inventory.sh
 scripts/ci/check-php-version-fixtures.py
 scripts/ci/cleanup-docker-job.sh
 scripts/ci/ensure-release-tools.sh
+scripts/ci/evidence-restore-drill.sh
 scripts/ci/install-runner-hook.sh
 scripts/ci/phase-timer.sh
 scripts/ci/reset-workspace-ownership.sh
@@ -766,6 +768,7 @@ tests/release/test_child_identity_contract.sh
 tests/release/test_disabled_paths_inventory.sh
 tests/release/test_evidence_bundle.sh
 tests/release/test_evidence_class.sh
+tests/release/test_evidence_restore_drill.sh
 tests/release/test_identity_docs.sh
 tests/release/test_manifest.sh
 tests/release/test_multiarch_acceptance_shape.sh

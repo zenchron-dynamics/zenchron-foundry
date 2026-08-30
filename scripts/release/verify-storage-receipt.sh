@@ -249,7 +249,17 @@ uploaded = parse_dt(st.get("uploaded_at"), "storage.uploaded_at")
 retain_until = parse_dt(st.get("retain_until"), "storage.retain_until")
 required_until = parse_dt(req.get("required_retain_until"), "request.required_retain_until")
 
-actual_days = (retain_until - uploaded).days
+# CALENDAR DAYS, not a timedelta. GitHub stamps an artifact's `expires_at` from
+# the RUN's start and its `created_at` from when that artifact was uploaded, so
+# the gap between them is however long the workflow had been running. Measured
+# on run 33325426226: created 17:56:56Z, expires 17:30:09Z ninety days later —
+# 26 minutes short of a whole number of days, which a timedelta's `.days`
+# truncates to 89. The first real observation this verifier ever saw refused a
+# 90-day artifact for that reason and nothing was wrong with it.
+#
+# Comparing dates is NOT a relaxation. An artifact actually granted 89 days
+# still measures 89 here, which is what the 89-day sabotage proves.
+actual_days = (retain_until.date() - uploaded.date()).days
 
 if model_name == "supported-release-lifetime":
     # The floor is the RELEASE's support end plus the notice buffers the support
@@ -305,7 +315,11 @@ if retain_until < today:
         "NOTE: class %r lapsed on %s and its policy permits expiry "
         "(may_expire: true). Nothing was distributed, so no release retention is "
         "violated.\n" % (b["retention_class"], retain_until.date()))
-if retain_until < required_until:
+# Calendar dates here too, and for the same reason as actual_days above: the
+# request is computed from `created_at` and the grant is stamped from the start
+# of the upload, so an artifact that got exactly what was asked for can arrive a
+# few seconds short of it. A grant that is short by a DAY still refuses.
+if retain_until.date() < required_until.date():
     refuse("SR-RETENTION-SHORT",
            "the authority returned retain_until %s and Foundry required %s. What "
            "was asked for is not the check; what came back is"
