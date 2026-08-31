@@ -21,7 +21,7 @@
 #   incident.sh deadlines <awareness_at>            compute every clock
 #   incident.sh new <id> <awareness_at> <summary>   open a record
 #   incident.sh packet <record.yaml> <kind>         early_warning|full_notification|final_report
-#   incident.sh status <record.yaml>                state, clocks, what is missing
+#   incident.sh status <record.yaml> [--persist]    clocks; --persist stores the verdict
 #   incident.sh --tabletop                          full simulated exercise
 #   incident.sh --self-test
 # =============================================================================
@@ -103,8 +103,11 @@ PY
 }
 
 status() {
-  local rec="${1:?record.yaml}"
-  REC="$rec" py - <<'PY'
+  # `--persist` writes the MET/MISSED verdict back into the record. Without it
+  # the verdict exists only on stdout, which is where the tabletop's only result
+  # used to go and stay.
+  local rec="${1:?record.yaml}" persist="${2:-}"
+  REC="$rec" PERSIST="$persist" py - <<'PY'
 import datetime, os, yaml
 pol = yaml.safe_load(open(os.environ["INCIDENT_POLICY"]))
 r = yaml.safe_load(open(os.environ["REC"]))
@@ -116,12 +119,15 @@ print("state      %s" % r["state"])
 print("t0         %s" % t0.isoformat())
 
 d = pol["deadlines"]
-def clock(name, due, submitted_key):
+clocks = []
+def clock(cid, name, due, submitted_key):
     sub = r.get(submitted_key)
     if sub:
         st = datetime.datetime.fromisoformat(str(sub).replace("Z", "+00:00"))
         verdict = "MET" if st <= due else "MISSED"
         print("  %-16s due %s  submitted %s  %s" % (name, due.isoformat(), st.isoformat(), verdict))
+        clocks.append({"id": cid, "due": due.isoformat(),
+                       "submitted_at": st.isoformat(), "verdict": verdict})
         return verdict == "MET"
     left = (due - now).total_seconds() / 3600.0
     print("  %-16s due %s  %s" % (name, due.isoformat(),
@@ -129,9 +135,11 @@ def clock(name, due, submitted_key):
     return left >= 0
 
 ok = True
-ok &= clock("early warning", t0 + datetime.timedelta(hours=d["early_warning"]["hours"]),
+ok &= clock("early_warning", "early warning",
+            t0 + datetime.timedelta(hours=d["early_warning"]["hours"]),
             "early_warning_submitted_at")
-ok &= clock("full notification", t0 + datetime.timedelta(hours=d["full_notification"]["hours"]),
+ok &= clock("full_notification", "full notification",
+            t0 + datetime.timedelta(hours=d["full_notification"]["hours"]),
             "full_notification_submitted_at")
 
 cls = r.get("classification")
@@ -142,7 +150,7 @@ if rule:
     base = r.get(base_key)
     if base:
         b = datetime.datetime.fromisoformat(str(base).replace("Z", "+00:00"))
-        ok &= clock("final report", b + datetime.timedelta(days=fr["days"]),
+        ok &= clock("final_report", "final report", b + datetime.timedelta(days=fr["days"]),
                     "final_report_submitted_at")
     else:
         print("  %-16s not started — waiting on %s" % ("final report", base_key))
@@ -153,6 +161,26 @@ else:
 
 print()
 print("no deadline missed" if ok else "AT LEAST ONE DEADLINE MISSED OR OVERDUE")
+
+if os.environ.get("PERSIST") == "--persist":
+    # No wall-clock field here on purpose: the record is committed, and a
+    # regenerated timestamp would make every run a diff. When it was computed is
+    # what git already records.
+    r["deadline_verdict"] = {
+        "computed_by": "scripts/incident.sh status --persist",
+        "policy_schema_version": pol.get("schema_version"),
+        "clocks": clocks,
+        "overall": "MET" if all(c["verdict"] == "MET" for c in clocks) and clocks else "MISSED",
+        "note": (
+            "Derived from the submission timestamps this record already retains, "
+            "and recomputed independently by scripts/cra/assert-cra-controls.sh "
+            "--check-record. It is NOT an observation made during the original "
+            "exercise: that run printed its verdict to stdout and retained none."
+        ),
+    }
+    yaml.safe_dump(r, open(os.environ["REC"], "w"), sort_keys=False, width=100)
+    print("persisted deadline_verdict into %s" % os.environ["REC"])
+
 raise SystemExit(0 if ok else 1)
 PY
 }
@@ -312,6 +340,25 @@ rec = {
      "what": "classified as actively-exploited-vulnerability"},
   ],
 }
+
+# The three deadlines the record OWES, computed from the policy rather than
+# typed in. scripts/cra/assert-cra-controls.sh --check-record now refuses a
+# record that omits any of them, so a record generated without these is a record
+# the validator rejects — which is the point: the exercise must produce output
+# its own validator accepts.
+pol = yaml.safe_load(open(os.environ["INCIDENT_POLICY"]))
+d = pol["deadlines"]
+_t0 = datetime.datetime.fromisoformat(t0)
+rec["early_warning_due"] = (
+    _t0 + datetime.timedelta(hours=d["early_warning"]["hours"])).isoformat()
+rec["full_notification_due"] = (
+    _t0 + datetime.timedelta(hours=d["full_notification"]["hours"])).isoformat()
+_rule = next(c["final_report_rule"] for c in pol["classifications"]
+             if c["id"] == rec["classification"])
+_fr = d["final_report"][_rule]
+_base = datetime.datetime.fromisoformat(rec[_fr["from"]])
+rec["final_report_due"] = (_base + datetime.timedelta(days=_fr["days"])).isoformat()
+
 yaml.safe_dump(rec, open(os.environ["OUT"], "w"), sort_keys=False, width=100)
 print("   record: %s" % os.environ["OUT"])
 PY
@@ -323,8 +370,8 @@ PY
     packet "$rec" "$k" || rc=1
   done
   echo
-  echo "-- deadline verdict"
-  status "$rec" || rc=1
+  echo "-- deadline verdict (persisted into the record, not left on stdout)"
+  status "$rec" --persist || rc=1
 
   echo
   echo "-- asserting the exercise is honest"

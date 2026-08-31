@@ -94,6 +94,39 @@ down by hand is a deadline that can be wrong
 
 Two implementations that must agree catch a drift that one implementation checking itself never can.
 
+### …and the deadline the record never states
+
+Recomputation only bites a deadline the record actually writes down. It previously fetched each stated
+deadline and skipped it when absent, so a record that simply **omitted** `early_warning_due` was passed
+over in silence — and the run still printed *"deadlines agree with policy"*. That sentence was printable
+after comparing nothing, and on the one incident record this repository ships, which stated none of the
+three, it compared nothing every time it ran.
+
+All three are now mandatory wherever the record owes them, each with its own diagnostic:
+
+```text
+final_report_due is MISSING — this record owes that deadline, and a deadline
+the record does not state is one the validator cannot check
+```
+
+`final_report_due` is owed only where the classification carries a `final_report_rule`; `not-reportable`
+carries none and owes no final date. Where the rule exists but the timestamp it computes from does not,
+the record is refused as **unverifiable** rather than passed over — that was the second route to
+"agreement" without a comparison. The success line now counts what it checked (`3 of 3 owed
+deadline(s)`), because a count cannot be printed after skipping.
+
+## The retained deadline verdict
+
+The MET/MISSED result used to go to stdout and be kept nowhere, so the single thing a tabletop is run to
+establish was the one thing it did not retain. `scripts/incident.sh status <record> --persist` now writes
+a `deadline_verdict` block into the record, and `--check-record` **recomputes every clock in it** from the
+record's own timestamps: a stored verdict that disagrees with its evidence is refused, as is a missing
+one on a record that reached a submission.
+
+The verdict on `INC-SIMULATED-20260812.yaml` was derived from submission timestamps that record already
+retained. It is **not** an observation captured during the original exercise — that run left none, and
+the record's `deadline_verdict.note` says so.
+
 ## The synthetic tabletop
 
 ```bash
@@ -101,10 +134,14 @@ bash scripts/cra/assert-cra-controls.sh --tabletop
 ```
 
 **It is a fixture, and it says so on every run.** It is not evidence that a tabletop exercise was conducted
-with real participants, and it must never be recorded as one. It runs offline and exercises all five
-refusal conditions — missing awareness time, naive timestamp, miscomputed deadline, absent evidence,
-missing customer impact — plus the roles-without-backup refusal, then re-asserts that applicability is
-still undetermined.
+with real participants, and it must never be recorded as one. It runs offline and exercises the record
+refusal conditions — missing awareness time, naive timestamp, miscomputed deadline, each of the three
+deadlines omitted (individually and all at once), a final report that cannot be recomputed, absent
+evidence, missing customer impact — plus the roles-without-backup refusal, then re-asserts that
+applicability is still undetermined. It also asserts non-vacuously that the unmodified record still
+passes, so the suite cannot go green by refusing everything.
+
+Obligation ownership and the retained verdict are covered from outside, in `tests/compliance/test_cra.sh`.
 
 ## What is still missing, and who owns it
 

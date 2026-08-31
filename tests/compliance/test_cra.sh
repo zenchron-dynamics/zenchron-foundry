@@ -125,12 +125,19 @@ ck "...and is labelled a fixture, not an exercise that happened" \
    "grep -q 'FIXTURE ONLY, NOT A REAL EXERCISE' '$TMP/tt'"
 ck "...and states nobody participated" \
    "grep -q 'conducted with real participants' '$TMP/tt'"
-ck "...and exercised all five refusal conditions" \
+ck "...and exercised every record refusal condition it claims to" \
    "grep -q 'NO awareness time is refused' '$TMP/tt' &&
     grep -q 'naive timestamp is refused' '$TMP/tt' &&
     grep -q 'disagrees with policy is refused' '$TMP/tt' &&
+    grep -q 'omitting early_warning_due is refused' '$TMP/tt' &&
+    grep -q 'omitting full_notification_due is refused' '$TMP/tt' &&
+    grep -q 'omitting final_report_due is refused' '$TMP/tt' &&
+    grep -q 'omitting ALL three deadlines is refused' '$TMP/tt' &&
+    grep -q 'cannot be recomputed is refused' '$TMP/tt' &&
     grep -q 'missing evidence is refused' '$TMP/tt' &&
     grep -q 'no customer-impact classification is refused' '$TMP/tt'"
+ck "...and proved non-vacuity: the unmodified record still passes" \
+   "grep -q 'NON-VACUOUS: the unmodified record still passes' '$TMP/tt'"
 
 # --- SABOTAGE, on disposable copies -----------------------------------------
 mk() { python3 - "$2" "$TMP/$1" <<PY
@@ -221,6 +228,140 @@ ck "NON-VACUOUS: at least one incident record actually ships" \
    '[ "$(shipped_incident_records | wc -l)" -ge 1 ]'
 ck "every SHIPPED incident record is reportable-ready" \
    '[ -z "$(refused_shipped_records)" ]'
+
+# --- deadlines a record OWES but does not state ------------------------------
+# The defect: --check-record fetched each stated deadline and skipped it when
+# absent, so the shipped record — which stated none of the three — was reported
+# as having deadlines that "agree with policy" after comparing nothing.
+SHIPPED=docs/audits/incidents/INC-SIMULATED-20260812.yaml
+sabotage() { python3 -c "
+import yaml,sys
+r=yaml.safe_load(open('$SHIPPED'))
+exec(sys.argv[1])
+yaml.safe_dump(r,open(sys.argv[2],'w'),sort_keys=False,width=100)" "$1" "$2"; }
+
+ck "the shipped record states all three deadlines and passes" \
+   "python3 -c \"
+import yaml;r=yaml.safe_load(open('$SHIPPED'))
+missing=[k for k in ('early_warning_due','full_notification_due','final_report_due') if not r.get(k)]
+assert not missing,missing\" && bash $CRA --check-record '$SHIPPED' >/dev/null 2>&1"
+
+for field in early_warning full_notification final_report; do
+  sabotage "r.pop('${field}_due')" "$TMP/no-$field.yaml"
+  ck "dropping ${field}_due alone is refused" \
+     "! bash $CRA --check-record '$TMP/no-$field.yaml' >/dev/null 2>&1"
+  ck "...with a diagnostic naming ${field}_due specifically" \
+     "bash $CRA --check-record '$TMP/no-$field.yaml' >'$TMP/o' 2>&1;
+      grep -q '${field}_due is MISSING' '$TMP/o'"
+done
+
+sabotage "[r.pop(k+'_due') for k in ('early_warning','full_notification','final_report')]" \
+         "$TMP/no-due.yaml"
+ck "dropping all three is refused, never a silent success" \
+   "! bash $CRA --check-record '$TMP/no-due.yaml' >/dev/null 2>&1"
+ck "...producing three attributable refusals, one per field" \
+   "bash $CRA --check-record '$TMP/no-due.yaml' >'$TMP/o' 2>&1;
+    [ \"\$(grep -c '_due is MISSING' '$TMP/o')\" -eq 3 ]"
+
+# A wrong deadline and an absent one are different defects and must not collapse
+# into one diagnostic: the first is a miscomputation, the second a gap.
+sabotage "r['early_warning_due']='2026-08-14T10:00:00+00:00'" "$TMP/wrong-due.yaml"
+ck "a MISMATCHED deadline is refused separately from a missing one" \
+   "bash $CRA --check-record '$TMP/wrong-due.yaml' >'$TMP/o' 2>&1;
+    grep -q 'but policy computes' '$TMP/o' && ! grep -q '_due is MISSING' '$TMP/o'"
+
+# The second silent hole: with no base timestamp the expected value was never
+# computed, so the stated deadline was never compared with anything.
+sabotage "r.pop('corrective_measure_available_at')" "$TMP/no-base.yaml"
+ck "a final report that cannot be recomputed is refused as unverifiable" \
+   "bash $CRA --check-record '$TMP/no-base.yaml' >'$TMP/o' 2>&1;
+    grep -q 'final_report_due cannot be verified' '$TMP/o'"
+
+ck "the success line counts the deadlines it actually compared" \
+   "bash $CRA --check-record '$SHIPPED' 2>&1 | grep -q '3 owed / 3 checked deadline'"
+
+# --- obligation ownership (#113 criterion 2) ---------------------------------
+ck "every obligation names an owner" \
+   "python3 -c \"
+import yaml;obs=yaml.safe_load(open('$MATRIX'))['obligations']
+bad=[o['id'] for o in obs if not o.get('owner')]
+assert not bad,bad
+assert len(obs)==14,len(obs)\""
+ck "every owner is a role declared in cra-roles.yaml, never a person" \
+   "python3 -c \"
+import yaml
+ids={r['id'] for r in yaml.safe_load(open('$ROLES'))['roles']}
+bad=[(o['id'],o['owner']) for o in yaml.safe_load(open('$MATRIX'))['obligations']
+     if o['owner'] not in ids]
+assert not bad,bad\""
+
+python3 -c "
+import yaml
+m=yaml.safe_load(open('$MATRIX')); m['obligations'][0].pop('owner')
+yaml.safe_dump(m,open('$TMP/no-owner.yaml','w'),sort_keys=False)
+m=yaml.safe_load(open('$MATRIX')); m['obligations'][0]['owner']='Bogdan Olteanu'
+yaml.safe_dump(m,open('$TMP/person-owner.yaml','w'),sort_keys=False)
+m=yaml.safe_load(open('$MATRIX')); m['obligations'][0]['owner']='platform-security'
+yaml.safe_dump(m,open('$TMP/unknown-owner.yaml','w'),sort_keys=False)"
+ck "an ownerless obligation is REFUSED" \
+   "! CRA_MATRIX='$TMP/no-owner.yaml' bash $CRA >/dev/null 2>&1"
+ck "...saying the obligation names no owner" \
+   "CRA_MATRIX='$TMP/no-owner.yaml' bash $CRA >'$TMP/o' 2>&1; grep -q 'names no owner' '$TMP/o'"
+ck "an owner naming a PERSON rather than a role is REFUSED" \
+   "! CRA_MATRIX='$TMP/person-owner.yaml' bash $CRA >/dev/null 2>&1"
+ck "an owner naming an undeclared role is REFUSED" \
+   "! CRA_MATRIX='$TMP/unknown-owner.yaml' bash $CRA >/dev/null 2>&1"
+ck "...listing the roles that ARE declared, so the fix is obvious" \
+   "CRA_MATRIX='$TMP/unknown-owner.yaml' bash $CRA >'$TMP/o' 2>&1;
+    grep -q 'is not a role declared in policies/cra-roles.yaml' '$TMP/o'"
+
+# --- the retained deadline verdict (#114 defect ii) --------------------------
+# The verdict used to exist only on stdout. These assertions read it from the
+# RECORD; none of them runs scripts/incident.sh, so a verdict that lives only in
+# a terminal cannot satisfy them.
+ck "the shipped record retains a deadline verdict" \
+   "python3 -c \"
+import yaml;dv=yaml.safe_load(open('$SHIPPED')).get('deadline_verdict')
+assert dv,'no deadline_verdict'
+assert dv['overall']=='MET',dv['overall']
+assert {c['id'] for c in dv['clocks']}=={'early_warning','full_notification','final_report'},dv\""
+ck "the retained verdict says it was derived, not observed during the exercise" \
+   "python3 -c \"
+import yaml;n=yaml.safe_load(open('$SHIPPED'))['deadline_verdict']['note']
+assert 'NOT an observation' in n,n\""
+
+sabotage "r.pop('deadline_verdict')" "$TMP/nv.yaml"
+ck "a simulated record that reached a submission and retained NO verdict is REFUSED" \
+   "! bash $CRA --check-record '$TMP/nv.yaml' >/dev/null 2>&1"
+sabotage "r['deadline_verdict']['clocks'][0]['verdict']='MISSED'" "$TMP/lie.yaml"
+ck "a retained verdict that disagrees with the record's own times is REFUSED" \
+   "bash $CRA --check-record '$TMP/lie.yaml' >'$TMP/o' 2>&1;
+    grep -q 'recomputation from the' '$TMP/o'"
+sabotage "r['deadline_verdict']['overall']='MISSED'" "$TMP/ov.yaml"
+ck "a retained overall verdict inconsistent with its clocks is REFUSED" \
+   "! bash $CRA --check-record '$TMP/ov.yaml' >/dev/null 2>&1"
+sabotage "r['deadline_verdict']['clocks']=[c for c in r['deadline_verdict']['clocks'] if c['id']!='final_report']" \
+         "$TMP/dropclock.yaml"
+ck "a verdict omitting one clock is REFUSED, not averaged over" \
+   "! bash $CRA --check-record '$TMP/dropclock.yaml' >/dev/null 2>&1"
+
+# --- this batch changed no determination -------------------------------------
+ck "applicability is STILL undetermined after all of the above" \
+   "python3 -c \"
+import yaml;a=yaml.safe_load(open('$APP'))['applicability']
+assert a['status']=='undetermined',a['status']
+assert a['determined_by'] is None and a['determined_at'] is None,a\""
+ck "no CRA role acquired a backup or a holder" \
+   "python3 -c \"
+import yaml;rs=yaml.safe_load(open('$ROLES'))['roles']
+assert all(r['backup'] is None and r.get('backup_gap') for r in rs),rs\""
+ck "the retention rationale names WHICH signature it means" \
+   "python3 -c \"
+import yaml
+t=yaml.safe_load(open('policies/incident-reporting.yaml'))['retention']['tamper_evidence']
+assert 'GITHUB' in t,t
+assert 'NOT author attestation' in t,t
+assert 'policy rather than enforcement' in t,t\""
 
 # --- NON-VACUITY -------------------------------------------------------------
 ck "non-vacuity: the shipped matrix reports gaps rather than full coverage" \

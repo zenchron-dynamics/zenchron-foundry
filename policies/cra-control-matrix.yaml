@@ -17,6 +17,22 @@
 #   enforced      a control runs and fails closed
 #   partial       a control exists but does not cover the whole obligation
 #   absent        nothing serves this obligation; the gap is named, not softened
+#
+# `owner` is a ROLE id from policies/cra-roles.yaml, never a person's name.
+# scripts/cra/assert-cra-controls.sh refuses a row with no owner and refuses an
+# owner that is not a declared role, so ownership cannot drift into free text.
+# Naming the role rather than the person is what keeps the single-holder problem
+# visible: every one of these roles currently resolves to one person with
+# `backup: null`, which the roles-and-responsibilities row records as its gap.
+#
+# HONEST LIMIT OF THIS VOCABULARY. The role register is incident-scoped — it was
+# written for who does what during a reporting event. Several obligations here
+# are not incident-execution duties (ownership-boundary, support-period-
+# declaration, third-party-licence-accounting, roles-and-responsibilities,
+# conformity-documentation). Those carry the closest role that would actually
+# answer for them, which is a defensible reading rather than a precise one. A
+# product/governance role vocabulary would fit them better; introducing one is a
+# role-definition change and is deliberately NOT made here.
 # =============================================================================
 schema_version: 1
 
@@ -32,6 +48,7 @@ disclaimer:
 obligations:
   - id: vulnerability-handling-inventory
     obligation: identify and document components contained in the product, including an SBOM
+    owner: evidence-custodian
     status: enforced
     controls:
       - scripts/generate-sbom.sh
@@ -44,6 +61,7 @@ obligations:
 
   - id: vulnerability-remediation
     obligation: address and remediate vulnerabilities without delay
+    owner: corrective-release-owner
     status: partial
     controls:
       - scripts/reconcile-vulnerabilities.sh
@@ -61,6 +79,7 @@ obligations:
 
   - id: ownership-boundary
     obligation: distinguish what the manufacturer controls from what it merely redistributes
+    owner: corrective-release-owner
     status: enforced
     controls:
       - policies/component-ownership.yaml
@@ -74,6 +93,7 @@ obligations:
 
   - id: security-updates-distribution
     obligation: distribute security updates to users without delay
+    owner: corrective-release-owner
     status: partial
     controls:
       - scripts/promote-stable.sh
@@ -90,6 +110,7 @@ obligations:
 
   - id: support-period-declaration
     obligation: declare a support period and honour it
+    owner: corrective-release-owner
     status: partial
     controls:
       - policies/support-policy.yaml
@@ -104,6 +125,7 @@ obligations:
 
   - id: incident-reporting-clock
     obligation: report an actively exploited vulnerability or severe incident within 24h / 72h / final report
+    owner: submission-authority
     status: enforced
     controls:
       - scripts/incident.sh
@@ -120,6 +142,7 @@ obligations:
 
   - id: incident-evidence-preservation
     obligation: preserve the evidence an incident report must carry
+    owner: evidence-custodian
     status: enforced
     controls:
       - scripts/incident.sh
@@ -134,6 +157,7 @@ obligations:
 
   - id: coordinated-disclosure
     obligation: provide a contact point and a coordinated vulnerability disclosure policy
+    owner: customer-communicator
     status: enforced
     controls:
       - SECURITY.md
@@ -146,6 +170,7 @@ obligations:
 
   - id: integrity-of-distribution
     obligation: protect the integrity of the product as distributed
+    owner: corrective-release-owner
     status: partial
     controls:
       - scripts/verify-release-artifacts.sh
@@ -160,6 +185,7 @@ obligations:
 
   - id: business-continuity-of-supply
     obligation: remain able to supply security updates through a disruption
+    owner: corrective-release-owner
     status: partial
     controls:
       - policies/continuity.yaml
@@ -172,6 +198,7 @@ obligations:
 
   - id: third-party-licence-accounting
     obligation: account for the licences of components distributed with the product
+    owner: evidence-custodian
     status: enforced
     controls:
       - scripts/license/assert-license-policy.sh
@@ -184,6 +211,7 @@ obligations:
 
   - id: roles-and-responsibilities
     obligation: identify who performs vulnerability handling and incident duties
+    owner: incident-classifier
     status: partial
     controls:
       - policies/cra-roles.yaml
@@ -198,6 +226,7 @@ obligations:
 
   - id: native-runtime-assurance
     obligation: verify the product behaves correctly on each architecture it is shipped for
+    owner: corrective-release-owner
     status: partial
     controls:
       - policies/native-arch-requirements.yaml
@@ -220,6 +249,7 @@ obligations:
 
   - id: conformity-documentation
     obligation: produce and retain the technical documentation a conformity assessment requires
+    owner: evidence-custodian
     status: absent
     controls: []
     evidence:

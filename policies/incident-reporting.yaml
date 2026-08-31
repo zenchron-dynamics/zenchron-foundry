@@ -172,8 +172,19 @@ retention:
   note: >-
     Ten years is chosen to cover a product support period plus a plausible
     post-market audit window. The durable evidence-bundle work is #128; until it
-    lands these records live in git, which is itself durable and tamper-evident
-    via signed commits.
+    lands these records live in git.
+  tamper_evidence: >-
+    Be precise about which signature is meant. Commits reaching master through
+    the squash-merge path are signed by GITHUB'S OWN KEY at merge time, not by
+    the author's key: the GitHub API reports verification.verified true with
+    reason "valid" for them. That is a real integrity property for the merge
+    path, and it is the only one claimed here. It is NOT author attestation, and
+    it is NOT an enforced invariant — SECURITY.md records that signed commits
+    remain policy rather than enforcement, so nothing structurally prevents an
+    unsigned commit reaching a branch by another route. Read this as "the merge
+    path leaves a platform signature", never as "every record is author-signed".
+    Closing that gap means enforcing signing on the paths holding these records,
+    which is not done today and is not asserted here.
 
 # --- what only a human can supply -------------------------------------------
 required_human_inputs:
