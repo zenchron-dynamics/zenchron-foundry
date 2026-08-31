@@ -8,19 +8,30 @@
 # that actually exist, that roles cannot quietly lack a backup, and that an
 # incident record cannot omit the things a report is built from.
 #
-# It refuses on five conditions, each of which has been a real way for a
+# It refuses on nine conditions, each of which has been a real way for a
 # compliance artefact to become decorative:
 #
 #   1. awareness time missing, or carrying no timezone
 #   2. deadlines that disagree with the deadlines recomputed from policy
-#   3. mandatory evidence absent from a record that claims to be reportable
-#   4. a role with no backup and no DECLARED gap
-#   5. customer-impact classification missing from a closed incident
+#   3. a deadline the record OWES but does not state at all
+#   4. a deadline that cannot be recomputed, so was never actually compared
+#   5. mandatory evidence absent from a record that claims to be reportable
+#   6. a role with no backup and no DECLARED gap
+#   7. an obligation with no owner, or an owner that is not a declared role
+#   8. a simulated exercise that reached a submission and retained no verdict,
+#      or retained one that disagrees with its own timestamps
+#   9. customer-impact classification missing from a closed incident
 #
 # (2) exists because scripts/incident.sh computes the clocks and this script
 # recomputes them independently from policies/incident-reporting.yaml. Two
 # implementations that must agree will catch a drift that one implementation
 # checking itself never can.
+#
+# (3) and (4) exist because (2) alone was not enough and said so misleadingly.
+# The comparison fetched each stated deadline and skipped it when absent, so a
+# record that simply omitted the field passed, and the run still printed
+# "deadlines agree with policy" — agreement over an empty comparison. A
+# miscomputed deadline was caught; an absent one was reported as agreeing.
 #
 # Usage:
 #   assert-cra-controls.sh                      validate the policy set
@@ -39,7 +50,7 @@ MATRIX="${CRA_MATRIX:-policies/cra-control-matrix.yaml}"
 INCIDENT_POLICY="${INCIDENT_POLICY:-policies/incident-reporting.yaml}"
 
 usage() {
-  sed -n '25,29p' "$0" | sed 's/^# \{0,1\}//' >&2
+  sed -n '36,40p' "$0" | sed 's/^# \{0,1\}//' >&2
   exit 64
 }
 
@@ -143,6 +154,11 @@ if matrix is not None:
     obligations = matrix.get("obligations") or []
     if not obligations:
         problems.append("control matrix lists no obligations")
+    # The allowed owner vocabulary is the role register itself, so an owner
+    # cannot be a free-text aspiration and cannot name a person: it must be a
+    # role that policies/cra-roles.yaml already declares and already tracks a
+    # backup gap for.
+    role_ids = {rr.get("id") for rr in ((roles or {}).get("roles") or []) if rr.get("id")}
     seen = set()
     for o in obligations:
         oid = o.get("id", "<unnamed>")
@@ -168,6 +184,19 @@ if matrix is not None:
                     "obligation %r cites evidence %r which DOES NOT EXIST — a "
                     "matrix pointing at absent files is how a repository "
                     "convinces itself it is covered" % (oid, path))
+        # Same shape as the gap rule above: an obligation nobody answers for is
+        # a gap with better formatting.
+        owner = o.get("owner")
+        if not owner:
+            problems.append(
+                "obligation %r names no owner — an obligation with no accountable "
+                "role is one that will be discovered unowned during an incident"
+                % oid)
+        elif role_ids and owner not in role_ids:
+            problems.append(
+                "obligation %r names owner %r, which is not a role declared in "
+                "policies/cra-roles.yaml (declared: %s)"
+                % (oid, owner, ", ".join(sorted(role_ids))))
 
 if problems:
     sys.stderr.write("REFUSE: CRA control set not satisfied — %d problem(s):\n" % len(problems))
@@ -223,39 +252,142 @@ else:
         t0 = None
 
 # --- 2. deadlines recomputed independently from policy -----------------------
+# Which deadlines this record OWES. Early warning and full notification are
+# unconditional; the final report is owed only where the classification carries
+# a final_report_rule ('not-reportable' carries none, so it owes no final date).
+ALL_CLOCKS = ("early_warning", "full_notification", "final_report")
+cls = r.get("classification")
+rule = next((c.get("final_report_rule") for c in pol["classifications"]
+             if c["id"] == cls), None)
+if cls == "not-reportable":
+    # Assessed as outside the reporting obligations, so it owes no deadline at
+    # all. What it owes instead is a rationale, enforced in section 3.
+    owed = []
+else:
+    owed = ["early_warning", "full_notification"] + (["final_report"] if rule else [])
+
+# Anything the record STATES is verified whether or not it is owed. A deadline
+# written into a record is a claim, and a wrong claim is wrong even when nobody
+# required it — otherwise "state a deadline you do not owe" becomes the way to
+# put an unchecked date in front of a regulator.
+checked = list(dict.fromkeys(
+    owed + [n for n in ALL_CLOCKS if r.get("%s_due" % n) is not None]))
+
+# Presence is mandatory, and is checked BEFORE and independently of the
+# comparison. The previous version fetched each stated deadline and did
+# `if stated is None: continue`, so a record that simply omitted the field was
+# passed over in silence and the run still printed "deadlines agree with
+# policy" — agreement it had never established. A deadline that is absent is
+# not a deadline that agrees.
+for name in owed:
+    if r.get("%s_due" % name) is None:
+        problems.append(
+            "%s_due is MISSING — this record owes that deadline, and a deadline "
+            "the record does not state is one the validator cannot check" % name)
+
+expected = {}
 if t0 is not None:
     d = pol["deadlines"]
-    expected = {
-        "early_warning": t0 + datetime.timedelta(hours=d["early_warning"]["hours"]),
-        "full_notification": t0 + datetime.timedelta(hours=d["full_notification"]["hours"]),
-    }
-    cls = r.get("classification")
-    rule = next((c.get("final_report_rule") for c in pol["classifications"]
-                 if c["id"] == cls), None)
+    expected["early_warning"] = t0 + datetime.timedelta(hours=d["early_warning"]["hours"])
+    expected["full_notification"] = t0 + datetime.timedelta(hours=d["full_notification"]["hours"])
     if rule:
         fr = d["final_report"][rule]
         base_raw = r.get(fr["from"])
-        if base_raw:
+        if not base_raw:
+            # The second silent hole: without the base timestamp the expected
+            # value never entered `expected`, so a stated final_report_due was
+            # never compared with anything. Refuse rather than pass it over.
+            problems.append(
+                "final_report_due cannot be verified — the record owes a final "
+                "report under rule %r but carries no %s to compute it from"
+                % (rule, fr["from"]))
+        else:
             try:
                 base = datetime.datetime.fromisoformat(str(base_raw).replace("Z", "+00:00"))
                 expected["final_report"] = base + datetime.timedelta(days=fr["days"])
             except ValueError:
                 problems.append("%s %r is not RFC3339" % (fr["from"], base_raw))
 
-    for name, want in expected.items():
-        stated = r.get("%s_due" % name)
-        if stated is None:
-            continue
-        try:
-            got = datetime.datetime.fromisoformat(str(stated).replace("Z", "+00:00"))
-        except ValueError:
-            problems.append("%s_due %r is not RFC3339" % (name, stated))
-            continue
-        if got != want:
-            problems.append(
-                "%s_due is %s but policy computes %s from the recorded times — a "
-                "deadline written down by hand is a deadline that can be wrong"
-                % (name, got.isoformat(), want.isoformat()))
+for name in checked:
+    stated = r.get("%s_due" % name)
+    if stated is None:
+        continue  # already refused above as MISSING; there is nothing to compare
+    try:
+        got = datetime.datetime.fromisoformat(str(stated).replace("Z", "+00:00"))
+    except ValueError:
+        problems.append("%s_due %r is not RFC3339" % (name, stated))
+        continue
+    want = expected.get(name)
+    if want is None:
+        problems.append(
+            "%s_due states %s but policy could not recompute it from the recorded "
+            "times, so it is unverified — an unchecked deadline is not a "
+            "confirmed one" % (name, stated))
+        continue
+    if got != want:
+        problems.append(
+            "%s_due is %s but policy computes %s from the recorded times — a "
+            "deadline written down by hand is a deadline that can be wrong"
+            % (name, got.isoformat(), want.isoformat()))
+
+# --- 2b. the retained deadline verdict ---------------------------------------
+# A tabletop's MET/MISSED result used to exist only on stdout, so the one thing
+# the exercise was run to establish was the one thing it did not retain. Where a
+# record says an exercise happened, the verdict must be IN the record, and it is
+# recomputed here from the record's own timestamps rather than trusted.
+# A verdict is owed once the exercise actually ran a clock to a submission:
+# that is the point at which a MET/MISSED outcome exists to be retained. A
+# simulated record with no submission has no verdict to state, and demanding one
+# would be demanding an answer to a question the record never asked.
+verdict_owed = [n for n in ALL_CLOCKS if r.get("%s_submitted_at" % n)]
+if r.get("simulated") and verdict_owed:
+    dv = r.get("deadline_verdict") or {}
+    if not dv:
+        problems.append(
+            "deadline_verdict is MISSING — this record describes a simulated "
+            "exercise that reached %d submission(s), and an exercise whose "
+            "verdict lives only in a terminal has retained no result"
+            % len(verdict_owed))
+    else:
+        clocks = {c.get("id"): c for c in (dv.get("clocks") or []) if isinstance(c, dict)}
+        unknown = sorted(set(clocks) - set(verdict_owed))
+        if unknown:
+            problems.append("deadline_verdict records clock(s) %s which this record "
+                            "does not evidence a submission for"
+                            % ", ".join(repr(u) for u in unknown))
+        recomputed_all = []
+        for name in verdict_owed:
+            c = clocks.get(name)
+            if c is None:
+                problems.append("deadline_verdict records no clock %r, so its "
+                                "verdict is unaccounted for" % name)
+                continue
+            want = expected.get(name)
+            if want is None:
+                problems.append("deadline_verdict states a verdict for %r that "
+                                "cannot be recomputed — the due date is unverified"
+                                % name)
+                continue
+            try:
+                st = datetime.datetime.fromisoformat(
+                    str(r["%s_submitted_at" % name]).replace("Z", "+00:00"))
+            except ValueError:
+                problems.append("%s_submitted_at %r is not RFC3339"
+                                % (name, r["%s_submitted_at" % name]))
+                continue
+            recomputed = "MET" if st <= want else "MISSED"
+            recomputed_all.append(recomputed)
+            if c.get("verdict") != recomputed:
+                problems.append(
+                    "deadline_verdict for %r records %r but recomputation from the "
+                    "record's own times gives %r — a stored verdict that disagrees "
+                    "with the evidence is worse than no verdict"
+                    % (name, c.get("verdict"), recomputed))
+        if len(recomputed_all) == len(verdict_owed):
+            want_overall = "MET" if all(v == "MET" for v in recomputed_all) else "MISSED"
+            if dv.get("overall") != want_overall:
+                problems.append("deadline_verdict.overall records %r but the clocks "
+                                "recompute to %r" % (dv.get("overall"), want_overall))
 
 # --- 3. mandatory evidence ---------------------------------------------------
 cls = r.get("classification")
@@ -296,8 +428,13 @@ if problems:
         sys.stderr.write("  - %s\n" % p)
     raise SystemExit(1)
 
-print("incident record OK: awareness recorded, deadlines agree with policy, "
-      "evidence present, customer impact classified")
+# The count is deliberate: "deadlines agree with policy" was printable after
+# comparing nothing. A number cannot be, because a skipped deadline is one the
+# record no longer states and one this line no longer counts.
+print("incident record OK: awareness recorded, %d owed / %d checked deadline(s) "
+      "agreeing with policy%s, evidence present, customer impact classified"
+      % (len(owed), len(checked),
+         "; retained deadline_verdict recomputed and agreeing" if r.get("simulated") else ""))
 PY
 }
 
@@ -305,7 +442,7 @@ PY
 # tabletop — SYNTHETIC. Offline. Never a record that an exercise "happened".
 # -----------------------------------------------------------------------------
 tabletop() {
-  local ok=0 bad=0 tmp
+  local ok=0 bad=0 tmp f
   tmp="$(mktemp -d)"
   # shellcheck disable=SC2064
   trap "rm -rf '$tmp'" EXIT
@@ -370,6 +507,39 @@ YAML
   check_record "$tmp/badclock.yaml" >"$tmp/o" 2>&1 || true
   t "...showing both the stated and the computed deadline" \
     "grep -q 'but policy computes' '$tmp/o'"
+
+  # The defect this section exists for: a deadline the record simply OMITTED was
+  # skipped, and the run still reported that deadlines agreed with policy. A
+  # miscomputed deadline was caught; an absent one was not.
+  echo "-- 4b. deadlines the record omits entirely"
+  for f in early_warning full_notification final_report; do
+    grep -v "^${f}_due:" "$tmp/good.yaml" >"$tmp/no-$f.yaml"
+    t "a record omitting ${f}_due is refused" \
+      "! check_record '$tmp/no-$f.yaml' >/dev/null 2>&1"
+    check_record "$tmp/no-$f.yaml" >"$tmp/o" 2>&1 || true
+    t "...naming ${f}_due as the field that is missing" \
+      "grep -q '${f}_due is MISSING' '$tmp/o'"
+  done
+
+  grep -vE '^(early_warning|full_notification|final_report)_due:' \
+    "$tmp/good.yaml" >"$tmp/nodue.yaml"
+  t "a record omitting ALL three deadlines is refused" \
+    "! check_record '$tmp/nodue.yaml' >/dev/null 2>&1"
+  check_record "$tmp/nodue.yaml" >"$tmp/o" 2>&1 || true
+  t "...with one attributable refusal per field, not a single vague one" \
+    "[ \"\$(grep -c '_due is MISSING' '$tmp/o')\" -eq 3 ]"
+
+  # The second hole: with no base timestamp the expected final-report date was
+  # never computed, so the stated one was never compared with anything.
+  grep -v '^corrective_measure_available_at:' "$tmp/good.yaml" >"$tmp/nobase.yaml"
+  t "a final report that cannot be recomputed is refused, not passed over" \
+    "! check_record '$tmp/nobase.yaml' >/dev/null 2>&1"
+  check_record "$tmp/nobase.yaml" >"$tmp/o" 2>&1 || true
+  t "...saying it cannot be verified and naming what is absent" \
+    "grep -q 'final_report_due cannot be verified' '$tmp/o'"
+
+  t "NON-VACUOUS: the unmodified record still passes all of the above" \
+    "check_record '$tmp/good.yaml' >/dev/null 2>&1"
 
   echo "-- 5. mandatory evidence absent"
   grep -v '^affected_image_digests:' "$tmp/good.yaml" >"$tmp/noevidence.yaml"

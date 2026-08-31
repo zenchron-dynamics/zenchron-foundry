@@ -53,3 +53,26 @@ decision_log:
 - at: '2026-08-13T12:00:00+00:00'
   by: tabletop
   what: classified as actively-exploited-vulnerability
+early_warning_due: '2026-08-14T09:00:00+00:00'
+full_notification_due: '2026-08-16T09:00:00+00:00'
+final_report_due: '2026-09-01T12:00:00+00:00'
+deadline_verdict:
+  computed_by: scripts/incident.sh status --persist
+  policy_schema_version: 1
+  clocks:
+  - id: early_warning
+    due: '2026-08-14T09:00:00+00:00'
+    submitted_at: '2026-08-13T20:00:00+00:00'
+    verdict: MET
+  - id: full_notification
+    due: '2026-08-16T09:00:00+00:00'
+    submitted_at: '2026-08-15T09:00:00+00:00'
+    verdict: MET
+  - id: final_report
+    due: '2026-09-01T12:00:00+00:00'
+    submitted_at: '2026-08-25T10:00:00+00:00'
+    verdict: MET
+  overall: MET
+  note: 'Derived from the submission timestamps this record already retains, and recomputed independently
+    by scripts/cra/assert-cra-controls.sh --check-record. It is NOT an observation made during the original
+    exercise: that run printed its verdict to stdout and retained none.'
