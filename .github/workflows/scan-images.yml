@@ -90,7 +90,7 @@ jobs:
 
       # --- SBOM (Syft) -------------------------------------------------------
       - name: Generate SBOM (Syft)
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           # WF-17: pin syft so SBOM output cannot drift between runs of the same
           # pinned action SHA (v1.42.3 is the version that SHA ships by default).

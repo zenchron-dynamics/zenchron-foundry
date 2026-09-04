@@ -61,7 +61,7 @@ jobs:
         run: python3 scripts/upstream-monitor.py --self-test
 
       - name: Install syft (pinned)
-        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        uses: anchore/sbom-action/download-syft@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           # Same version the scan-images workflow pins, so an inventory read
           # here and an SBOM read there describe packages the same way.
