@@ -113,7 +113,7 @@ jobs:
           cat drill/observation.json
 
       - name: Read the uploaded bundle back
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: evidence-drill-bundle-${{ github.run_id }}-${{ github.run_attempt }}
           path: drill/readback
@@ -156,12 +156,12 @@ jobs:
       # except what is downloaded below.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Download the drill bundle
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: evidence-drill-bundle-${{ github.run_id }}-${{ github.run_attempt }}
           path: restored/bundle-artifact
       - name: Download the drill receipt
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: evidence-drill-receipt-${{ github.run_id }}-${{ github.run_attempt }}
           path: restored/receipt-artifact
@@ -447,7 +447,7 @@ jobs:
       # ----------------------------------------------------------------------
       - name: Fetch the restore-drill verdict
         continue-on-error: true
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: evidence-drill-verdict-${{ github.run_id }}-${{ github.run_attempt }}
           path: drill-verdict
