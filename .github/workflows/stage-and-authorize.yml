@@ -278,7 +278,7 @@ jobs:
           tar -czf trivy-db.tar.gz -C trivy-cache .
 
       - name: Upload the frozen database
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: trivy-db-${{ github.run_id }}-${{ github.run_attempt }}
           path: trivy-db.tar.gz
@@ -946,7 +946,7 @@ jobs:
         # Uploaded even on failure: a refused child is exactly what the operator
         # needs to see.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # PLATFORM-BOUND artifact name. Without it, php-fpm/8.3 on amd64 and on
           # arm64 both uploaded `child-php-fpm-8.3-<run>-<attempt>`, and the
@@ -1441,7 +1441,7 @@ jobs:
 
       - name: Upload the authorization record
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: post-build-authorization-${{ github.run_id }}-${{ github.run_attempt }}
           path: authorization/
@@ -1524,7 +1524,7 @@ jobs:
 
       - name: Upload the storage receipt
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: storage-receipt-${{ github.run_id }}-${{ github.run_attempt }}
           path: storage/storage-receipt.json
