@@ -444,7 +444,7 @@ jobs:
 
       - name: Upload commit-bound evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: trusted-validation-${{ needs.authorize.outputs.sha }}-${{ matrix.target.fam }}-${{ matrix.target.ver }}
           path: |
@@ -456,7 +456,7 @@ jobs:
       # matrix-wide stale-exception aggregate downloads by that pattern.
       - name: Upload vulnerability reconciliation
         if: always() && hashFiles('vuln-reconciliation/*.json') != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: vuln-reconciliation-${{ matrix.target.fam }}-${{ matrix.target.ver }}
           path: vuln-reconciliation/

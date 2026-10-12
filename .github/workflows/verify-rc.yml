@@ -122,7 +122,7 @@ jobs:
 
       - name: Upload certification result
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: verify-rc-result-${{ matrix.fam }}-${{ matrix.ver }}
           path: verify-rc-results/
@@ -250,7 +250,7 @@ jobs:
             verify-rc-results/*.json > verify-rc-results.json
           cat verify-rc-results.json
       - name: Upload verify-rc-results.json
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: verify-rc-results
           path: verify-rc-results.json
