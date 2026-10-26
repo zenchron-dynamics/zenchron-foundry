@@ -389,7 +389,7 @@ jobs:
       - name: phase end db_acquire
         run: bash scripts/ci/phase-timer.sh end db_acquire
       - name: Login to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
